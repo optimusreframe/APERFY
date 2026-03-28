@@ -1,81 +1,118 @@
 
 
-# Phase 6: Polish & UX Improvements
+# Phase 7: Security Hardening
 
 ## Overview
-Improve mobile responsiveness, loading states, animations, empty states, skeleton loaders, and general UX refinements across all pages.
+Implement application-level security across the stack: input validation, rate limiting, file upload protection, security headers, and XSS prevention. Infrastructure-level DDoS protection is already provided by the hosting platform and backend infrastructure (Cloudflare, load balancers). This phase focuses on what we control at the code level.
 
 ---
 
-## 1. Skeleton Loaders for Data-Loading Pages
+## 1. Input Validation with Zod (All Forms)
 
-**Files: `Store.tsx`, `Catalog.tsx`, `ProductDetail.tsx`, `Orders.tsx`, `Favorites.tsx`, `AdminDashboard.tsx`**
-- Replace simple spinners with content-aware skeleton placeholders (using shadcn `Skeleton` component)
-- Store/Catalog: grid of skeleton cards (image + text blocks)
-- ProductDetail: skeleton for image gallery + text area
-- Orders: skeleton rows
-- This makes loading feel faster and less jarring
+**New file: `src/lib/validation.ts`**
+- Define Zod schemas for all user inputs:
+  - `checkoutSchema`: fullName (max 100), phone (pattern), address (max 255), city (max 100), notes (max 500)
+  - `profileSchema`: fullName (max 100), phone (optional, pattern)
+  - `authSchema`: email (valid email), password (min 6, max 72), fullName (max 100)
+  - `contactSchema` / admin forms: name fields (max 255), slug (alphanumeric + hyphens), price (positive number)
 
-## 2. Mobile Navbar Improvements
+**Edit files**: `Checkout.tsx`, `Profile.tsx`, `Auth.tsx`, `AdminProducts.tsx`, `AdminCategories.tsx`, `AdminMaterials.tsx`
+- Validate all form data through Zod before submission
+- Show field-level error messages
+- Sanitize text inputs (trim whitespace, strip HTML tags)
 
-**File: `src/components/Navbar.tsx`**
-- Add cart icon with badge to mobile menu (currently only in desktop header)
-- Ensure mobile menu closes on route change (some links already do this, verify all paths)
+## 2. File Upload Security
 
-## 3. Store Product Cards — Relative Positioning Fix
+**Edit: `Profile.tsx` (avatar), `AdminProducts.tsx` (product images)**
+- Validate file type via MIME type AND extension (only allow `image/jpeg`, `image/png`, `image/webp`)
+- Enforce max file size: 2MB for avatars, 5MB for product images
+- Sanitize file names (remove special characters)
+- Validate file content by checking magic bytes (file signature)
 
-**File: `src/pages/Store.tsx`**
-- The favorite button uses `absolute` positioning but the parent card div lacks `relative` — the heart button floats incorrectly
-- Add `relative` to the card container
+## 3. Rate Limiting Utility (Client-Side Throttle)
 
-## 4. Checkout — Pre-fill from Profile
+**New file: `src/lib/rate-limit.ts`**
+- Simple in-memory rate limiter for sensitive actions
+- Prevent rapid-fire form submissions (auth, checkout, profile save)
+- Configurable: max attempts per time window
+- Applied to: login, signup, password reset, order placement, profile save
 
-**File: `src/pages/Checkout.tsx`**
-- On mount, fetch user's profile (full_name, phone) and pre-fill the shipping form
-- Reduces friction for returning users
+## 4. Edge Function Security Hardening
 
-## 5. Cart — Confirm Before Clear All
+**Edit: `supabase/functions/ai-product-from-url/index.ts`**
+- Add Zod input validation for URL and description fields
+- Validate URL format (must be valid HTTP/HTTPS URL)
+- Add request size limit check
+- Sanitize AI prompt inputs to prevent prompt injection
 
-**File: `src/pages/Cart.tsx`**
-- Add a confirmation dialog (AlertDialog) before "Clear All" to prevent accidental cart deletion
+## 5. Security Headers
 
-## 6. Smooth Page Transitions
+**New file: `public/_headers` (or via `vite.config.ts` plugin)**
+- Content-Security-Policy: restrict script sources, disable inline scripts where possible
+- X-Content-Type-Options: nosniff
+- X-Frame-Options: DENY (prevent clickjacking)
+- Referrer-Policy: strict-origin-when-cross-origin
+- Permissions-Policy: restrict camera, microphone, geolocation
 
-**File: Multiple pages**
-- Wrap main content of each page in a `motion.div` with a consistent fade-in animation
-- Already done on some pages; standardize across: `Cart`, `Checkout`, `Profile`, `Orders`, `Favorites`
+**Edit: `index.html`**
+- Add CSP meta tag as fallback
+- Add `rel="noopener noreferrer"` to all external links
 
-## 7. Toast Feedback Consistency
+## 6. XSS Prevention
 
-**Files: `Checkout.tsx`, `Profile.tsx`, `Favorites.tsx`, `ProductDetail.tsx`**
-- Ensure all success/error toasts use the translation system (some currently use hardcoded English strings like "Added to cart")
-- Use translated strings from `t.cart`, `t.profile`, etc.
+**New file: `src/lib/sanitize.ts`**
+- HTML sanitization utility using DOMPurify (add as dependency)
+- Apply to all user-generated text that gets rendered (product descriptions from AI, order notes, profile names)
+- Ensure no `dangerouslySetInnerHTML` usage without sanitization
 
-## 8. Admin Orders — Missing Fragment Key Warning
+**Audit existing code** for:
+- Template literal injection in URLs
+- Unsanitized user input in `href`, `src`, or dynamic attributes
 
-**File: `src/pages/admin/AdminOrders.tsx`**
-- The `<>...</>` fragment wrapping each order row lacks a `key` prop — wrap in `React.Fragment` with key to fix React warning
+## 7. Auth Hardening
 
-## 9. Footer — Link Support Items
+**Edit: `src/contexts/AuthContext.tsx`**
+- Add session timeout: auto-logout after extended inactivity (e.g., 30 min idle)
+- Clear sensitive data from memory on sign-out (cart is fine to keep, but auth tokens must go)
 
-**File: `src/components/Footer.tsx`**
-- Support items (FAQ, Shipping, Returns, Contact) are `<span>` not links — either link them to relevant pages or add `cursor-default` styling to make it clear they're informational
+**Edit: `src/pages/Auth.tsx`**
+- Add login attempt throttling (max 5 attempts per 5 minutes, show cooldown message)
+- Disable submit button during cooldown
+- Mask error messages to prevent user enumeration (generic "Invalid credentials" instead of "User not found")
+
+## 8. Cart Data Integrity
+
+**Edit: `src/contexts/CartContext.tsx`**
+- Validate cart data shape when loading from localStorage (Zod schema)
+- Reject corrupted/tampered cart data gracefully (reset to empty)
+- Validate price data against server on checkout (re-fetch product prices before order submission)
+
+**Edit: `src/pages/Checkout.tsx`**
+- Before placing order: re-fetch current prices from DB and compare with cart
+- If prices changed, notify user and update cart
+- Prevents price manipulation via localStorage tampering
+
+## 9. Admin Protection Audit
+
+**Edit: `src/components/ProtectedRoute.tsx`**
+- Add logging for unauthorized admin access attempts
+- Redirect with toast message explaining why access was denied
 
 ## Files Summary
 
 | Action | File |
 |--------|------|
-| Edit | `src/pages/Store.tsx` — skeleton loader, card fix |
-| Edit | `src/pages/Catalog.tsx` — skeleton loader |
-| Edit | `src/pages/ProductDetail.tsx` — skeleton loader, toast i18n |
-| Edit | `src/pages/Cart.tsx` — clear confirmation dialog |
-| Edit | `src/pages/Checkout.tsx` — pre-fill from profile, toast i18n |
-| Edit | `src/pages/Orders.tsx` — skeleton loader |
-| Edit | `src/pages/Favorites.tsx` — skeleton, toast i18n |
-| Edit | `src/pages/Profile.tsx` — page transition |
-| Edit | `src/components/Navbar.tsx` — mobile cart badge |
-| Edit | `src/pages/admin/AdminOrders.tsx` — Fragment key fix |
-| Edit | `src/pages/admin/AdminDashboard.tsx` — skeleton loader |
-| Edit | `src/components/Footer.tsx` — minor styling |
-| Edit | `src/i18n/translations.ts` — any missing toast keys |
+| Create | `src/lib/validation.ts` — Zod schemas for all forms |
+| Create | `src/lib/rate-limit.ts` — client-side rate limiter |
+| Create | `src/lib/sanitize.ts` — XSS sanitization utility |
+| Edit | `src/pages/Auth.tsx` — login throttling, error masking |
+| Edit | `src/pages/Checkout.tsx` — input validation, price verification |
+| Edit | `src/pages/Profile.tsx` — input validation, upload security |
+| Edit | `src/contexts/AuthContext.tsx` — session timeout |
+| Edit | `src/contexts/CartContext.tsx` — data integrity validation |
+| Edit | `src/pages/admin/AdminProducts.tsx` — validation, upload security |
+| Edit | `src/components/ProtectedRoute.tsx` — access denied feedback |
+| Edit | `supabase/functions/ai-product-from-url/index.ts` — input validation |
+| Edit | `index.html` — CSP meta tag |
+| Dep | `dompurify` + `@types/dompurify` |
 
