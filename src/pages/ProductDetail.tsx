@@ -6,6 +6,7 @@ import { Heart, ShoppingCart, Box, ArrowLeft, Minus, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ export default function ProductDetail() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
+  const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
@@ -281,7 +283,25 @@ export default function ProductDetail() {
 
             {/* Actions */}
             <div className="flex gap-3">
-              <Button className="flex-1 bg-gradient-gold text-primary-foreground font-semibold gap-2 h-12">
+              <Button
+                onClick={() => {
+                  addToCart({
+                    productId: product.id,
+                    productName: language === 'es' ? product.name_es : product.name_en,
+                    productImage: images[0] || '',
+                    slug: product.slug,
+                    quantity,
+                    unitPrice: Number(product.base_price),
+                    selectedVariations: Object.entries(selectedVariations).map(([type, varId]) => {
+                      const v = variations.find((vr: any) => vr.id === varId);
+                      return { id: varId, type, name: v ? (language === 'es' ? v.name_es : v.name_en) : '', priceModifier: v ? Number(v.price_modifier) : 0 };
+                    }),
+                    notes,
+                  });
+                  toast({ title: language === 'es' ? 'Agregado al carrito' : 'Added to cart' });
+                }}
+                className="flex-1 bg-gradient-gold text-primary-foreground font-semibold gap-2 h-12"
+              >
                 <ShoppingCart className="w-5 h-5" />
                 {t.product.addToCart}
               </Button>
