@@ -42,13 +42,3 @@ export function sanitizeUrl(url: string): string {
     return '';
   }
 }
-  try {
-    const parsed = new URL(url);
-    if (!['http:', 'https:', 'mailto:'].includes(parsed.protocol)) {
-      return '';
-    }
-    return parsed.href;
-  } catch {
-    return '';
-  }
-}

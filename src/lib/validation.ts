@@ -140,8 +140,3 @@ export function sanitizeFileName(name: string): string {
     .replace(/_{2,}/g, '_')
     .substring(0, 100);
 }
-  return name
-    .replace(/[^a-zA-Z0-9._-]/g, '_')
-    .replace(/_{2,}/g, '_')
-    .substring(0, 100);
-}
