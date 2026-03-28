@@ -7,11 +7,22 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 export default function Cart() {
   const { items, removeFromCart, updateQuantity, getTotal, clearCart } = useCart();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const navigate = useNavigate();
 
   const handleCheckout = () => {
@@ -25,7 +36,7 @@ export default function Cart() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="pt-24 pb-16 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-16 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="font-display font-black text-3xl sm:text-4xl mb-8">{t.cart.title}</h1>
 
         {items.length === 0 ? (
@@ -89,9 +100,31 @@ export default function Cart() {
                   </div>
                 </motion.div>
               ))}
-              <Button variant="ghost" onClick={clearCart} className="text-muted-foreground hover:text-destructive text-sm">
-                {t.cart.clearAll}
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" className="text-muted-foreground hover:text-destructive text-sm">
+                    {t.cart.clearAll}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {language === 'es' ? '¿Vaciar carrito?' : 'Clear cart?'}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {language === 'es'
+                        ? 'Esto eliminará todos los productos de tu carrito. Esta acción no se puede deshacer.'
+                        : 'This will remove all items from your cart. This action cannot be undone.'}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{language === 'es' ? 'Cancelar' : 'Cancel'}</AlertDialogCancel>
+                    <AlertDialogAction onClick={clearCart} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      {t.cart.clearAll}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
 
             <div className="lg:col-span-1">
@@ -120,7 +153,7 @@ export default function Cart() {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
       <Footer />
     </div>
   );

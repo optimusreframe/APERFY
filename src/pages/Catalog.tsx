@@ -8,6 +8,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -18,12 +19,25 @@ import {
 const WHATSAPP_NUMBER = '16893324656';
 const PUBLIC_URL = 'https://a3dtoprint.lovable.app';
 
+function CatalogCardSkeleton() {
+  return (
+    <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
+      <Skeleton className="aspect-square w-full" />
+      <div className="p-4 space-y-2">
+        <Skeleton className="h-5 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-6 w-1/3" />
+      </div>
+    </div>
+  );
+}
+
 export default function Catalog() {
   const { language, t } = useLanguage();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [], isLoading } = useQuery({
     queryKey: ['catalog-products'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -83,7 +97,7 @@ export default function Catalog() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="font-display font-black text-4xl sm:text-5xl mb-2">
             {language === 'es' ? 'Catálogo' : 'Catalog'}
@@ -95,49 +109,56 @@ export default function Catalog() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {products.map((product: any, i: number) => (
-            <motion.div
-              key={product.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className="group cursor-pointer"
-              onClick={() => handleOpenProduct(product)}
-            >
-              <div className="rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
-                <div className="aspect-square bg-secondary relative overflow-hidden">
-                  {(product.images as string[])?.length > 0 ? (
-                    <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Box className="w-16 h-16 text-muted-foreground/30" />
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <CatalogCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {products.map((product: any, i: number) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="group cursor-pointer"
+                onClick={() => handleOpenProduct(product)}
+              >
+                <div className="rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
+                  <div className="aspect-square bg-secondary relative overflow-hidden">
+                    {(product.images as string[])?.length > 0 ? (
+                      <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Box className="w-16 h-16 text-muted-foreground/30" />
+                      </div>
+                    )}
+                    {product.categories && (
+                      <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-md bg-background/80 backdrop-blur-sm text-xs font-medium text-foreground">
+                        {language === 'es' ? product.categories.name_es : product.categories.name_en}
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                      {language === 'es' ? product.name_es : product.name_en}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                      {language === 'es' ? product.description_es : product.description_en}
+                    </p>
+                    <div className="mt-2 text-lg font-bold text-gradient-gold">
+                      ${Number(product.base_price).toFixed(2)}
                     </div>
-                  )}
-                  {product.categories && (
-                    <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-md bg-background/80 backdrop-blur-sm text-xs font-medium text-foreground">
-                      {language === 'es' ? product.categories.name_es : product.categories.name_en}
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <h3 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                    {language === 'es' ? product.name_es : product.name_en}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                    {language === 'es' ? product.description_es : product.description_en}
-                  </p>
-                  <div className="mt-2 text-lg font-bold text-gradient-gold">
-                    ${Number(product.base_price).toFixed(2)}
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </motion.div>
 
-      {/* Product Detail Dialog */}
       <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           {selectedProduct && (
@@ -148,7 +169,6 @@ export default function Catalog() {
                 </DialogTitle>
               </DialogHeader>
 
-              {/* Image Gallery */}
               {images.length > 0 && (
                 <div className="space-y-3">
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-secondary">
@@ -192,7 +212,6 @@ export default function Catalog() {
                 </div>
               )}
 
-              {/* Info */}
               <div className="space-y-4">
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-2xl font-bold text-gradient-gold">
@@ -209,7 +228,6 @@ export default function Catalog() {
                   {language === 'es' ? selectedProduct.description_es : selectedProduct.description_en}
                 </p>
 
-                {/* Materials */}
                 {productMaterials.length > 0 && (
                   <div>
                     <h4 className="text-sm font-semibold mb-2">
@@ -225,7 +243,6 @@ export default function Catalog() {
                   </div>
                 )}
 
-                {/* Variations */}
                 {productVariations.length > 0 && (
                   <div>
                     <h4 className="text-sm font-semibold mb-2">
@@ -242,7 +259,6 @@ export default function Catalog() {
                   </div>
                 )}
 
-                {/* WhatsApp Button */}
                 <a href={getWhatsAppUrl(selectedProduct)} target="_blank" rel="noopener noreferrer" className="block">
                   <Button className="w-full bg-[#25D366] hover:bg-[#20BD5A] text-white gap-2 font-semibold text-base py-5">
                     <MessageCircle className="w-5 h-5" />

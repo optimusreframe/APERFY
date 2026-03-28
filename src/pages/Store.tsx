@@ -13,7 +13,20 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+
+function ProductCardSkeleton() {
+  return (
+    <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
+      <Skeleton className="aspect-square w-full" />
+      <div className="p-4 space-y-2">
+        <Skeleton className="h-5 w-3/4" />
+        <Skeleton className="h-6 w-1/3" />
+      </div>
+    </div>
+  );
+}
 
 export default function Store() {
   const { language, t } = useLanguage();
@@ -26,7 +39,7 @@ export default function Store() {
   const [priceRange, setPriceRange] = useState([0, 100]);
   const [showFilters, setShowFilters] = useState(false);
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [], isLoading } = useQuery({
     queryKey: ['store-products'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -142,7 +155,7 @@ export default function Store() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="font-display font-black text-4xl sm:text-5xl mb-2">
@@ -245,7 +258,13 @@ export default function Store() {
 
           {/* Grid */}
           <div className="flex-1">
-            {filtered.length === 0 ? (
+            {isLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <ProductCardSkeleton key={i} />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="text-center py-20 text-muted-foreground">
                 <Box className="w-12 h-12 mx-auto mb-4 opacity-30" />
                 <p>{t.store.noResults}</p>
@@ -260,7 +279,7 @@ export default function Store() {
                     transition={{ delay: i * 0.05 }}
                     className="group"
                   >
-                    <div className="rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
+                    <div className="relative rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
                       <Link to={`/3dmodels/${product.slug}`}>
                         <div className="aspect-square bg-secondary relative overflow-hidden">
                           {(product.images as string[])?.length > 0 ? (
@@ -300,7 +319,7 @@ export default function Store() {
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
       <Footer />
     </div>
   );
