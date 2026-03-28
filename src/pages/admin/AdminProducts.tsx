@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { productSchema, validateImageFile, sanitizeFileName } from '@/lib/validation';
+import { sanitizeUrl } from '@/lib/sanitize';
 
 interface ProductForm {
   name_en: string;
@@ -39,6 +41,7 @@ export default function AdminProducts() {
   const [aiUrl, setAiUrl] = useState('');
   const [aiDesc, setAiDesc] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const qc = useQueryClient();
   const { toast } = useToast();
   const { language } = useLanguage();
@@ -62,8 +65,9 @@ export default function AdminProducts() {
   });
 
   const uploadImage = async (file: File, productId: string): Promise<string> => {
-    const ext = file.name.split('.').pop();
-    const path = `${productId}/${Date.now()}.${ext}`;
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const safeName = sanitizeFileName(`${Date.now()}.${ext}`);
+    const path = `${productId}/${safeName}`;
     const { error } = await supabase.storage.from('product-images').upload(path, file);
     if (error) throw error;
     const { data } = supabase.storage.from('product-images').getPublicUrl(path);
@@ -72,6 +76,16 @@ export default function AdminProducts() {
 
   const save = useMutation({
     mutationFn: async (f: ProductForm) => {
+      // Validate
+      const result = productSchema.safeParse(f);
+      if (!result.success) {
+        const errs: Record<string, string> = {};
+        result.error.issues.forEach(i => { errs[i.path[0] as string] = i.message; });
+        setFieldErrors(errs);
+        throw new Error('Validation failed');
+      }
+      setFieldErrors({});
+
       const payload = { ...f, category_id: f.category_id || null, base_price: Number(f.base_price) };
       let productId = editId;
 
@@ -85,6 +99,10 @@ export default function AdminProducts() {
       }
 
       if (imageFile && productId) {
+        // Validate image file
+        const validation = await validateImageFile(imageFile, 5);
+        if (!validation.valid) throw new Error(validation.error);
+
         const url = await uploadImage(imageFile, productId);
         const { data: product } = await supabase.from('products').select('images').eq('id', productId).single();
         const images = [...((product?.images as string[]) || []), url];
@@ -100,7 +118,11 @@ export default function AdminProducts() {
       setImageFile(null);
       toast({ title: '✓', description: 'Product saved.' });
     },
-    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+    onError: (e: any) => {
+      if (e.message !== 'Validation failed') {
+        toast({ title: 'Error', description: e.message, variant: 'destructive' });
+      }
+    },
   });
 
   const del = useMutation({
@@ -117,6 +139,7 @@ export default function AdminProducts() {
 
   const openEdit = (p: any) => {
     setEditId(p.id);
+    setFieldErrors({});
     setForm({
       name_en: p.name_en, name_es: p.name_es,
       description_en: p.description_en || '', description_es: p.description_es || '',
@@ -131,16 +154,30 @@ export default function AdminProducts() {
       toast({ title: 'Error', description: 'Provide a URL or description', variant: 'destructive' });
       return;
     }
+
+    // Validate URL if provided
+    if (aiUrl) {
+      const sanitized = sanitizeUrl(aiUrl);
+      if (!sanitized) {
+        toast({ title: 'Error', description: 'Invalid URL format', variant: 'destructive' });
+        return;
+      }
+    }
+
+    if (aiDesc && aiDesc.length > 2000) {
+      toast({ title: 'Error', description: 'Description too long (max 2000 chars)', variant: 'destructive' });
+      return;
+    }
+
     setAiLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('ai-product-from-url', {
-        body: { url: aiUrl, description: aiDesc },
+        body: { url: aiUrl, description: aiDesc.substring(0, 2000) },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'AI generation failed');
 
       const d = data.data;
-      // Find matching category
       const catSlug = d.suggested_category;
       const matchedCat = categories.find((c: any) => c.slug === catSlug);
 
@@ -165,12 +202,23 @@ export default function AdminProducts() {
     }
   };
 
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validation = await validateImageFile(file, 5);
+    if (!validation.valid) {
+      toast({ title: validation.error || 'Invalid file', variant: 'destructive' });
+      e.target.value = '';
+      return;
+    }
+    setImageFile(file);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-display text-2xl font-bold text-foreground">Products</h1>
         <div className="flex gap-2">
-          {/* AI Import Dialog */}
           <Dialog open={aiOpen} onOpenChange={setAiOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2 border-primary/30 text-primary hover:bg-primary/10">
@@ -193,6 +241,7 @@ export default function AdminProducts() {
                     onChange={(e) => setAiUrl(e.target.value)}
                     placeholder="https://www.thingiverse.com/thing/..."
                     className="bg-secondary"
+                    maxLength={2000}
                   />
                 </div>
                 <div className="space-y-2">
@@ -203,6 +252,7 @@ export default function AdminProducts() {
                     placeholder="Describe the product or paste additional info..."
                     className="bg-secondary"
                     rows={4}
+                    maxLength={2000}
                   />
                 </div>
                 <Button
@@ -229,8 +279,7 @@ export default function AdminProducts() {
             </DialogContent>
           </Dialog>
 
-          {/* Standard Add Dialog */}
-          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setImageFile(null); } }}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setImageFile(null); setFieldErrors({}); } }}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="w-4 h-4" />Add Product</Button>
             </DialogTrigger>
@@ -238,14 +287,36 @@ export default function AdminProducts() {
               <DialogHeader><DialogTitle className="font-display">{editId ? 'Edit' : 'Add'} Product</DialogTitle></DialogHeader>
               <form onSubmit={(e) => { e.preventDefault(); save.mutate(form); }} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Name (EN)</Label><Input value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} className="bg-secondary" required /></div>
-                  <div className="space-y-2"><Label>Name (ES)</Label><Input value={form.name_es} onChange={(e) => setForm({ ...form, name_es: e.target.value })} className="bg-secondary" required /></div>
+                  <div className="space-y-2">
+                    <Label>Name (EN)</Label>
+                    <Input value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} className="bg-secondary" maxLength={255} required />
+                    {fieldErrors.name_en && <p className="text-xs text-destructive">{fieldErrors.name_en}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Name (ES)</Label>
+                    <Input value={form.name_es} onChange={(e) => setForm({ ...form, name_es: e.target.value })} className="bg-secondary" maxLength={255} required />
+                    {fieldErrors.name_es && <p className="text-xs text-destructive">{fieldErrors.name_es}</p>}
+                  </div>
                 </div>
-                <div className="space-y-2"><Label>Description (EN)</Label><Textarea value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} className="bg-secondary" rows={3} /></div>
-                <div className="space-y-2"><Label>Description (ES)</Label><Textarea value={form.description_es} onChange={(e) => setForm({ ...form, description_es: e.target.value })} className="bg-secondary" rows={3} /></div>
+                <div className="space-y-2">
+                  <Label>Description (EN)</Label>
+                  <Textarea value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Description (ES)</Label>
+                  <Textarea value={form.description_es} onChange={(e) => setForm({ ...form, description_es: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
+                </div>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2"><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} className="bg-secondary" required /></div>
-                  <div className="space-y-2"><Label>Base Price ($)</Label><Input type="number" step="0.01" value={form.base_price} onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} className="bg-secondary" required /></div>
+                  <div className="space-y-2">
+                    <Label>Slug</Label>
+                    <Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} className="bg-secondary" maxLength={255} required />
+                    {fieldErrors.slug && <p className="text-xs text-destructive">{fieldErrors.slug}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Base Price ($)</Label>
+                    <Input type="number" step="0.01" min="0" max="999999" value={form.base_price} onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} className="bg-secondary" required />
+                    {fieldErrors.base_price && <p className="text-xs text-destructive">{fieldErrors.base_price}</p>}
+                  </div>
                   <div className="space-y-2">
                     <Label>Category</Label>
                     <Select value={form.category_id} onValueChange={(v) => setForm({ ...form, category_id: v })}>
@@ -261,9 +332,10 @@ export default function AdminProducts() {
                 <div className="space-y-2">
                   <Label>Product Image</Label>
                   <div className="flex items-center gap-2">
-                    <Input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="bg-secondary" />
+                    <Input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} className="bg-secondary" />
                     <Image className="w-5 h-5 text-muted-foreground" />
                   </div>
+                  <p className="text-xs text-muted-foreground">JPG, PNG, WebP · Max 5MB</p>
                 </div>
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2"><Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} /><Label>Active</Label></div>
