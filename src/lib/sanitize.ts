@@ -21,7 +21,27 @@ export function stripHtml(text: string): string {
 /**
  * Sanitize a URL to prevent javascript: protocol injection
  */
+/**
+ * Sanitize plain text — strip HTML and trim
+ */
+export function sanitizeText(text: string): string {
+  return DOMPurify.sanitize(text, { ALLOWED_TAGS: [] }).trim();
+}
+
+/**
+ * Sanitize a URL to prevent javascript: protocol injection
+ */
 export function sanitizeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:', 'mailto:'].includes(parsed.protocol)) {
+      return '';
+    }
+    return parsed.href;
+  } catch {
+    return '';
+  }
+}
   try {
     const parsed = new URL(url);
     if (!['http:', 'https:', 'mailto:'].includes(parsed.protocol)) {
