@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { z } from 'zod';
 
 export interface CartItem {
   productId: string;
@@ -10,6 +11,25 @@ export interface CartItem {
   selectedVariations: { id: string; type: string; name: string; priceModifier: number }[];
   notes: string;
 }
+
+// Zod schema for cart data integrity
+const cartItemSchema = z.object({
+  productId: z.string().uuid(),
+  productName: z.string().max(500),
+  productImage: z.string().max(2000),
+  slug: z.string().max(255),
+  quantity: z.number().int().min(1).max(100),
+  unitPrice: z.number().min(0).max(999999),
+  selectedVariations: z.array(z.object({
+    id: z.string(),
+    type: z.string().max(100),
+    name: z.string().max(255),
+    priceModifier: z.number().min(-999999).max(999999),
+  })),
+  notes: z.string().max(500),
+});
+
+const cartSchema = z.array(cartItemSchema);
 
 interface CartContextType {
   items: CartItem[];
@@ -25,27 +45,42 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const CART_KEY = '3dtoprint-cart';
 
-export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>(() => {
-    try {
-      const stored = localStorage.getItem(CART_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
+function loadCart(): CartItem[] {
+  try {
+    const stored = localStorage.getItem(CART_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    const result = cartSchema.safeParse(parsed);
+    if (!result.success) {
+      console.warn('Cart data validation failed, resetting cart');
+      localStorage.removeItem(CART_KEY);
       return [];
     }
-  });
+    return result.data as CartItem[];
+  } catch {
+    localStorage.removeItem(CART_KEY);
+    return [];
+  }
+}
+
+export function CartProvider({ children }: { children: ReactNode }) {
+  const [items, setItems] = useState<CartItem[]>(loadCart);
 
   useEffect(() => {
     localStorage.setItem(CART_KEY, JSON.stringify(items));
   }, [items]);
 
   const addToCart = (item: CartItem) => {
+    // Validate incoming item
+    const result = cartItemSchema.safeParse(item);
+    if (!result.success) return;
+
     setItems(prev => {
       const existing = prev.find(i => i.productId === item.productId);
       if (existing) {
         return prev.map(i =>
           i.productId === item.productId
-            ? { ...item, quantity: i.quantity + item.quantity }
+            ? { ...item, quantity: Math.min(i.quantity + item.quantity, 100) }
             : i
         );
       }
@@ -59,6 +94,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const updateQuantity = (productId: string, quantity: number) => {
     if (quantity < 1) return removeFromCart(productId);
+    if (quantity > 100) return;
     setItems(prev => prev.map(i => i.productId === productId ? { ...i, quantity } : i));
   };
 

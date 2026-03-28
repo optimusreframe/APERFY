@@ -13,6 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { checkoutSchema } from '@/lib/validation';
+import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
 
 export default function Checkout() {
   const { items, getTotal, clearCart } = useCart();
@@ -22,6 +24,7 @@ export default function Checkout() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ fullName: '', phone: '', address: '', city: '', notes: '' });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Pre-fill from profile
   useEffect(() => {
@@ -46,26 +49,70 @@ export default function Checkout() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFieldErrors({});
     if (!user || items.length === 0) return;
 
-    if (!form.fullName || !form.phone || !form.address || !form.city) {
-      toast({ title: t.checkout.fillRequired, variant: 'destructive' });
+    // Rate limit
+    const { allowed, retryAfterMs } = checkRateLimit('checkout', 3, 5 * 60 * 1000);
+    if (!allowed) {
+      toast({ title: t.checkout.error, description: `Try again in ${formatRetryTime(retryAfterMs)}`, variant: 'destructive' });
+      return;
+    }
+
+    // Validate form
+    const result = checkoutSchema.safeParse(form);
+    if (!result.success) {
+      const errs: Record<string, string> = {};
+      result.error.issues.forEach(i => { errs[i.path[0] as string] = i.message; });
+      setFieldErrors(errs);
       return;
     }
 
     setLoading(true);
     try {
+      // Re-fetch current prices to prevent localStorage tampering
+      const productIds = items.map(i => i.productId);
+      const { data: currentProducts, error: priceError } = await supabase
+        .from('products')
+        .select('id, base_price')
+        .in('id', productIds);
+
+      if (priceError) throw priceError;
+
+      const priceMap = new Map(currentProducts?.map(p => [p.id, Number(p.base_price)]) || []);
+      let priceChanged = false;
+
+      for (const item of items) {
+        const currentPrice = priceMap.get(item.productId);
+        if (currentPrice !== undefined && currentPrice !== item.unitPrice) {
+          priceChanged = true;
+          break;
+        }
+      }
+
+      if (priceChanged) {
+        toast({
+          title: t.checkout.priceChanged || 'Prices updated',
+          description: t.checkout.priceChangedDesc || 'Some product prices have changed. Please review your cart.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
+      const validatedForm = result.data;
+
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
           user_id: user.id,
           total: getTotal(),
-          notes: form.notes || null,
+          notes: validatedForm.notes || null,
           shipping_address: {
-            full_name: form.fullName,
-            phone: form.phone,
-            address: form.address,
-            city: form.city,
+            full_name: validatedForm.fullName,
+            phone: validatedForm.phone,
+            address: validatedForm.address,
+            city: validatedForm.city,
           },
         })
         .select()
@@ -77,7 +124,7 @@ export default function Checkout() {
         order_id: order.id,
         product_id: item.productId,
         quantity: item.quantity,
-        unit_price: item.unitPrice + item.selectedVariations.reduce((s, v) => s + v.priceModifier, 0),
+        unit_price: (priceMap.get(item.productId) ?? item.unitPrice) + item.selectedVariations.reduce((s, v) => s + v.priceModifier, 0),
         selected_variations: item.selectedVariations,
         notes: item.notes || null,
       }));
@@ -106,31 +153,36 @@ export default function Checkout() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-16 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="font-display font-black text-3xl sm:text-4xl mb-8">{t.checkout.title}</h1>
 
-        <form onSubmit={handleSubmit} className="grid lg:grid-cols-5 gap-8">
+        <form onSubmit={handleSubmit} className="grid lg:grid-cols-5 gap-8" noValidate>
           <div className="lg:col-span-3 space-y-4">
             <div className="bg-card border border-border rounded-xl p-6 space-y-4">
               <h2 className="font-display font-bold text-lg">{t.checkout.shippingInfo}</h2>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <Label>{t.checkout.fullName} *</Label>
-                  <Input value={form.fullName} onChange={e => handleChange('fullName', e.target.value)} className="mt-1 bg-background" />
+                  <Input value={form.fullName} onChange={e => handleChange('fullName', e.target.value)} className="mt-1 bg-background" maxLength={100} />
+                  {fieldErrors.fullName && <p className="text-xs text-destructive mt-1">{fieldErrors.fullName}</p>}
                 </div>
                 <div>
                   <Label>{t.checkout.phone} *</Label>
-                  <Input value={form.phone} onChange={e => handleChange('phone', e.target.value)} className="mt-1 bg-background" />
+                  <Input value={form.phone} onChange={e => handleChange('phone', e.target.value)} className="mt-1 bg-background" maxLength={20} />
+                  {fieldErrors.phone && <p className="text-xs text-destructive mt-1">{fieldErrors.phone}</p>}
                 </div>
               </div>
               <div>
                 <Label>{t.checkout.address} *</Label>
-                <Input value={form.address} onChange={e => handleChange('address', e.target.value)} className="mt-1 bg-background" />
+                <Input value={form.address} onChange={e => handleChange('address', e.target.value)} className="mt-1 bg-background" maxLength={255} />
+                {fieldErrors.address && <p className="text-xs text-destructive mt-1">{fieldErrors.address}</p>}
               </div>
               <div>
                 <Label>{t.checkout.city} *</Label>
-                <Input value={form.city} onChange={e => handleChange('city', e.target.value)} className="mt-1 bg-background" />
+                <Input value={form.city} onChange={e => handleChange('city', e.target.value)} className="mt-1 bg-background" maxLength={100} />
+                {fieldErrors.city && <p className="text-xs text-destructive mt-1">{fieldErrors.city}</p>}
               </div>
               <div>
                 <Label>{t.checkout.orderNotes}</Label>
-                <Textarea value={form.notes} onChange={e => handleChange('notes', e.target.value)} className="mt-1 bg-background" rows={3} />
+                <Textarea value={form.notes} onChange={e => handleChange('notes', e.target.value)} className="mt-1 bg-background" rows={3} maxLength={500} />
+                {fieldErrors.notes && <p className="text-xs text-destructive mt-1">{fieldErrors.notes}</p>}
               </div>
             </div>
           </div>

@@ -13,6 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { profileSchema, validateImageFile, sanitizeFileName } from '@/lib/validation';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -24,6 +26,7 @@ export default function Profile() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -44,9 +47,18 @@ export default function Profile() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+
+    // Validate file
+    const validation = await validateImageFile(file, 2);
+    if (!validation.valid) {
+      toast({ title: validation.error || t.profile.error, variant: 'destructive' });
+      return;
+    }
+
     setUploading(true);
-    const ext = file.name.split('.').pop();
-    const path = `${user.id}/avatar.${ext}`;
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const safeName = sanitizeFileName(`avatar.${ext}`);
+    const path = `${user.id}/${safeName}`;
     const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
     if (error) {
       toast({ title: t.profile.error, variant: 'destructive' });
@@ -61,6 +73,22 @@ export default function Profile() {
 
   const handleSave = async () => {
     if (!user) return;
+    setFieldErrors({});
+
+    const { allowed } = checkRateLimit('profile-save', 10, 60 * 1000);
+    if (!allowed) {
+      toast({ title: t.profile.error, variant: 'destructive' });
+      return;
+    }
+
+    const result = profileSchema.safeParse({ fullName, phone });
+    if (!result.success) {
+      const errs: Record<string, string> = {};
+      result.error.issues.forEach(i => { errs[i.path[0] as string] = i.message; });
+      setFieldErrors(errs);
+      return;
+    }
+
     setLoading(true);
     const { error } = await supabase
       .from('profiles')
@@ -96,11 +124,12 @@ export default function Profile() {
               </Avatar>
               <label className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
                 <Camera className="w-4 h-4" />
-                <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} className="hidden" />
               </label>
             </div>
             <div className="text-sm text-muted-foreground">
               {uploading ? t.profile.uploading : t.profile.changeAvatar}
+              <p className="text-xs mt-1">JPG, PNG, WebP · Max 2MB</p>
             </div>
           </CardContent>
         </Card>
@@ -116,11 +145,13 @@ export default function Profile() {
             </div>
             <div>
               <Label>{t.profile.fullName}</Label>
-              <Input value={fullName} onChange={e => setFullName(e.target.value)} className="bg-card border-border mt-1" />
+              <Input value={fullName} onChange={e => setFullName(e.target.value)} className="bg-card border-border mt-1" maxLength={100} />
+              {fieldErrors.fullName && <p className="text-xs text-destructive mt-1">{fieldErrors.fullName}</p>}
             </div>
             <div>
               <Label>{t.profile.phone}</Label>
-              <Input value={phone} onChange={e => setPhone(e.target.value)} className="bg-card border-border mt-1" />
+              <Input value={phone} onChange={e => setPhone(e.target.value)} className="bg-card border-border mt-1" maxLength={20} />
+              {fieldErrors.phone && <p className="text-xs text-destructive mt-1">{fieldErrors.phone}</p>}
             </div>
             <Button onClick={handleSave} disabled={loading} className="bg-gradient-gold text-primary-foreground gap-2">
               <Save className="w-4 h-4" />
