@@ -1,16 +1,27 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Box, MessageCircle } from 'lucide-react';
+import { Box, MessageCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const WHATSAPP_NUMBER = '16893324656';
+const PUBLIC_URL = 'https://a3dtoprint.lovable.app';
 
 export default function Catalog() {
   const { language, t } = useLanguage();
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const { data: products = [] } = useQuery({
     queryKey: ['catalog-products'],
@@ -25,12 +36,48 @@ export default function Catalog() {
     },
   });
 
+  const { data: productMaterials = [] } = useQuery({
+    queryKey: ['product-materials', selectedProduct?.id],
+    enabled: !!selectedProduct,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_materials')
+        .select('*, materials(name_en, name_es)')
+        .eq('product_id', selectedProduct.id);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: productVariations = [] } = useQuery({
+    queryKey: ['product-variations', selectedProduct?.id],
+    enabled: !!selectedProduct,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_variations')
+        .select('*')
+        .eq('product_id', selectedProduct.id)
+        .eq('is_active', true);
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const getWhatsAppUrl = (product: any) => {
     const name = language === 'es' ? product.name_es : product.name_en;
     const desc = language === 'es' ? (product.description_es || '') : (product.description_en || '');
-    const url = `${window.location.origin}/3dmodels/${product.slug}`;
-    const message = `${t.catalog.messagePrefix}${name}${t.catalog.messageDesc}${desc}${t.catalog.messageUrl}${url}`;
+    const url = `${PUBLIC_URL}/3dmodels/${product.slug}`;
+    const message = language === 'es'
+      ? `Hola, me interesa este modelo.\n\nModelo: ${name}\nDescripción: ${desc}\nURL: ${url}`
+      : `Hi, I'm interested in this model.\n\nModel: ${name}\nDescription: ${desc}\nURL: ${url}`;
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+  };
+
+  const images = selectedProduct ? (selectedProduct.images as string[] || []) : [];
+
+  const handleOpenProduct = (product: any) => {
+    setSelectedProduct(product);
+    setActiveImageIndex(0);
   };
 
   return (
@@ -55,12 +102,13 @@ export default function Catalog() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="group"
+              className="group cursor-pointer"
+              onClick={() => handleOpenProduct(product)}
             >
               <div className="rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
                 <div className="aspect-square bg-secondary relative overflow-hidden">
                   {(product.images as string[])?.length > 0 ? (
-                    <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover" />
+                    <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Box className="w-16 h-16 text-muted-foreground/30" />
@@ -82,18 +130,131 @@ export default function Catalog() {
                   <div className="mt-2 text-lg font-bold text-gradient-gold">
                     ${Number(product.base_price).toFixed(2)}
                   </div>
-                  <a href={getWhatsAppUrl(product)} target="_blank" rel="noopener noreferrer" className="block mt-3">
-                    <Button className="w-full bg-[#25D366] hover:bg-[#20BD5A] text-white gap-2 font-semibold">
-                      <MessageCircle className="w-4 h-4" />
-                      {t.catalog.orderWhatsapp}
-                    </Button>
-                  </a>
                 </div>
               </div>
             </motion.div>
           ))}
         </div>
       </div>
+
+      {/* Product Detail Dialog */}
+      <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {selectedProduct && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-display text-xl">
+                  {language === 'es' ? selectedProduct.name_es : selectedProduct.name_en}
+                </DialogTitle>
+              </DialogHeader>
+
+              {/* Image Gallery */}
+              {images.length > 0 && (
+                <div className="space-y-3">
+                  <div className="relative aspect-video rounded-xl overflow-hidden bg-secondary">
+                    <img
+                      src={images[activeImageIndex]}
+                      alt=""
+                      className="w-full h-full object-contain"
+                    />
+                    {images.length > 1 && (
+                      <>
+                        <button
+                          onClick={() => setActiveImageIndex((prev) => (prev - 1 + images.length) % images.length)}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm rounded-full p-1.5 hover:bg-background transition-colors"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setActiveImageIndex((prev) => (prev + 1) % images.length)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm rounded-full p-1.5 hover:bg-background transition-colors"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {images.length > 1 && (
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {images.map((img: string, idx: number) => (
+                        <button
+                          key={idx}
+                          onClick={() => setActiveImageIndex(idx)}
+                          className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                            idx === activeImageIndex ? 'border-primary' : 'border-transparent'
+                          }`}
+                        >
+                          <img src={img} alt="" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Info */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-2xl font-bold text-gradient-gold">
+                    ${Number(selectedProduct.base_price).toFixed(2)}
+                  </span>
+                  {selectedProduct.categories && (
+                    <Badge variant="secondary">
+                      {language === 'es' ? selectedProduct.categories.name_es : selectedProduct.categories.name_en}
+                    </Badge>
+                  )}
+                </div>
+
+                <p className="text-muted-foreground leading-relaxed">
+                  {language === 'es' ? selectedProduct.description_es : selectedProduct.description_en}
+                </p>
+
+                {/* Materials */}
+                {productMaterials.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">
+                      {language === 'es' ? 'Materiales disponibles' : 'Available Materials'}
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {productMaterials.map((pm: any) => (
+                        <Badge key={pm.id} variant="outline">
+                          {language === 'es' ? pm.materials.name_es : pm.materials.name_en}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Variations */}
+                {productVariations.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2">
+                      {language === 'es' ? 'Variaciones' : 'Variations'}
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {productVariations.map((v: any) => (
+                        <Badge key={v.id} variant="outline">
+                          {language === 'es' ? v.name_es : v.name_en}
+                          {v.price_modifier > 0 && ` (+$${v.price_modifier.toFixed(2)})`}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* WhatsApp Button */}
+                <a href={getWhatsAppUrl(selectedProduct)} target="_blank" rel="noopener noreferrer" className="block">
+                  <Button className="w-full bg-[#25D366] hover:bg-[#20BD5A] text-white gap-2 font-semibold text-base py-5">
+                    <MessageCircle className="w-5 h-5" />
+                    {t.catalog.orderWhatsapp}
+                  </Button>
+                </a>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Footer />
     </div>
   );
