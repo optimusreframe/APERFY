@@ -91,8 +91,8 @@ export default function AdminOrders() {
             </TableHeader>
             <TableBody>
               {orders.map((order: any) => (
-                <>
-                  <TableRow key={order.id} className="cursor-pointer hover:bg-secondary/30" onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}>
+                <React.Fragment key={order.id}>
+                  <TableRow className="cursor-pointer hover:bg-secondary/30" onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}>
                     <TableCell className="font-mono text-xs">#{order.id.slice(0, 8).toUpperCase()}</TableCell>
                     <TableCell>{(order as any).profiles?.full_name || '—'}</TableCell>
                     <TableCell>
