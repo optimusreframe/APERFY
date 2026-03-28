@@ -17,7 +17,18 @@ interface LikeButtonProps {
   externalCount?: number;
 }
 
-export default function LikeButton({ productId, className, showCount = true, size = 'sm' }: LikeButtonProps) {
+export default function LikeButton({ productId, className, showCount = true, size = 'sm', countOnly = false, externalCount = 0 }: LikeButtonProps) {
+  // Display-only mode for grids with bulk-fetched counts
+  if (countOnly) {
+    const iconSize = size === 'sm' ? 'w-3.5 h-3.5' : 'w-5 h-5';
+    return (
+      <div className={cn('flex items-center gap-1 text-muted-foreground', className)}>
+        <ThumbsUp className={iconSize} />
+        <span className="text-xs">{externalCount}</span>
+      </div>
+    );
+  }
+
   const { user } = useAuth();
   const { toast } = useToast();
   const { language } = useLanguage();
