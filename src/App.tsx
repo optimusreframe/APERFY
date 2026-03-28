@@ -25,6 +25,8 @@ import AdminProducts from "./pages/admin/AdminProducts";
 import AdminCategories from "./pages/admin/AdminCategories";
 import AdminMaterials from "./pages/admin/AdminMaterials";
 import AdminOrders from "./pages/admin/AdminOrders";
+import AdminRequests from "./pages/admin/AdminRequests";
+import RequestModel from "./pages/RequestModel";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,7 @@ const App = () => (
                 <Route path="/3dmodels" element={<Store />} />
                 <Route path="/3dmodels/:slug" element={<ProductDetail />} />
                 <Route path="/catalog" element={<Catalog />} />
+                <Route path="/request-model" element={<RequestModel />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
                 <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
@@ -55,6 +58,7 @@ const App = () => (
                   <Route path="categories" element={<AdminCategories />} />
                   <Route path="materials" element={<AdminMaterials />} />
                   <Route path="orders" element={<AdminOrders />} />
+                  <Route path="requests" element={<AdminRequests />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

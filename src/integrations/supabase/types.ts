@@ -103,6 +103,59 @@ export type Database = {
         }
         Relationships: []
       }
+      model_requests: {
+        Row: {
+          created_at: string
+          description: string | null
+          email: string
+          fulfilled_product_id: string | null
+          id: string
+          images: Json | null
+          name: string
+          phone: string
+          product_name: string
+          reference_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          email: string
+          fulfilled_product_id?: string | null
+          id?: string
+          images?: Json | null
+          name: string
+          phone: string
+          product_name: string
+          reference_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          email?: string
+          fulfilled_product_id?: string | null
+          id?: string
+          images?: Json | null
+          name?: string
+          phone?: string
+          product_name?: string
+          reference_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_requests_fulfilled_product_id_fkey"
+            columns: ["fulfilled_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           id: string

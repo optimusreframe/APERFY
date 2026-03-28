@@ -37,6 +37,7 @@ export default function Navbar() {
   const navLinks = [
     { href: '/', label: t.nav.home },
     { href: '/3dmodels', label: t.nav.models },
+    { href: '/request-model', label: t.nav.requestModel },
   ];
 
   const isActive = (path: string) => location.pathname === path;

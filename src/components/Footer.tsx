@@ -29,6 +29,7 @@ export default function Footer() {
             <ul className="space-y-2.5">
               <li><Link to="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">{t.nav.home}</Link></li>
               <li><Link to="/3dmodels" className="text-sm text-muted-foreground hover:text-primary transition-colors">{t.nav.models}</Link></li>
+              <li><Link to="/request-model" className="text-sm text-muted-foreground hover:text-primary transition-colors">{t.footer.requestModel}</Link></li>
             </ul>
           </div>
 

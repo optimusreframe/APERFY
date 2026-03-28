@@ -5,6 +5,7 @@ import FeaturedSection from '@/components/landing/FeaturedSection';
 import HowItWorksSection from '@/components/landing/HowItWorksSection';
 import MaterialsSection from '@/components/landing/MaterialsSection';
 import StatsSection from '@/components/landing/StatsSection';
+import RequestCTASection from '@/components/landing/RequestCTASection';
 
 const Index = () => {
   return (
@@ -15,6 +16,7 @@ const Index = () => {
       <HowItWorksSection />
       <MaterialsSection />
       <StatsSection />
+      <RequestCTASection />
       <Footer />
     </div>
   );

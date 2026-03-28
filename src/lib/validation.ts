@@ -115,6 +115,24 @@ export async function validateImageFile(
   return { valid: true };
 }
 
+// Quick sync file validation (no magic bytes check)
+export function validateFileUpload(
+  file: File,
+  maxSizeMB: number = 5
+): { valid: boolean; error?: string } {
+  if (file.size > maxSizeMB * 1024 * 1024) {
+    return { valid: false, error: `File must be under ${maxSizeMB}MB` };
+  }
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return { valid: false, error: 'Only JPG, PNG, and WebP images are allowed' };
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
+    return { valid: false, error: 'Invalid file extension' };
+  }
+  return { valid: true };
+}
+
 // Sanitize file name
 export function sanitizeFileName(name: string): string {
   return name
