@@ -68,10 +68,17 @@ export default function Auth() {
     setLoading(true);
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error, data } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         resetRateLimit('auth-login');
-        navigate('/');
+        // Check if user is admin to redirect accordingly
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .eq('role', 'admin')
+          .maybeSingle();
+        navigate(roleData ? '/admin' : '/');
       } else {
         const { error } = await supabase.auth.signUp({
           email,

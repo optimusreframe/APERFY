@@ -170,27 +170,29 @@ export default function Navbar() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-52 nav-dropdown border-primary/10">
-                      <DropdownMenuItem asChild>
-                        <Link to="/profile" className="gap-2 cursor-pointer">
-                          <User className="w-4 h-4" /> {t.profile.title}
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/profile?tab=orders" className="gap-2 cursor-pointer">
-                          <Package className="w-4 h-4" /> {t.orders.title}
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/profile?tab=favorites" className="gap-2 cursor-pointer">
-                          <Heart className="w-4 h-4" /> {t.favorites.title}
-                        </Link>
-                      </DropdownMenuItem>
-                      {isAdmin && (
+                      {isAdmin ? (
                         <>
-                          <DropdownMenuSeparator className="bg-border/50" />
                           <DropdownMenuItem asChild>
                             <Link to="/admin" className="gap-2 cursor-pointer text-primary">
                               <Shield className="w-4 h-4" /> {t.nav.admin}
+                            </Link>
+                          </DropdownMenuItem>
+                        </>
+                      ) : (
+                        <>
+                          <DropdownMenuItem asChild>
+                            <Link to="/profile" className="gap-2 cursor-pointer">
+                              <User className="w-4 h-4" /> {t.profile.title}
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link to="/profile?tab=orders" className="gap-2 cursor-pointer">
+                              <Package className="w-4 h-4" /> {t.orders.title}
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link to="/profile?tab=favorites" className="gap-2 cursor-pointer">
+                              <Heart className="w-4 h-4" /> {t.favorites.title}
                             </Link>
                           </DropdownMenuItem>
                         </>
@@ -313,19 +315,22 @@ export default function Navbar() {
                 >
                   {user ? (
                     <>
-                      <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50">
-                        <User className="w-4 h-4" /> {t.profile.title}
-                      </Link>
-                      <Link to="/profile?tab=orders" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50">
-                        <Package className="w-4 h-4" /> {t.orders.title}
-                      </Link>
-                      <Link to="/profile?tab=favorites" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50">
-                        <Heart className="w-4 h-4" /> {t.favorites.title}
-                      </Link>
-                      {isAdmin && (
+                      {isAdmin ? (
                         <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-primary hover:bg-primary/10">
                           <Shield className="w-4 h-4" /> {t.nav.admin}
                         </Link>
+                      ) : (
+                        <>
+                          <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50">
+                            <User className="w-4 h-4" /> {t.profile.title}
+                          </Link>
+                          <Link to="/profile?tab=orders" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50">
+                            <Package className="w-4 h-4" /> {t.orders.title}
+                          </Link>
+                          <Link to="/profile?tab=favorites" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50">
+                            <Heart className="w-4 h-4" /> {t.favorites.title}
+                          </Link>
+                        </>
                       )}
                       <div className="pt-2 border-t border-border/30">
                         <Button variant="outline" size="sm" onClick={() => { signOut(); setIsOpen(false); }} className="w-full mt-2 gap-2 rounded-xl border-border/50">
