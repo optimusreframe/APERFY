@@ -79,6 +79,15 @@ export const translations = {
       messageDesc: "\nDescription: ",
       messageUrl: "\nURL: ",
     },
+    admin: {
+      aiImport: 'Add from Reference',
+      aiImportTitle: 'AI Product Import',
+      aiImportDesc: 'AI will generate bilingual product data for you to review before saving.',
+      referenceUrl: 'Reference URL',
+      additionalDesc: 'Additional Description',
+      generateAi: 'Generate with AI',
+      generating: 'Generating...',
+    },
     product: {
       addToCart: 'Add to Cart',
       addToFavorites: 'Save to Favorites',
@@ -207,6 +216,15 @@ export const translations = {
       messagePrefix: "Hola, estoy interesado en este modelo.\n\nModelo: ",
       messageDesc: "\nDescripción: ",
       messageUrl: "\nURL: ",
+    },
+    admin: {
+      aiImport: 'Agregar desde Referencia',
+      aiImportTitle: 'Importar Producto con IA',
+      aiImportDesc: 'La IA generará datos bilingües del producto para que los revises antes de guardar.',
+      referenceUrl: 'URL de Referencia',
+      additionalDesc: 'Descripción Adicional',
+      generateAi: 'Generar con IA',
+      generating: 'Generando...',
     },
     product: {
       addToCart: 'Agregar al Carrito',
