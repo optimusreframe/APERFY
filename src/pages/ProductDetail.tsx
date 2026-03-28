@@ -19,6 +19,7 @@ export default function ProductDetail() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
+  const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
