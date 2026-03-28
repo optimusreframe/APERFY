@@ -11,7 +11,34 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+
+function ProductDetailSkeleton() {
+  return (
+    <div className="grid lg:grid-cols-2 gap-10">
+      <div>
+        <Skeleton className="aspect-square w-full rounded-2xl" />
+        <div className="flex gap-2 mt-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="w-16 h-16 rounded-lg" />
+          ))}
+        </div>
+      </div>
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-3/4" />
+        <Skeleton className="h-8 w-1/3" />
+        <Skeleton className="h-5 w-1/4" />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
+        <Skeleton className="h-12 w-full" />
+      </div>
+    </div>
+  );
+}
 
 export default function ProductDetail() {
   const { slug } = useParams();
@@ -126,8 +153,9 @@ export default function ProductDetail() {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="pt-24 flex items-center justify-center h-[60vh]">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Skeleton className="h-4 w-48 mb-6" />
+          <ProductDetailSkeleton />
         </div>
       </div>
     );
@@ -149,7 +177,7 @@ export default function ProductDetail() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
           <Link to="/3dmodels" className="hover:text-foreground transition-colors">{t.store.title}</Link>
@@ -338,7 +366,7 @@ export default function ProductDetail() {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
       <Footer />
     </div>
   );

@@ -8,6 +8,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
@@ -17,6 +18,26 @@ const statusColors: Record<string, string> = {
   delivered: 'bg-green-500/10 text-green-500 border-green-500/20',
   cancelled: 'bg-red-500/10 text-red-500 border-red-500/20',
 };
+
+function OrderSkeleton() {
+  return (
+    <div className="bg-card border border-border rounded-xl p-5 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Skeleton className="w-5 h-5 rounded" />
+          <div className="space-y-1">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-5 w-16" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Orders() {
   const { user } = useAuth();
@@ -53,12 +74,14 @@ export default function Orders() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="pt-24 pb-16 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-16 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="font-display font-black text-3xl sm:text-4xl mb-8">{t.orders.title}</h1>
 
         {isLoading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <OrderSkeleton key={i} />
+            ))}
           </div>
         ) : orders.length === 0 ? (
           <div className="text-center py-20">
@@ -120,7 +143,7 @@ export default function Orders() {
             ))}
           </div>
         )}
-      </div>
+      </motion.div>
       <Footer />
     </div>
   );

@@ -184,7 +184,7 @@ export default function Navbar() {
                   {link.label}
                 </Link>
               ))}
-              <div className="pt-2 border-t border-border/50 flex items-center gap-2">
+              <div className="pt-2 border-t border-border/50 flex items-center justify-between">
                 <button
                   onClick={() => setLanguage(language === 'en' ? 'es' : 'en')}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground"
@@ -192,6 +192,14 @@ export default function Navbar() {
                   <Globe className="w-4 h-4" />
                   {language === 'en' ? 'Español' : 'English'}
                 </button>
+                <Link to="/cart" onClick={() => setIsOpen(false)} className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all">
+                  <ShoppingCart className="w-5 h-5" />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                      {itemCount}
+                    </span>
+                  )}
+                </Link>
               </div>
               <div className="flex flex-col gap-2 pt-2">
                 {user ? (

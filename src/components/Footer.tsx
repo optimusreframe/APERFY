@@ -36,10 +36,10 @@ export default function Footer() {
           <div>
             <h4 className="font-display font-semibold text-foreground mb-4">{t.footer.support}</h4>
             <ul className="space-y-2.5">
-              <li><span className="text-sm text-muted-foreground">{t.footer.faq}</span></li>
-              <li><span className="text-sm text-muted-foreground">{t.footer.shipping}</span></li>
-              <li><span className="text-sm text-muted-foreground">{t.footer.returns}</span></li>
-              <li><span className="text-sm text-muted-foreground">{t.footer.contactUs}</span></li>
+              <li><span className="text-sm text-muted-foreground cursor-default select-none">{t.footer.faq}</span></li>
+              <li><span className="text-sm text-muted-foreground cursor-default select-none">{t.footer.shipping}</span></li>
+              <li><span className="text-sm text-muted-foreground cursor-default select-none">{t.footer.returns}</span></li>
+              <li><span className="text-sm text-muted-foreground cursor-default select-none">{t.footer.contactUs}</span></li>
             </ul>
           </div>
 

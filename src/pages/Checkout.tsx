@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -21,6 +22,25 @@ export default function Checkout() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ fullName: '', phone: '', address: '', city: '', notes: '' });
+
+  // Pre-fill from profile
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .select('full_name, phone')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setForm(prev => ({
+            ...prev,
+            fullName: prev.fullName || data.full_name || '',
+            phone: prev.phone || data.phone || '',
+          }));
+        }
+      });
+  }, [user]);
 
   const handleChange = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -83,7 +103,7 @@ export default function Checkout() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="pt-24 pb-16 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-16 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="font-display font-black text-3xl sm:text-4xl mb-8">{t.checkout.title}</h1>
 
         <form onSubmit={handleSubmit} className="grid lg:grid-cols-5 gap-8">
@@ -145,7 +165,7 @@ export default function Checkout() {
             </div>
           </div>
         </form>
-      </div>
+      </motion.div>
       <Footer />
     </div>
   );

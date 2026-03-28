@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/20 text-yellow-400',
@@ -14,10 +15,39 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-red-500/20 text-red-400',
 };
 
+function StatSkeleton() {
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="w-4 h-4 rounded" />
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-8 w-20" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function OrderRowSkeleton() {
+  return (
+    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+      <div className="flex-1 min-w-0 space-y-1">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-3 w-20" />
+      </div>
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-5 w-20 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const { t } = useLanguage();
 
-  const { data: productCount } = useQuery({
+  const { data: productCount, isLoading: loadingProducts } = useQuery({
     queryKey: ['admin-product-count'],
     queryFn: async () => {
       const { count } = await supabase.from('products').select('*', { count: 'exact', head: true });
@@ -25,7 +55,7 @@ export default function AdminDashboard() {
     },
   });
 
-  const { data: categoryCount } = useQuery({
+  const { data: categoryCount, isLoading: loadingCategories } = useQuery({
     queryKey: ['admin-category-count'],
     queryFn: async () => {
       const { count } = await supabase.from('categories').select('*', { count: 'exact', head: true });
@@ -33,7 +63,7 @@ export default function AdminDashboard() {
     },
   });
 
-  const { data: materialCount } = useQuery({
+  const { data: materialCount, isLoading: loadingMaterials } = useQuery({
     queryKey: ['admin-material-count'],
     queryFn: async () => {
       const { count } = await supabase.from('materials').select('*', { count: 'exact', head: true });
@@ -41,7 +71,7 @@ export default function AdminDashboard() {
     },
   });
 
-  const { data: orders = [] } = useQuery({
+  const { data: orders = [], isLoading: loadingOrders } = useQuery({
     queryKey: ['admin-dashboard-orders'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -54,7 +84,7 @@ export default function AdminDashboard() {
     },
   });
 
-  const { data: orderStats } = useQuery({
+  const { data: orderStats, isLoading: loadingStats } = useQuery({
     queryKey: ['admin-order-stats'],
     queryFn: async () => {
       const { data, error } = await supabase.from('orders').select('total, status');
@@ -64,6 +94,8 @@ export default function AdminDashboard() {
       return { totalRevenue, totalOrders };
     },
   });
+
+  const isLoadingStats = loadingProducts || loadingCategories || loadingMaterials || loadingStats;
 
   const stats = [
     { label: t.dashboard.orders, value: orderStats?.totalOrders ?? 0, icon: ClipboardList, color: 'text-primary' },
@@ -78,17 +110,20 @@ export default function AdminDashboard() {
       <h1 className="font-display text-2xl font-bold text-foreground mb-6">Dashboard</h1>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-        {stats.map((stat) => (
-          <Card key={stat.label} className="bg-card border-border">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
-              <stat.icon className={`w-4 h-4 ${stat.color}`} />
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold font-display text-foreground">{stat.value}</p>
-            </CardContent>
-          </Card>
-        ))}
+        {isLoadingStats
+          ? Array.from({ length: 5 }).map((_, i) => <StatSkeleton key={i} />)
+          : stats.map((stat) => (
+              <Card key={stat.label} className="bg-card border-border">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">{stat.label}</CardTitle>
+                  <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold font-display text-foreground">{stat.value}</p>
+                </CardContent>
+              </Card>
+            ))
+        }
       </div>
 
       <Card className="bg-card border-border">
@@ -96,7 +131,13 @@ export default function AdminDashboard() {
           <CardTitle className="text-lg">{t.dashboard.recentOrders}</CardTitle>
         </CardHeader>
         <CardContent>
-          {orders.length === 0 ? (
+          {loadingOrders ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <OrderRowSkeleton key={i} />
+              ))}
+            </div>
+          ) : orders.length === 0 ? (
             <p className="text-muted-foreground text-sm">{t.dashboard.noOrders}</p>
           ) : (
             <div className="space-y-3">

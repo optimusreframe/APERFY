@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Camera, Save, Package, Heart } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Camera, Save, Package, Heart } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -80,7 +81,7 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="pt-24 pb-16 max-w-2xl mx-auto px-4">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-16 max-w-2xl mx-auto px-4">
         <h1 className="font-display font-black text-3xl mb-8">{t.profile.title}</h1>
 
         <Card className="bg-card border-border mb-6">
@@ -138,7 +139,7 @@ export default function Profile() {
             <span>{t.favorites.title}</span>
           </Button>
         </div>
-      </div>
+      </motion.div>
       <Footer />
     </div>
   );

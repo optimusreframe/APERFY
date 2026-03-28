@@ -8,14 +8,27 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+
+function FavoriteCardSkeleton() {
+  return (
+    <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
+      <Skeleton className="aspect-square w-full" />
+      <div className="p-4 space-y-2">
+        <Skeleton className="h-5 w-3/4" />
+        <Skeleton className="h-6 w-1/3" />
+      </div>
+    </div>
+  );
+}
 
 export default function Favorites() {
   const { user } = useAuth();
   const { language, t } = useLanguage();
   const { toast } = useToast();
 
-  const { data: favoriteProducts = [], refetch } = useQuery({
+  const { data: favoriteProducts = [], isLoading, refetch } = useQuery({
     queryKey: ['favorite-products', user?.id],
     queryFn: async () => {
       if (!user) return [];
@@ -46,11 +59,17 @@ export default function Favorites() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="font-display font-black text-4xl mb-2">{t.favorites.title}</h1>
         <p className="text-muted-foreground mb-8">{t.favorites.subtitle}</p>
 
-        {favoriteProducts.length === 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <FavoriteCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : favoriteProducts.length === 0 ? (
           <div className="text-center py-20">
             <Heart className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
             <p className="text-muted-foreground mb-4">{t.favorites.empty}</p>
@@ -104,7 +123,7 @@ export default function Favorites() {
             ))}
           </div>
         )}
-      </div>
+      </motion.div>
       <Footer />
     </div>
   );
