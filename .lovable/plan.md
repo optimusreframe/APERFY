@@ -1,118 +1,153 @@
 
 
-# Phase 7: Security Hardening
+# Phase 8: Content Update, Custom Model Request System & 3D Visual Enhancement
 
 ## Overview
-Implement application-level security across the stack: input validation, rate limiting, file upload protection, security headers, and XSS prevention. Infrastructure-level DDoS protection is already provided by the hosting platform and backend infrastructure (Cloudflare, load balancers). This phase focuses on what we control at the code level.
+
+Three areas of work: (1) update all copy to clarify you only print published models, (2) build a full "Request a Model" feature with file uploads and admin notifications, (3) enhance the landing page with richer 3D visuals, animations, and themed elements.
 
 ---
 
-## 1. Input Validation with Zod (All Forms)
+## 1. Content & Copy Updates
 
-**New file: `src/lib/validation.ts`**
-- Define Zod schemas for all user inputs:
-  - `checkoutSchema`: fullName (max 100), phone (pattern), address (max 255), city (max 100), notes (max 500)
-  - `profileSchema`: fullName (max 100), phone (optional, pattern)
-  - `authSchema`: email (valid email), password (min 6, max 72), fullName (max 100)
-  - `contactSchema` / admin forms: name fields (max 255), slug (alphanumeric + hyphens), price (positive number)
+**Files: `src/i18n/translations.ts`, landing sections**
 
-**Edit files**: `Checkout.tsx`, `Profile.tsx`, `Auth.tsx`, `AdminProducts.tsx`, `AdminCategories.tsx`, `AdminMaterials.tsx`
-- Validate all form data through Zod before submission
-- Show field-level error messages
-- Sanitize text inputs (trim whitespace, strip HTML tags)
+Update all messaging that implies custom design services:
+- Hero subtitle: remove "request a custom design" language, emphasize browsing/purchasing published models
+- HowItWorks Step 1: change from "request a custom design" to "browse our collection and pick your model"
+- HowItWorks Step 2: keep customization of material/color/size but remove "tailored to your needs" design language
+- Add a new "Can't find what you need?" CTA pointing to the Request a Model page
 
-## 2. File Upload Security
+---
 
-**Edit: `Profile.tsx` (avatar), `AdminProducts.tsx` (product images)**
-- Validate file type via MIME type AND extension (only allow `image/jpeg`, `image/png`, `image/webp`)
-- Enforce max file size: 2MB for avatars, 5MB for product images
-- Sanitize file names (remove special characters)
-- Validate file content by checking magic bytes (file signature)
+## 2. Custom Model Request System
 
-## 3. Rate Limiting Utility (Client-Side Throttle)
+### 2a. Database Migration
 
-**New file: `src/lib/rate-limit.ts`**
-- Simple in-memory rate limiter for sensitive actions
-- Prevent rapid-fire form submissions (auth, checkout, profile save)
-- Configurable: max attempts per time window
-- Applied to: login, signup, password reset, order placement, profile save
+New table: `model_requests`
+- `id` (uuid, PK)
+- `name` (text) — requester's name
+- `email` (text) — requester's email
+- `phone` (text) — requester's phone
+- `product_name` (text) — desired model name
+- `description` (text, nullable) — notes/details
+- `reference_url` (text, nullable) — reference URL
+- `images` (jsonb, default []) — uploaded image URLs
+- `status` (text, default 'pending') — pending/reviewing/fulfilled/rejected
+- `fulfilled_product_id` (uuid, nullable) — link to product when fulfilled
+- `created_at`, `updated_at`
 
-## 4. Edge Function Security Hardening
+RLS: Authenticated users can INSERT their own requests, anon cannot. Admins can SELECT/UPDATE all.
 
-**Edit: `supabase/functions/ai-product-from-url/index.ts`**
-- Add Zod input validation for URL and description fields
-- Validate URL format (must be valid HTTP/HTTPS URL)
-- Add request size limit check
-- Sanitize AI prompt inputs to prevent prompt injection
+New storage bucket: `model-request-images` (public).
 
-## 5. Security Headers
+### 2b. Request a Model Page (`/request-model`)
 
-**New file: `public/_headers` (or via `vite.config.ts` plugin)**
-- Content-Security-Policy: restrict script sources, disable inline scripts where possible
-- X-Content-Type-Options: nosniff
-- X-Frame-Options: DENY (prevent clickjacking)
-- Referrer-Policy: strict-origin-when-cross-origin
-- Permissions-Policy: restrict camera, microphone, geolocation
+**New file: `src/pages/RequestModel.tsx`**
+- Drag-and-drop image upload area (multiple images, max 5MB each, validated MIME types)
+- Fields: name, email, phone (required), product name (required), description (textarea), reference URL
+- Zod validation on all fields
+- On submit: upload images to storage, insert row into `model_requests`, show success toast
+- No auth required (public form, but captures contact info)
+- Bilingual (EN/ES) with all text from translations
 
-**Edit: `index.html`**
-- Add CSP meta tag as fallback
-- Add `rel="noopener noreferrer"` to all external links
+### 2c. Admin: Manage Requests
 
-## 6. XSS Prevention
+**New file: `src/pages/admin/AdminRequests.tsx`**
+- List all model requests with status badges
+- View request details (images, notes, URL)
+- Update status (pending → reviewing → fulfilled/rejected)
+- When marking "fulfilled": select a product from the store to link, which triggers an email to the requester
 
-**New file: `src/lib/sanitize.ts`**
-- HTML sanitization utility using DOMPurify (add as dependency)
-- Apply to all user-generated text that gets rendered (product descriptions from AI, order notes, profile names)
-- Ensure no `dangerouslySetInnerHTML` usage without sanitization
+**Edit: `src/pages/admin/AdminSidebar.tsx`** — add "Requests" link
+**Edit: `src/pages/admin/AdminLayout.tsx`** — add route
 
-**Audit existing code** for:
-- Template literal injection in URLs
-- Unsanitized user input in `href`, `src`, or dynamic attributes
+### 2d. Email Notification on Fulfillment
 
-## 7. Auth Hardening
+**New edge function or direct invocation**: When admin marks a request as "fulfilled" and links a product, send an email to the requester with the product name, image, and a direct link button to the product page. This will use Lovable's email infrastructure.
 
-**Edit: `src/contexts/AuthContext.tsx`**
-- Add session timeout: auto-logout after extended inactivity (e.g., 30 min idle)
-- Clear sensitive data from memory on sign-out (cart is fine to keep, but auth tokens must go)
+### 2e. Navbar & Footer
 
-**Edit: `src/pages/Auth.tsx`**
-- Add login attempt throttling (max 5 attempts per 5 minutes, show cooldown message)
-- Disable submit button during cooldown
-- Mask error messages to prevent user enumeration (generic "Invalid credentials" instead of "User not found")
+- Add "Request a Model" link in Navbar and Footer
 
-## 8. Cart Data Integrity
+---
 
-**Edit: `src/contexts/CartContext.tsx`**
-- Validate cart data shape when loading from localStorage (Zod schema)
-- Reject corrupted/tampered cart data gracefully (reset to empty)
-- Validate price data against server on checkout (re-fetch product prices before order submission)
+## 3. Landing Page 3D Visual Enhancement
 
-**Edit: `src/pages/Checkout.tsx`**
-- Before placing order: re-fetch current prices from DB and compare with cart
-- If prices changed, notify user and update cart
-- Prevents price manipulation via localStorage tampering
+### 3a. New Section: `RequestCTASection`
 
-## 9. Admin Protection Audit
+**New file: `src/components/landing/RequestCTASection.tsx`**
+- "Can't find your model?" call-to-action section between Stats and Footer
+- 3D-themed illustration (CSS 3D transforms, animated geometric shapes)
+- Link to `/request-model`
 
-**Edit: `src/components/ProtectedRoute.tsx`**
-- Add logging for unauthorized admin access attempts
-- Redirect with toast message explaining why access was denied
+### 3b. Enhanced HeroSection
+
+- Add more floating 3D geometric shapes (tetrahedron, sphere wireframe, torus) using CSS 3D transforms
+- Add layered particle system (more particles, varied sizes)
+- Add subtle rotating grid/wireframe background effect
+- Improve the animated 3D cube with more faces and depth
+
+### 3c. Enhanced HowItWorksSection
+
+- Add 3D-styled step cards with perspective transforms on hover
+- Add animated connecting lines between steps (dotted path with animated dash offset)
+- Add floating 3D icons that rotate/pulse
+
+### 3d. Enhanced MaterialsSection
+
+- Add 3D filament spool illustrations (CSS 3D transforms)
+- Cards tilt on hover (3D perspective effect)
+- Add subtle layer/depth effects with shadows
+
+### 3e. Enhanced StatsSection
+
+- Add animated counter effect (numbers count up when in view)
+- 3D card hover effects (perspective tilt)
+- Add floating 3D decorative elements
+
+### 3f. New CSS Animations
+
+**Edit: `tailwind.config.ts`** and **`src/index.css`**
+- Add `rotate-3d` keyframe animation
+- Add `tilt-card` hover perspective effect
+- Add `wireframe-spin` for background wireframe elements
+- Add `count-up` animation utility
+
+---
+
+## 4. Routing & Translations
+
+**Edit: `src/App.tsx`** — add `/request-model` route (public, no auth required)
+
+**Edit: `src/i18n/translations.ts`** — add keys for:
+- `requestModel` section (page title, subtitle, form labels, placeholders, success message, CTA)
+- `admin.requests` section (list title, status labels, fulfill action)
+- Update `howItWorks` step descriptions to remove custom design language
+- Update `hero.subtitle` to remove custom design language
+
+---
 
 ## Files Summary
 
 | Action | File |
 |--------|------|
-| Create | `src/lib/validation.ts` — Zod schemas for all forms |
-| Create | `src/lib/rate-limit.ts` — client-side rate limiter |
-| Create | `src/lib/sanitize.ts` — XSS sanitization utility |
-| Edit | `src/pages/Auth.tsx` — login throttling, error masking |
-| Edit | `src/pages/Checkout.tsx` — input validation, price verification |
-| Edit | `src/pages/Profile.tsx` — input validation, upload security |
-| Edit | `src/contexts/AuthContext.tsx` — session timeout |
-| Edit | `src/contexts/CartContext.tsx` — data integrity validation |
-| Edit | `src/pages/admin/AdminProducts.tsx` — validation, upload security |
-| Edit | `src/components/ProtectedRoute.tsx` — access denied feedback |
-| Edit | `supabase/functions/ai-product-from-url/index.ts` — input validation |
-| Edit | `index.html` — CSP meta tag |
-| Dep | `dompurify` + `@types/dompurify` |
+| Create | `src/pages/RequestModel.tsx` — public request form with drag-drop upload |
+| Create | `src/pages/admin/AdminRequests.tsx` — admin request management |
+| Create | `src/components/landing/RequestCTASection.tsx` — CTA section |
+| Edit | `src/pages/Index.tsx` — add RequestCTASection |
+| Edit | `src/components/landing/HeroSection.tsx` — enhanced 3D visuals |
+| Edit | `src/components/landing/HowItWorksSection.tsx` — 3D cards, updated copy |
+| Edit | `src/components/landing/MaterialsSection.tsx` — 3D hover effects |
+| Edit | `src/components/landing/StatsSection.tsx` — counters, 3D effects |
+| Edit | `src/components/Navbar.tsx` — add Request link |
+| Edit | `src/components/Footer.tsx` — add Request link |
+| Edit | `src/pages/admin/AdminLayout.tsx` — add requests route |
+| Edit | `src/pages/admin/AdminSidebar.tsx` — add requests link |
+| Edit | `src/App.tsx` — add /request-model route |
+| Edit | `src/i18n/translations.ts` — new keys, updated copy |
+| Edit | `tailwind.config.ts` — new 3D animations |
+| Edit | `src/index.css` — new utility classes |
+| Migration | Create `model_requests` table + RLS |
+| Migration | Create `model-request-images` storage bucket |
 
