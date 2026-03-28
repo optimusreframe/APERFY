@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Box, MessageCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Box, MessageCircle, ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import Navbar from '@/components/Navbar';
@@ -15,6 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import LikeButton from '@/components/LikeButton';
+import ShareMenu from '@/components/ShareMenu';
 
 const WHATSAPP_NUMBER = '16893324656';
 const PUBLIC_URL = 'https://a3dtoprint.lovable.app';
@@ -22,11 +25,11 @@ const PUBLIC_URL = 'https://a3dtoprint.lovable.app';
 function CatalogCardSkeleton() {
   return (
     <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
-      <Skeleton className="aspect-square w-full" />
-      <div className="p-4 space-y-2">
-        <Skeleton className="h-5 w-3/4" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-6 w-1/3" />
+      <Skeleton className="aspect-[4/5] w-full" />
+      <div className="p-3 sm:p-4 space-y-2">
+        <Skeleton className="h-4 sm:h-5 w-3/4" />
+        <Skeleton className="h-3 sm:h-4 w-full" />
+        <Skeleton className="h-5 sm:h-6 w-1/3" />
       </div>
     </div>
   );
@@ -110,13 +113,13 @@ export default function Catalog() {
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
             {Array.from({ length: 8 }).map((_, i) => (
               <CatalogCardSkeleton key={i} />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
             {products.map((product: any, i: number) => (
               <motion.div
                 key={product.id}
@@ -127,29 +130,40 @@ export default function Catalog() {
                 onClick={() => handleOpenProduct(product)}
               >
                 <div className="rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
-                  <div className="aspect-square bg-secondary relative overflow-hidden">
+                  <div className="aspect-[4/5] bg-secondary relative overflow-hidden">
                     {(product.images as string[])?.length > 0 ? (
                       <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Box className="w-16 h-16 text-muted-foreground/30" />
+                        <Box className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground/30" />
                       </div>
                     )}
+                    {/* Action buttons */}
+                    <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                        <ShareMenu slug={product.slug} productName={language === 'es' ? product.name_es : product.name_en} />
+                      </div>
+                    </div>
                     {product.categories && (
-                      <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-md bg-background/80 backdrop-blur-sm text-xs font-medium text-foreground">
+                      <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-background/80 backdrop-blur-sm text-[10px] sm:text-xs font-medium text-foreground">
                         {language === 'es' ? product.categories.name_es : product.categories.name_en}
                       </div>
                     )}
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                  <div className="p-3 sm:p-4">
+                    <h3 className="font-display font-semibold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate">
                       {language === 'es' ? product.name_es : product.name_en}
                     </h3>
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 line-clamp-2 hidden sm:block">
                       {language === 'es' ? product.description_es : product.description_en}
                     </p>
-                    <div className="mt-2 text-lg font-bold text-gradient-gold">
-                      ${Number(product.base_price).toFixed(2)}
+                    <div className="flex items-center justify-between mt-1 sm:mt-2">
+                      <span className="text-base sm:text-lg font-bold text-gradient-gold">
+                        ${Number(product.base_price).toFixed(2)}
+                      </span>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <LikeButton productId={product.id} size="sm" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -222,6 +236,10 @@ export default function Catalog() {
                       {language === 'es' ? selectedProduct.categories.name_es : selectedProduct.categories.name_en}
                     </Badge>
                   )}
+                  <div className="ml-auto flex items-center gap-3">
+                    <LikeButton productId={selectedProduct.id} size="md" />
+                    <ShareMenu slug={selectedProduct.slug} productName={language === 'es' ? selectedProduct.name_es : selectedProduct.name_en} size="md" />
+                  </div>
                 </div>
 
                 <p className="text-muted-foreground leading-relaxed">
@@ -259,12 +277,20 @@ export default function Catalog() {
                   </div>
                 )}
 
-                <a href={getWhatsAppUrl(selectedProduct)} target="_blank" rel="noopener noreferrer" className="block">
-                  <Button className="w-full bg-[#25D366] hover:bg-[#20BD5A] text-white gap-2 font-semibold text-base py-5">
-                    <MessageCircle className="w-5 h-5" />
-                    {t.catalog.orderWhatsapp}
-                  </Button>
-                </a>
+                <div className="space-y-3">
+                  <Link to={`/3dmodels/${selectedProduct.slug}`} className="block" onClick={() => setSelectedProduct(null)}>
+                    <Button className="w-full bg-gradient-gold text-primary-foreground gap-2 font-semibold text-base py-5">
+                      <ShoppingBag className="w-5 h-5" />
+                      {language === 'es' ? 'Comprar Online' : 'Buy Online'}
+                    </Button>
+                  </Link>
+                  <a href={getWhatsAppUrl(selectedProduct)} target="_blank" rel="noopener noreferrer" className="block">
+                    <Button className="w-full bg-[#25D366] hover:bg-[#20BD5A] text-white gap-2 font-semibold text-base py-5">
+                      <MessageCircle className="w-5 h-5" />
+                      {t.catalog.orderWhatsapp}
+                    </Button>
+                  </a>
+                </div>
               </div>
             </>
           )}

@@ -1,40 +1,21 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, Printer, Users, Palette, Box, Triangle, Hexagon, Pentagon } from 'lucide-react';
+import { ArrowRight, Printer, Users, Palette, Box, Triangle, Hexagon, Pentagon, Layers, Cpu } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const FloatingShape = ({
   children, x, y, duration, delay = 0, size = 'w-12 h-12'
 }: { children: React.ReactNode; x: string; y: string; duration: number; delay?: number; size?: string }) => (
   <motion.div
-    className={`absolute ${size} text-primary/[0.08] pointer-events-none`}
+    className={`absolute ${size} text-primary/[0.12] pointer-events-none`}
     style={{ left: x, top: y }}
     animate={{ y: [0, -20, 0], rotateZ: [0, 360] }}
     transition={{ duration, repeat: Infinity, ease: 'easeInOut', delay }}
   >
     {children}
-  </motion.div>
-);
-
-const Cube3D = () => (
-  <motion.div
-    className="relative"
-    style={{ width: 120, height: 120, perspective: 600, transformStyle: 'preserve-3d' }}
-    animate={{ rotateX: [0, 360], rotateY: [0, 360] }}
-    transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
-  >
-    {[
-      { transform: 'translateZ(60px)', opacity: 0.15 },
-      { transform: 'rotateY(180deg) translateZ(60px)', opacity: 0.1 },
-      { transform: 'rotateY(90deg) translateZ(60px)', opacity: 0.12 },
-      { transform: 'rotateY(-90deg) translateZ(60px)', opacity: 0.08 },
-      { transform: 'rotateX(90deg) translateZ(60px)', opacity: 0.1 },
-      { transform: 'rotateX(-90deg) translateZ(60px)', opacity: 0.06 },
-    ].map((face, i) => (
-      <div key={i} className="absolute inset-0 border-2 border-primary rounded-lg"
-        style={{ transform: face.transform, opacity: face.opacity, transformStyle: 'preserve-3d', backfaceVisibility: 'hidden' }} />
-    ))}
   </motion.div>
 );
 
@@ -52,8 +33,40 @@ const Particles = () => (
   </div>
 );
 
+const FloatingProductCard = ({ image, name, delay, x, y, rotate }: { image: string; name: string; delay: number; x: number; y: number; rotate: number }) => (
+  <motion.div
+    className="absolute w-28 h-36 sm:w-32 sm:h-40 rounded-xl overflow-hidden border border-primary/20 shadow-gold bg-card"
+    style={{ left: `calc(50% + ${x}px)`, top: `calc(50% + ${y}px)` }}
+    initial={{ opacity: 0, scale: 0.8 }}
+    animate={{
+      opacity: [0.8, 1, 0.8],
+      y: [0, -10, 0],
+      rotate: [rotate, rotate + 3, rotate],
+    }}
+    transition={{ duration: 5, repeat: Infinity, delay, ease: 'easeInOut' }}
+  >
+    <img src={image} alt={name} className="w-full h-full object-cover" />
+    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background/90 to-transparent p-2">
+      <p className="text-[10px] font-medium text-foreground truncate">{name}</p>
+    </div>
+  </motion.div>
+);
+
 export default function HeroSection() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+
+  const { data: featuredProducts = [] } = useQuery({
+    queryKey: ['hero-featured'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('name_en, name_es, images, slug')
+        .eq('is_active', true)
+        .eq('is_featured', true)
+        .limit(4);
+      return (data || []).filter((p: any) => (p.images as string[])?.length > 0);
+    },
+  });
 
   const stats = [
     { icon: Printer, value: '1,200+', label: t.hero.stat1 },
@@ -61,9 +74,15 @@ export default function HeroSection() {
     { icon: Palette, value: '15+', label: t.hero.stat3 },
   ];
 
+  const cardPositions = [
+    { x: -140, y: -120, rotate: -12, delay: 0 },
+    { x: 80, y: -100, rotate: 8, delay: 1 },
+    { x: -100, y: 60, rotate: -6, delay: 2 },
+    { x: 100, y: 80, rotate: 10, delay: 0.5 },
+  ];
+
   return (
     <section className="relative min-h-[90vh] flex items-center overflow-hidden">
-      {/* Wireframe grid */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div className="absolute inset-0 opacity-[0.03]"
           style={{
@@ -124,18 +143,75 @@ export default function HeroSection() {
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3, duration: 0.8 }} className="hidden lg:flex items-center justify-center">
-            <div className="relative">
-              <motion.div className="absolute inset-0 m-auto w-72 h-72 rounded-full border border-primary/10"
-                animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 4, repeat: Infinity }} />
-              <motion.div className="absolute inset-0 m-auto w-56 h-56 rounded-full border border-primary/15"
-                animate={{ scale: [1.1, 1, 1.1], opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 5, repeat: Infinity }} />
-              <div className="relative flex items-center justify-center w-80 h-80"><Cube3D /></div>
+          {/* Right column — Visual showcase */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
+            className="hidden lg:flex items-center justify-center"
+          >
+            <div className="relative w-[420px] h-[420px]">
+              {/* Glowing background orbs */}
+              <div className="absolute inset-0 m-auto w-64 h-64 rounded-full bg-primary/10 blur-[80px]" />
+              <div className="absolute inset-0 m-auto w-40 h-40 rounded-full bg-primary/15 blur-[40px]" />
+
+              {/* Pulsing rings */}
+              <motion.div className="absolute inset-0 m-auto w-72 h-72 rounded-full border border-primary/15"
+                animate={{ scale: [1, 1.08, 1], opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 4, repeat: Infinity }} />
+              <motion.div className="absolute inset-0 m-auto w-56 h-56 rounded-full border border-primary/20"
+                animate={{ scale: [1.05, 0.95, 1.05], opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 5, repeat: Infinity }} />
+
+              {/* Center 3D printer icon composition */}
+              <div className="absolute inset-0 m-auto w-32 h-32 flex items-center justify-center">
+                <motion.div
+                  animate={{ rotateY: [0, 360] }}
+                  transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+                  className="relative"
+                  style={{ transformStyle: 'preserve-3d', perspective: 600 }}
+                >
+                  <div className="w-28 h-28 rounded-2xl bg-card border border-primary/30 flex items-center justify-center shadow-gold-lg">
+                    <Printer className="w-14 h-14 text-primary glow-gold" />
+                  </div>
+                </motion.div>
+
+                {/* Orbiting tech icons */}
+                {[Layers, Cpu, Hexagon, Box].map((Icon, i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute w-8 h-8 rounded-lg bg-card/80 border border-primary/20 flex items-center justify-center shadow-gold"
+                    animate={{
+                      x: [Math.cos(i * Math.PI / 2) * 80, Math.cos(i * Math.PI / 2 + Math.PI * 2) * 80],
+                      y: [Math.sin(i * Math.PI / 2) * 80, Math.sin(i * Math.PI / 2 + Math.PI * 2) * 80],
+                    }}
+                    transition={{ duration: 10, repeat: Infinity, ease: 'linear', delay: i * 2.5 }}
+                  >
+                    <Icon className="w-4 h-4 text-primary/70" />
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Floating product cards */}
+              {featuredProducts.slice(0, 4).map((product: any, i: number) => {
+                const pos = cardPositions[i];
+                return (
+                  <FloatingProductCard
+                    key={i}
+                    image={(product.images as string[])[0]}
+                    name={language === 'es' ? product.name_es : product.name_en}
+                    delay={pos.delay}
+                    x={pos.x}
+                    y={pos.y}
+                    rotate={pos.rotate}
+                  />
+                );
+              })}
+
+              {/* Orbiting dots */}
               {[0, 1, 2, 3].map(i => (
                 <motion.div key={i} className="absolute w-2 h-2 rounded-full bg-primary" style={{ top: '50%', left: '50%' }}
                   animate={{
-                    x: [Math.cos(i * Math.PI / 2) * 140, Math.cos(i * Math.PI / 2 + Math.PI * 2) * 140],
-                    y: [Math.sin(i * Math.PI / 2) * 140, Math.sin(i * Math.PI / 2 + Math.PI * 2) * 140],
+                    x: [Math.cos(i * Math.PI / 2) * 170, Math.cos(i * Math.PI / 2 + Math.PI * 2) * 170],
+                    y: [Math.sin(i * Math.PI / 2) * 170, Math.sin(i * Math.PI / 2 + Math.PI * 2) * 170],
                     opacity: [0.3, 0.8, 0.3],
                   }}
                   transition={{ duration: 8, repeat: Infinity, ease: 'linear', delay: i * 2 }} />

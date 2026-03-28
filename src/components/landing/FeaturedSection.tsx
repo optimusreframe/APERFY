@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
+import LikeButton from '@/components/LikeButton';
+import ShareMenu from '@/components/ShareMenu';
 
 export default function FeaturedSection() {
   const { language, t } = useLanguage();
@@ -50,7 +52,7 @@ export default function FeaturedSection() {
           </Link>
         </motion.div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {products.map((product: any, i: number) => (
             <motion.div
               key={product.id}
@@ -62,29 +64,37 @@ export default function FeaturedSection() {
             >
               <Link to={`/3dmodels/${product.slug}`}>
                 <div className="rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
-                  <div className="aspect-square bg-secondary relative overflow-hidden">
+                  <div className="aspect-[4/5] bg-secondary relative overflow-hidden">
                     {(product.images as string[])?.length > 0 ? (
                       <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover" />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Box className="w-16 h-16 text-muted-foreground/30" />
+                        <Box className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground/30" />
                       </div>
                     )}
-                    <button className="absolute top-3 right-3 w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/20">
-                      <Heart className="w-4 h-4 text-foreground" />
-                    </button>
+                    <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center">
+                        <LikeButton productId={product.id} showCount={false} />
+                      </div>
+                      <div className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center">
+                        <ShareMenu slug={product.slug} productName={language === 'es' ? product.name_es : product.name_en} />
+                      </div>
+                    </div>
                     {product.categories && (
-                      <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-md bg-background/80 backdrop-blur-sm text-xs font-medium text-foreground">
+                      <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-background/80 backdrop-blur-sm text-[10px] sm:text-xs font-medium text-foreground">
                         {language === 'es' ? product.categories.name_es : product.categories.name_en}
                       </div>
                     )}
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                  <div className="p-3 sm:p-4">
+                    <h3 className="font-display font-semibold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate">
                       {language === 'es' ? product.name_es : product.name_en}
                     </h3>
-                    <div className="mt-1 text-lg font-bold text-gradient-gold">
-                      ${Number(product.base_price).toFixed(2)}
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-base sm:text-lg font-bold text-gradient-gold">
+                        ${Number(product.base_price).toFixed(2)}
+                      </span>
+                      <LikeButton productId={product.id} size="sm" className="sm:hidden" />
                     </div>
                   </div>
                 </div>
