@@ -98,6 +98,19 @@ export default {
           from: { transform: "rotateY(0deg)" },
           to: { transform: "rotateY(360deg)" },
         },
+        "shimmer": {
+          "0%": { left: "-100%" },
+          "100%": { left: "200%" },
+        },
+        "glow-pulse": {
+          "0%, 100%": { opacity: "0.4", transform: "scale(1)" },
+          "50%": { opacity: "0.8", transform: "scale(1.15)" },
+        },
+        "cart-bounce": {
+          "0%, 100%": { transform: "scale(1)" },
+          "30%": { transform: "scale(1.25)" },
+          "60%": { transform: "scale(0.9)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
