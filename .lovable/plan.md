@@ -1,97 +1,73 @@
 
 
-# Phase 4: Shopping Cart & Order Flow
+# Phase 5: User Profile, Favorites Page, Admin Dashboard Enhancement & Notifications
 
 ## Overview
 
-Add a cart system, checkout flow, and order management. Users can add products (with selected variations) to a persistent cart, review their order, and submit it. Admins can view and manage orders from the admin panel.
+Add user account management (profile page, favorites page), enhance the admin dashboard with real order/revenue stats, and add WhatsApp notification to admin when a new order is placed.
 
 ---
 
-## 1. Database Changes (Migration)
+## 1. User Profile Page (`/profile`)
 
-**New tables:**
-
-- **orders** — `id (uuid)`, `user_id (uuid, FK auth.users via profiles pattern)`, `status (order_status enum: pending/confirmed/printing/shipped/delivered/cancelled)`, `total (numeric)`, `notes (text)`, `shipping_address (jsonb)`, `created_at`, `updated_at`
-- **order_items** — `id (uuid)`, `order_id (uuid FK orders)`, `product_id (uuid FK products)`, `quantity (int)`, `unit_price (numeric)`, `selected_variations (jsonb)`, `notes (text)`
-
-**RLS policies:**
-- Users can INSERT their own orders and SELECT their own orders
-- Admins can SELECT/UPDATE all orders (manage status)
-- Order items follow parent order's access
-
-**Enum:** `create type public.order_status as enum ('pending','confirmed','printing','shipped','delivered','cancelled');`
-
-## 2. Cart System (Client-Side with Context)
-
-**New file: `src/contexts/CartContext.tsx`**
-- Cart state stored in localStorage (no auth required to browse/add)
-- Cart items: `{ productId, productName, productImage, slug, quantity, unitPrice, selectedVariations, notes }`
-- Actions: addToCart, removeFromCart, updateQuantity, clearCart, getTotal
-- Wrap app with `<CartProvider>`
-
-## 3. New Pages
-
-### `/cart` — Cart Page (`src/pages/Cart.tsx`)
-- List of cart items with image, name, variations, quantity +/- controls, price, remove button
-- Order summary sidebar: subtotal, total
-- "Proceed to Checkout" button (requires auth — redirect to `/auth` if not logged in)
-- Empty cart state
-
-### `/checkout` — Checkout Page (`src/pages/Checkout.tsx`)
-- Protected route (authenticated users only)
-- Shipping address form (name, phone, address, city, notes)
-- Order summary (readonly cart items)
-- "Place Order" button → inserts into `orders` + `order_items`, clears cart, redirects to confirmation
-- Success toast + redirect to `/orders`
-
-### `/orders` — My Orders (`src/pages/Orders.tsx`)
+**New file: `src/pages/Profile.tsx`**
 - Protected route
-- List of user's orders with status badge, date, total, item count
-- Click to expand → order items detail
+- Display and edit: full name, phone, avatar (upload to `avatars` bucket)
+- Show account email (read-only)
+- Link to "My Orders" and "My Favorites"
+- Add profile link to Navbar (user avatar or icon when logged in)
 
-## 4. Admin: Orders Management
+## 2. Favorites Page (`/favorites`)
 
-**New file: `src/pages/admin/AdminOrders.tsx`**
-- Table of all orders with user info, status, total, date
-- Status update dropdown (pending → confirmed → printing → shipped → delivered)
-- Click to expand order items
-- Add route to AdminLayout + AdminSidebar
+**New file: `src/pages/Favorites.tsx`**
+- Protected route
+- Grid of user's favorited products (same card style as Store)
+- Remove from favorites button on each card
+- Click card → navigate to product detail
+- Empty state: "No favorites yet — browse the store"
 
-## 5. UI Updates
+## 3. Admin Dashboard Enhancement
 
-- **ProductDetail.tsx**: Wire "Add to Cart" button to CartContext (currently placeholder)
-- **Navbar.tsx**: Add cart icon with item count badge, link to `/cart`
-- **Store.tsx**: Add "Add to Cart" quick button on product cards
+**Edit: `src/pages/admin/AdminDashboard.tsx`**
+- Add order count and total revenue stats cards
+- Recent orders list (last 5) with status badges
+- Orders by status breakdown (mini chart or stat cards)
+- Low-effort high-impact improvement
 
-## 6. Translations
+## 4. WhatsApp Admin Notification on New Order
 
-Add keys for: cart (empty, items, total, checkout, remove), orders (status labels, my orders, place order), checkout form labels, admin order management.
+**New edge function: `supabase/functions/notify-new-order/index.ts`**
+- Called after order is placed in Checkout
+- Sends a WhatsApp message link (opens wa.me) — or alternatively, logs to admin
+- Since we can't programmatically send WhatsApp without Twilio, we'll instead: insert a notification into a simple `admin_notifications` table that the admin dashboard polls/shows
+- **Alternative simpler approach**: After placing the order, the Checkout page shows a toast to the user AND the admin dashboard shows a "new orders" indicator (badge on sidebar)
 
-## 7. Routing
+## 5. Navbar Updates
+
+**Edit: `src/components/Navbar.tsx`**
+- When logged in: show user avatar/icon dropdown with links to Profile, My Orders, My Favorites, Logout
+- Replace current scattered auth buttons with a clean dropdown menu
+
+## 6. Routing
 
 Add to `App.tsx`:
-- `/cart` → Cart
-- `/checkout` → Checkout (protected)
-- `/orders` → Orders (protected)
-- `/admin/orders` → AdminOrders
+- `/profile` → Profile (protected)
+- `/favorites` → Favorites (protected)
+
+## 7. Translations
+
+Add keys for: profile (edit profile, save, avatar, phone), favorites (my favorites, empty state, remove), dashboard stats labels.
 
 ## 8. Files Summary
 
 | Action | File |
 |--------|------|
-| Create | `src/contexts/CartContext.tsx` |
-| Create | `src/pages/Cart.tsx` |
-| Create | `src/pages/Checkout.tsx` |
-| Create | `src/pages/Orders.tsx` |
-| Create | `src/pages/admin/AdminOrders.tsx` |
+| Create | `src/pages/Profile.tsx` |
+| Create | `src/pages/Favorites.tsx` |
 | Edit | `src/App.tsx` — new routes |
-| Edit | `src/main.tsx` or `App.tsx` — wrap CartProvider |
-| Edit | `src/pages/ProductDetail.tsx` — wire Add to Cart |
-| Edit | `src/pages/Store.tsx` — quick add to cart |
-| Edit | `src/components/Navbar.tsx` — cart icon + badge |
-| Edit | `src/pages/admin/AdminLayout.tsx` — orders route |
-| Edit | `src/pages/admin/AdminSidebar.tsx` — orders link |
+| Edit | `src/components/Navbar.tsx` — user dropdown menu |
+| Edit | `src/pages/admin/AdminDashboard.tsx` — order stats |
+| Edit | `src/pages/admin/AdminSidebar.tsx` — new orders badge |
 | Edit | `src/i18n/translations.ts` — new keys |
-| Migration | orders, order_items tables + enum |
+| No migration needed — all tables already exist |
 
