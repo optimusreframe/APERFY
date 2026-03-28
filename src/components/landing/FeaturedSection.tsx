@@ -1,11 +1,13 @@
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Heart, Box } from 'lucide-react';
+import { ArrowRight, Box } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import LikeButton from '@/components/LikeButton';
+import FavoriteCount from '@/components/FavoriteCount';
 import ShareMenu from '@/components/ShareMenu';
 
 export default function FeaturedSection() {
@@ -23,6 +25,38 @@ export default function FeaturedSection() {
         .limit(4);
       if (error) throw error;
       return data;
+    },
+  });
+
+  const productIds = useMemo(() => products.map((p: any) => p.id), [products]);
+
+  const { data: likeCounts = {} } = useQuery({
+    queryKey: ['bulk-like-counts-featured', productIds],
+    enabled: productIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_likes')
+        .select('product_id')
+        .in('product_id', productIds);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      data.forEach((row: any) => { counts[row.product_id] = (counts[row.product_id] || 0) + 1; });
+      return counts;
+    },
+  });
+
+  const { data: favCounts = {} } = useQuery({
+    queryKey: ['bulk-fav-counts-featured', productIds],
+    enabled: productIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('favorites')
+        .select('product_id')
+        .in('product_id', productIds);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      data.forEach((row: any) => { counts[row.product_id] = (counts[row.product_id] || 0) + 1; });
+      return counts;
     },
   });
 
@@ -64,18 +98,15 @@ export default function FeaturedSection() {
             >
               <Link to={`/3dmodels/${product.slug}`}>
                 <div className="rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
-                  <div className="aspect-[4/5] bg-secondary relative overflow-hidden">
+                  <div className="aspect-[4/3] bg-secondary relative overflow-hidden">
                     {(product.images as string[])?.length > 0 ? (
-                      <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover" />
+                      <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">
                         <Box className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground/30" />
                       </div>
                     )}
                     <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center">
-                        <LikeButton productId={product.id} showCount={false} />
-                      </div>
                       <div className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center">
                         <ShareMenu slug={product.slug} productName={language === 'es' ? product.name_es : product.name_en} />
                       </div>
@@ -86,7 +117,7 @@ export default function FeaturedSection() {
                       </div>
                     )}
                   </div>
-                  <div className="p-3 sm:p-4">
+                  <div className="p-3">
                     <h3 className="font-display font-semibold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate">
                       {language === 'es' ? product.name_es : product.name_en}
                     </h3>
@@ -94,7 +125,10 @@ export default function FeaturedSection() {
                       <span className="text-base sm:text-lg font-bold text-gradient-gold">
                         ${Number(product.base_price).toFixed(2)}
                       </span>
-                      <LikeButton productId={product.id} size="sm" className="sm:hidden" />
+                    </div>
+                    <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border/30">
+                      <LikeButton productId={product.id} countOnly externalCount={likeCounts[product.id] || 0} size="sm" />
+                      <FavoriteCount count={favCounts[product.id] || 0} />
                     </div>
                   </div>
                 </div>
