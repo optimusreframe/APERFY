@@ -1,73 +1,81 @@
 
 
-# Phase 5: User Profile, Favorites Page, Admin Dashboard Enhancement & Notifications
+# Phase 6: Polish & UX Improvements
 
 ## Overview
-
-Add user account management (profile page, favorites page), enhance the admin dashboard with real order/revenue stats, and add WhatsApp notification to admin when a new order is placed.
+Improve mobile responsiveness, loading states, animations, empty states, skeleton loaders, and general UX refinements across all pages.
 
 ---
 
-## 1. User Profile Page (`/profile`)
+## 1. Skeleton Loaders for Data-Loading Pages
 
-**New file: `src/pages/Profile.tsx`**
-- Protected route
-- Display and edit: full name, phone, avatar (upload to `avatars` bucket)
-- Show account email (read-only)
-- Link to "My Orders" and "My Favorites"
-- Add profile link to Navbar (user avatar or icon when logged in)
+**Files: `Store.tsx`, `Catalog.tsx`, `ProductDetail.tsx`, `Orders.tsx`, `Favorites.tsx`, `AdminDashboard.tsx`**
+- Replace simple spinners with content-aware skeleton placeholders (using shadcn `Skeleton` component)
+- Store/Catalog: grid of skeleton cards (image + text blocks)
+- ProductDetail: skeleton for image gallery + text area
+- Orders: skeleton rows
+- This makes loading feel faster and less jarring
 
-## 2. Favorites Page (`/favorites`)
+## 2. Mobile Navbar Improvements
 
-**New file: `src/pages/Favorites.tsx`**
-- Protected route
-- Grid of user's favorited products (same card style as Store)
-- Remove from favorites button on each card
-- Click card → navigate to product detail
-- Empty state: "No favorites yet — browse the store"
+**File: `src/components/Navbar.tsx`**
+- Add cart icon with badge to mobile menu (currently only in desktop header)
+- Ensure mobile menu closes on route change (some links already do this, verify all paths)
 
-## 3. Admin Dashboard Enhancement
+## 3. Store Product Cards — Relative Positioning Fix
 
-**Edit: `src/pages/admin/AdminDashboard.tsx`**
-- Add order count and total revenue stats cards
-- Recent orders list (last 5) with status badges
-- Orders by status breakdown (mini chart or stat cards)
-- Low-effort high-impact improvement
+**File: `src/pages/Store.tsx`**
+- The favorite button uses `absolute` positioning but the parent card div lacks `relative` — the heart button floats incorrectly
+- Add `relative` to the card container
 
-## 4. WhatsApp Admin Notification on New Order
+## 4. Checkout — Pre-fill from Profile
 
-**New edge function: `supabase/functions/notify-new-order/index.ts`**
-- Called after order is placed in Checkout
-- Sends a WhatsApp message link (opens wa.me) — or alternatively, logs to admin
-- Since we can't programmatically send WhatsApp without Twilio, we'll instead: insert a notification into a simple `admin_notifications` table that the admin dashboard polls/shows
-- **Alternative simpler approach**: After placing the order, the Checkout page shows a toast to the user AND the admin dashboard shows a "new orders" indicator (badge on sidebar)
+**File: `src/pages/Checkout.tsx`**
+- On mount, fetch user's profile (full_name, phone) and pre-fill the shipping form
+- Reduces friction for returning users
 
-## 5. Navbar Updates
+## 5. Cart — Confirm Before Clear All
 
-**Edit: `src/components/Navbar.tsx`**
-- When logged in: show user avatar/icon dropdown with links to Profile, My Orders, My Favorites, Logout
-- Replace current scattered auth buttons with a clean dropdown menu
+**File: `src/pages/Cart.tsx`**
+- Add a confirmation dialog (AlertDialog) before "Clear All" to prevent accidental cart deletion
 
-## 6. Routing
+## 6. Smooth Page Transitions
 
-Add to `App.tsx`:
-- `/profile` → Profile (protected)
-- `/favorites` → Favorites (protected)
+**File: Multiple pages**
+- Wrap main content of each page in a `motion.div` with a consistent fade-in animation
+- Already done on some pages; standardize across: `Cart`, `Checkout`, `Profile`, `Orders`, `Favorites`
 
-## 7. Translations
+## 7. Toast Feedback Consistency
 
-Add keys for: profile (edit profile, save, avatar, phone), favorites (my favorites, empty state, remove), dashboard stats labels.
+**Files: `Checkout.tsx`, `Profile.tsx`, `Favorites.tsx`, `ProductDetail.tsx`**
+- Ensure all success/error toasts use the translation system (some currently use hardcoded English strings like "Added to cart")
+- Use translated strings from `t.cart`, `t.profile`, etc.
 
-## 8. Files Summary
+## 8. Admin Orders — Missing Fragment Key Warning
+
+**File: `src/pages/admin/AdminOrders.tsx`**
+- The `<>...</>` fragment wrapping each order row lacks a `key` prop — wrap in `React.Fragment` with key to fix React warning
+
+## 9. Footer — Link Support Items
+
+**File: `src/components/Footer.tsx`**
+- Support items (FAQ, Shipping, Returns, Contact) are `<span>` not links — either link them to relevant pages or add `cursor-default` styling to make it clear they're informational
+
+## Files Summary
 
 | Action | File |
 |--------|------|
-| Create | `src/pages/Profile.tsx` |
-| Create | `src/pages/Favorites.tsx` |
-| Edit | `src/App.tsx` — new routes |
-| Edit | `src/components/Navbar.tsx` — user dropdown menu |
-| Edit | `src/pages/admin/AdminDashboard.tsx` — order stats |
-| Edit | `src/pages/admin/AdminSidebar.tsx` — new orders badge |
-| Edit | `src/i18n/translations.ts` — new keys |
-| No migration needed — all tables already exist |
+| Edit | `src/pages/Store.tsx` — skeleton loader, card fix |
+| Edit | `src/pages/Catalog.tsx` — skeleton loader |
+| Edit | `src/pages/ProductDetail.tsx` — skeleton loader, toast i18n |
+| Edit | `src/pages/Cart.tsx` — clear confirmation dialog |
+| Edit | `src/pages/Checkout.tsx` — pre-fill from profile, toast i18n |
+| Edit | `src/pages/Orders.tsx` — skeleton loader |
+| Edit | `src/pages/Favorites.tsx` — skeleton, toast i18n |
+| Edit | `src/pages/Profile.tsx` — page transition |
+| Edit | `src/components/Navbar.tsx` — mobile cart badge |
+| Edit | `src/pages/admin/AdminOrders.tsx` — Fragment key fix |
+| Edit | `src/pages/admin/AdminDashboard.tsx` — skeleton loader |
+| Edit | `src/components/Footer.tsx` — minor styling |
+| Edit | `src/i18n/translations.ts` — any missing toast keys |
 
