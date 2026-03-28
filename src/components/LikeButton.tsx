@@ -11,9 +11,11 @@ interface LikeButtonProps {
   className?: string;
   showCount?: boolean;
   size?: 'sm' | 'md';
+  countOnly?: boolean;
+  externalCount?: number;
 }
 
-export default function LikeButton({ productId, className, showCount = true, size = 'sm' }: LikeButtonProps) {
+export default function LikeButton({ productId, className, showCount = true, size = 'sm', countOnly = false, externalCount = 0 }: LikeButtonProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const { language } = useLanguage();
@@ -22,6 +24,7 @@ export default function LikeButton({ productId, className, showCount = true, siz
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (countOnly) return;
     const fetchLikes = async () => {
       const { count: total } = await supabase
         .from('product_likes')
@@ -40,7 +43,17 @@ export default function LikeButton({ productId, className, showCount = true, siz
       }
     };
     fetchLikes();
-  }, [productId, user]);
+  }, [productId, user, countOnly]);
+
+  if (countOnly) {
+    const iconSize = size === 'sm' ? 'w-3.5 h-3.5' : 'w-5 h-5';
+    return (
+      <div className={cn('flex items-center gap-1 text-muted-foreground', className)}>
+        <ThumbsUp className={iconSize} />
+        <span className="text-xs">{externalCount}</span>
+      </div>
+    );
+  }
 
   const toggleLike = async (e: React.MouseEvent) => {
     e.preventDefault();

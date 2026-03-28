@@ -16,15 +16,17 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import LikeButton from '@/components/LikeButton';
+import FavoriteCount from '@/components/FavoriteCount';
 import ShareMenu from '@/components/ShareMenu';
 
 function ProductCardSkeleton() {
   return (
     <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
-      <Skeleton className="aspect-[4/5] w-full" />
-      <div className="p-3 sm:p-4 space-y-2">
-        <Skeleton className="h-4 sm:h-5 w-3/4" />
-        <Skeleton className="h-5 sm:h-6 w-1/3" />
+      <Skeleton className="aspect-[4/3] w-full" />
+      <div className="p-3 space-y-2">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-5 w-1/3" />
+        <Skeleton className="h-3 w-1/2" />
       </div>
     </div>
   );
@@ -51,6 +53,44 @@ export default function Store() {
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
+    },
+  });
+
+  const productIds = useMemo(() => products.map((p: any) => p.id), [products]);
+
+  // Bulk fetch like counts
+  const { data: likeCounts = {} } = useQuery({
+    queryKey: ['bulk-like-counts', productIds],
+    enabled: productIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_likes')
+        .select('product_id')
+        .in('product_id', productIds);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      data.forEach((row: any) => {
+        counts[row.product_id] = (counts[row.product_id] || 0) + 1;
+      });
+      return counts;
+    },
+  });
+
+  // Bulk fetch favorite counts
+  const { data: favCounts = {} } = useQuery({
+    queryKey: ['bulk-fav-counts', productIds],
+    enabled: productIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('favorites')
+        .select('product_id')
+        .in('product_id', productIds);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      data.forEach((row: any) => {
+        counts[row.product_id] = (counts[row.product_id] || 0) + 1;
+      });
+      return counts;
     },
   });
 
@@ -108,34 +148,28 @@ export default function Store() {
 
   const filtered = useMemo(() => {
     let result = [...products];
-
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((p: any) =>
         p.name_en.toLowerCase().includes(q) || p.name_es.toLowerCase().includes(q)
       );
     }
-
     if (selectedCategories.length > 0) {
       result = result.filter((p: any) => selectedCategories.includes(p.category_id));
     }
-
     if (selectedMaterials.length > 0) {
       const productIdsWithMaterial = productMaterials
         .filter((pm: any) => selectedMaterials.includes(pm.material_id))
         .map((pm: any) => pm.product_id);
       result = result.filter((p: any) => productIdsWithMaterial.includes(p.id));
     }
-
     result = result.filter((p: any) => Number(p.base_price) >= priceRange[0] && Number(p.base_price) <= priceRange[1]);
-
     switch (sort) {
       case 'price_asc': result.sort((a: any, b: any) => Number(a.base_price) - Number(b.base_price)); break;
       case 'price_desc': result.sort((a: any, b: any) => Number(b.base_price) - Number(a.base_price)); break;
       case 'popular': result.sort((a: any, b: any) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0)); break;
       default: break;
     }
-
     return result;
   }, [products, search, sort, selectedCategories, selectedMaterials, priceRange, productMaterials]);
 
@@ -158,24 +192,15 @@ export default function Store() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="mb-8">
-          <h1 className="font-display font-black text-4xl sm:text-5xl mb-2">
-            {t.store.title}
-          </h1>
+          <h1 className="font-display font-black text-4xl sm:text-5xl mb-2">{t.store.title}</h1>
           <p className="text-muted-foreground text-lg">{t.store.subtitle}</p>
         </div>
 
-        {/* Top bar */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t.store.search}
-              className="pl-10 bg-card border-border"
-            />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t.store.search} className="pl-10 bg-card border-border" />
           </div>
           <Select value={sort} onValueChange={setSort}>
             <SelectTrigger className="w-full sm:w-48 bg-card border-border">
@@ -188,18 +213,13 @@ export default function Store() {
               <SelectItem value="popular">{t.store.popular}</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            variant="outline"
-            onClick={() => setShowFilters(!showFilters)}
-            className="lg:hidden gap-2 border-border"
-          >
+          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="lg:hidden gap-2 border-border">
             <SlidersHorizontal className="w-4 h-4" />
             {t.store.filters}
           </Button>
         </div>
 
         <div className="flex gap-8">
-          {/* Sidebar */}
           <aside className={`${showFilters ? 'block' : 'hidden'} lg:block w-full lg:w-64 shrink-0 space-y-6`}>
             <div className="bg-card border border-border rounded-xl p-5 space-y-6">
               <div>
@@ -207,47 +227,31 @@ export default function Store() {
                 <div className="space-y-2">
                   {categories.map((c: any) => (
                     <label key={c.id} className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
-                      <Checkbox
-                        checked={selectedCategories.includes(c.id)}
-                        onCheckedChange={() => toggleCategory(c.id)}
-                      />
+                      <Checkbox checked={selectedCategories.includes(c.id)} onCheckedChange={() => toggleCategory(c.id)} />
                       {language === 'es' ? c.name_es : c.name_en}
                     </label>
                   ))}
                 </div>
               </div>
-
               <div>
                 <h3 className="font-display font-semibold text-sm text-foreground mb-3">{t.store.materialFilter}</h3>
                 <div className="space-y-2">
                   {materials.map((m: any) => (
                     <label key={m.id} className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
-                      <Checkbox
-                        checked={selectedMaterials.includes(m.id)}
-                        onCheckedChange={() => toggleMaterial(m.id)}
-                      />
+                      <Checkbox checked={selectedMaterials.includes(m.id)} onCheckedChange={() => toggleMaterial(m.id)} />
                       {language === 'es' ? m.name_es : m.name_en}
                     </label>
                   ))}
                 </div>
               </div>
-
               <div>
                 <h3 className="font-display font-semibold text-sm text-foreground mb-3">{t.store.priceRange}</h3>
-                <Slider
-                  value={priceRange}
-                  onValueChange={setPriceRange}
-                  min={0}
-                  max={100}
-                  step={1}
-                  className="mt-2"
-                />
+                <Slider value={priceRange} onValueChange={setPriceRange} min={0} max={100} step={1} className="mt-2" />
                 <div className="flex justify-between text-xs text-muted-foreground mt-2">
                   <span>${priceRange[0]}</span>
                   <span>${priceRange[1]}</span>
                 </div>
               </div>
-
               <Button variant="ghost" onClick={clearFilters} className="w-full text-muted-foreground hover:text-foreground gap-2">
                 <X className="w-3 h-3" />
                 {t.store.clearFilters}
@@ -255,13 +259,10 @@ export default function Store() {
             </div>
           </aside>
 
-          {/* Grid */}
           <div className="flex-1">
             {isLoading ? (
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <ProductCardSkeleton key={i} />
-                ))}
+                {Array.from({ length: 6 }).map((_, i) => <ProductCardSkeleton key={i} />)}
               </div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-20 text-muted-foreground">
@@ -280,9 +281,9 @@ export default function Store() {
                   >
                     <div className="relative rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
                       <Link to={`/3dmodels/${product.slug}`}>
-                        <div className="aspect-[4/5] bg-secondary relative overflow-hidden">
+                        <div className="aspect-[4/3] bg-secondary relative overflow-hidden">
                           {(product.images as string[])?.length > 0 ? (
-                            <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover" />
+                            <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                           ) : (
                             <div className="absolute inset-0 flex items-center justify-center">
                               <Box className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground/30" />
@@ -295,19 +296,20 @@ export default function Store() {
                           )}
                         </div>
                       </Link>
-                      {/* Action buttons */}
+                      {/* Hover actions */}
                       <div className="absolute top-2 right-2 flex flex-col gap-1.5">
                         <button
                           onClick={() => toggleFavorite(product.id)}
-                          className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-0 transition-opacity hover:bg-primary/20"
+                          className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/20"
                         >
                           <Heart className={`w-4 h-4 ${favorites.includes(product.id) ? 'fill-primary text-primary' : 'text-foreground'}`} />
                         </button>
-                        <div className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-0 transition-opacity">
+                        <div className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                           <ShareMenu slug={product.slug} productName={language === 'es' ? product.name_es : product.name_en} />
                         </div>
                       </div>
-                      <div className="p-3 sm:p-4">
+                      {/* Card info */}
+                      <div className="p-3">
                         <Link to={`/3dmodels/${product.slug}`}>
                           <h3 className="font-display font-semibold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate">
                             {language === 'es' ? product.name_es : product.name_en}
@@ -317,7 +319,11 @@ export default function Store() {
                           <span className="text-base sm:text-lg font-bold text-gradient-gold">
                             ${Number(product.base_price).toFixed(2)}
                           </span>
-                          <LikeButton productId={product.id} size="sm" />
+                        </div>
+                        {/* Like & Favorite counters - always visible */}
+                        <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border/30">
+                          <LikeButton productId={product.id} countOnly externalCount={likeCounts[product.id] || 0} size="sm" />
+                          <FavoriteCount count={favCounts[product.id] || 0} />
                         </div>
                       </div>
                     </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Box, MessageCircle, ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import LikeButton from '@/components/LikeButton';
+import FavoriteCount from '@/components/FavoriteCount';
 import ShareMenu from '@/components/ShareMenu';
 
 const WHATSAPP_NUMBER = '16893324656';
@@ -25,11 +26,11 @@ const PUBLIC_URL = 'https://a3dtoprint.lovable.app';
 function CatalogCardSkeleton() {
   return (
     <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
-      <Skeleton className="aspect-[4/5] w-full" />
-      <div className="p-3 sm:p-4 space-y-2">
-        <Skeleton className="h-4 sm:h-5 w-3/4" />
-        <Skeleton className="h-3 sm:h-4 w-full" />
-        <Skeleton className="h-5 sm:h-6 w-1/3" />
+      <Skeleton className="aspect-[4/3] w-full" />
+      <div className="p-3 space-y-2">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-5 w-1/3" />
+        <Skeleton className="h-3 w-1/2" />
       </div>
     </div>
   );
@@ -50,6 +51,38 @@ export default function Catalog() {
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
+    },
+  });
+
+  const productIds = useMemo(() => products.map((p: any) => p.id), [products]);
+
+  const { data: likeCounts = {} } = useQuery({
+    queryKey: ['bulk-like-counts-catalog', productIds],
+    enabled: productIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_likes')
+        .select('product_id')
+        .in('product_id', productIds);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      data.forEach((row: any) => { counts[row.product_id] = (counts[row.product_id] || 0) + 1; });
+      return counts;
+    },
+  });
+
+  const { data: favCounts = {} } = useQuery({
+    queryKey: ['bulk-fav-counts-catalog', productIds],
+    enabled: productIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('favorites')
+        .select('product_id')
+        .in('product_id', productIds);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      data.forEach((row: any) => { counts[row.product_id] = (counts[row.product_id] || 0) + 1; });
+      return counts;
     },
   });
 
@@ -114,9 +147,7 @@ export default function Catalog() {
 
         {isLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <CatalogCardSkeleton key={i} />
-            ))}
+            {Array.from({ length: 8 }).map((_, i) => <CatalogCardSkeleton key={i} />)}
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
@@ -130,7 +161,7 @@ export default function Catalog() {
                 onClick={() => handleOpenProduct(product)}
               >
                 <div className="rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
-                  <div className="aspect-[4/5] bg-secondary relative overflow-hidden">
+                  <div className="aspect-[4/3] bg-secondary relative overflow-hidden">
                     {(product.images as string[])?.length > 0 ? (
                       <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
@@ -138,7 +169,6 @@ export default function Catalog() {
                         <Box className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground/30" />
                       </div>
                     )}
-                    {/* Action buttons */}
                     <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                         <ShareMenu slug={product.slug} productName={language === 'es' ? product.name_es : product.name_en} />
@@ -150,20 +180,20 @@ export default function Catalog() {
                       </div>
                     )}
                   </div>
-                  <div className="p-3 sm:p-4">
+                  <div className="p-3">
                     <h3 className="font-display font-semibold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate">
                       {language === 'es' ? product.name_es : product.name_en}
                     </h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 line-clamp-2 hidden sm:block">
-                      {language === 'es' ? product.description_es : product.description_en}
-                    </p>
-                    <div className="flex items-center justify-between mt-1 sm:mt-2">
+                    <div className="flex items-center justify-between mt-1">
                       <span className="text-base sm:text-lg font-bold text-gradient-gold">
                         ${Number(product.base_price).toFixed(2)}
                       </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border/30">
                       <div onClick={(e) => e.stopPropagation()}>
-                        <LikeButton productId={product.id} size="sm" />
+                        <LikeButton productId={product.id} countOnly externalCount={likeCounts[product.id] || 0} size="sm" />
                       </div>
+                      <FavoriteCount count={favCounts[product.id] || 0} />
                     </div>
                   </div>
                 </div>
@@ -186,11 +216,7 @@ export default function Catalog() {
               {images.length > 0 && (
                 <div className="space-y-3">
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-secondary">
-                    <img
-                      src={images[activeImageIndex]}
-                      alt=""
-                      className="w-full h-full object-contain"
-                    />
+                    <img src={images[activeImageIndex]} alt="" className="w-full h-full object-contain" />
                     {images.length > 1 && (
                       <>
                         <button
@@ -214,9 +240,7 @@ export default function Catalog() {
                         <button
                           key={idx}
                           onClick={() => setActiveImageIndex(idx)}
-                          className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
-                            idx === activeImageIndex ? 'border-primary' : 'border-transparent'
-                          }`}
+                          className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${idx === activeImageIndex ? 'border-primary' : 'border-transparent'}`}
                         >
                           <img src={img} alt="" className="w-full h-full object-cover" />
                         </button>
