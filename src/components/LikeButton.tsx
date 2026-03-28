@@ -11,6 +11,10 @@ interface LikeButtonProps {
   className?: string;
   showCount?: boolean;
   size?: 'sm' | 'md';
+  /** Display-only mode: just show icon + external count, no fetching or interactivity */
+  countOnly?: boolean;
+  /** External count to display when countOnly is true */
+  externalCount?: number;
 }
 
 export default function LikeButton({ productId, className, showCount = true, size = 'sm' }: LikeButtonProps) {
