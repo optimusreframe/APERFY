@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Globe, LogIn, Shield, ShoppingCart, User, Package, Heart, LogOut } from 'lucide-react';
+import { Menu, X, Globe, LogIn, Shield, ShoppingCart, User, UserRound, Package, Heart, LogOut } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
@@ -202,19 +202,12 @@ export default function Navbar() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : (
-                  <div className="flex items-center gap-2 ml-1">
-                    <Link to="/auth">
-                      <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground rounded-xl">
-                        <LogIn className="w-4 h-4" />
-                        {t.nav.login}
-                      </Button>
-                    </Link>
-                    <Link to="/auth">
-                      <Button size="sm" className="shimmer-gold bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-gold font-semibold rounded-xl px-5">
-                        {t.nav.signup}
-                      </Button>
-                    </Link>
-                  </div>
+                  <Link to="/auth" className="relative group ml-1">
+                    <div className="absolute inset-0 rounded-full bg-primary/30 blur-md opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300 animate-[glow-pulse_3s_ease-in-out_infinite]" />
+                    <div className="relative w-10 h-10 rounded-full bg-gradient-gold shadow-gold flex items-center justify-center transition-all duration-300 group-hover:scale-105 group-hover:shadow-gold-lg">
+                      <UserRound className="w-5 h-5 text-primary-foreground" />
+                    </div>
+                  </Link>
                 )}
               </div>
 
@@ -341,14 +334,9 @@ export default function Navbar() {
                       </div>
                     </>
                   ) : (
-                    <div className="flex flex-col gap-2">
-                      <Link to="/auth" onClick={() => setIsOpen(false)}>
-                        <Button variant="outline" size="sm" className="w-full rounded-xl border-border/50">{t.nav.login}</Button>
-                      </Link>
-                      <Link to="/auth" onClick={() => setIsOpen(false)}>
-                        <Button size="sm" className="w-full bg-gradient-gold text-primary-foreground rounded-xl shimmer-gold">{t.nav.signup}</Button>
-                      </Link>
-                    </div>
+                    <Link to="/auth" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-gold text-primary-foreground shadow-gold font-semibold text-sm justify-center">
+                      <UserRound className="w-5 h-5" /> {t.nav.login}
+                    </Link>
                   )}
                 </motion.div>
               </div>
