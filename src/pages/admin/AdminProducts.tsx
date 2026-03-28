@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Video, Film, RefreshCw, Wand2, ImagePlus } from 'lucide-react';
+import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { productSchema, validateMediaFile, sanitizeFileName } from '@/lib/validation';
 import { sanitizeUrl } from '@/lib/sanitize';
@@ -45,7 +47,20 @@ const empty: ProductForm = {
 const MAX_MEDIA = 5;
 const ACCEPT_MEDIA = 'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm';
 
+const COMMON_COLORS = [
+  'Negro', 'Blanco', 'Gris', 'Rojo', 'Azul', 'Verde', 'Amarillo',
+  'Naranja', 'Morado', 'Rosa', 'Dorado', 'Plateado', 'Marrón', 'Transparente'
+];
+
 // ── Helpers ──
+function slugify(text: string): string {
+  return text.toLowerCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 function getMediaType(file: File): 'image' | 'gif' | 'video' {
   if (file.type === 'image/gif') return 'gif';
   if (file.type.startsWith('video/')) return 'video';
@@ -134,6 +149,12 @@ export default function AdminProducts() {
   const [aiImageLoading, setAiImageLoading] = useState(false);
   const [aiExtractedImages, setAiExtractedImages] = useState<string[]>([]);
   const [aiSelectedSourceImage, setAiSelectedSourceImage] = useState<string | null>(null);
+  const [aiBgMode, setAiBgMode] = useState<'system' | 'ai' | 'custom'>('ai');
+  const [showEnglish, setShowEnglish] = useState(false);
+  const [slugLocked, setSlugLocked] = useState(true);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [translating, setTranslating] = useState(false);
   const aiOriginalInputRef = useRef<HTMLInputElement>(null);
   const aiBgInputRef = useRef<HTMLInputElement>(null);
 
@@ -159,6 +180,30 @@ export default function AdminProducts() {
     },
   });
 
+  const { data: materials = [] } = useQuery({
+    queryKey: ['admin-materials'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('materials').select('*').eq('is_active', true).order('name_en');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: systemBgSetting } = useQuery({
+    queryKey: ['admin-system-bg'],
+    queryFn: async () => {
+      const { data } = await supabase.from('admin_settings').select('setting_value').eq('setting_key', 'system_background').maybeSingle();
+      return data?.setting_value || null;
+    },
+  });
+
+  // Auto-slug from Spanish name
+  useEffect(() => {
+    if (aiData && slugLocked) {
+      setAiData((prev: any) => prev ? { ...prev, slug: slugify(prev.name_es || '') } : prev);
+    }
+  }, [aiData?.name_es, slugLocked]);
+
   // ── Media Upload ──
   const uploadMedia = async (file: File, productId: string): Promise<string> => {
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
@@ -173,7 +218,7 @@ export default function AdminProducts() {
   const handleMediaAdd = useCallback(async (files: FileList | File[]) => {
     const remaining = MAX_MEDIA - mediaFiles.length;
     if (remaining <= 0) {
-      toast({ title: `Maximum ${MAX_MEDIA} files allowed`, variant: 'destructive' });
+      toast({ title: `Máximo ${MAX_MEDIA} archivos permitidos`, variant: 'destructive' });
       return;
     }
     const toAdd = Array.from(files).slice(0, remaining);
@@ -181,7 +226,7 @@ export default function AdminProducts() {
     for (const file of toAdd) {
       const validation = await validateMediaFile(file);
       if (!validation.valid) {
-        toast({ title: validation.error || 'Invalid file', variant: 'destructive' });
+        toast({ title: validation.error || 'Archivo inválido', variant: 'destructive' });
         continue;
       }
       newItems.push({
@@ -202,7 +247,6 @@ export default function AdminProducts() {
     });
   };
 
-  // Drag and drop reorder
   const handleDragStart = (_e: React.DragEvent, idx: number) => setDragIdx(idx);
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
   const handleDrop = (_e: React.DragEvent, targetIdx: number) => {
@@ -216,7 +260,6 @@ export default function AdminProducts() {
     setDragIdx(null);
   };
 
-  // Drop zone
   const handleDropZone = (e: React.DragEvent) => {
     e.preventDefault();
     handleMediaAdd(e.dataTransfer.files);
@@ -247,7 +290,6 @@ export default function AdminProducts() {
       }
 
       if (productId) {
-        // Upload new files and collect all URLs in order
         const imageUrls: string[] = [];
         for (const item of mediaFiles) {
           if (item.isExisting) {
@@ -267,7 +309,7 @@ export default function AdminProducts() {
       setEditId(null);
       setForm(empty);
       setMediaFiles([]);
-      toast({ title: '✓', description: 'Product saved.' });
+      toast({ title: '✓', description: 'Producto guardado.' });
     },
     onError: (e: any) => {
       if (e.message !== 'Validation failed') {
@@ -284,7 +326,7 @@ export default function AdminProducts() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-products'] });
       qc.invalidateQueries({ queryKey: ['admin-product-count'] });
-      toast({ title: '✓', description: 'Product deleted.' });
+      toast({ title: '✓', description: 'Producto eliminado.' });
     },
   });
 
@@ -297,7 +339,6 @@ export default function AdminProducts() {
       slug: p.slug, base_price: p.base_price,
       category_id: p.category_id || '', is_active: p.is_active, is_featured: p.is_featured,
     });
-    // Pre-populate existing images
     const existingImages = (p.images as string[]) || [];
     setMediaFiles(existingImages.map((url, i) => ({
       id: `existing-${i}`,
@@ -323,6 +364,11 @@ export default function AdminProducts() {
     setAiData(null);
     setAiExtractedImages([]);
     setAiSelectedSourceImage(null);
+    setAiBgMode('ai');
+    setShowEnglish(false);
+    setSlugLocked(true);
+    setNewCategoryName('');
+    setCreatingCategory(false);
   };
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -335,12 +381,12 @@ export default function AdminProducts() {
 
   const handleAiScrape = async () => {
     if (!aiUrl) {
-      toast({ title: 'Provide a URL', variant: 'destructive' });
+      toast({ title: 'Ingresa una URL', variant: 'destructive' });
       return;
     }
     const sanitized = sanitizeUrl(aiUrl);
     if (!sanitized) {
-      toast({ title: 'Invalid URL format', variant: 'destructive' });
+      toast({ title: 'Formato de URL inválido', variant: 'destructive' });
       return;
     }
 
@@ -348,10 +394,14 @@ export default function AdminProducts() {
     setAiLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('ai-product-import', {
-        body: { action: 'scrape', url: aiUrl },
+        body: {
+          action: 'scrape',
+          url: aiUrl,
+          existingCategories: categories.map((c: any) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
+        },
       });
       if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Scraping failed');
+      if (!data?.success) throw new Error(data?.error || 'Error al extraer datos');
 
       setAiData(data.data);
       setAiExtractedImages(data.data.extracted_images || []);
@@ -370,8 +420,17 @@ export default function AdminProducts() {
   const handleAiGenerateImage = async () => {
     const sourceImage = aiOriginalImage || aiSelectedSourceImage;
     if (!sourceImage) {
-      toast({ title: 'No source image available', variant: 'destructive' });
+      toast({ title: 'No hay imagen fuente disponible', variant: 'destructive' });
       return;
+    }
+
+    let customBackground: string | undefined;
+    let backgroundMode = aiBgMode;
+
+    if (aiBgMode === 'system' && systemBgSetting) {
+      customBackground = systemBgSetting;
+    } else if (aiBgMode === 'custom' && aiCustomBg) {
+      customBackground = aiCustomBg;
     }
 
     setAiImageLoading(true);
@@ -380,13 +439,14 @@ export default function AdminProducts() {
         body: {
           action: 'generate_image',
           sourceImage,
-          customBackground: aiCustomBg || undefined,
+          customBackground,
+          backgroundMode,
         },
       });
       if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Image generation failed');
+      if (!data?.success) throw new Error(data?.error || 'Error al generar imagen');
       setAiGeneratedImage(data.data.generated_image);
-      toast({ title: '✓', description: 'AI image generated!' });
+      toast({ title: '✓', description: '¡Imagen AI generada!' });
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     } finally {
@@ -411,23 +471,68 @@ export default function AdminProducts() {
     setAiCustomBgFile(file);
   };
 
+  const handleTranslateToEnglish = async () => {
+    if (!aiData?.name_es && !aiData?.description_es) return;
+    setTranslating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-import', {
+        body: { action: 'translate', name_es: aiData.name_es, description_es: aiData.description_es },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setAiData((prev: any) => ({ ...prev, name_en: data.data.name_en, description_en: data.data.description_en }));
+        toast({ title: '✓', description: 'Traducción generada' });
+      }
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    setCreatingCategory(true);
+    try {
+      const catSlug = slugify(newCategoryName);
+      const { data, error } = await supabase.from('categories').insert({
+        name_es: newCategoryName.trim(),
+        name_en: newCategoryName.trim(),
+        slug: catSlug,
+        is_active: true,
+      }).select().single();
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ['admin-categories'] });
+      setAiData((prev: any) => ({ ...prev, suggested_category: data.slug }));
+      setNewCategoryName('');
+      toast({ title: '✓', description: 'Categoría creada' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setCreatingCategory(false);
+    }
+  };
+
   const handleAiSaveProduct = async () => {
     if (!aiData) return;
     const matchedCat = categories.find((c: any) => c.slug === aiData.suggested_category);
 
+    // If English wasn't generated, use Spanish as fallback
+    const nameEn = aiData.name_en || aiData.name_es;
+    const descEn = aiData.description_en || aiData.description_es;
+
     setForm({
-      name_en: aiData.name_en || '',
+      name_en: nameEn,
       name_es: aiData.name_es || '',
-      description_en: aiData.description_en || '',
+      description_en: descEn,
       description_es: aiData.description_es || '',
-      slug: aiData.slug || '',
+      slug: aiData.slug || slugify(aiData.name_es || ''),
       base_price: aiData.suggested_price || 0,
       category_id: matchedCat?.id || '',
       is_active: true,
       is_featured: false,
     });
 
-    // If we have a generated image, convert to file and add to media
     if (aiGeneratedImage) {
       try {
         const resp = await fetch(aiGeneratedImage);
@@ -449,7 +554,17 @@ export default function AdminProducts() {
     setAiOpen(false);
     resetAi();
     setOpen(true);
-    toast({ title: '✓', description: 'AI data loaded. Review and save.' });
+    toast({ title: '✓', description: 'Datos AI cargados. Revisa y guarda.' });
+  };
+
+  const removeExtractedImage = (index: number) => {
+    setAiExtractedImages(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      if (aiSelectedSourceImage === prev[index]) {
+        setAiSelectedSourceImage(updated[0] || null);
+      }
+      return updated;
+    });
   };
 
   // ══════════════════════════════════════════════════════════
@@ -459,7 +574,7 @@ export default function AdminProducts() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display text-2xl font-bold text-foreground">Products</h1>
+        <h1 className="font-display text-2xl font-bold text-foreground">Productos</h1>
         <div className="flex gap-2">
           {/* AI Import Studio Button */}
           <Dialog open={aiOpen} onOpenChange={(o) => { setAiOpen(o); if (!o) resetAi(); }}>
@@ -470,14 +585,13 @@ export default function AdminProducts() {
               </Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-border max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-              {/* AI Header */}
               <div className="p-6 pb-0">
                 <DialogHeader>
                   <DialogTitle className="font-display flex items-center gap-2 text-xl">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
                       <Sparkles className="w-4 h-4 text-primary-foreground" />
                     </div>
-                    AI Product Import Studio
+                    AI Import Studio
                   </DialogTitle>
                 </DialogHeader>
               </div>
@@ -490,7 +604,7 @@ export default function AdminProducts() {
                       <div className="space-y-2">
                         <Label className="flex items-center gap-2 text-sm font-semibold">
                           <Link2 className="w-4 h-4 text-primary" />
-                          Reference URL
+                          URL de referencia
                         </Label>
                         <Input
                           value={aiUrl}
@@ -499,50 +613,76 @@ export default function AdminProducts() {
                           className="bg-background"
                           maxLength={2000}
                         />
-                        <p className="text-xs text-muted-foreground">Paste a link to a 3D model from Thingiverse, MyMiniFactory, Cults3D, etc.</p>
+                        <p className="text-xs text-muted-foreground">Pega un enlace a un modelo 3D de Thingiverse, MyMiniFactory, Cults3D, etc.</p>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-3">
-                        <Label className="flex items-center gap-2 text-sm font-semibold">
-                          <ImagePlus className="w-4 h-4 text-primary" />
-                          Original Product Photo (optional)
-                        </Label>
-                        <p className="text-xs text-muted-foreground">Upload the original product image for AI to enhance</p>
-                        {aiOriginalImage ? (
-                          <div className="relative">
-                            <img src={aiOriginalImage} alt="Original" className="w-full h-32 object-cover rounded-lg" />
-                            <button onClick={() => { setAiOriginalImage(null); setAiOriginalImageFile(null); }} className="absolute top-1 right-1 w-6 h-6 bg-destructive rounded-full flex items-center justify-center"><X className="w-3 h-3 text-white" /></button>
-                          </div>
-                        ) : (
-                          <button onClick={() => aiOriginalInputRef.current?.click()} className="w-full h-24 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors">
-                            <Upload className="w-5 h-5 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">Click to upload</span>
-                          </button>
-                        )}
-                        <input ref={aiOriginalInputRef} type="file" accept="image/*" onChange={handleAiOriginalUpload} className="hidden" />
-                      </div>
+                    {/* Background Mode Selector */}
+                    <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-4">
+                      <Label className="flex items-center gap-2 text-sm font-semibold">
+                        <Image className="w-4 h-4 text-primary" />
+                        Fondo para imagen AI
+                      </Label>
+                      <RadioGroup value={aiBgMode} onValueChange={(v) => setAiBgMode(v as 'system' | 'ai' | 'custom')} className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <RadioGroupItem value="system" id="bg-system" disabled={!systemBgSetting} />
+                          <Label htmlFor="bg-system" className={`text-sm ${!systemBgSetting ? 'text-muted-foreground' : ''}`}>
+                            Usar background del sistema {!systemBgSetting && '(no configurado)'}
+                          </Label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <RadioGroupItem value="ai" id="bg-ai" />
+                          <Label htmlFor="bg-ai" className="text-sm">Generar con AI (expositor premium con marca 3DtoPrint)</Label>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <RadioGroupItem value="custom" id="bg-custom" />
+                          <Label htmlFor="bg-custom" className="text-sm">Subir background personalizado</Label>
+                        </div>
+                      </RadioGroup>
 
-                      <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-3">
-                        <Label className="flex items-center gap-2 text-sm font-semibold">
-                          <Image className="w-4 h-4 text-primary" />
-                          Custom Background (optional)
-                        </Label>
-                        <p className="text-xs text-muted-foreground">Upload a branded background for the AI-generated image</p>
-                        {aiCustomBg ? (
-                          <div className="relative">
-                            <img src={aiCustomBg} alt="Background" className="w-full h-32 object-cover rounded-lg" />
-                            <button onClick={() => { setAiCustomBg(null); setAiCustomBgFile(null); }} className="absolute top-1 right-1 w-6 h-6 bg-destructive rounded-full flex items-center justify-center"><X className="w-3 h-3 text-white" /></button>
-                          </div>
-                        ) : (
-                          <button onClick={() => aiBgInputRef.current?.click()} className="w-full h-24 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors">
-                            <Upload className="w-5 h-5 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">Click to upload</span>
-                          </button>
-                        )}
-                        <input ref={aiBgInputRef} type="file" accept="image/*" onChange={handleAiBgUpload} className="hidden" />
-                      </div>
+                      {aiBgMode === 'custom' && (
+                        <div className="mt-2">
+                          {aiCustomBg ? (
+                            <div className="relative inline-block">
+                              <img src={aiCustomBg} alt="Background" className="w-32 h-20 object-cover rounded-lg" />
+                              <button onClick={() => { setAiCustomBg(null); setAiCustomBgFile(null); }} className="absolute top-1 right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"><X className="w-3 h-3 text-white" /></button>
+                            </div>
+                          ) : (
+                            <button onClick={() => aiBgInputRef.current?.click()} className="w-32 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors">
+                              <Upload className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">Subir</span>
+                            </button>
+                          )}
+                          <input ref={aiBgInputRef} type="file" accept="image/*" onChange={handleAiBgUpload} className="hidden" />
+                        </div>
+                      )}
+
+                      {aiBgMode === 'system' && systemBgSetting && (
+                        <div className="mt-2">
+                          <img src={systemBgSetting} alt="System BG" className="w-32 h-20 object-cover rounded-lg border border-border" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Original Product Photo */}
+                    <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-3">
+                      <Label className="flex items-center gap-2 text-sm font-semibold">
+                        <ImagePlus className="w-4 h-4 text-primary" />
+                        Foto original del producto (opcional)
+                      </Label>
+                      <p className="text-xs text-muted-foreground">Sube la imagen original del producto para que la AI la mejore</p>
+                      {aiOriginalImage ? (
+                        <div className="relative inline-block">
+                          <img src={aiOriginalImage} alt="Original" className="w-32 h-32 object-cover rounded-lg" />
+                          <button onClick={() => { setAiOriginalImage(null); setAiOriginalImageFile(null); }} className="absolute top-1 right-1 w-6 h-6 bg-destructive rounded-full flex items-center justify-center"><X className="w-3 h-3 text-white" /></button>
+                        </div>
+                      ) : (
+                        <button onClick={() => aiOriginalInputRef.current?.click()} className="w-32 h-24 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors">
+                          <Upload className="w-5 h-5 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Subir</span>
+                        </button>
+                      )}
+                      <input ref={aiOriginalInputRef} type="file" accept="image/*" onChange={handleAiOriginalUpload} className="hidden" />
                     </div>
 
                     <Button
@@ -551,7 +691,7 @@ export default function AdminProducts() {
                       className="w-full h-12 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2 text-base font-semibold"
                     >
                       <Wand2 className="w-5 h-5" />
-                      Extract & Generate with AI
+                      Extraer y Generar con AI
                     </Button>
                   </motion.div>
                 )}
@@ -563,8 +703,8 @@ export default function AdminProducts() {
                       <Sparkles className="w-8 h-8 text-primary-foreground" />
                     </div>
                     <div className="text-center space-y-1">
-                      <p className="font-display text-lg font-semibold">Analyzing & Generating...</p>
-                      <p className="text-sm text-muted-foreground">Scraping reference URL and creating product data with AI</p>
+                      <p className="font-display text-lg font-semibold">Analizando y Generando...</p>
+                      <p className="text-sm text-muted-foreground">Extrayendo datos de la URL y creando producto con AI</p>
                     </div>
                     <div className="w-48 h-1 bg-secondary rounded-full overflow-hidden">
                       <motion.div
@@ -582,29 +722,36 @@ export default function AdminProducts() {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {/* Left: Image area */}
                       <div className="space-y-4">
-                        <Label className="text-sm font-semibold">AI Generated Image</Label>
+                        <Label className="text-sm font-semibold">Imagen generada con AI</Label>
 
-                        {/* Source image selection */}
+                        {/* Source image selection with delete buttons */}
                         {(aiExtractedImages.length > 0 || aiOriginalImage) && (
                           <div className="space-y-2">
-                            <p className="text-xs text-muted-foreground">Source image for AI generation:</p>
+                            <p className="text-xs text-muted-foreground">Imagen fuente para generar con AI:</p>
                             <div className="flex gap-2 flex-wrap">
                               {aiOriginalImage && (
                                 <button
                                   onClick={() => setAiSelectedSourceImage(null)}
-                                  className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${!aiSelectedSourceImage ? 'border-primary ring-2 ring-primary/30' : 'border-border'}`}
+                                  className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${!aiSelectedSourceImage ? 'border-primary ring-2 ring-primary/30' : 'border-border'}`}
                                 >
                                   <img src={aiOriginalImage} alt="" className="w-full h-full object-cover" />
                                 </button>
                               )}
                               {aiExtractedImages.map((img, i) => (
-                                <button
-                                  key={i}
-                                  onClick={() => { setAiSelectedSourceImage(img); setAiOriginalImage(null); }}
-                                  className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${aiSelectedSourceImage === img ? 'border-primary ring-2 ring-primary/30' : 'border-border'}`}
-                                >
-                                  <img src={img} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                </button>
+                                <div key={i} className="relative group">
+                                  <button
+                                    onClick={() => { setAiSelectedSourceImage(img); setAiOriginalImage(null); }}
+                                    className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${aiSelectedSourceImage === img ? 'border-primary ring-2 ring-primary/30' : 'border-border'}`}
+                                  >
+                                    <img src={img} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); removeExtractedImage(i); }}
+                                    className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                  >
+                                    <X className="w-2.5 h-2.5 text-white" />
+                                  </button>
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -618,7 +765,7 @@ export default function AdminProducts() {
                             <img src={aiOriginalImage || aiSelectedSourceImage!} alt="Source" className="w-full h-full object-contain opacity-60" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <p className="text-sm text-muted-foreground">No image available</p>
+                              <p className="text-sm text-muted-foreground">Sin imagen disponible</p>
                             </div>
                           )}
                         </div>
@@ -636,84 +783,173 @@ export default function AdminProducts() {
                             ) : (
                               <Wand2 className="w-4 h-4" />
                             )}
-                            {aiGeneratedImage ? 'Regenerate Image' : 'Generate AI Image'}
+                            {aiGeneratedImage ? 'Regenerar Imagen' : 'Generar Imagen AI'}
                           </Button>
                         </div>
 
-                        {/* Upload different source */}
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => aiOriginalInputRef.current?.click()} className="text-xs gap-1">
-                            <Upload className="w-3 h-3" /> Upload Photo
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => aiBgInputRef.current?.click()} className="text-xs gap-1">
-                            <Image className="w-3 h-3" /> {aiCustomBg ? 'Change BG' : 'Custom BG'}
+                            <Upload className="w-3 h-3" /> Subir Foto
                           </Button>
                         </div>
                       </div>
 
-                      {/* Right: Editable fields */}
+                      {/* Right: Editable fields (Spanish-first) */}
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Name (EN)</Label>
-                            <Input value={aiData.name_en} onChange={(e) => setAiData({ ...aiData, name_en: e.target.value })} className="bg-secondary text-sm" />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Name (ES)</Label>
-                            <Input value={aiData.name_es} onChange={(e) => setAiData({ ...aiData, name_es: e.target.value })} className="bg-secondary text-sm" />
-                          </div>
+                        {/* Spanish Name */}
+                        <div className="space-y-1">
+                          <Label className="text-xs">Nombre</Label>
+                          <Input value={aiData.name_es} onChange={(e) => setAiData({ ...aiData, name_es: e.target.value })} className="bg-secondary text-sm" />
                         </div>
 
+                        {/* Spanish Description */}
                         <div className="space-y-1">
-                          <Label className="text-xs">Description (EN)</Label>
-                          <Textarea value={aiData.description_en} onChange={(e) => setAiData({ ...aiData, description_en: e.target.value })} className="bg-secondary text-sm" rows={3} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Description (ES)</Label>
+                          <Label className="text-xs">Descripción</Label>
                           <Textarea value={aiData.description_es} onChange={(e) => setAiData({ ...aiData, description_es: e.target.value })} className="bg-secondary text-sm" rows={3} />
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="space-y-1">
+                        {/* English Toggle */}
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
+                          <Languages className="w-4 h-4 text-primary" />
+                          <Label className="text-xs flex-1">Generar versión en inglés</Label>
+                          <Switch checked={showEnglish} onCheckedChange={(c) => {
+                            setShowEnglish(c);
+                            if (c && !aiData.name_en) handleTranslateToEnglish();
+                          }} />
+                        </div>
+
+                        {showEnglish && (
+                          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs">Name (EN)</Label>
+                                <Button variant="ghost" size="sm" onClick={handleTranslateToEnglish} disabled={translating} className="text-xs h-6 px-2 gap-1">
+                                  <RefreshCw className={`w-3 h-3 ${translating ? 'animate-spin' : ''}`} /> Traducir
+                                </Button>
+                              </div>
+                              <Input value={aiData.name_en || ''} onChange={(e) => setAiData({ ...aiData, name_en: e.target.value })} className="bg-secondary text-sm" />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Description (EN)</Label>
+                              <Textarea value={aiData.description_en || ''} onChange={(e) => setAiData({ ...aiData, description_en: e.target.value })} className="bg-secondary text-sm" rows={3} />
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {/* Slug with auto-gen */}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
                             <Label className="text-xs">Slug</Label>
-                            <Input value={aiData.slug} onChange={(e) => setAiData({ ...aiData, slug: e.target.value })} className="bg-secondary text-sm" />
+                            <button onClick={() => setSlugLocked(!slugLocked)} className="text-muted-foreground hover:text-foreground">
+                              {slugLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                            </button>
                           </div>
+                          <Input
+                            value={aiData.slug}
+                            onChange={(e) => { if (!slugLocked) setAiData({ ...aiData, slug: e.target.value }); }}
+                            className="bg-secondary text-sm"
+                            readOnly={slugLocked}
+                          />
+                          {slugLocked && <p className="text-[10px] text-muted-foreground">Se genera automáticamente del nombre</p>}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* Price */}
                           <div className="space-y-1">
-                            <Label className="text-xs">Price ($)</Label>
+                            <Label className="text-xs">Precio ($)</Label>
                             <Input type="number" step="0.01" value={aiData.suggested_price} onChange={(e) => setAiData({ ...aiData, suggested_price: parseFloat(e.target.value) || 0 })} className="bg-secondary text-sm" />
                           </div>
+                          {/* Category with inline creation */}
                           <div className="space-y-1">
-                            <Label className="text-xs">Category</Label>
-                            <Select value={aiData.suggested_category} onValueChange={(v) => setAiData({ ...aiData, suggested_category: v })}>
-                              <SelectTrigger className="bg-secondary text-sm"><SelectValue /></SelectTrigger>
+                            <Label className="text-xs">Categoría</Label>
+                            <Select value={aiData.suggested_category} onValueChange={(v) => {
+                              if (v === '__new__') {
+                                setNewCategoryName('');
+                              } else {
+                                setAiData({ ...aiData, suggested_category: v });
+                              }
+                            }}>
+                              <SelectTrigger className="bg-secondary text-sm"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                               <SelectContent>
                                 {categories.map((c: any) => (
-                                  <SelectItem key={c.id} value={c.slug}>{language === 'es' ? c.name_es : c.name_en}</SelectItem>
+                                  <SelectItem key={c.id} value={c.slug}>{c.name_es}</SelectItem>
                                 ))}
+                                <SelectItem value="__new__">+ Crear nueva categoría</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                         </div>
 
-                        {/* Materials & Colors */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Materials</Label>
-                            <Input
-                              value={(aiData.materials || []).join(', ')}
-                              onChange={(e) => setAiData({ ...aiData, materials: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) })}
-                              className="bg-secondary text-sm"
-                              placeholder="PLA, ABS, PETG"
-                            />
+                        {/* Inline new category creation */}
+                        {(aiData.suggested_category === '__new__' || (!categories.find((c: any) => c.slug === aiData.suggested_category) && aiData.suggested_category)) && (
+                          <div className="flex gap-2 items-end">
+                            <div className="flex-1 space-y-1">
+                              <Label className="text-xs">Nueva categoría</Label>
+                              <Input
+                                value={newCategoryName || aiData.suggested_category_name_es || ''}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                className="bg-secondary text-sm"
+                                placeholder="Nombre de la categoría"
+                              />
+                            </div>
+                            <Button size="sm" onClick={handleCreateCategory} disabled={creatingCategory} className="gap-1">
+                              <Plus className="w-3 h-3" /> Crear
+                            </Button>
                           </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Colors</Label>
-                            <Input
-                              value={(aiData.colors || []).join(', ')}
-                              onChange={(e) => setAiData({ ...aiData, colors: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) })}
-                              className="bg-secondary text-sm"
-                              placeholder="Black, White, Gold"
-                            />
+                        )}
+
+                        {/* Materials Multi-Select */}
+                        <div className="space-y-2">
+                          <Label className="text-xs">Materiales</Label>
+                          <div className="flex flex-wrap gap-2 p-2 rounded-lg bg-secondary border border-border min-h-[40px]">
+                            {materials.map((m: any) => {
+                              const isSelected = (aiData.materials || []).some((mat: string) =>
+                                mat.toLowerCase() === m.name_es.toLowerCase() || mat.toLowerCase() === m.name_en.toLowerCase()
+                              );
+                              return (
+                                <label key={m.id} className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors ${isSelected ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-background border border-border hover:border-primary/30'}`}>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={(checked) => {
+                                      const matName = m.name_es;
+                                      if (checked) {
+                                        setAiData((prev: any) => ({ ...prev, materials: [...(prev.materials || []), matName] }));
+                                      } else {
+                                        setAiData((prev: any) => ({ ...prev, materials: (prev.materials || []).filter((mat: string) => mat.toLowerCase() !== m.name_es.toLowerCase() && mat.toLowerCase() !== m.name_en.toLowerCase()) }));
+                                      }
+                                    }}
+                                    className="w-3 h-3"
+                                  />
+                                  {m.name_es}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Colors Multi-Select */}
+                        <div className="space-y-2">
+                          <Label className="text-xs">Colores</Label>
+                          <div className="flex flex-wrap gap-2 p-2 rounded-lg bg-secondary border border-border min-h-[40px]">
+                            {COMMON_COLORS.map((color) => {
+                              const isSelected = (aiData.colors || []).some((c: string) => c.toLowerCase() === color.toLowerCase());
+                              return (
+                                <label key={color} className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors ${isSelected ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-background border border-border hover:border-primary/30'}`}>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setAiData((prev: any) => ({ ...prev, colors: [...(prev.colors || []), color] }));
+                                      } else {
+                                        setAiData((prev: any) => ({ ...prev, colors: (prev.colors || []).filter((c: string) => c.toLowerCase() !== color.toLowerCase()) }));
+                                      }
+                                    }}
+                                    className="w-3 h-3"
+                                  />
+                                  {color}
+                                </label>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
@@ -721,14 +957,14 @@ export default function AdminProducts() {
 
                     <div className="flex gap-3 pt-2">
                       <Button variant="outline" onClick={() => { setAiStep('source'); }} className="flex-1">
-                        ← Back
+                        ← Volver
                       </Button>
                       <Button
                         onClick={handleAiSaveProduct}
                         className="flex-1 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2 font-semibold"
                       >
                         <Plus className="w-4 h-4" />
-                        Create Product
+                        Crear Producto
                       </Button>
                     </div>
                   </motion.div>
@@ -740,10 +976,10 @@ export default function AdminProducts() {
           {/* ── ADD/EDIT PRODUCT DIALOG ── */}
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); } }}>
             <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2"><Plus className="w-4 h-4" />Add Product</Button>
+              <Button className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2"><Plus className="w-4 h-4" />Agregar Producto</Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle className="font-display">{editId ? 'Edit' : 'Add'} Product</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle className="font-display">{editId ? 'Editar' : 'Agregar'} Producto</DialogTitle></DialogHeader>
               <form onSubmit={(e) => { e.preventDefault(); save.mutate(form); }} className="space-y-5">
 
                 {/* ── MEDIA UPLOAD ZONE (TOP) ── */}
@@ -753,7 +989,6 @@ export default function AdminProducts() {
                     Media ({mediaFiles.length}/{MAX_MEDIA})
                   </Label>
 
-                  {/* Thumbnails Grid */}
                   <div className="flex gap-3 flex-wrap">
                     <AnimatePresence>
                       {mediaFiles.map((item, i) => (
@@ -769,7 +1004,6 @@ export default function AdminProducts() {
                       ))}
                     </AnimatePresence>
 
-                    {/* Drop zone / Add button */}
                     {mediaFiles.length < MAX_MEDIA && (
                       <button
                         type="button"
@@ -779,7 +1013,7 @@ export default function AdminProducts() {
                         className="w-24 h-24 rounded-xl border-2 border-dashed border-border hover:border-primary/50 flex flex-col items-center justify-center gap-1 transition-colors bg-secondary/30"
                       >
                         <Upload className="w-5 h-5 text-muted-foreground" />
-                        <span className="text-[10px] text-muted-foreground text-center leading-tight">Drop or<br />click</span>
+                        <span className="text-[10px] text-muted-foreground text-center leading-tight">Soltar o<br />click</span>
                       </button>
                     )}
                   </div>
@@ -792,28 +1026,28 @@ export default function AdminProducts() {
                     onChange={(e) => { if (e.target.files) handleMediaAdd(e.target.files); e.target.value = ''; }}
                     className="hidden"
                   />
-                  <p className="text-xs text-muted-foreground">JPG, PNG, WebP, GIF, MP4, WebM · Images max 5MB · Videos max 20MB · Drag to reorder</p>
+                  <p className="text-xs text-muted-foreground">JPG, PNG, WebP, GIF, MP4, WebM · Imágenes max 5MB · Videos max 20MB · Arrastra para reordenar</p>
                 </div>
 
                 {/* ── PRODUCT FIELDS ── */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Name (EN)</Label>
+                    <Label>Nombre (EN)</Label>
                     <Input value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} className="bg-secondary" maxLength={255} required />
                     {fieldErrors.name_en && <p className="text-xs text-destructive">{fieldErrors.name_en}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label>Name (ES)</Label>
+                    <Label>Nombre (ES)</Label>
                     <Input value={form.name_es} onChange={(e) => setForm({ ...form, name_es: e.target.value })} className="bg-secondary" maxLength={255} required />
                     {fieldErrors.name_es && <p className="text-xs text-destructive">{fieldErrors.name_es}</p>}
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Description (EN)</Label>
+                  <Label>Descripción (EN)</Label>
                   <Textarea value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Description (ES)</Label>
+                  <Label>Descripción (ES)</Label>
                   <Textarea value={form.description_es} onChange={(e) => setForm({ ...form, description_es: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
                 </div>
                 <div className="grid grid-cols-3 gap-4">
@@ -823,28 +1057,28 @@ export default function AdminProducts() {
                     {fieldErrors.slug && <p className="text-xs text-destructive">{fieldErrors.slug}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label>Base Price ($)</Label>
+                    <Label>Precio Base ($)</Label>
                     <Input type="number" step="0.01" min="0" max="999999" value={form.base_price} onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} className="bg-secondary" required />
                     {fieldErrors.base_price && <p className="text-xs text-destructive">{fieldErrors.base_price}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label>Category</Label>
+                    <Label>Categoría</Label>
                     <Select value={form.category_id} onValueChange={(v) => setForm({ ...form, category_id: v })}>
-                      <SelectTrigger className="bg-secondary"><SelectValue placeholder="Select..." /></SelectTrigger>
+                      <SelectTrigger className="bg-secondary"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                       <SelectContent>
                         {categories.map((c: any) => (
-                          <SelectItem key={c.id} value={c.id}>{language === 'es' ? c.name_es : c.name_en}</SelectItem>
+                          <SelectItem key={c.id} value={c.id}>{c.name_es}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2"><Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} /><Label>Active</Label></div>
-                  <div className="flex items-center gap-2"><Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} /><Label>Featured</Label></div>
+                  <div className="flex items-center gap-2"><Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} /><Label>Activo</Label></div>
+                  <div className="flex items-center gap-2"><Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} /><Label>Destacado</Label></div>
                 </div>
                 <Button type="submit" disabled={save.isPending} className="w-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-                  {save.isPending ? '...' : 'Save Product'}
+                  {save.isPending ? '...' : 'Guardar Producto'}
                 </Button>
               </form>
             </DialogContent>
@@ -857,11 +1091,11 @@ export default function AdminProducts() {
         <Table>
           <TableHeader>
             <TableRow className="border-border">
-              <TableHead>Product</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>Producto</TableHead>
+              <TableHead>Categoría</TableHead>
+              <TableHead>Precio</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -875,19 +1109,19 @@ export default function AdminProducts() {
                       <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center"><Image className="w-4 h-4 text-muted-foreground" /></div>
                     )}
                     <div>
-                      <p className="font-medium">{language === 'es' ? p.name_es : p.name_en}</p>
+                      <p className="font-medium">{p.name_es}</p>
                       <p className="text-xs text-muted-foreground">{p.slug}</p>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {p.categories ? (language === 'es' ? p.categories.name_es : p.categories.name_en) : '—'}
+                  {p.categories ? p.categories.name_es : '—'}
                 </TableCell>
                 <TableCell className="font-medium">${Number(p.base_price).toFixed(2)}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
                     <span className={`px-2 py-0.5 rounded-full text-xs ${p.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                      {p.is_active ? 'Active' : 'Inactive'}
+                      {p.is_active ? 'Activo' : 'Inactivo'}
                     </span>
                     {p.is_featured && <span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">★</span>}
                   </div>
@@ -899,7 +1133,7 @@ export default function AdminProducts() {
               </TableRow>
             ))}
             {products.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No products yet.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No hay productos aún.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
