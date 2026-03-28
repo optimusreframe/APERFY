@@ -144,6 +144,7 @@ export default function AdminProducts() {
   const [aiCustomBg, setAiCustomBg] = useState<string | null>(null);
   const [aiCustomBgFile, setAiCustomBgFile] = useState<File | null>(null);
   const [aiGeneratedImage, setAiGeneratedImage] = useState<string | null>(null);
+  const [aiPreviewImage, setAiPreviewImage] = useState<string | null>(null);
   const [aiData, setAiData] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
@@ -361,6 +362,7 @@ export default function AdminProducts() {
     setAiCustomBg(null);
     setAiCustomBgFile(null);
     setAiGeneratedImage(null);
+    setAiPreviewImage(null);
     setAiData(null);
     setAiExtractedImages([]);
     setAiSelectedSourceImage(null);
@@ -409,6 +411,8 @@ export default function AdminProducts() {
         setAiSelectedSourceImage(data.data.extracted_images[0]);
       }
       setAiStep('review');
+      // Auto-trigger AI image generation after scrape
+      setTimeout(() => handleAiGenerateImage(), 100);
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
       setAiStep('source');
@@ -447,6 +451,7 @@ export default function AdminProducts() {
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Error al generar imagen');
       setAiGeneratedImage(data.data.generated_image);
+      setAiPreviewImage(data.data.generated_image);
       toast({ title: '✓', description: '¡Imagen AI generada!' });
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
@@ -741,7 +746,7 @@ export default function AdminProducts() {
                               {aiExtractedImages.map((img, i) => (
                                 <div key={i} className="relative group">
                                   <button
-                                    onClick={() => { setAiSelectedSourceImage(img); setAiOriginalImage(null); }}
+                                    onClick={() => { setAiSelectedSourceImage(img); setAiOriginalImage(null); setAiPreviewImage(img); }}
                                     className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${aiSelectedSourceImage === img ? 'border-primary ring-2 ring-primary/30' : 'border-border'}`}
                                   >
                                     <img src={img} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -760,10 +765,8 @@ export default function AdminProducts() {
 
                         {/* Generated image preview */}
                         <div className="aspect-square rounded-xl overflow-hidden bg-secondary border border-border">
-                          {aiGeneratedImage ? (
-                            <img src={aiGeneratedImage} alt="AI Generated" className="w-full h-full object-contain" />
-                          ) : (aiOriginalImage || aiSelectedSourceImage) ? (
-                            <img src={aiOriginalImage || aiSelectedSourceImage!} alt="Source" className="w-full h-full object-contain opacity-60" />
+                          {(aiPreviewImage || aiGeneratedImage || aiOriginalImage || aiSelectedSourceImage) ? (
+                            <img src={(aiPreviewImage || aiGeneratedImage || aiOriginalImage || aiSelectedSourceImage)!} alt="Preview" className="w-full h-full object-contain" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <p className="text-sm text-muted-foreground">Sin imagen disponible</p>
