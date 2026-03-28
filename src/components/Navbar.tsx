@@ -176,12 +176,12 @@ export default function Navbar() {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link to="/orders" className="gap-2 cursor-pointer">
+                        <Link to="/profile?tab=orders" className="gap-2 cursor-pointer">
                           <Package className="w-4 h-4" /> {t.orders.title}
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link to="/favorites" className="gap-2 cursor-pointer">
+                        <Link to="/profile?tab=favorites" className="gap-2 cursor-pointer">
                           <Heart className="w-4 h-4" /> {t.favorites.title}
                         </Link>
                       </DropdownMenuItem>
@@ -316,10 +316,10 @@ export default function Navbar() {
                       <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50">
                         <User className="w-4 h-4" /> {t.profile.title}
                       </Link>
-                      <Link to="/orders" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50">
+                      <Link to="/profile?tab=orders" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50">
                         <Package className="w-4 h-4" /> {t.orders.title}
                       </Link>
-                      <Link to="/favorites" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50">
+                      <Link to="/profile?tab=favorites" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50">
                         <Heart className="w-4 h-4" /> {t.favorites.title}
                       </Link>
                       {isAdmin && (
