@@ -136,6 +136,44 @@ export function validateFileUpload(
   return { valid: true };
 }
 
+// Validate media files (images, GIFs, videos)
+export async function validateMediaFile(
+  file: File,
+  maxSizeMB?: number
+): Promise<{ valid: boolean; error?: string }> {
+  const isVideo = file.type.startsWith('video/');
+  const limit = maxSizeMB ?? (isVideo ? 20 : 5);
+
+  if (file.size > limit * 1024 * 1024) {
+    return { valid: false, error: `File must be under ${limit}MB` };
+  }
+
+  if (!ALLOWED_MEDIA_TYPES.includes(file.type)) {
+    return { valid: false, error: 'Only JPG, PNG, WebP, GIF, MP4, and WebM files are allowed' };
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (!ext || !ALLOWED_MEDIA_EXTENSIONS.includes(ext)) {
+    return { valid: false, error: 'Invalid file extension' };
+  }
+
+  // Check magic bytes for images/gifs (not videos)
+  if (!isVideo) {
+    try {
+      const buffer = await file.slice(0, 8).arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      const expected = MAGIC_BYTES[file.type];
+      if (expected && !expected.every((b, i) => bytes[i] === b)) {
+        return { valid: false, error: 'File content does not match its type' };
+      }
+    } catch {
+      return { valid: false, error: 'Could not verify file' };
+    }
+  }
+
+  return { valid: true };
+}
+
 // Sanitize file name
 export function sanitizeFileName(name: string): string {
   return name
