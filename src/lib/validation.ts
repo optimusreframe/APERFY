@@ -71,13 +71,16 @@ export const materialSchema = z.object({
 
 // ── File Upload ──
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm'];
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
+const ALLOWED_MEDIA_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm'];
 
 // Magic bytes for file type verification
 const MAGIC_BYTES: Record<string, number[]> = {
   'image/jpeg': [0xFF, 0xD8, 0xFF],
   'image/png': [0x89, 0x50, 0x4E, 0x47],
   'image/webp': [0x52, 0x49, 0x46, 0x46], // RIFF
+  'image/gif': [0x47, 0x49, 0x46],         // GIF
 };
 
 export async function validateImageFile(
