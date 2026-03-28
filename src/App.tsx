@@ -17,6 +17,8 @@ import Catalog from "./pages/Catalog";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import Orders from "./pages/Orders";
+import Profile from "./pages/Profile";
+import Favorites from "./pages/Favorites";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProducts from "./pages/admin/AdminProducts";
@@ -45,6 +47,8 @@ const App = () => (
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
                 <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
                 <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminLayout /></ProtectedRoute>}>
                   <Route index element={<AdminDashboard />} />
                   <Route path="products" element={<AdminProducts />} />

@@ -1,11 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Globe, LogIn, LogOut, Shield, ShoppingCart } from 'lucide-react';
+import { Menu, X, Globe, LogIn, Shield, ShoppingCart, User, Package, Heart, LogOut } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,6 +22,17 @@ export default function Navbar() {
   const { user, isAdmin, signOut } = useAuth();
   const { itemCount } = useCart();
   const location = useLocation();
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [fullName, setFullName] = useState('');
+
+  useEffect(() => {
+    if (!user) { setAvatarUrl(''); setFullName(''); return; }
+    supabase.from('profiles').select('avatar_url, full_name').eq('id', user.id).single()
+      .then(({ data }) => {
+        setAvatarUrl(data?.avatar_url || '');
+        setFullName(data?.full_name || '');
+      });
+  }, [user]);
 
   const navLinks = [
     { href: '/', label: t.nav.home },
@@ -20,6 +40,10 @@ export default function Navbar() {
   ];
 
   const isActive = (path: string) => location.pathname === path;
+
+  const initials = fullName
+    ? fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : user?.email?.[0].toUpperCase() || 'U';
 
   return (
     <motion.nav
@@ -73,20 +97,47 @@ export default function Navbar() {
             </button>
 
             {user ? (
-              <>
-                {isAdmin && (
-                  <Link to="/admin">
-                    <Button variant="ghost" size="sm" className="gap-2 text-primary hover:text-primary">
-                      <Shield className="w-4 h-4" />
-                      {t.nav.admin}
-                    </Button>
-                  </Link>
-                )}
-                <Button variant="ghost" size="sm" onClick={signOut} className="gap-2 text-muted-foreground hover:text-foreground">
-                  <LogOut className="w-4 h-4" />
-                  {t.nav.logout}
-                </Button>
-              </>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-secondary transition-all outline-none">
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage src={avatarUrl} />
+                      <AvatarFallback className="bg-primary/20 text-primary text-xs font-display">{initials}</AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 bg-card border-border">
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile" className="gap-2 cursor-pointer">
+                      <User className="w-4 h-4" /> {t.profile.title}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/orders" className="gap-2 cursor-pointer">
+                      <Package className="w-4 h-4" /> {t.orders.title}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/favorites" className="gap-2 cursor-pointer">
+                      <Heart className="w-4 h-4" /> {t.favorites.title}
+                    </Link>
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin" className="gap-2 cursor-pointer text-primary">
+                          <Shield className="w-4 h-4" /> {t.nav.admin}
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut} className="gap-2 cursor-pointer text-muted-foreground hover:text-destructive">
+                    <LogOut className="w-4 h-4" /> {t.nav.logout}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <>
                 <Link to="/auth">
@@ -142,29 +193,36 @@ export default function Navbar() {
                   {language === 'en' ? 'Español' : 'English'}
                 </button>
               </div>
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-col gap-2 pt-2">
                 {user ? (
                   <>
+                    <Link to="/profile" onClick={() => setIsOpen(false)} className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary">
+                      <User className="w-4 h-4" /> {t.profile.title}
+                    </Link>
+                    <Link to="/orders" onClick={() => setIsOpen(false)} className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary">
+                      <Package className="w-4 h-4" /> {t.orders.title}
+                    </Link>
+                    <Link to="/favorites" onClick={() => setIsOpen(false)} className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary">
+                      <Heart className="w-4 h-4" /> {t.favorites.title}
+                    </Link>
                     {isAdmin && (
-                      <Link to="/admin" className="flex-1" onClick={() => setIsOpen(false)}>
-                        <Button variant="outline" size="sm" className="w-full gap-2">
-                          <Shield className="w-4 h-4" />Admin
-                        </Button>
+                      <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm text-primary hover:bg-primary/10">
+                        <Shield className="w-4 h-4" /> {t.nav.admin}
                       </Link>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => { signOut(); setIsOpen(false); }} className="flex-1">
-                      {t.nav.logout}
+                    <Button variant="outline" size="sm" onClick={() => { signOut(); setIsOpen(false); }} className="mt-2 gap-2">
+                      <LogOut className="w-4 h-4" /> {t.nav.logout}
                     </Button>
                   </>
                 ) : (
-                  <>
+                  <div className="flex gap-2">
                     <Link to="/auth" className="flex-1" onClick={() => setIsOpen(false)}>
                       <Button variant="outline" size="sm" className="w-full">{t.nav.login}</Button>
                     </Link>
                     <Link to="/auth" className="flex-1" onClick={() => setIsOpen(false)}>
                       <Button size="sm" className="w-full bg-gradient-gold text-primary-foreground">{t.nav.signup}</Button>
                     </Link>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
