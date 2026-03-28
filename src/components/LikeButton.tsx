@@ -11,24 +11,11 @@ interface LikeButtonProps {
   className?: string;
   showCount?: boolean;
   size?: 'sm' | 'md';
-  /** Display-only mode: just show icon + external count, no fetching or interactivity */
   countOnly?: boolean;
-  /** External count to display when countOnly is true */
   externalCount?: number;
 }
 
 export default function LikeButton({ productId, className, showCount = true, size = 'sm', countOnly = false, externalCount = 0 }: LikeButtonProps) {
-  // Display-only mode for grids with bulk-fetched counts
-  if (countOnly) {
-    const iconSize = size === 'sm' ? 'w-3.5 h-3.5' : 'w-5 h-5';
-    return (
-      <div className={cn('flex items-center gap-1 text-muted-foreground', className)}>
-        <ThumbsUp className={iconSize} />
-        <span className="text-xs">{externalCount}</span>
-      </div>
-    );
-  }
-
   const { user } = useAuth();
   const { toast } = useToast();
   const { language } = useLanguage();
@@ -37,6 +24,7 @@ export default function LikeButton({ productId, className, showCount = true, siz
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (countOnly) return;
     const fetchLikes = async () => {
       const { count: total } = await supabase
         .from('product_likes')
@@ -55,7 +43,17 @@ export default function LikeButton({ productId, className, showCount = true, siz
       }
     };
     fetchLikes();
-  }, [productId, user]);
+  }, [productId, user, countOnly]);
+
+  if (countOnly) {
+    const iconSize = size === 'sm' ? 'w-3.5 h-3.5' : 'w-5 h-5';
+    return (
+      <div className={cn('flex items-center gap-1 text-muted-foreground', className)}>
+        <ThumbsUp className={iconSize} />
+        <span className="text-xs">{externalCount}</span>
+      </div>
+    );
+  }
 
   const toggleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
