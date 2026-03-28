@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Globe, User, LogIn } from 'lucide-react';
+import { Menu, X, Globe, LogIn, LogOut, Shield } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { language, setLanguage, t } = useLanguage();
+  const { user, isAdmin, signOut } = useAuth();
   const location = useLocation();
 
   const navLinks = [
@@ -26,7 +28,6 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 bg-gradient-gold rounded-lg flex items-center justify-center shadow-gold group-hover:shadow-gold-lg transition-shadow">
               <span className="text-primary-foreground font-display font-black text-sm">3D</span>
@@ -36,7 +37,6 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
               <Link
@@ -53,9 +53,7 @@ export default function Navbar() {
             ))}
           </div>
 
-          {/* Right Side */}
           <div className="hidden md:flex items-center gap-3">
-            {/* Language Switch */}
             <button
               onClick={() => setLanguage(language === 'en' ? 'es' : 'en')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
@@ -64,30 +62,44 @@ export default function Navbar() {
               <span className="font-medium uppercase">{language}</span>
             </button>
 
-            <Link to="/auth/login">
-              <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
-                <LogIn className="w-4 h-4" />
-                {t.nav.login}
-              </Button>
-            </Link>
-            <Link to="/auth/signup">
-              <Button size="sm" className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-gold font-semibold">
-                {t.nav.signup}
-              </Button>
-            </Link>
+            {user ? (
+              <>
+                {isAdmin && (
+                  <Link to="/admin">
+                    <Button variant="ghost" size="sm" className="gap-2 text-primary hover:text-primary">
+                      <Shield className="w-4 h-4" />
+                      {t.nav.admin}
+                    </Button>
+                  </Link>
+                )}
+                <Button variant="ghost" size="sm" onClick={signOut} className="gap-2 text-muted-foreground hover:text-foreground">
+                  <LogOut className="w-4 h-4" />
+                  {t.nav.logout}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link to="/auth">
+                  <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
+                    <LogIn className="w-4 h-4" />
+                    {t.nav.login}
+                  </Button>
+                </Link>
+                <Link to="/auth">
+                  <Button size="sm" className="bg-gradient-gold text-primary-foreground hover:opacity-90 shadow-gold font-semibold">
+                    {t.nav.signup}
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
-          {/* Mobile Menu Toggle */}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden text-foreground p-2"
-          >
+          <button onClick={() => setIsOpen(!isOpen)} className="md:hidden text-foreground p-2">
             {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Menu */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -121,16 +133,29 @@ export default function Navbar() {
                 </button>
               </div>
               <div className="flex gap-2 pt-2">
-                <Link to="/auth/login" className="flex-1" onClick={() => setIsOpen(false)}>
-                  <Button variant="outline" size="sm" className="w-full">
-                    {t.nav.login}
-                  </Button>
-                </Link>
-                <Link to="/auth/signup" className="flex-1" onClick={() => setIsOpen(false)}>
-                  <Button size="sm" className="w-full bg-gradient-gold text-primary-foreground">
-                    {t.nav.signup}
-                  </Button>
-                </Link>
+                {user ? (
+                  <>
+                    {isAdmin && (
+                      <Link to="/admin" className="flex-1" onClick={() => setIsOpen(false)}>
+                        <Button variant="outline" size="sm" className="w-full gap-2">
+                          <Shield className="w-4 h-4" />Admin
+                        </Button>
+                      </Link>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => { signOut(); setIsOpen(false); }} className="flex-1">
+                      {t.nav.logout}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/auth" className="flex-1" onClick={() => setIsOpen(false)}>
+                      <Button variant="outline" size="sm" className="w-full">{t.nav.login}</Button>
+                    </Link>
+                    <Link to="/auth" className="flex-1" onClick={() => setIsOpen(false)}>
+                      <Button size="sm" className="w-full bg-gradient-gold text-primary-foreground">{t.nav.signup}</Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
