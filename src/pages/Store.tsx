@@ -15,14 +15,16 @@ import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import LikeButton from '@/components/LikeButton';
+import ShareMenu from '@/components/ShareMenu';
 
 function ProductCardSkeleton() {
   return (
     <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
-      <Skeleton className="aspect-square w-full" />
-      <div className="p-4 space-y-2">
-        <Skeleton className="h-5 w-3/4" />
-        <Skeleton className="h-6 w-1/3" />
+      <Skeleton className="aspect-[4/5] w-full" />
+      <div className="p-3 sm:p-4 space-y-2">
+        <Skeleton className="h-4 sm:h-5 w-3/4" />
+        <Skeleton className="h-5 sm:h-6 w-1/3" />
       </div>
     </div>
   );
@@ -200,7 +202,6 @@ export default function Store() {
           {/* Sidebar */}
           <aside className={`${showFilters ? 'block' : 'hidden'} lg:block w-full lg:w-64 shrink-0 space-y-6`}>
             <div className="bg-card border border-border rounded-xl p-5 space-y-6">
-              {/* Categories */}
               <div>
                 <h3 className="font-display font-semibold text-sm text-foreground mb-3">{t.store.category}</h3>
                 <div className="space-y-2">
@@ -216,7 +217,6 @@ export default function Store() {
                 </div>
               </div>
 
-              {/* Materials */}
               <div>
                 <h3 className="font-display font-semibold text-sm text-foreground mb-3">{t.store.materialFilter}</h3>
                 <div className="space-y-2">
@@ -232,7 +232,6 @@ export default function Store() {
                 </div>
               </div>
 
-              {/* Price Range */}
               <div>
                 <h3 className="font-display font-semibold text-sm text-foreground mb-3">{t.store.priceRange}</h3>
                 <Slider
@@ -259,7 +258,7 @@ export default function Store() {
           {/* Grid */}
           <div className="flex-1">
             {isLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <ProductCardSkeleton key={i} />
                 ))}
@@ -270,7 +269,7 @@ export default function Store() {
                 <p>{t.store.noResults}</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
                 {filtered.map((product: any, i: number) => (
                   <motion.div
                     key={product.id}
@@ -281,35 +280,44 @@ export default function Store() {
                   >
                     <div className="relative rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
                       <Link to={`/3dmodels/${product.slug}`}>
-                        <div className="aspect-square bg-secondary relative overflow-hidden">
+                        <div className="aspect-[4/5] bg-secondary relative overflow-hidden">
                           {(product.images as string[])?.length > 0 ? (
                             <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover" />
                           ) : (
                             <div className="absolute inset-0 flex items-center justify-center">
-                              <Box className="w-16 h-16 text-muted-foreground/30" />
+                              <Box className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground/30" />
                             </div>
                           )}
                           {product.categories && (
-                            <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-md bg-background/80 backdrop-blur-sm text-xs font-medium text-foreground">
+                            <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-background/80 backdrop-blur-sm text-[10px] sm:text-xs font-medium text-foreground">
                               {language === 'es' ? product.categories.name_es : product.categories.name_en}
                             </div>
                           )}
                         </div>
                       </Link>
-                      <button
-                        onClick={() => toggleFavorite(product.id)}
-                        className="absolute top-3 right-3 w-9 h-9 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/20"
-                      >
-                        <Heart className={`w-4 h-4 ${favorites.includes(product.id) ? 'fill-primary text-primary' : 'text-foreground'}`} />
-                      </button>
-                      <div className="p-4">
+                      {/* Action buttons */}
+                      <div className="absolute top-2 right-2 flex flex-col gap-1.5">
+                        <button
+                          onClick={() => toggleFavorite(product.id)}
+                          className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-0 transition-opacity hover:bg-primary/20"
+                        >
+                          <Heart className={`w-4 h-4 ${favorites.includes(product.id) ? 'fill-primary text-primary' : 'text-foreground'}`} />
+                        </button>
+                        <div className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 sm:opacity-0 transition-opacity">
+                          <ShareMenu slug={product.slug} productName={language === 'es' ? product.name_es : product.name_en} />
+                        </div>
+                      </div>
+                      <div className="p-3 sm:p-4">
                         <Link to={`/3dmodels/${product.slug}`}>
-                          <h3 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                          <h3 className="font-display font-semibold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate">
                             {language === 'es' ? product.name_es : product.name_en}
                           </h3>
                         </Link>
-                        <div className="mt-1 text-lg font-bold text-gradient-gold">
-                          ${Number(product.base_price).toFixed(2)}
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-base sm:text-lg font-bold text-gradient-gold">
+                            ${Number(product.base_price).toFixed(2)}
+                          </span>
+                          <LikeButton productId={product.id} size="sm" />
                         </div>
                       </div>
                     </div>

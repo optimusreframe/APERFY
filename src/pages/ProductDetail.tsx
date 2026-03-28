@@ -13,6 +13,9 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import LikeButton from '@/components/LikeButton';
+import ShareMenu from '@/components/ShareMenu';
+import ProductReviews from '@/components/ProductReviews';
 
 function ProductDetailSkeleton() {
   return (
@@ -134,7 +137,6 @@ export default function ProductDetail() {
     refetchFavorites();
   };
 
-  // Group variations by type
   const variationsByType = variations.reduce((acc: Record<string, any[]>, v: any) => {
     if (!acc[v.type]) acc[v.type] = [];
     acc[v.type].push(v);
@@ -221,15 +223,21 @@ export default function ProductDetail() {
           {/* Product Info */}
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
             <div>
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-3">
                 <h1 className="font-display font-black text-3xl sm:text-4xl text-foreground">
                   {language === 'es' ? product.name_es : product.name_en}
                 </h1>
-                <button onClick={toggleFavorite} className="p-2 rounded-full hover:bg-primary/10 transition-colors">
-                  <Heart className={`w-6 h-6 ${isFav ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
-                </button>
+                <div className="flex items-center gap-2 shrink-0 pt-1">
+                  <ShareMenu slug={product.slug} productName={language === 'es' ? product.name_es : product.name_en} size="md" />
+                  <button onClick={toggleFavorite} className="p-2 rounded-full hover:bg-primary/10 transition-colors">
+                    <Heart className={`w-6 h-6 ${isFav ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
+                  </button>
+                </div>
               </div>
-              <div className="mt-2 text-3xl font-bold text-gradient-gold">${totalPrice.toFixed(2)}</div>
+              <div className="flex items-center gap-4 mt-2">
+                <span className="text-3xl font-bold text-gradient-gold">${totalPrice.toFixed(2)}</span>
+                <LikeButton productId={product.id} size="md" />
+              </div>
               <span className="inline-block mt-2 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium">
                 {t.product.inStock}
               </span>
@@ -337,15 +345,20 @@ export default function ProductDetail() {
           </motion.div>
         </div>
 
+        {/* Reviews Section */}
+        <div className="mt-16 border-t border-border pt-12">
+          <ProductReviews productId={product.id} />
+        </div>
+
         {/* Related Products */}
         {relatedProducts.length > 0 && (
           <div className="mt-20">
             <h2 className="font-display font-bold text-2xl mb-6">{t.product.relatedModels}</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
               {relatedProducts.map((rp: any) => (
                 <Link key={rp.id} to={`/3dmodels/${rp.slug}`} className="group">
                   <div className="rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
-                    <div className="aspect-square bg-secondary relative overflow-hidden">
+                    <div className="aspect-[4/5] bg-secondary relative overflow-hidden">
                       {(rp.images as string[])?.length > 0 ? (
                         <img src={(rp.images as string[])[0]} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -354,11 +367,14 @@ export default function ProductDetail() {
                         </div>
                       )}
                     </div>
-                    <div className="p-4">
-                      <h3 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                    <div className="p-3 sm:p-4">
+                      <h3 className="font-display font-semibold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate">
                         {language === 'es' ? rp.name_es : rp.name_en}
                       </h3>
-                      <div className="mt-1 text-lg font-bold text-gradient-gold">${Number(rp.base_price).toFixed(2)}</div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-base sm:text-lg font-bold text-gradient-gold">${Number(rp.base_price).toFixed(2)}</span>
+                        <LikeButton productId={rp.id} size="sm" />
+                      </div>
                     </div>
                   </div>
                 </Link>
