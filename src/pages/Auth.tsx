@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, ArrowRight } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, ShieldAlert } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
+import { loginSchema, signupSchema } from '@/lib/validation';
+import { checkRateLimit, resetRateLimit, formatRetryTime } from '@/lib/rate-limit';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -18,6 +20,8 @@ export default function Auth() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const { t } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -30,19 +34,48 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setFieldErrors({});
 
+    // Rate limit check
+    const rlKey = isLogin ? 'auth-login' : 'auth-signup';
+    const { allowed, retryAfterMs } = checkRateLimit(rlKey, 5, 5 * 60 * 1000);
+    if (!allowed) {
+      setCooldown(retryAfterMs);
+      toast({
+        title: t.auth.rateLimited || 'Too many attempts',
+        description: `${t.auth.tryAgainIn || 'Try again in'} ${formatRetryTime(retryAfterMs)}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate
+    if (isLogin) {
+      const result = loginSchema.safeParse({ email, password });
+      if (!result.success) {
+        const errs: Record<string, string> = {};
+        result.error.issues.forEach(i => { errs[i.path[0] as string] = i.message; });
+        setFieldErrors(errs);
+        return;
+      }
+    } else {
+      const result = signupSchema.safeParse({ email, password, confirmPassword, fullName });
+      if (!result.success) {
+        const errs: Record<string, string> = {};
+        result.error.issues.forEach(i => { errs[i.path[0] as string] = i.message; });
+        setFieldErrors(errs);
+        return;
+      }
+    }
+
+    setLoading(true);
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        resetRateLimit('auth-login');
         navigate('/');
       } else {
-        if (password !== confirmPassword) {
-          toast({ title: 'Error', description: 'Passwords do not match', variant: 'destructive' });
-          setLoading(false);
-          return;
-        }
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -52,10 +85,15 @@ export default function Auth() {
           },
         });
         if (error) throw error;
+        resetRateLimit('auth-signup');
         toast({ title: '✓', description: 'Check your email to confirm your account.' });
       }
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      // Mask error to prevent user enumeration
+      const genericMsg = isLogin
+        ? (t.auth.invalidCredentials || 'Invalid email or password')
+        : (error.message || 'An error occurred');
+      toast({ title: 'Error', description: genericMsg, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -66,15 +104,23 @@ export default function Auth() {
       toast({ title: 'Error', description: 'Enter your email first', variant: 'destructive' });
       return;
     }
+    const { allowed } = checkRateLimit('auth-reset', 3, 10 * 60 * 1000);
+    if (!allowed) {
+      toast({ title: t.auth.rateLimited || 'Too many attempts', variant: 'destructive' });
+      return;
+    }
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    // Always show success to prevent email enumeration
+    if (!error) {
+      toast({ title: '✓', description: 'If that email exists, a reset link was sent.' });
     } else {
-      toast({ title: '✓', description: 'Password reset email sent.' });
+      toast({ title: '✓', description: 'If that email exists, a reset link was sent.' });
     }
   };
+
+  const isThrottled = cooldown > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -95,7 +141,7 @@ export default function Auth() {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               {!isLogin && (
                 <div className="space-y-2">
                   <Label htmlFor="name">{t.auth.name}</Label>
@@ -106,9 +152,11 @@ export default function Auth() {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       className="pl-10 bg-secondary border-border"
+                      maxLength={100}
                       required
                     />
                   </div>
+                  {fieldErrors.fullName && <p className="text-xs text-destructive">{fieldErrors.fullName}</p>}
                 </div>
               )}
 
@@ -122,9 +170,11 @@ export default function Auth() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 bg-secondary border-border"
+                    maxLength={255}
                     required
                   />
                 </div>
+                {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
               </div>
 
               <div className="space-y-2">
@@ -137,10 +187,12 @@ export default function Auth() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 bg-secondary border-border"
+                    maxLength={72}
                     required
                     minLength={6}
                   />
                 </div>
+                {fieldErrors.password && <p className="text-xs text-destructive">{fieldErrors.password}</p>}
               </div>
 
               {!isLogin && (
@@ -154,10 +206,12 @@ export default function Auth() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       className="pl-10 bg-secondary border-border"
+                      maxLength={72}
                       required
                       minLength={6}
                     />
                   </div>
+                  {fieldErrors.confirmPassword && <p className="text-xs text-destructive">{fieldErrors.confirmPassword}</p>}
                 </div>
               )}
 
@@ -173,11 +227,12 @@ export default function Auth() {
 
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || isThrottled}
                 className="w-full bg-gradient-gold text-primary-foreground font-semibold shadow-gold hover:opacity-90 gap-2"
               >
+                {isThrottled && <ShieldAlert className="w-4 h-4" />}
                 {loading ? '...' : isLogin ? t.auth.signIn : t.auth.signUp}
-                <ArrowRight className="w-4 h-4" />
+                {!isThrottled && <ArrowRight className="w-4 h-4" />}
               </Button>
             </form>
 
@@ -186,7 +241,7 @@ export default function Auth() {
                 {isLogin ? t.auth.noAccount : t.auth.hasAccount}{' '}
               </span>
               <button
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={() => { setIsLogin(!isLogin); setFieldErrors({}); }}
                 className="text-primary hover:underline font-medium"
               >
                 {isLogin ? t.auth.signUp : t.auth.signIn}

@@ -146,6 +146,8 @@ export const translations = {
       fillRequired: 'Please fill all required fields',
       success: 'Order placed successfully!',
       error: 'Failed to place order',
+      priceChanged: 'Prices updated',
+      priceChangedDesc: 'Some product prices have changed. Please review your cart.',
     },
     orders: {
       title: 'My Orders',
@@ -202,6 +204,9 @@ export const translations = {
       hasAccount: 'Already have an account?',
       signIn: 'Sign In',
       signUp: 'Sign Up',
+      rateLimited: 'Too many attempts',
+      tryAgainIn: 'Try again in',
+      invalidCredentials: 'Invalid email or password',
     },
   },
   es: {
@@ -349,6 +354,8 @@ export const translations = {
       fillRequired: 'Por favor completa todos los campos obligatorios',
       success: '¡Pedido realizado con éxito!',
       error: 'Error al realizar el pedido',
+      priceChanged: 'Precios actualizados',
+      priceChangedDesc: 'Algunos precios de productos han cambiado. Revisa tu carrito.',
     },
     orders: {
       title: 'Mis Pedidos',
@@ -405,6 +412,9 @@ export const translations = {
       hasAccount: '¿Ya tienes una cuenta?',
       signIn: 'Iniciar Sesión',
       signUp: 'Registrarse',
+      rateLimited: 'Demasiados intentos',
+      tryAgainIn: 'Intenta de nuevo en',
+      invalidCredentials: 'Email o contraseña incorrectos',
     },
   },
 } as const;

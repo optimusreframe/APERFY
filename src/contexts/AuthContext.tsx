@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -12,11 +12,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const checkAdmin = async (userId: string) => {
     const { data } = await supabase
@@ -27,6 +30,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .maybeSingle();
     setIsAdmin(!!data);
   };
+
+  const signOut = useCallback(async () => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    setIsAdmin(false);
+    await supabase.auth.signOut();
+  }, []);
+
+  // Idle timeout — auto-logout after inactivity
+  const resetIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    if (session) {
+      idleTimerRef.current = setTimeout(() => {
+        signOut();
+      }, IDLE_TIMEOUT_MS);
+    }
+  }, [session, signOut]);
+
+  useEffect(() => {
+    if (!session) return;
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    const handler = () => resetIdleTimer();
+    events.forEach(e => window.addEventListener(e, handler, { passive: true }));
+    resetIdleTimer();
+    return () => {
+      events.forEach(e => window.removeEventListener(e, handler));
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [session, resetIdleTimer]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -53,10 +84,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
 
   return (
     <AuthContext.Provider value={{ session, user, isAdmin, loading, signOut }}>
