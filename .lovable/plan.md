@@ -1,65 +1,98 @@
 
 
-# User Dashboard Redesign — Unified Tabbed Panel
+# Advanced Product Management & AI Import Redesign
 
-## Problem
-Currently the user panel is just a basic profile form with two buttons linking to separate pages (Orders, Favorites). Users must click the avatar dropdown in the navbar to navigate between sections. This feels outdated and fragmented.
+## Part 1: Multi-Media Upload System (Add/Edit Product Dialog)
 
-## Solution
-Transform `/profile` into a full **User Dashboard** with a tabbed interface that consolidates Profile, Orders, and Favorites into a single page. Remove the separate `/orders` and `/favorites` routes (redirect them to `/profile` with the correct tab). Add a sidebar on desktop and tabs on mobile.
+### Changes to `AdminProducts.tsx`
+- Replace single `imageFile` state with `mediaFiles: { file: File; preview: string; id: string }[]` array (max 5)
+- Move media upload zone to the TOP of the dialog, before name fields
+- Accept: `image/jpeg, image/png, image/webp, image/gif, video/mp4, video/webm` (update validation accordingly)
+- Drop zone UI: dashed border area with "Drag & drop or click to upload" + icons for photo/gif/video
+- Show uploaded files as draggable thumbnail grid:
+  - Images/GIFs: show preview thumbnail
+  - Videos: show first-frame thumbnail or video icon overlay
+  - Each thumbnail has an X button to remove
+  - Drag-to-reorder using HTML5 drag events (no extra library needed — `onDragStart`, `onDragOver`, `onDrop` with index swapping)
+- When editing existing product, pre-populate thumbnails from existing `product.images` URLs + allow adding new ones up to 5 total
+- On save: upload new files to storage, merge with existing URLs in correct order
 
-## Layout
+### Changes to `src/lib/validation.ts`
+- Add `validateMediaFile()` function that accepts images, GIFs, and videos (max 20MB for video, 5MB for images/GIFs)
+- Add GIF magic bytes + video MIME validation
+
+## Part 2: Advanced AI Import — Full-Page Dialog
+
+Replace the basic AI Import dialog with a multi-step, full-width premium wizard.
+
+### New Edge Function: `supabase/functions/ai-product-import/index.ts`
+Complete rewrite with these capabilities:
+1. **Scrape the URL** — use Firecrawl if available, otherwise fetch + parse HTML for title/description/images using the AI model
+2. **Generate unique product name** (EN/ES) — not similar to original
+3. **Generate short description** (EN/ES) — based on original
+4. **Extract materials & colors** from the reference page
+5. **Extract original product image URL** from the scraped page
+6. **Generate AI product image** — use `google/gemini-3.1-flash-image-preview` (Nano Banana 2) to:
+   - Take the extracted/uploaded original product image
+   - Extract the 3D object from it
+   - Place it on a branded 3DtoPrint background (admin can upload custom background, or use default dark+gold gradient)
+   - Return the generated image as base64
+
+### AI Import Dialog UI (in `AdminProducts.tsx`)
+Full-screen dialog with steps/sections:
 
 ```text
-Desktop (lg+):
-┌─────────────────────────────────────────────┐
-│ Navbar                                      │
-├──────────┬──────────────────────────────────┤
-│          │                                  │
-│ Sidebar  │   Tab Content Area               │
-│          │                                  │
-│ 🏠 Dashboard │  (Overview / Profile /      │
-│ 👤 Profile   │   Orders / Favorites)       │
-│ 📦 Orders    │                              │
-│ ❤️ Favorites │                              │
-│ 🚪 Logout    │                              │
-│          │                                  │
-├──────────┴──────────────────────────────────┤
-│ Footer                                      │
-└─────────────────────────────────────────────┘
-
-Mobile:
-Horizontal scrollable tab bar at top of content area
+┌──────────────────────────────────────────────┐
+│ ✨ AI Product Import Studio                   │
+├──────────────────────────────────────────────┤
+│                                              │
+│ STEP 1: Source                               │
+│ [Reference URL input]                        │
+│ —OR—                                         │
+│ [Upload original product photo]              │
+│ [Upload custom background (optional)]        │
+│                                              │
+│ [🚀 Extract & Generate with AI]              │
+│                                              │
+│ STEP 2: Review & Edit (after AI generates)   │
+│ ┌─────────────┬────────────────────────┐     │
+│ │ AI Generated│ Name EN: [editable]    │     │
+│ │   Image     │ Name ES: [editable]    │     │
+│ │  (preview)  │ Desc EN: [editable]    │     │
+│ │             │ Desc ES: [editable]    │     │
+│ │ [Regenerate]│ Materials: [editable]  │     │
+│ │             │ Colors: [editable]     │     │
+│ │             │ Price: [editable]      │     │
+│ │             │ Category: [select]     │     │
+│ └─────────────┴────────────────────────┘     │
+│                                              │
+│ [💾 Save Product]                             │
+└──────────────────────────────────────────────┘
 ```
 
-## Tabs / Sections
+- After AI generates, all fields are editable inline
+- The AI-generated image is shown as a large preview with a "Regenerate Image" button
+- Admin can swap the background image and regenerate
+- On save: uploads the AI image to storage, creates product with all data
 
-1. **Overview (Dashboard)** — Welcome card with user name/avatar, quick stats (total orders, total favorites, total likes received), and shortcut cards to other sections. Glowing gradient cards with animated counters.
-
-2. **Profile** — Existing profile form (avatar upload, name, phone, email). Keep current logic intact.
-
-3. **My Orders** — Move existing Orders page content inline. Same expandable order cards.
-
-4. **My Favorites** — Move existing Favorites page content inline. Same product grid with remove buttons.
+### Edge Function Flow
+1. Receive `{ url?, originalImage? (base64), customBackground? (base64) }`
+2. If URL provided: scrape page content (title, description, images, materials info) via AI text extraction
+3. Generate unique product name + description using text AI (`google/gemini-3-flash-preview`)
+4. Extract materials & colors from scraped content
+5. Get the original product image (from URL scrape or admin upload)
+6. Call `google/gemini-3.1-flash-image-preview` with the original image + instructions to isolate the 3D object and place it on the branded background
+7. Return all data + generated image base64
 
 ## Files Modified
+1. **`src/pages/admin/AdminProducts.tsx`** — Complete redesign of both dialogs (add/edit + AI import)
+2. **`src/lib/validation.ts`** — Add `validateMediaFile()` for GIF/video support
+3. **`supabase/functions/ai-product-import/index.ts`** — New advanced edge function replacing `ai-product-from-url`
+4. **`supabase/functions/ai-product-from-url/index.ts`** — Keep as fallback, or delete
 
-1. **`src/pages/Profile.tsx`** — Complete rewrite into a tabbed dashboard layout with sidebar (desktop) and tab bar (mobile). Import and render Orders/Favorites content inline using extracted components.
-
-2. **`src/pages/Orders.tsx`** — Extract order list into a reusable component, keep the page as a redirect to `/profile?tab=orders`.
-
-3. **`src/pages/Favorites.tsx`** — Same: extract content, redirect page to `/profile?tab=favorites`.
-
-4. **`src/i18n/translations.ts`** — Add new keys: `profile.overview`, `profile.dashboard`, `profile.totalOrders`, `profile.totalFavorites`, `profile.totalLikes`, `profile.welcomeBack`, tab labels.
-
-5. **`src/App.tsx`** — Keep `/orders` and `/favorites` routes but they will redirect to `/profile` with query params.
-
-6. **`src/components/Navbar.tsx`** — Update dropdown menu items to navigate to `/profile?tab=orders` etc. instead of separate pages.
-
-## Visual Style
-- Dark card backgrounds with subtle gold border glow on hover
-- Gradient accent on active sidebar item
-- Overview stat cards with glassmorphism effect and animated number counters
-- Consistent with existing premium dark + gold brand theme
-- Smooth tab transitions using framer-motion
+## Implementation Order
+1. Update validation for multi-media support
+2. Redesign Add/Edit Product dialog with multi-upload + drag-reorder
+3. Create new `ai-product-import` edge function with full pipeline
+4. Build the AI Import Studio dialog UI
 
