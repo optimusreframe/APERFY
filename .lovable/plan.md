@@ -1,27 +1,40 @@
 
 
-# Replace Login/Signup with Single Premium 3D Contact Button
+# Premium 3D Auth Page Redesign
 
-## Change
+## Overview
+Redesign the Auth page to match the reference screenshots — a premium dark card with gold accents, 3D depth effects, the 3DtoPrint logo at the top, and enhanced visual treatment.
 
-Replace the two separate "Log In" and "Sign Up" buttons (lines 204-217) with a single premium button using a `UserRound` or `UserPlus` icon, styled with the gold gradient, 3D depth shadows, and glow effects matching the navbar's premium aesthetic.
+## Changes
 
-### Edit: `src/components/Navbar.tsx`
-- Remove the `<div>` containing both Login and Signup buttons
-- Replace with a single `<Link to="/auth">` containing a styled icon button:
-  - Gold gradient background with 3D layered box-shadows
-  - `UserRound` icon (from lucide-react) — clean "contact/person" look
-  - Subtle glow pulse animation behind the button
-  - Rounded pill shape, slightly larger than other action icons
-  - Hover: scale up slightly + increased glow
-- Also update the mobile menu: replace the two mobile auth buttons with a single styled button
+### Edit: `src/pages/Auth.tsx`
 
-### Visual Treatment
-- Background: `bg-gradient-gold` with `shadow-gold`
-- 3D depth: multi-layer box-shadow (dark below, gold glow)
-- Hover: `scale(1.05)` + brighter glow
-- Icon: `UserRound` in `text-primary-foreground` (dark on gold)
-- Size: `w-10 h-10` rounded-full or `px-4 py-2` rounded-xl pill
+**Logo at top of card:**
+- Add the same 3DtoPrint logo (gold gradient "3D" badge + text) from the Navbar, centered above the title
+- Badge gets a glow-pulse animation behind it
 
-No new files. Single file edit.
+**Card styling upgrade:**
+- Outer gold glow border using a gradient border technique (double container with gold gradient on outer, dark bg on inner)
+- Multi-layer 3D box-shadows for depth (dark shadow below + subtle gold underglow)
+- Slight perspective tilt on initial entrance animation (rotateX)
+
+**Input fields:**
+- Rounded-xl inputs with darker bg (`bg-[#1a1a2e]` or similar deep dark)
+- Larger padding, more prominent icons
+- Subtle gold border on focus instead of default ring
+- Inputs get a slight inset shadow for a "recessed" 3D feel
+
+**Submit button:**
+- Full-width rounded-xl gold gradient with 3D shadow
+- Shimmer sweep animation on hover (reuse existing shimmer keyframe)
+
+**Background:**
+- Add subtle floating 3D geometric shapes behind the card (small rotating cubes/triangles with low opacity)
+- Radial gold gradient spot behind the card for ambient glow
+
+**Transitions:**
+- Smooth AnimatePresence for switching between login/signup (fields slide in/out)
+- Card entrance: fade + subtle scale + rotateX from slight angle
+
+Single file edit. No new files needed.
 
