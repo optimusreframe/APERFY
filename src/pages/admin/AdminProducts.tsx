@@ -441,6 +441,7 @@ export default function AdminProducts() {
           sourceImage,
           customBackground,
           backgroundMode,
+          productCategory: aiData?.suggested_category || '',
         },
       });
       if (error) throw error;

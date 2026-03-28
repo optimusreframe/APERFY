@@ -164,18 +164,27 @@ EXISTING CATEGORIES in the store (use one of these slugs if applicable, or sugge
 
     // ── ACTION: generate_image ──
     if (action === "generate_image") {
-      const { sourceImage, customBackground, backgroundMode } = body;
+      const { sourceImage, customBackground, backgroundMode, productCategory } = body;
       if (!sourceImage) {
         return new Response(JSON.stringify({ error: "Source image is required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Default branded display stand prompt
-      const defaultBgPrompt = `a sleek premium product display pedestal/stand in a professional photography studio. The stand is a modern circular or rectangular elevated platform with a dark matte finish. The background is a smooth dark gradient (deep charcoal to black) with subtle warm golden accent lights from the sides. Add a small elegant "3DtoPrint" watermark text in the bottom-right corner of the image in a subtle semi-transparent white font. The overall feel should be luxurious, like a high-end product showcase or exhibition display`;
+      // Category-aware premium background prompt selection
+      const cat = (productCategory || '').toLowerCase();
+      let defaultBgPrompt: string;
+
+      if (['figuras', 'figures', 'decoracion', 'decoration', 'figure', 'figurine'].some(k => cat.includes(k))) {
+        defaultBgPrompt = `A photo of a museum gallery exhibit. A minimalist glass and dark wood plinth. Diffused light from above, creating very soft shadows. Large, elegant 3DtoPrint logo engraved on a plaque at the base of the plinth. Minimalist, clean white walls in the deep background with abstract architectural patterns. The scene feels premium and curated.`;
+      } else if (['funcional', 'functional', 'engineering', 'herramientas', 'tools', 'mechanical'].some(k => cat.includes(k))) {
+        defaultBgPrompt = `A high-end engineering schematics surface. Dark, infinite glass surface with a clean, precise technical grid pattern of electric cyan and warm orange lines. Embedded LED strips along the grid lines. Text annotations and call-out arrows pointing to the center of the plinth. 3DtoPrint logo as a precise, professional engineering stamp in the bottom right corner title block. The plinth is a heavy-duty, monolithic dark concrete base. The lighting is crisp and technical.`;
+      } else {
+        defaultBgPrompt = `A high-resolution, museum-grade photo of a professional exhibition plinth. The plinth is made of dark, polished concrete and warm-toned brushed metal. A central, recessed lighting element provides focused, crisp light, creating defined contact shadows. The surrounding environment is a minimalist, dark architectural space with subtle geometric patterns. Two elegant light lines, one in warm white and one in electric cobalt blue, are integrated into the architecture. A large, stylized, laser-etched 3DtoPrint logo is subtly and precisely integrated into the metal texture of the plinth base. The background is slightly out of focus to keep attention on the central area, creating a deep sense of scale and premium quality.`;
+      }
 
       let bgInstruction = defaultBgPrompt;
-      let promptText = `Take this 3D printed product/figurine image. Extract the main object from the image completely, remove its current background, and place it centered on top of ${bgInstruction}. Make the product look like a premium e-commerce product photo displayed on a professional exhibition stand. The object should be well-lit with professional studio lighting. Keep the object exactly as it is - only change the background, add the display stand beneath it, and enhance the lighting. IMPORTANT: Include a subtle "3DtoPrint" watermark/brand text in the bottom-right corner.`;
+      let promptText = `Take this 3D printed product/figurine image. Extract the main object from the image completely, remove its current background, and place it centered on top of ${bgInstruction} The product is placed centrally on the plinth with realistic, detailed contact shadows and subtle reflections, making it the undeniable hero of the scene. The object should be well-lit with professional studio lighting. Keep the object exactly as it is - only change the background, add the display stand beneath it, and enhance the lighting. IMPORTANT: Include a subtle "3DtoPrint" watermark/brand text in the bottom-right corner.`;
 
       const messages: any[] = [
         {
@@ -193,7 +202,7 @@ EXISTING CATEGORIES in the store (use one of these slugs if applicable, or sugge
           type: "image_url",
           image_url: { url: customBackground }
         });
-        messages[0].content[0].text = `Take this 3D printed product/figurine from the first image. Extract the main object completely, remove its background, and place it on the background/surface shown in the second image. Make it look like a premium e-commerce product photo with professional lighting. Keep the object exactly as it is - only change the background. IMPORTANT: Include a subtle "3DtoPrint" watermark/brand text in the bottom-right corner.`;
+        messages[0].content[0].text = `Take this 3D printed product/figurine from the first image. Extract the main object completely, remove its background, and place it on the background/surface shown in the second image. Make it look like a premium e-commerce product photo with professional lighting and realistic contact shadows. Keep the object exactly as it is - only change the background. IMPORTANT: Include a subtle "3DtoPrint" watermark/brand text in the bottom-right corner.`;
       }
 
       const imgResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
