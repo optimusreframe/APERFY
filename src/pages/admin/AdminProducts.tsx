@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Image } from 'lucide-react';
+import { Plus, Pencil, Trash2, Image, Sparkles, Link2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -32,9 +32,13 @@ const empty: ProductForm = {
 
 export default function AdminProducts() {
   const [open, setOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(empty);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [aiUrl, setAiUrl] = useState('');
+  const [aiDesc, setAiDesc] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
   const qc = useQueryClient();
   const { toast } = useToast();
   const { language } = useLanguage();
@@ -122,55 +126,156 @@ export default function AdminProducts() {
     setOpen(true);
   };
 
+  const handleAiGenerate = async () => {
+    if (!aiUrl && !aiDesc) {
+      toast({ title: 'Error', description: 'Provide a URL or description', variant: 'destructive' });
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-from-url', {
+        body: { url: aiUrl, description: aiDesc },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'AI generation failed');
+
+      const d = data.data;
+      // Find matching category
+      const catSlug = d.suggested_category;
+      const matchedCat = categories.find((c: any) => c.slug === catSlug);
+
+      setForm({
+        name_en: d.name_en || '',
+        name_es: d.name_es || '',
+        description_en: d.description_en || '',
+        description_es: d.description_es || '',
+        slug: d.slug || '',
+        base_price: d.suggested_price || 0,
+        category_id: matchedCat?.id || '',
+        is_active: true,
+        is_featured: false,
+      });
+      setAiOpen(false);
+      setOpen(true);
+      toast({ title: '✓', description: 'AI generated product data. Review and save.' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-display text-2xl font-bold text-foreground">Products</h1>
-        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setImageFile(null); } }}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="w-4 h-4" />Add Product</Button>
-          </DialogTrigger>
-          <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle className="font-display">{editId ? 'Edit' : 'Add'} Product</DialogTitle></DialogHeader>
-            <form onSubmit={(e) => { e.preventDefault(); save.mutate(form); }} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Name (EN)</Label><Input value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} className="bg-secondary" required /></div>
-                <div className="space-y-2"><Label>Name (ES)</Label><Input value={form.name_es} onChange={(e) => setForm({ ...form, name_es: e.target.value })} className="bg-secondary" required /></div>
-              </div>
-              <div className="space-y-2"><Label>Description (EN)</Label><Textarea value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} className="bg-secondary" rows={3} /></div>
-              <div className="space-y-2"><Label>Description (ES)</Label><Textarea value={form.description_es} onChange={(e) => setForm({ ...form, description_es: e.target.value })} className="bg-secondary" rows={3} /></div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2"><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} className="bg-secondary" required /></div>
-                <div className="space-y-2"><Label>Base Price ($)</Label><Input type="number" step="0.01" value={form.base_price} onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} className="bg-secondary" required /></div>
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select value={form.category_id} onValueChange={(v) => setForm({ ...form, category_id: v })}>
-                    <SelectTrigger className="bg-secondary"><SelectValue placeholder="Select..." /></SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c: any) => (
-                        <SelectItem key={c.id} value={c.id}>{language === 'es' ? c.name_es : c.name_en}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Product Image</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="bg-secondary" />
-                  <Image className="w-5 h-5 text-muted-foreground" />
-                </div>
-              </div>
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2"><Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} /><Label>Active</Label></div>
-                <div className="flex items-center gap-2"><Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} /><Label>Featured</Label></div>
-              </div>
-              <Button type="submit" disabled={save.isPending} className="w-full bg-gradient-gold text-primary-foreground">
-                {save.isPending ? '...' : 'Save Product'}
+        <div className="flex gap-2">
+          {/* AI Import Dialog */}
+          <Dialog open={aiOpen} onOpenChange={setAiOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2 border-primary/30 text-primary hover:bg-primary/10">
+                <Sparkles className="w-4 h-4" />
+                Add from Reference
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border">
+              <DialogHeader>
+                <DialogTitle className="font-display flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  AI Product Import
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Link2 className="w-4 h-4" />Reference URL</Label>
+                  <Input
+                    value={aiUrl}
+                    onChange={(e) => setAiUrl(e.target.value)}
+                    placeholder="https://www.thingiverse.com/thing/..."
+                    className="bg-secondary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Additional Description</Label>
+                  <Textarea
+                    value={aiDesc}
+                    onChange={(e) => setAiDesc(e.target.value)}
+                    placeholder="Describe the product or paste additional info..."
+                    className="bg-secondary"
+                    rows={4}
+                  />
+                </div>
+                <Button
+                  onClick={handleAiGenerate}
+                  disabled={aiLoading || (!aiUrl && !aiDesc)}
+                  className="w-full bg-gradient-gold text-primary-foreground gap-2"
+                >
+                  {aiLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate with AI
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  AI will generate bilingual product data for you to review before saving.
+                </p>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Standard Add Dialog */}
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setImageFile(null); } }}>
+            <DialogTrigger asChild>
+              <Button className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="w-4 h-4" />Add Product</Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle className="font-display">{editId ? 'Edit' : 'Add'} Product</DialogTitle></DialogHeader>
+              <form onSubmit={(e) => { e.preventDefault(); save.mutate(form); }} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Name (EN)</Label><Input value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} className="bg-secondary" required /></div>
+                  <div className="space-y-2"><Label>Name (ES)</Label><Input value={form.name_es} onChange={(e) => setForm({ ...form, name_es: e.target.value })} className="bg-secondary" required /></div>
+                </div>
+                <div className="space-y-2"><Label>Description (EN)</Label><Textarea value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} className="bg-secondary" rows={3} /></div>
+                <div className="space-y-2"><Label>Description (ES)</Label><Textarea value={form.description_es} onChange={(e) => setForm({ ...form, description_es: e.target.value })} className="bg-secondary" rows={3} /></div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2"><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} className="bg-secondary" required /></div>
+                  <div className="space-y-2"><Label>Base Price ($)</Label><Input type="number" step="0.01" value={form.base_price} onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} className="bg-secondary" required /></div>
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <Select value={form.category_id} onValueChange={(v) => setForm({ ...form, category_id: v })}>
+                      <SelectTrigger className="bg-secondary"><SelectValue placeholder="Select..." /></SelectTrigger>
+                      <SelectContent>
+                        {categories.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{language === 'es' ? c.name_es : c.name_en}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Product Image</Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="bg-secondary" />
+                    <Image className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2"><Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} /><Label>Active</Label></div>
+                  <div className="flex items-center gap-2"><Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} /><Label>Featured</Label></div>
+                </div>
+                <Button type="submit" disabled={save.isPending} className="w-full bg-gradient-gold text-primary-foreground">
+                  {save.isPending ? '...' : 'Save Product'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
