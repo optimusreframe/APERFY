@@ -156,9 +156,8 @@ export default function Checkout() {
   const selectedProvider = shippingProviders.find(p => p.id === selectedShipping);
   const totalWeight = useMemo(() => {
     return items.reduce((sum, item) => {
-      const sizeVar = item.selectedVariations.find(v => v.type === 'size');
-      // Approximate weight - we'd ideally get from variations but use 100g default
-      return sum + (item.quantity * 100) / 1000; // default 0.1kg per item
+      const w = item.weightGrams && item.weightGrams > 0 ? item.weightGrams : 100;
+      return sum + (item.quantity * w) / 1000;
     }, 0);
   }, [items]);
 
