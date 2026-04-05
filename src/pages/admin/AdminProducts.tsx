@@ -1232,13 +1232,33 @@ export default function AdminProducts() {
                           <div className="space-y-1">
                             <Label className="text-xs">Precio ($)</Label>
                             <Input type="number" step="0.01" value={aiData.suggested_price} onChange={(e) => setAiData({ ...aiData, suggested_price: parseFloat(e.target.value) || 0 })} className="bg-secondary text-sm" />
-                            {aiData.price_source === 'ebay_market' && (
-                              <p className="text-[10px] text-primary flex items-center gap-1">
-                                📊 Precio basado en {aiData.ebay_prices?.length || 0} listings de eBay
+                            {aiData.price_confidence === 'high' && (
+                              <p className="text-[10px] text-green-600 flex items-center gap-1">
+                                🟢 Alta confianza — {aiData.matched_listings_count || 0} listings relevantes
                               </p>
                             )}
-                            {aiData.price_source === 'ai_estimate' && (
-                              <p className="text-[10px] text-muted-foreground">⚠️ Estimado por IA (sin datos de mercado)</p>
+                            {aiData.price_confidence === 'medium' && (
+                              <p className="text-[10px] text-yellow-600 flex items-center gap-1">
+                                🟡 Confianza media — {aiData.matched_listings_count || 0} listings relevantes
+                              </p>
+                            )}
+                            {(aiData.price_confidence === 'low' || !aiData.price_confidence) && aiData.price_source === 'ai_estimate' && (
+                              <p className="text-[10px] text-muted-foreground">🔴 Estimado por IA (sin datos de mercado)</p>
+                            )}
+                            {(aiData.price_confidence === 'low' || !aiData.price_confidence) && aiData.price_source === 'ebay_market' && (
+                              <p className="text-[10px] text-orange-500">🟠 Baja confianza — pocos resultados relevantes</p>
+                            )}
+                            {aiData.search_queries_used && aiData.search_queries_used.length > 0 && (
+                              <details className="mt-1">
+                                <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground">
+                                  Ver queries de búsqueda ({aiData.search_queries_used.length})
+                                </summary>
+                                <ul className="text-[9px] text-muted-foreground mt-1 space-y-0.5 pl-2">
+                                  {aiData.search_queries_used.map((q: string, i: number) => (
+                                    <li key={i} className="truncate">• {q}</li>
+                                  ))}
+                                </ul>
+                              </details>
                             )}
                           </div>
                           {/* Category with inline creation */}
