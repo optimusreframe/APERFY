@@ -52,6 +52,32 @@ const COMMON_COLORS = [
   'Naranja', 'Morado', 'Rosa', 'Dorado', 'Plateado', 'Marrón', 'Transparente'
 ];
 
+// ── AI Progress Log ──
+const AI_PROGRESS_MESSAGES = [
+  '◉ Aislando modelo 3D...',
+  '◉ Configurando iluminación de estudio...',
+  '◉ Aplicando efecto Bokeh...',
+  '◉ Renderizando en 8K...',
+];
+
+function AiProgressLog({ step }: { step: number }) {
+  return (
+    <div className="space-y-2 text-left px-6 w-full max-w-xs">
+      {AI_PROGRESS_MESSAGES.map((msg, i) => (
+        <motion.p
+          key={msg}
+          initial={{ opacity: 0, x: -10 }}
+          animate={i <= step ? { opacity: 1, x: 0 } : { opacity: 0.2, x: 0 }}
+          transition={{ delay: i * 0.1, duration: 0.3 }}
+          className={`text-xs font-mono ${i <= step ? 'text-primary' : 'text-muted-foreground'}`}
+        >
+          {msg}
+        </motion.p>
+      ))}
+    </div>
+  );
+}
+
 // ── Helpers ──
 function slugify(text: string): string {
   return text.toLowerCase().trim()
