@@ -1,54 +1,41 @@
 
 
-# Correcciones: Banners con páginas reales, dominio y logo OG
+# Banners con Swipe + Trending Section Premium
 
-## Problema 1: Banners apuntan a /catalog sin sentido
+## 1. HeroBanner — Soporte para deslizar (swipe/drag)
 
-Los banners 3 ("Fast & Reliable Printing") y 4 ("Custom Colors & Materials") apuntan a `/catalog` sin contexto relevante. Además, el banner 1 dice "calidad museo" que debe cambiarse.
+Agregar gestos de arrastre con `framer-motion` al contenedor del banner:
+- Usar `onDragEnd` con detección de dirección (deltaX > threshold → cambiar slide)
+- En desktop: funciona con mouse drag
+- En mobile: funciona con touch swipe
+- Resetear progress bar al cambiar slide manualmente
+- Agregar `cursor-grab` / `cursor-grabbing` para feedback visual
 
-### Solución
+**Archivo**: `src/components/landing/HeroBanner.tsx`
 
-- **Banner 1** ("Premium 3D Printed Models"): Cambiar subtítulo a enfocarse en "alta calidad" sin mención de museo. Mantener href a `/` (home/marketplace).
-- **Banner 2** ("Can't Find Your Model?"): Ya apunta a `/request-model` — correcto.
-- **Banner 3** ("Fast & Reliable Printing"): Crear nueva página `/our-process` con contenido sobre el proceso de impresión con Bambu Lab (velocidad, precisión, tecnología).
-- **Banner 4** ("Custom Colors & Materials"): Crear nueva página `/materials` con información sobre los materiales disponibles (PLA, PETG, ABS, TPU) y sus características.
-- **Banner 5** ("Join the Community"): Ya apunta a `/auth` — correcto.
+## 2. TrendingSection — Rediseño premium destacado
 
-### Nuevas páginas a crear
+El problema actual: las cards de trending se ven casi idénticas a las del grid principal, causando sensación de duplicación.
 
-**`src/pages/OurProcess.tsx`**: Página informativa con secciones sobre tecnología Bambu Lab, proceso de impresión paso a paso, calidad y velocidad. Diseño premium con iconos y gradientes dorados consistentes con el resto del sitio.
+### Diferenciación visual:
+- **Contenedor**: Fondo con gradiente sutil dorado + borde `border-primary/20` + glow `shadow-[0_0_20px_rgba(212,160,23,0.08)]` para separar visualmente la sección completa
+- **Cards más grandes**: Ancho de `200px/220px` → `240px/280px` con aspect ratio más alto
+- **Ranking badge premium**: Reemplazar el badge simple `🔥 #1` por un badge con gradiente dorado, icono de corona/trofeo para top 3, y efecto shimmer animado
+- **Overlay gradiente**: Agregar un gradiente oscuro en la parte inferior de la imagen para texto legible superpuesto
+- **Texto sobre imagen**: Mover nombre y precio sobre la imagen con fondo gradiente, estilo más cinematográfico
+- **Efecto hover 3D**: Usar `perspective` + `rotateY` sutil en hover para efecto de profundidad
+- **Glow en hover**: Borde dorado brillante al pasar el mouse
+- **Soporte touch/drag**: Igual que el banner, permitir deslizar con touch/mouse usando drag events nativos
 
-**`src/pages/Materials.tsx`**: Página con tarjetas para cada material (PLA, PETG, ABS, TPU) mostrando propiedades, usos recomendados y acabados disponibles. Diseño con cards estilo glass-morphism.
+### Header de sección:
+- Título más grande con gradiente dorado
+- Subtítulo descriptivo ("Los modelos más populares" / "Most popular models")
+- Línea decorativa dorada debajo
 
-Agregar ambas rutas en `App.tsx`.
+**Archivo**: `src/components/landing/TrendingSection.tsx`
 
-## Problema 2: Dominio incorrecto en compartidos
+## Archivos a modificar
 
-`PUBLIC_URL` en `ShareMenu.tsx` y `Catalog.tsx` usa `https://a3dtoprint.lovable.app` en lugar de `https://3dtoprint.online`.
-
-### Solución
-
-Cambiar `PUBLIC_URL` a `https://3dtoprint.online` en:
-- `src/components/ShareMenu.tsx` (línea 13)
-- `src/pages/Catalog.tsx` (línea 24)
-
-## Problema 3: Logo OG incorrecto en WhatsApp/social shares
-
-La imagen OG en `index.html` usa una URL temporal de Google Storage que no muestra el logo correcto de 3DtoPrint.
-
-### Solución
-
-- Copiar el logo subido (imagen 2, el "3P" negro/dorado) a `public/og-image.png`
-- Actualizar `index.html` meta tags `og:image` y `twitter:image` para usar `https://3dtoprint.online/og-image.png` (URL absoluta al dominio real)
-- Actualizar `og:url` a `https://3dtoprint.online`
-
-## Archivos
-
-- **Crear**: `src/pages/OurProcess.tsx`, `src/pages/Materials.tsx`
-- **Editar**: `src/components/landing/HeroBanner.tsx` (hrefs + subtítulo banner 1)
-- **Editar**: `src/App.tsx` (nuevas rutas)
-- **Editar**: `src/components/ShareMenu.tsx` (PUBLIC_URL)
-- **Editar**: `src/pages/Catalog.tsx` (PUBLIC_URL)
-- **Editar**: `index.html` (og:image, og:url meta tags)
-- **Copiar**: logo OG a `public/og-image.png`
+- `src/components/landing/HeroBanner.tsx` — agregar drag/swipe gesture
+- `src/components/landing/TrendingSection.tsx` — rediseño premium completo con drag
 
