@@ -181,7 +181,7 @@ export default function ProductDetail() {
         <div className="pt-24 text-center py-20">
           <Box className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
           <p className="text-muted-foreground">Product not found</p>
-          <Link to="/3dmodels"><Button variant="outline" className="mt-4 gap-2"><ArrowLeft className="w-4 h-4" />Back to Store</Button></Link>
+          <Link to="/"><Button variant="outline" className="mt-4 gap-2"><ArrowLeft className="w-4 h-4" />Back to Store</Button></Link>
         </div>
       </div>
     );
