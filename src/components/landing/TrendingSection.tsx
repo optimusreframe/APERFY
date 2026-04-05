@@ -43,6 +43,8 @@ export default function TrendingSection({ products, likeCounts }: TrendingSectio
 
   const handleMouseUp = useCallback(() => setIsDragging(false), []);
 
+  if (trending.length === 0) return null;
+
   return (
     <div className="relative rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.04] via-card to-primary/[0.02] p-4 sm:p-6 shadow-[0_0_30px_rgba(212,160,23,0.06)]">
       {/* Decorative corner glow */}
