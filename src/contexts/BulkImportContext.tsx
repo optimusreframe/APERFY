@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { logActivity } from '@/lib/activity-log';
 import { useQueryClient } from '@tanstack/react-query';
 
 export type BulkItemStatus = 'queued' | 'scraping' | 'generating' | 'saving' | 'done' | 'error';
