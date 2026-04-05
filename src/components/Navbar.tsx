@@ -53,13 +53,7 @@ export default function Navbar() {
       });
   }, [user]);
 
-  const navLinks = [
-    { href: '/', label: t.nav.home },
-    { href: '/catalog', label: t.nav.models },
-    { href: '/request-model', label: t.nav.requestModel },
-  ];
-
-  const isActive = (path: string) => location.pathname === path;
+  
 
   const initials = fullName
     ? fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -99,33 +93,8 @@ export default function Navbar() {
                 </span>
               </Link>
 
-              {/* Desktop Nav Links */}
-              <div className="hidden md:flex items-center gap-0.5">
-                {navLinks.map((link, i) => (
-                  <div key={link.href} className="flex items-center">
-                    <Link
-                      to={link.href}
-                      className={`nav-link-3d px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 relative ${
-                        isActive(link.href)
-                          ? 'text-primary'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {isActive(link.href) && (
-                        <motion.div
-                          layoutId="activeNav"
-                          className="absolute inset-0 rounded-lg nav-active-pill"
-                          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                        />
-                      )}
-                      <span className="relative z-10">{link.label}</span>
-                    </Link>
-                    {i < navLinks.length - 1 && (
-                      <span className="w-1 h-1 rounded-full bg-primary/30 mx-1" />
-                    )}
-                  </div>
-                ))}
-              </div>
+
+
 
               {/* Desktop Actions */}
               <div className="hidden md:flex items-center gap-2">
@@ -261,26 +230,8 @@ export default function Navbar() {
               className="fixed top-0 right-0 bottom-0 z-40 w-[280px] nav-glass-mobile md:hidden overflow-y-auto"
             >
               <div className="pt-20 px-6 pb-8 space-y-2">
-                {navLinks.map((link, i) => (
-                  <motion.div
-                    key={link.href}
-                    initial={{ opacity: 0, x: 30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 + i * 0.07 }}
-                  >
-                    <Link
-                      to={link.href}
-                      onClick={() => setIsOpen(false)}
-                      className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                        isActive(link.href)
-                          ? 'text-primary bg-primary/10 border border-primary/20'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  </motion.div>
-                ))}
+
+
 
                 <motion.div
                   initial={{ opacity: 0 }}
