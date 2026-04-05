@@ -338,10 +338,12 @@ export default function ProductDetail() {
                           )}
                           <span>{language === 'es' ? v.name_es : v.name_en}</span>
                         </div>
-                        {isSize && (vWeight || vPrice) && (
+                        {isSize && (vWeight || vPrice || v.dimensions) && (
                           <span className="text-[10px] text-muted-foreground">
                             {vWeight ? `${vWeight}${t.product.grams}` : ''}
-                            {vWeight && vPrice ? ' · ' : ''}
+                            {vWeight && v.dimensions ? ' · ' : ''}
+                            {v.dimensions ? `${v.dimensions}mm` : ''}
+                            {(vWeight || v.dimensions) && vPrice ? ' · ' : ''}
                             {vPrice ? `$${vPrice.toFixed(2)}` : ''}
                           </span>
                         )}
