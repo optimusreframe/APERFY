@@ -61,6 +61,7 @@ const AppContent = () => {
                   <Route path="orders" element={<AdminOrders />} />
                   <Route path="requests" element={<AdminRequests />} />
                   <Route path="payments" element={<AdminPaymentSettings />} />
+                  <Route path="shipping" element={<AdminShipping />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
