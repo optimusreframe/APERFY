@@ -1,40 +1,46 @@
 
 
-# Fix: AI Image Error Reporting + Log Registration
+# Emails de Autenticación con Diseño Premium 3DtoPrint
 
-## Root Cause Analysis
+## Prerrequisito: Configurar dominio de email
 
-**Why you got the error**: The Groot image triggered `IMAGE_PROHIBITED_CONTENT` — the AI's content filter flagged it as a copyrighted character (Marvel/Disney). The edge function correctly detected this and returned a descriptive error message... BUT with HTTP status **422**.
+Actualmente no hay dominio de email configurado. El primer paso es configurar el dominio (`3dtoprint.online`) para que los correos se envíen desde tu marca.
 
-**Why the error message was generic**: `supabase.functions.invoke()` treats any non-2xx response as a failure. When the edge function returns 422, the SDK sets `error.message = "Edge Function returned a non-2xx status code"` and the response body (with the detailed Spanish error message) is lost in `data` or inaccessible.
+**Acción requerida del usuario**: Configurar el dominio de email usando el botón de abajo. Después de eso, procederé con todo lo demás automáticamente.
 
-**Why no log was recorded**: The `handleEditAiGenerateImage` function (edit dialog) has no `logActivity()` call in its catch block — unlike `triggerAiGenerateImage` (create dialog) which does.
+## Después de configurar el dominio
 
-## Fixes (3 changes)
+### 1. Scaffolding de templates de auth email
+- Generar los 6 templates de email de autenticación (signup, recovery, magic-link, invite, email-change, reauthentication)
 
-### 1. Edge function: Return 200 with `success: false` instead of 422
+### 2. Diseño premium con identidad 3DtoPrint
+Cada template llevará:
+- **Logo**: `/logo.png` subido al storage y embebido en cada email
+- **Nombre**: "3Dto**Print**" con el "Print" en dorado
+- **Colores**: Fondo blanco (`#ffffff` — obligatorio para emails), acentos en gold (`hsl(43, 76%, 53%)` → `#D4A017`), textos en dark (`hsl(240, 10%, 4%)` → `#0A0A0F`)
+- **Botones**: Gradiente dorado con texto oscuro, bordes redondeados (0.75rem)
+- **Tipografía**: Outfit/Inter con fallback a Arial
+- **Estilo 3D**: Sombras en botones y contenedor para efecto de profundidad, bordes sutiles dorados
+- **Footer**: "© 2026 3DtoPrint — Premium 3D Printing" con link al sitio
 
-In `supabase/functions/ai-product-import/index.ts`, change the error response at line 548-556 from status `422` to `200`. This way `supabase.functions.invoke()` won't throw, and the client can read `data.error` with the descriptive message.
+### 3. Templates a personalizar
 
-Same pattern for the non-2xx responses at lines 504-511 — return 200 with `success: false` instead of throwing.
+| Template | Asunto | Mensaje |
+|----------|--------|---------|
+| Signup | Confirma tu cuenta en 3DtoPrint | Bienvenido al mundo de la impresión 3D premium |
+| Recovery | Restablece tu contraseña | Link para crear nueva contraseña |
+| Magic Link | Tu enlace de acceso | Accede a tu cuenta con un click |
+| Invite | Has sido invitado a 3DtoPrint | Únete a la plataforma |
+| Email Change | Confirma tu nuevo email | Verifica tu nueva dirección |
+| Reauthentication | Código de verificación | Código OTP para reautenticación |
 
-### 2. AdminProducts: Better error extraction + log in edit handler
+Todos los mensajes en **español**, acorde al idioma principal de la app.
 
-In `handleEditAiGenerateImage` (line 822):
-- Already checks `if (error) throw ...` but `data?.error` is undefined when status is non-2xx
-- After fix #1, this will work because data will contain the error message
-- Add `logActivity()` call in the catch block (same as `triggerAiGenerateImage` already has)
+### 4. Deploy
+- Desplegar la edge function `auth-email-hook`
 
-### 3. AdminProducts: Same fix for `triggerAiGenerateImage` (line 645-648)
-
-Already has logActivity, but error extraction will now work correctly after fix #1.
-
-## Files to modify
-
-- `supabase/functions/ai-product-import/index.ts` — change status 422 to 200 for image generation errors; also handle the `throw new Error("AI image generation failed")` case at line 510 to return a proper response instead of throwing
-- `src/pages/admin/AdminProducts.tsx` — add `logActivity()` to `handleEditAiGenerateImage` catch block
-
-## About the Groot image
-
-The `IMAGE_PROHIBITED_CONTENT` filter blocks copyrighted characters. After these fixes, when you try to generate an image for Groot, you'll see a clear message: "La IA detectó contenido prohibido en la imagen. Intenta con otra imagen fuente." — and it will be logged. The workaround is to use a photo taken from a different angle or with less recognizable framing, though this may still trigger the filter for well-known characters.
+### Archivos a crear/modificar
+- `supabase/functions/_shared/email-templates/*.tsx` — 6 templates con diseño premium
+- `supabase/functions/auth-email-hook/index.ts` — edge function (scaffolded)
+- Subir logo al storage para uso en emails
 
