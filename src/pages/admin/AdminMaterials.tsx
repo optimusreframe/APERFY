@@ -50,9 +50,15 @@ export default function AdminMaterials() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['admin-materials'] });
       qc.invalidateQueries({ queryKey: ['admin-material-count'] });
+      logActivity({
+        action: editId ? 'material_updated' : 'material_created',
+        category: editId ? 'edit' : 'success',
+        entity_type: 'material',
+        title: `${editId ? 'Editado' : 'Creado'}: ${variables.name_es || variables.name_en}`,
+      });
       setOpen(false);
       setEditId(null);
       setForm(empty);
