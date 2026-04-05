@@ -611,7 +611,95 @@ ${imageListForAI || "No images found."}`
       });
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action. Use 'scrape', 'generate_image', or 'translate'." }), {
+    // ── ACTION: enhance_product ──
+    if (action === "enhance_product") {
+      const { name_es, description_es, existingCategories, imageUrl } = body;
+
+      const categorySlugs = (existingCategories || []).map((c: any) => `${c.slug} (${c.name_es})`).join(", ");
+
+      const messages: any[] = [
+        {
+          role: "system",
+          content: `You are a product copywriter for "3DtoPrint", a 3D printing e-commerce store.
+
+Given a product's current Spanish name and description (which may be rough/incomplete), generate polished, commercial versions.
+
+STRICT RULES:
+- name_es: Catchy Spanish product name. MAX 4 words.
+- name_en: Equivalent English name. MAX 4 words.
+- description_es: Attractive Spanish description. MAX 150 characters. 2-3 short sentences.
+- description_en: Equivalent English description. MAX 150 characters. 2-3 short sentences.
+- slug: URL-friendly, lowercase, hyphens only, based on the ENGLISH name.
+- suggested_category: Pick the best from existing: ${categorySlugs || "none"}. If none fit, suggest a new slug.
+- suggested_category_name_es: Spanish name for the category (only for new categories).
+- suggested_category_name_en: English name for the category (only for new categories).
+
+If the input name/description is already good, polish it slightly. If it's empty or very rough, create compelling copy based on any available image context.`
+        },
+        {
+          role: "user",
+          content: imageUrl
+            ? [
+                { type: "text", text: `Current name (ES): ${name_es || '(empty)'}\nCurrent description (ES): ${description_es || '(empty)'}` },
+                { type: "image_url", image_url: { url: imageUrl } }
+              ]
+            : `Current name (ES): ${name_es || '(empty)'}\nCurrent description (ES): ${description_es || '(empty)'}`
+        }
+      ];
+
+      const enhanceResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages,
+          tools: [{
+            type: "function",
+            function: {
+              name: "enhance_product",
+              description: "Return enhanced product data",
+              parameters: {
+                type: "object",
+                properties: {
+                  name_es: { type: "string", description: "Polished Spanish name (max 4 words)" },
+                  name_en: { type: "string", description: "Polished English name (max 4 words)" },
+                  description_es: { type: "string", description: "Spanish description (max 150 chars)" },
+                  description_en: { type: "string", description: "English description (max 150 chars)" },
+                  slug: { type: "string", description: "URL slug from English name" },
+                  suggested_category: { type: "string", description: "Best category slug" },
+                  suggested_category_name_es: { type: "string", description: "Category name in Spanish (new categories only)" },
+                  suggested_category_name_en: { type: "string", description: "Category name in English (new categories only)" },
+                },
+                required: ["name_es", "name_en", "description_es", "description_en", "slug", "suggested_category"],
+                additionalProperties: false,
+              },
+            },
+          }],
+          tool_choice: { type: "function", function: { name: "enhance_product" } },
+        }),
+      });
+
+      if (!enhanceResp.ok) {
+        const status = enhanceResp.status;
+        if (status === 429) return new Response(JSON.stringify({ error: "Rate limited." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        throw new Error("Enhancement failed");
+      }
+
+      const eResult = await enhanceResp.json();
+      const eCall = eResult.choices?.[0]?.message?.tool_calls?.[0];
+      if (!eCall) throw new Error("AI did not return enhanced data");
+      const enhanced = JSON.parse(eCall.function.arguments);
+
+      return new Response(JSON.stringify({ success: true, data: enhanced }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Invalid action. Use 'scrape', 'generate_image', 'translate', or 'enhance_product'." }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
