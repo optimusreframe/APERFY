@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageCircle, CreditCard, ArrowLeft, CheckCircle2, ExternalLink, MapPin, User, Phone, Mail, Truck, Package, Shield, Clock } from 'lucide-react';
+import { Loader2, MessageCircle, CreditCard, ArrowLeft, CheckCircle2, ExternalLink, MapPin, User, Phone, Mail, Truck, Package, Shield, Clock, Weight, Ruler } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
 
