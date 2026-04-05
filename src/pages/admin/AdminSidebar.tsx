@@ -24,6 +24,7 @@ const items = [
   { title: 'Requests', url: '/admin/requests', icon: MessageSquare },
   { title: 'Payments', url: '/admin/payments', icon: CreditCard },
   { title: 'Shipping', url: '/admin/shipping', icon: Truck },
+  { title: 'Logs', url: '/admin/logs', icon: ScrollText },
 ];
 
 export default function AdminSidebar() {
