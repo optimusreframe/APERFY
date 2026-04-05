@@ -1500,7 +1500,7 @@ export default function AdminProducts() {
           </Dialog>
 
           {/* ── ADD/EDIT PRODUCT DIALOG ── */}
-          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); } }}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); } }}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2"><Plus className="w-4 h-4" />Agregar Producto</Button>
             </DialogTrigger>
