@@ -469,8 +469,8 @@ export default function ProductDetail() {
 
               {/* Badges */}
               <div className="flex flex-wrap gap-2">
-                <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/15 shadow-[0_0_12px_hsl(142_71%_45%/0.15)]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1.5" />
+                <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/15 shadow-[0_0_12px_hsl(var(--primary)/0.15)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse mr-1.5" />
                   {t.product.inStock}
                 </Badge>
                 {selectedWeight != null && selectedWeight > 0 && (
