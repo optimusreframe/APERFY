@@ -93,13 +93,16 @@ const App = () => (
     <LanguageProvider>
       <AuthProvider>
         <CartProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppContent />
-            </BrowserRouter>
-          </TooltipProvider>
+          <BulkImportProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <AppContent />
+                <BulkImportBanner />
+              </BrowserRouter>
+            </TooltipProvider>
+          </BulkImportProvider>
         </CartProvider>
       </AuthProvider>
     </LanguageProvider>
