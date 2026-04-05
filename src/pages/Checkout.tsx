@@ -323,6 +323,7 @@ export default function Checkout() {
       const orderId = await createOrder(method);
       if (!orderId) { setLoading(false); return; }
       setCreatedOrderId(orderId);
+      await sendOrderEmail(orderId, method);
       setSelectedPayment(method);
       clearCart();
       setStep('payment-instructions');
