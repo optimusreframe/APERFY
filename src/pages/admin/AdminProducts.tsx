@@ -1699,7 +1699,7 @@ export default function AdminProducts() {
                             />
                           </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1">
                             <Label className="text-xs flex items-center gap-1"><Weight className="w-3 h-3" /> Peso (g)</Label>
                             <Input
@@ -1707,6 +1707,7 @@ export default function AdminProducts() {
                               min="0"
                               step="0.1"
                               value={variation.weight_grams}
+                              onFocus={(e) => e.target.select()}
                               onChange={(e) => {
                                 setProductVariations(prev => {
                                   const updated = [...prev];
@@ -1718,6 +1719,23 @@ export default function AdminProducts() {
                               className="bg-background text-sm h-8"
                             />
                           </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs flex items-center gap-1"><Ruler className="w-3 h-3" /> Medidas (mm)</Label>
+                            <Input
+                              value={variation.dimensions}
+                              onChange={(e) => {
+                                setProductVariations(prev => {
+                                  const updated = [...prev];
+                                  updated[actualIdx] = { ...updated[actualIdx], dimensions: e.target.value };
+                                  return updated;
+                                });
+                              }}
+                              placeholder="25x25x10"
+                              className="bg-background text-sm h-8"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
                           <div className="space-y-1">
                             <Label className="text-xs">Material</Label>
                             <Select
