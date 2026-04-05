@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Sparkles, Printer } from 'lucide-react';
+import { ArrowRight, Sparkles, Printer, Zap, Palette, Users } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const banners = [
@@ -10,33 +10,87 @@ const banners = [
     icon: Sparkles,
     titleEn: 'Premium 3D Printed Models',
     titleEs: 'Modelos 3D Impresos Premium',
-    subtitleEn: 'Browse, customize, and order — delivered to your door',
-    subtitleEs: 'Explora, personaliza y ordena — entrega a tu puerta',
+    subtitleEn: 'Museum-quality prints with stunning detail — delivered to your door',
+    subtitleEs: 'Impresiones de calidad museo con detalle impresionante — a tu puerta',
     ctaEn: 'Explore Models',
     ctaEs: 'Explorar Modelos',
-    href: '/',
-    gradient: 'from-primary/20 via-transparent to-transparent',
+    href: '/catalog',
+    accentColor: 'primary',
   },
   {
     id: 2,
     icon: Printer,
     titleEn: "Can't Find Your Model?",
     titleEs: '¿No Encuentras Tu Modelo?',
-    subtitleEn: 'Request any 3D model and we\'ll source it for you',
+    subtitleEn: "Request any 3D model and we'll source & print it for you",
     subtitleEs: 'Solicita cualquier modelo 3D y lo conseguimos para ti',
     ctaEn: 'Request a Model',
     ctaEs: 'Solicitar Modelo',
     href: '/request-model',
-    gradient: 'from-accent/15 via-transparent to-primary/10',
+    accentColor: 'accent',
+  },
+  {
+    id: 3,
+    icon: Zap,
+    titleEn: 'Fast & Reliable Printing',
+    titleEs: 'Impresión Rápida y Confiable',
+    subtitleEn: 'Powered by Bambu Lab — precision at speed with every layer',
+    subtitleEs: 'Con tecnología Bambu Lab — precisión a velocidad en cada capa',
+    ctaEn: 'See Our Process',
+    ctaEs: 'Ver Proceso',
+    href: '/catalog',
+    accentColor: 'primary',
+  },
+  {
+    id: 4,
+    icon: Palette,
+    titleEn: 'Custom Colors & Materials',
+    titleEs: 'Colores y Materiales Personalizados',
+    subtitleEn: 'PLA · PETG · ABS · TPU — choose the perfect finish for your model',
+    subtitleEs: 'PLA · PETG · ABS · TPU — elige el acabado perfecto para tu modelo',
+    ctaEn: 'Browse Materials',
+    ctaEs: 'Ver Materiales',
+    href: '/catalog',
+    accentColor: 'accent',
+  },
+  {
+    id: 5,
+    icon: Users,
+    titleEn: 'Join the 3D Community',
+    titleEs: 'Únete a la Comunidad 3D',
+    subtitleEn: 'Sign up for exclusive drops, discounts & early access to new models',
+    subtitleEs: 'Regístrate para drops exclusivos, descuentos y acceso anticipado',
+    ctaEn: 'Create Account',
+    ctaEs: 'Crear Cuenta',
+    href: '/auth',
+    accentColor: 'primary',
   },
 ];
+
+const INTERVAL = 6000;
 
 export default function HeroBanner() {
   const { language } = useLanguage();
   const [current, setCurrent] = useState(0);
+  const [progress, setProgress] = useState(0);
+
+  const goTo = useCallback((i: number) => {
+    setCurrent(i);
+    setProgress(0);
+  }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrent(c => (c + 1) % banners.length), 6000);
+    const tick = 50;
+    const inc = (tick / INTERVAL) * 100;
+    const timer = setInterval(() => {
+      setProgress(p => {
+        if (p >= 100) {
+          setCurrent(c => (c + 1) % banners.length);
+          return 0;
+        }
+        return p + inc;
+      });
+    }, tick);
     return () => clearInterval(timer);
   }, []);
 
@@ -44,37 +98,56 @@ export default function HeroBanner() {
   const Icon = banner.icon;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-card border border-border/50">
+    <div className="relative overflow-hidden rounded-2xl border border-primary/30 shadow-[0_0_30px_rgba(212,160,23,0.12)] bg-card">
+      {/* Mesh gradient background */}
+      <div className="absolute inset-0 opacity-40" style={{
+        background: `
+          radial-gradient(ellipse 80% 60% at 20% 30%, hsl(var(--primary) / 0.15), transparent),
+          radial-gradient(ellipse 60% 80% at 80% 70%, hsl(var(--accent) / 0.1), transparent),
+          radial-gradient(ellipse 50% 50% at 50% 50%, hsl(var(--gold) / 0.08), transparent)
+        `,
+      }} />
+
+      {/* Holographic grid */}
+      <div className="absolute inset-0 opacity-[0.04]" style={{
+        backgroundImage: 'linear-gradient(hsl(var(--primary)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px)',
+        backgroundSize: '32px 32px',
+      }} />
+
+      {/* Floating particles */}
+      <div className="absolute top-4 right-[15%] w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse" />
+      <div className="absolute top-[60%] right-[8%] w-1 h-1 rounded-full bg-gold-light/50 animate-pulse" style={{ animationDelay: '1s' }} />
+      <div className="absolute bottom-[30%] left-[12%] w-1 h-1 rounded-full bg-primary/30 animate-pulse" style={{ animationDelay: '2s' }} />
+      <div className="absolute top-[25%] left-[5%] w-1.5 h-1.5 rounded-full bg-accent/30 animate-pulse" style={{ animationDelay: '0.5s' }} />
+
       <AnimatePresence mode="wait">
         <motion.div
           key={banner.id}
-          initial={{ opacity: 0, x: 40 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -40 }}
-          transition={{ duration: 0.5 }}
-          className={`relative px-6 sm:px-10 py-8 sm:py-10 bg-gradient-to-r ${banner.gradient}`}
+          initial={{ opacity: 0, scale: 0.97, x: 30 }}
+          animate={{ opacity: 1, scale: 1, x: 0 }}
+          exit={{ opacity: 0, scale: 1.02, x: -30 }}
+          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="relative px-6 sm:px-10 py-8 sm:py-12"
         >
-          {/* Background grid pattern */}
-          <div className="absolute inset-0 opacity-[0.03]" style={{
-            backgroundImage: 'radial-gradient(circle, hsl(43 76% 53%) 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
-          }} />
-
-          <div className="relative flex items-center gap-6">
-            <div className="hidden sm:flex w-14 h-14 rounded-xl bg-primary/10 border border-primary/20 items-center justify-center shrink-0">
-              <Icon className="w-7 h-7 text-primary" />
+          <div className="relative flex items-center gap-5 sm:gap-8">
+            {/* Icon container with glass effect */}
+            <div className="hidden sm:flex w-16 h-16 lg:w-20 lg:h-20 rounded-2xl bg-primary/10 backdrop-blur-sm border border-primary/30 items-center justify-center shrink-0 shadow-[0_0_20px_rgba(212,160,23,0.1)]">
+              <Icon className="w-8 h-8 lg:w-10 lg:h-10 text-primary" />
             </div>
+
             <div className="flex-1 min-w-0">
-              <h2 className="font-display font-black text-xl sm:text-2xl lg:text-3xl text-foreground mb-1">
+              <h2 className="font-display font-black text-xl sm:text-2xl lg:text-3xl bg-clip-text text-transparent bg-gradient-to-r from-primary via-gold-light to-primary mb-1.5">
                 {language === 'es' ? banner.titleEs : banner.titleEn}
               </h2>
-              <p className="text-muted-foreground text-sm sm:text-base">
+              <p className="text-muted-foreground text-sm sm:text-base lg:text-lg leading-relaxed">
                 {language === 'es' ? banner.subtitleEs : banner.subtitleEn}
               </p>
             </div>
+
+            {/* Desktop CTA */}
             <Link
               to={banner.href}
-              className="hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-gold text-primary-foreground font-semibold text-sm shrink-0 hover:shadow-gold transition-shadow"
+              className="hidden sm:flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-gold text-primary-foreground font-semibold text-sm shrink-0 hover:shadow-[0_0_25px_rgba(212,160,23,0.3)] transition-all duration-300 hover:scale-105"
             >
               {language === 'es' ? banner.ctaEs : banner.ctaEn}
               <ArrowRight className="w-4 h-4" />
@@ -84,7 +157,7 @@ export default function HeroBanner() {
           {/* Mobile CTA */}
           <Link
             to={banner.href}
-            className="sm:hidden flex items-center justify-center gap-2 mt-4 px-5 py-2.5 rounded-xl bg-gradient-gold text-primary-foreground font-semibold text-sm hover:shadow-gold transition-shadow"
+            className="sm:hidden flex items-center justify-center gap-2 mt-5 px-5 py-3 rounded-xl bg-gradient-gold text-primary-foreground font-semibold text-sm hover:shadow-[0_0_25px_rgba(212,160,23,0.3)] transition-all duration-300"
           >
             {language === 'es' ? banner.ctaEs : banner.ctaEn}
             <ArrowRight className="w-4 h-4" />
@@ -92,14 +165,23 @@ export default function HeroBanner() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Dots */}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+      {/* Navigation dots + progress */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
         {banners.map((_, i) => (
           <button
             key={i}
-            onClick={() => setCurrent(i)}
-            className={`w-1.5 h-1.5 rounded-full transition-all ${i === current ? 'bg-primary w-4' : 'bg-muted-foreground/30'}`}
-          />
+            onClick={() => goTo(i)}
+            className="relative h-1.5 rounded-full overflow-hidden transition-all duration-300"
+            style={{ width: i === current ? 28 : 6 }}
+          >
+            <div className="absolute inset-0 bg-muted-foreground/25 rounded-full" />
+            {i === current && (
+              <div
+                className="absolute inset-y-0 left-0 bg-primary rounded-full transition-none"
+                style={{ width: `${progress}%` }}
+              />
+            )}
+          </button>
         ))}
       </div>
     </div>
