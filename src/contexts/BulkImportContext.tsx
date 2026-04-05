@@ -175,6 +175,16 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
       runningRef.current = false;
       qc.invalidateQueries({ queryKey: ['admin-products'] });
       qc.invalidateQueries({ queryKey: ['admin-product-count'] });
+      qc.invalidateQueries({ queryKey: ['admin-logs'] });
+
+      logActivity({
+        action: 'bulk_import_complete',
+        category: errors > 0 ? 'error' : 'success',
+        entity_type: 'product',
+        title: `Importación bulk completada: ${created} creados, ${errors} errores`,
+        details: `Total URLs: ${urls.length}\nCreados: ${created}\nErrores: ${errors}`,
+        metadata: { total: urls.length, created, errors },
+      });
 
       // Browser notification
       if ('Notification' in window && Notification.permission === 'granted') {
