@@ -10,6 +10,8 @@ export interface CartItem {
   unitPrice: number;
   selectedVariations: { id: string; type: string; name: string; priceModifier: number }[];
   notes: string;
+  weightGrams?: number;
+  dimensions?: string;
 }
 
 // Zod schema for cart data integrity
