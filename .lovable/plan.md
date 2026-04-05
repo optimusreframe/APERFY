@@ -1,69 +1,71 @@
 
 
-# Slug en inglés + Edición en Bulk
+# Precio por Peso/Material + Variaciones de Tamaño
 
-## 1. Slug basado en idioma seleccionado
+## Resumen
 
-**Problema**: El slug siempre se genera desde `name_es`, incluso cuando se activa la versión en inglés.
+Tres cambios principales:
+1. Agregar campo `cost_per_kg` a la tabla `materials` y UI en AdminMaterials para configurarlo
+2. Agregar campos `weight_grams` y `size_label` a `product_variations` para que cada variación de tamaño tenga peso y el precio se calcule automáticamente
+3. Refactorizar el ProductDetail para mostrar tamaño, peso, material y precio calculado dinámicamente al seleccionar variación
 
-**Solución**: Modificar la lógica para que:
-- Cuando `showEnglish` esté activo y `aiData.name_en` tenga valor, el slug auto-generado use `slugify(aiData.name_en)`
-- Cuando `showEnglish` esté desactivado o no haya `name_en`, el slug se genera desde `name_es` (comportamiento actual)
-- Al activar el toggle de inglés o al ejecutar `handleTranslateToEnglish`, regenerar el slug desde el nombre en inglés si `slugLocked` está activo
+## Cambios en Base de Datos (2 migraciones)
 
-**Cambios en `AdminProducts.tsx`**:
-- Actualizar el `useEffect` de auto-slug (línea 248-253) para considerar `showEnglish` y `aiData.name_en`
-- En el callback de `handleTranslateToEnglish`, después de recibir la traducción, actualizar el slug si `slugLocked`
-- En el `onCheckedChange` del switch de inglés, recalcular slug si se desactiva inglés (volver a español)
+**Migración 1 — Agregar `cost_per_kg` a `materials`:**
+```sql
+ALTER TABLE public.materials ADD COLUMN cost_per_kg numeric NOT NULL DEFAULT 0;
+```
+Esto permite configurar el costo total por kg de cada filamento (incluyendo tiempo, labor, etc.).
 
-## 2. Edición en Bulk desde la tabla de productos
+**Migración 2 — Agregar `weight_grams` a `product_variations`:**
+```sql
+ALTER TABLE public.product_variations ADD COLUMN weight_grams numeric DEFAULT NULL;
+```
+Cada variación de tipo "size" tendrá su peso en gramos. El precio se calcula: `(weight_grams / 1000) * material.cost_per_kg`.
 
-**Funcionalidad**: Agregar modo de edición inline en la tabla de productos del admin, permitiendo editar precio, categoría, nombre y estado de múltiples productos sin abrir modales individuales.
+## Cambios en Código
 
-**UI**:
-- Botón "Editar en Bulk" junto al botón de "Agregar Producto"
-- Al activar modo bulk, la tabla cambia a modo editable:
-  - Checkbox en cada fila para seleccionar productos
-  - Nombre (ES): se convierte en Input editable
-  - Precio: se convierte en Input numérico
-  - Categoría: se convierte en Select dropdown
-  - Estado (Activo/Inactivo): se convierte en Switch
-- Barra de acciones flotante al seleccionar productos: "Guardar Cambios" y "Cancelar"
-- Los cambios se guardan todos de una vez al hacer clic en "Guardar Cambios"
+### 1. `src/pages/admin/AdminMaterials.tsx`
+- Agregar campo `cost_per_kg` al formulario (input numérico con label "Costo por KG ($)")
+- Mostrar columna de costo en la tabla de materiales
+- Actualizar el tipo `MaterialForm` para incluir `cost_per_kg`
 
-**Lógica**:
-- Estado `bulkEditMode: boolean` para activar/desactivar el modo
-- Estado `bulkEdits: Record<string, Partial<ProductForm>>` para trackear cambios por producto ID
-- Al guardar: iterar sobre `bulkEdits` y ejecutar `supabase.from('products').update(...)` para cada producto modificado
-- Invalidar query después de guardar
+### 2. `src/pages/admin/AdminProducts.tsx`
+- En el modal de crear/editar producto, agregar sección "Variaciones" donde se puedan:
+  - Agregar variaciones de tipo `size` con: nombre (S/M/L/XL o custom), `weight_grams`, y selección de material
+  - El `price_modifier` se calcula automáticamente: `(weight_grams / 1000) * selectedMaterial.cost_per_kg - base_price`
+  - CRUD inline de variaciones asociadas al producto
+- Agregar campos `weight_grams` (peso base del modelo) al formulario del producto para referencia
 
-**Archivo a modificar**: `src/pages/admin/AdminProducts.tsx`
+### 3. `src/pages/ProductDetail.tsx`
+- Cuando el usuario selecciona una variación de tipo "size":
+  - Mostrar el peso de esa variación (ej: "150g")
+  - Recalcular el precio total usando `price_modifier` de la variación
+- En la sección de especificaciones, mostrar: tamaño seleccionado, peso, material(es), color
+- Si no hay variación seleccionada, mostrar el `base_price` como ahora
 
-### Detalle técnico
+### 4. `src/i18n/translations.ts`
+- Agregar traducciones: "Peso", "Tamaño", "Costo por KG", "gramos", etc.
 
-**Auto-slug actualizado:**
-```typescript
-useEffect(() => {
-  if (aiData && slugLocked) {
-    const source = showEnglish && aiData.name_en ? aiData.name_en : (aiData.name_es || '');
-    setAiData(prev => prev ? { ...prev, slug: slugify(source) } : prev);
-  }
-}, [aiData?.name_es, aiData?.name_en, showEnglish, slugLocked]);
+## Flujo del Cálculo de Precio
+
+```text
+Admin configura:
+  Material "PETG" → cost_per_kg = $50
+
+Admin crea producto con variaciones:
+  Variación "Small"  → weight_grams = 100  → precio = (100/1000) * 50 = $5
+  Variación "Medium" → weight_grams = 200  → precio = (200/1000) * 50 = $10
+  Variación "Large"  → weight_grams = 350  → precio = (350/1000) * 50 = $17.50
+
+Cliente ve en ProductDetail:
+  Selecciona "Medium" → muestra "200g" y "$10.00"
 ```
 
-**Bulk edit state:**
-```typescript
-const [bulkEditMode, setBulkEditMode] = useState(false);
-const [bulkEdits, setBulkEdits] = useState<Record<string, any>>({});
-
-const handleBulkSave = async () => {
-  const entries = Object.entries(bulkEdits);
-  for (const [id, changes] of entries) {
-    await supabase.from('products').update(changes).eq('id', id);
-  }
-  qc.invalidateQueries({ queryKey: ['admin-products'] });
-  setBulkEditMode(false);
-  setBulkEdits({});
-};
-```
+## Archivos a modificar
+- `src/pages/admin/AdminMaterials.tsx` — campo cost_per_kg
+- `src/pages/admin/AdminProducts.tsx` — gestión de variaciones size/weight en el modal
+- `src/pages/ProductDetail.tsx` — mostrar peso y precio dinámico por variación
+- `src/i18n/translations.ts` — nuevas traducciones
+- 2 migraciones de base de datos
 
