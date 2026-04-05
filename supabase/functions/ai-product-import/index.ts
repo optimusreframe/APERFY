@@ -553,7 +553,7 @@ ${imageListForAI || "No images found."}`
           error: readableError,
           error_code: nativeReason || finishReason,
         }), {
-          status: 422,
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }

@@ -838,7 +838,17 @@ export default function AdminProducts() {
       setEditAiSourceImage(null);
       toast({ title: '✓', description: '¡Imagen AI generada y agregada!' });
     } catch (e: any) {
-      toast({ title: 'Error generando imagen', description: e.message, variant: 'destructive' });
+      const errorMessage = e.message || 'Error desconocido';
+      toast({ title: 'Error generando imagen', description: errorMessage, variant: 'destructive' });
+      await logActivity({
+        action: 'ai_image_generation_failed',
+        category: 'error',
+        entity_type: 'product',
+        entity_id: editingProduct?.id,
+        title: 'Error generando imagen AI (edición)',
+        details: errorMessage,
+        metadata: { product_name: editingProduct?.name_es },
+      });
     } finally {
       setEditAiGenerating(false);
     }
