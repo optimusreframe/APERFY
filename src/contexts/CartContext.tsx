@@ -29,6 +29,8 @@ const cartItemSchema = z.object({
     priceModifier: z.number().min(-999999).max(999999),
   })),
   notes: z.string().max(500),
+  weightGrams: z.number().min(0).max(999999).optional(),
+  dimensions: z.string().max(100).optional(),
 });
 
 const cartSchema = z.array(cartItemSchema);
