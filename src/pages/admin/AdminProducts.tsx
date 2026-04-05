@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useBulkImport } from '@/contexts/BulkImportContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler } from 'lucide-react';
+import { logActivity } from '@/lib/activity-log';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -473,9 +474,16 @@ export default function AdminProducts() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['admin-products'] });
       qc.invalidateQueries({ queryKey: ['admin-product-count'] });
+      logActivity({
+        action: editId ? 'product_updated' : 'product_created',
+        category: editId ? 'edit' : 'success',
+        entity_type: 'product',
+        title: `${editId ? 'Editado' : 'Creado'}: ${variables.name_es || variables.name_en}`,
+        metadata: { slug: variables.slug },
+      });
       setOpen(false);
       setEditId(null);
       setForm(empty);
@@ -486,6 +494,13 @@ export default function AdminProducts() {
     onError: (e: any) => {
       if (e.message !== 'Validation failed') {
         toast({ title: 'Error', description: e.message, variant: 'destructive' });
+        logActivity({
+          action: 'product_save_error',
+          category: 'error',
+          entity_type: 'product',
+          title: 'Error guardando producto',
+          details: e.message,
+        });
       }
     },
   });
@@ -495,9 +510,16 @@ export default function AdminProducts() {
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
       qc.invalidateQueries({ queryKey: ['admin-products'] });
       qc.invalidateQueries({ queryKey: ['admin-product-count'] });
+      logActivity({
+        action: 'product_deleted',
+        category: 'edit',
+        entity_type: 'product',
+        entity_id: deletedId,
+        title: 'Producto eliminado',
+      });
       toast({ title: '✓', description: 'Producto eliminado.' });
     },
   });
@@ -646,6 +668,14 @@ export default function AdminProducts() {
       toast({ title: '✓', description: '¡Imagen AI generada!' });
     } catch (e: any) {
       toast({ title: 'Error generando imagen', description: e.message, variant: 'destructive' });
+      logActivity({
+        action: 'ai_image_error',
+        category: 'error',
+        entity_type: 'product',
+        title: 'Error generando imagen AI',
+        details: e.message,
+        metadata: { backgroundMode: aiBgMode },
+      });
     } finally {
       setAiImageLoading(false);
       setAiPersistingImage(false);

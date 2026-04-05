@@ -32,6 +32,7 @@ import AdminOrders from "./pages/admin/AdminOrders";
 import AdminRequests from "./pages/admin/AdminRequests";
 import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
 import AdminShipping from "./pages/admin/AdminShipping";
+import AdminLogs from "./pages/admin/AdminLogs";
 import RequestModel from "./pages/RequestModel";
 import OurProcess from "./pages/OurProcess";
 import Materials from "./pages/Materials";
@@ -81,6 +82,7 @@ const AppContent = () => {
                   <Route path="requests" element={<AdminRequests />} />
                   <Route path="payments" element={<AdminPaymentSettings />} />
                   <Route path="shipping" element={<AdminShipping />} />
+                  <Route path="logs" element={<AdminLogs />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

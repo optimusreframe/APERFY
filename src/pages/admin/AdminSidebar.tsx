@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck } from 'lucide-react';
+import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +24,7 @@ const items = [
   { title: 'Requests', url: '/admin/requests', icon: MessageSquare },
   { title: 'Payments', url: '/admin/payments', icon: CreditCard },
   { title: 'Shipping', url: '/admin/shipping', icon: Truck },
+  { title: 'Logs', url: '/admin/logs', icon: ScrollText },
 ];
 
 export default function AdminSidebar() {

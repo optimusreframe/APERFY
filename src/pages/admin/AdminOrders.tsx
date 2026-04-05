@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { logActivity } from '@/lib/activity-log';
 
 const statuses = ['pending', 'confirmed', 'printing', 'shipped', 'delivered', 'cancelled'] as const;
 
@@ -54,8 +55,16 @@ export default function AdminOrders() {
       const { error } = await supabase.from('orders').update({ status: status as any }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      logActivity({
+        action: 'order_status_changed',
+        category: 'order',
+        entity_type: 'order',
+        entity_id: variables.id,
+        title: `Estado de orden cambiado a: ${variables.status}`,
+        metadata: { new_status: variables.status },
+      });
       toast({ title: 'Order status updated' });
     },
     onError: (err: any) => {

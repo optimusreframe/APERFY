@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { logActivity } from '@/lib/activity-log';
 
 interface MaterialForm {
   name_en: string;
@@ -49,9 +50,15 @@ export default function AdminMaterials() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['admin-materials'] });
       qc.invalidateQueries({ queryKey: ['admin-material-count'] });
+      logActivity({
+        action: editId ? 'material_updated' : 'material_created',
+        category: editId ? 'edit' : 'success',
+        entity_type: 'material',
+        title: `${editId ? 'Editado' : 'Creado'}: ${variables.name_es || variables.name_en}`,
+      });
       setOpen(false);
       setEditId(null);
       setForm(empty);
@@ -65,9 +72,16 @@ export default function AdminMaterials() {
       const { error } = await supabase.from('materials').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
       qc.invalidateQueries({ queryKey: ['admin-materials'] });
       qc.invalidateQueries({ queryKey: ['admin-material-count'] });
+      logActivity({
+        action: 'material_deleted',
+        category: 'edit',
+        entity_type: 'material',
+        entity_id: deletedId,
+        title: 'Material eliminado',
+      });
       toast({ title: '✓', description: 'Material deleted.' });
     },
   });

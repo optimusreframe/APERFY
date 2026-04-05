@@ -531,10 +531,25 @@ ${imageListForAI || "No images found."}`
       }
 
       if (!generatedImage) {
+        const finishReason = imgResult.choices?.[0]?.finish_reason || 'unknown';
+        const nativeReason = imgResult.choices?.[0]?.native_finish_reason || '';
+        
+        const reasonMap: Record<string, string> = {
+          'IMAGE_PROHIBITED_CONTENT': 'La IA detectó contenido prohibido en la imagen. Intenta con otra imagen fuente.',
+          'MALFORMED_FUNCTION_CALL': 'La IA no pudo procesar la solicitud correctamente. Intenta de nuevo o con otra imagen.',
+          'SAFETY': 'La imagen fue bloqueada por filtros de seguridad. Usa una imagen diferente.',
+          'RECITATION': 'La IA detectó contenido protegido por derechos de autor. Usa otra imagen.',
+          'MAX_TOKENS': 'La respuesta fue demasiado larga. Intenta con una imagen más simple.',
+        };
+        
+        const readableError = reasonMap[nativeReason] || reasonMap[finishReason] || 
+          `La IA no devolvió una imagen (razón: ${nativeReason || finishReason}). Intenta con otra imagen fuente o modo diferente.`;
+        
         console.error("Full AI response (no image found):", JSON.stringify(imgResult).substring(0, 2000));
         return new Response(JSON.stringify({
           success: false,
-          error: "La IA no devolvió una imagen. Intenta con otra imagen fuente o modo diferente.",
+          error: readableError,
+          error_code: nativeReason || finishReason,
         }), {
           status: 422,
           headers: { ...corsHeaders, "Content-Type": "application/json" },

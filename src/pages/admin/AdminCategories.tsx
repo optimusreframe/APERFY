@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { logActivity } from '@/lib/activity-log';
 
 interface CategoryForm {
   name_en: string;
@@ -46,9 +47,15 @@ export default function AdminCategories() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['admin-categories'] });
       qc.invalidateQueries({ queryKey: ['admin-category-count'] });
+      logActivity({
+        action: editId ? 'category_updated' : 'category_created',
+        category: editId ? 'edit' : 'success',
+        entity_type: 'category',
+        title: `${editId ? 'Editada' : 'Creada'}: ${variables.name_es || variables.name_en}`,
+      });
       setOpen(false);
       setEditId(null);
       setForm(empty);
@@ -62,9 +69,16 @@ export default function AdminCategories() {
       const { error } = await supabase.from('categories').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
       qc.invalidateQueries({ queryKey: ['admin-categories'] });
       qc.invalidateQueries({ queryKey: ['admin-category-count'] });
+      logActivity({
+        action: 'category_deleted',
+        category: 'edit',
+        entity_type: 'category',
+        entity_id: deletedId,
+        title: 'Categoría eliminada',
+      });
       toast({ title: '✓', description: 'Category deleted.' });
     },
   });

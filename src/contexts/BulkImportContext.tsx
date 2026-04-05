@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { logActivity } from '@/lib/activity-log';
 import { useQueryClient } from '@tanstack/react-query';
 
 export type BulkItemStatus = 'queued' | 'scraping' | 'generating' | 'saving' | 'done' | 'error';
@@ -147,9 +148,25 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
 
           setItems(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'done' } : r));
           created++;
+          logActivity({
+            action: 'bulk_import_item',
+            category: 'import',
+            entity_type: 'product',
+            title: `Producto importado: ${productInfo.name_es || productSlug}`,
+            details: `URL: ${currentUrl}`,
+            metadata: { url: currentUrl, slug: productSlug },
+          });
         } catch (e: any) {
           setItems(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'error', error: e.message } : r));
           errors++;
+          logActivity({
+            action: 'bulk_import_error',
+            category: 'error',
+            entity_type: 'product',
+            title: `Error importando producto`,
+            details: `URL: ${currentUrl}\nError: ${e.message}`,
+            metadata: { url: currentUrl, error: e.message },
+          });
         }
       }
 
@@ -158,6 +175,16 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
       runningRef.current = false;
       qc.invalidateQueries({ queryKey: ['admin-products'] });
       qc.invalidateQueries({ queryKey: ['admin-product-count'] });
+      qc.invalidateQueries({ queryKey: ['admin-logs'] });
+
+      logActivity({
+        action: 'bulk_import_complete',
+        category: errors > 0 ? 'error' : 'success',
+        entity_type: 'product',
+        title: `Importación bulk completada: ${created} creados, ${errors} errores`,
+        details: `Total URLs: ${urls.length}\nCreados: ${created}\nErrores: ${errors}`,
+        metadata: { total: urls.length, created, errors },
+      });
 
       // Browser notification
       if ('Notification' in window && Notification.permission === 'granted') {
