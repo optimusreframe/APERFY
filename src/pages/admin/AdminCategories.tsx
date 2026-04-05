@@ -47,9 +47,15 @@ export default function AdminCategories() {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['admin-categories'] });
       qc.invalidateQueries({ queryKey: ['admin-category-count'] });
+      logActivity({
+        action: editId ? 'category_updated' : 'category_created',
+        category: editId ? 'edit' : 'success',
+        entity_type: 'category',
+        title: `${editId ? 'Editada' : 'Creada'}: ${variables.name_es || variables.name_en}`,
+      });
       setOpen(false);
       setEditId(null);
       setForm(empty);
