@@ -179,11 +179,8 @@ export default function Auth() {
               {/* Logo */}
               <div className="flex flex-col items-center mb-8 relative z-10">
                 <div className="relative mb-4">
-                  {/* Glow behind badge */}
                   <div className="absolute inset-0 bg-primary/30 rounded-xl blur-lg opacity-60 animate-[glow-pulse_3s_ease-in-out_infinite]" />
-                  <div className="relative w-14 h-14 bg-gradient-gold rounded-xl flex items-center justify-center shadow-gold">
-                    <span className="text-primary-foreground font-display font-black text-xl">3D</span>
-                  </div>
+                  <img src="/logo.png" alt="3DtoPrint" className="relative w-14 h-14 object-contain" />
                 </div>
                 <span className="font-display font-bold text-xl text-foreground tracking-tight">
                   3Dto<span className="text-gradient-gold">Print</span>
