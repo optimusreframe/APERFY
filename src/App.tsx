@@ -7,7 +7,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LanguageProvider } from "@/i18n/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { BulkImportProvider } from "@/contexts/BulkImportContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import BulkImportBanner from "@/components/BulkImportBanner";
 import PrintingBackground from "@/components/PrintingBackground";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -91,13 +93,16 @@ const App = () => (
     <LanguageProvider>
       <AuthProvider>
         <CartProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppContent />
-            </BrowserRouter>
-          </TooltipProvider>
+          <BulkImportProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <AppContent />
+                <BulkImportBanner />
+              </BrowserRouter>
+            </TooltipProvider>
+          </BulkImportProvider>
         </CartProvider>
       </AuthProvider>
     </LanguageProvider>

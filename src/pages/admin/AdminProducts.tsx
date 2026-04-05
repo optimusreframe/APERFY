@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useBulkImport } from '@/contexts/BulkImportContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -228,11 +229,8 @@ export default function AdminProducts() {
   }, [editAiGenerating]);
 
   // Bulk Import state
-  type BulkItemStatus = 'queued' | 'scraping' | 'generating' | 'saving' | 'done' | 'error';
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkUrls, setBulkUrls] = useState('');
-  const [bulkProcessing, setBulkProcessing] = useState(false);
-  const [bulkResults, setBulkResults] = useState<{ url: string; status: BulkItemStatus; name?: string; error?: string }[]>([]);
 
   // Bulk Edit state
   const [bulkEditMode, setBulkEditMode] = useState(false);
@@ -564,8 +562,6 @@ export default function AdminProducts() {
     setCreatingCategory(false);
     setBulkMode(false);
     setBulkUrls('');
-    setBulkProcessing(false);
-    setBulkResults([]);
   };
 
   // Helper: persist an AI image (data URI or remote URL) to storage immediately
@@ -974,8 +970,10 @@ export default function AdminProducts() {
     });
   };
 
-  // ── BULK IMPORT ──
-  const handleBulkImport = async () => {
+  // ── BULK IMPORT (delegated to global context) ──
+  const { startBulkImport, isRunning: bulkImportRunning } = useBulkImport();
+
+  const handleBulkImport = () => {
     const urls = bulkUrls.split('\n').map(u => u.trim()).filter(u => u && isValidUrl(u));
     if (urls.length === 0) {
       toast({ title: 'Ingresa al menos una URL válida', variant: 'destructive' });
@@ -985,88 +983,10 @@ export default function AdminProducts() {
       toast({ title: 'Máximo 10 URLs permitidas', variant: 'destructive' });
       return;
     }
-
-    setBulkProcessing(true);
-    setBulkResults(urls.map(url => ({ url, status: 'queued' as BulkItemStatus })));
-
-    let created = 0;
-    let errors = 0;
-
-    for (let i = 0; i < urls.length; i++) {
-      const currentUrl = urls[i];
-      try {
-        // Step 1: Scrape
-        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'scraping' } : r));
-        const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke('ai-product-import', {
-          body: {
-            action: 'scrape',
-            url: currentUrl,
-            existingCategories: categories.map((c: any) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
-          },
-        });
-        if (scrapeError || !scrapeData?.success) throw new Error(scrapeData?.error || 'Scrape failed');
-        const productInfo = scrapeData.data;
-
-        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'generating', name: productInfo.name_es } : r));
-
-        // Step 2: Generate image and persist immediately
-        let persistedImageUrl: string | null = null;
-        const bestSourceImage = productInfo.reference_image_url || productInfo.extracted_images?.[0];
-        if (bestSourceImage) {
-          try {
-            const { data: imgData } = await supabase.functions.invoke('ai-product-import', {
-              body: {
-                action: 'generate_image',
-                sourceImage: bestSourceImage,
-                backgroundMode: 'system',
-                customBackground: systemBgSetting || undefined,
-              },
-            });
-            if (imgData?.success && imgData.data.generated_image) {
-              const { url } = await persistAiImage(imgData.data.generated_image);
-              persistedImageUrl = url;
-            }
-          } catch {
-            // Image generation/persist failed, continue without image
-          }
-        }
-
-        // Step 3: Save product with persisted image
-        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'saving' } : r));
-        const matchedCat = categories.find((c: any) => c.slug === productInfo.suggested_category);
-        const nameEn = productInfo.name_en || productInfo.name_es;
-        const descEn = productInfo.description_en || productInfo.description_es;
-        const productSlug = productInfo.slug || slugify(productInfo.name_es || `product-${Date.now()}`);
-
-        const { error: insertError } = await supabase.from('products').insert({
-          name_en: nameEn,
-          name_es: productInfo.name_es || '',
-          description_en: descEn,
-          description_es: productInfo.description_es || '',
-          slug: productSlug,
-          base_price: productInfo.suggested_price || 0,
-          category_id: matchedCat?.id || null,
-          is_active: true,
-          is_featured: false,
-          images: persistedImageUrl ? [persistedImageUrl] : [],
-        });
-        if (insertError) throw insertError;
-
-        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'done' } : r));
-        created++;
-      } catch (e: any) {
-        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'error', error: e.message } : r));
-        errors++;
-      }
-    }
-
-    setBulkProcessing(false);
-    qc.invalidateQueries({ queryKey: ['admin-products'] });
-    qc.invalidateQueries({ queryKey: ['admin-product-count'] });
-    toast({
-      title: `Importación completada`,
-      description: `${created} productos creados, ${errors} errores`,
-    });
+    startBulkImport(urls, categories, systemBgSetting || null);
+    setAiOpen(false);
+    resetAi();
+    toast({ title: '🚀 Importación iniciada', description: 'Puedes seguir navegando. Verás el progreso en el banner inferior.' });
   };
 
   function isValidUrl(str: string): boolean {
@@ -1107,7 +1027,7 @@ export default function AdminProducts() {
 
               <div className="p-6 pt-4">
                 {/* ── STEP: SOURCE ── */}
-                {aiStep === 'source' && !bulkProcessing && (
+                {aiStep === 'source' && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                     <Tabs value={bulkMode ? 'bulk' : 'single'} onValueChange={(v) => setBulkMode(v === 'bulk')}>
                       <TabsList className="w-full">
@@ -1268,89 +1188,18 @@ export default function AdminProducts() {
 
                         <Button
                           onClick={handleBulkImport}
-                          disabled={!bulkUrls.trim()}
+                          disabled={!bulkUrls.trim() || bulkImportRunning}
                           className="w-full h-12 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2 text-base font-semibold"
                         >
                           <Wand2 className="w-5 h-5" />
-                          Importar Lote con AI
+                          {bulkImportRunning ? 'Importación en curso...' : 'Importar Lote con AI'}
                         </Button>
                       </TabsContent>
                     </Tabs>
                   </motion.div>
                 )}
 
-                {/* ── STEP: BULK PROCESSING ── */}
-                {bulkProcessing && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 py-4">
-                    <div className="text-center space-y-2 mb-6">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center mx-auto animate-pulse">
-                        <Sparkles className="w-6 h-6 text-primary-foreground" />
-                      </div>
-                      <p className="font-display text-lg font-semibold">Importando productos...</p>
-                      <p className="text-sm text-muted-foreground">
-                        {bulkResults.filter(r => r.status === 'done').length} / {bulkResults.length} completados
-                      </p>
-                    </div>
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                      {bulkResults.map((item, i) => (
-                        <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                          item.status === 'done' ? 'border-green-500/30 bg-green-500/5' :
-                          item.status === 'error' ? 'border-destructive/30 bg-destructive/5' :
-                          item.status === 'queued' ? 'border-border bg-secondary/30' :
-                          'border-primary/30 bg-primary/5'
-                        }`}>
-                          <div className="flex-shrink-0">
-                            {item.status === 'queued' && <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />}
-                            {(item.status === 'scraping' || item.status === 'generating' || item.status === 'saving') && (
-                              <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                            )}
-                            {item.status === 'done' && <CheckCircle2 className="w-5 h-5 text-green-500" />}
-                            {item.status === 'error' && <AlertCircle className="w-5 h-5 text-destructive" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-mono truncate">{item.url}</p>
-                            {item.name && <p className="text-xs text-muted-foreground">{item.name}</p>}
-                            {item.error && <p className="text-xs text-destructive">{item.error}</p>}
-                          </div>
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex-shrink-0">
-                            {item.status === 'queued' && 'En cola'}
-                            {item.status === 'scraping' && '🔄 Scraping'}
-                            {item.status === 'generating' && '🖼️ Imagen'}
-                            {item.status === 'saving' && '💾 Guardando'}
-                            {item.status === 'done' && '✅ Creado'}
-                            {item.status === 'error' && '❌ Error'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* ── BULK RESULTS (after processing) ── */}
-                {!bulkProcessing && bulkResults.length > 0 && aiStep === 'source' && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 py-4">
-                    <div className="text-center space-y-2 mb-4">
-                      <p className="font-display text-lg font-semibold">Importación completada</p>
-                      <p className="text-sm text-muted-foreground">
-                        {bulkResults.filter(r => r.status === 'done').length} creados · {bulkResults.filter(r => r.status === 'error').length} errores
-                      </p>
-                    </div>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                      {bulkResults.map((item, i) => (
-                        <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border ${
-                          item.status === 'done' ? 'border-green-500/30 bg-green-500/5' : 'border-destructive/30 bg-destructive/5'
-                        }`}>
-                          {item.status === 'done' ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <AlertCircle className="w-5 h-5 text-destructive" />}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium">{item.name || item.url}</p>
-                            {item.error && <p className="text-xs text-destructive">{item.error}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <Button onClick={resetAi} variant="outline" className="w-full">Cerrar</Button>
-                  </motion.div>
-                )}
+                {/* Bulk processing and results are now shown in BulkImportBanner */}
 
                 {/* ── STEP: LOADING ── */}
                 {aiStep === 'loading' && (
