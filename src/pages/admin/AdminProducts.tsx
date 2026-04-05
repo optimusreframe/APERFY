@@ -1670,13 +1670,30 @@ export default function AdminProducts() {
           </Dialog>
 
           {/* ── ADD/EDIT PRODUCT DIALOG ── */}
-          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); } }}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); setEditAiImageOpen(false); setEditAiSourceImage(null); setEditAiCustomBg(null); } }}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2"><Plus className="w-4 h-4" />Agregar Producto</Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle className="font-display">{editId ? 'Editar' : 'Agregar'} Producto</DialogTitle></DialogHeader>
               <form onSubmit={(e) => { e.preventDefault(); save.mutate(form); }} className="space-y-5">
+
+                {/* ── AI ENHANCE BUTTON ── */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleEditEnhanceWithAi}
+                  disabled={editEnhancing}
+                  className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  {editEnhancing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {editEnhancing ? 'Generando con AI...' : '✨ Generar todo con AI'}
+                </Button>
+                {editEnhancing && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    La AI generará nombre, descripción, traducción, categoría y slug automáticamente
+                  </p>
+                )}
 
                 {/* ── MEDIA UPLOAD ZONE (TOP) ── */}
                 <div className="space-y-3">
