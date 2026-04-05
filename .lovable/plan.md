@@ -1,92 +1,40 @@
 
 
-# Error Reporting Mejorado + Sistema de Activity Logs
+# Fix: AI Image Error Reporting + Log Registration
 
-## 1. Mejora de mensajes de error en AI operations
+## Root Cause Analysis
 
-**Problema**: Los errores de AI (generacion de imagen, scraping, traducciones) muestran mensajes genericos. Los logs del edge function revelan errores como `MALFORMED_FUNCTION_CALL` o `IMAGE_PROHIBITED_CONTENT` que no llegan al usuario.
+**Why you got the error**: The Groot image triggered `IMAGE_PROHIBITED_CONTENT` — the AI's content filter flagged it as a copyrighted character (Marvel/Disney). The edge function correctly detected this and returned a descriptive error message... BUT with HTTP status **422**.
 
-**Solucion**:
+**Why the error message was generic**: `supabase.functions.invoke()` treats any non-2xx response as a failure. When the edge function returns 422, the SDK sets `error.message = "Edge Function returned a non-2xx status code"` and the response body (with the detailed Spanish error message) is lost in `data` or inaccessible.
 
-### Edge function (`supabase/functions/ai-product-import/index.ts`)
-- En la seccion `generate_image`, cuando no se encuentra imagen en la respuesta AI, incluir el `finish_reason` / `native_finish_reason` en el mensaje de error retornado (ej: "Image generation failed: IMAGE_PROHIBITED_CONTENT - The AI could not process this image")
-- Mapear los finish_reason comunes a mensajes legibles en espanol
+**Why no log was recorded**: The `handleEditAiGenerateImage` function (edit dialog) has no `logActivity()` call in its catch block — unlike `triggerAiGenerateImage` (create dialog) which does.
 
-### BulkImportContext
-- Ya captura `e.message` en los errores — solo necesita que el edge function envie mejores mensajes
-- Agregar logging a la tabla `activity_logs` (ver punto 2) en cada paso: exito y error
+## Fixes (3 changes)
 
-### AdminProducts.tsx  
-- Los catch blocks ya muestran `e.message` via toast — solo asegurar que los errores de AI incluyan contexto suficiente desde el edge function
+### 1. Edge function: Return 200 with `success: false` instead of 422
 
-## 2. Sistema de Activity Logs
+In `supabase/functions/ai-product-import/index.ts`, change the error response at line 548-556 from status `422` to `200`. This way `supabase.functions.invoke()` won't throw, and the client can read `data.error` with the descriptive message.
 
-### Nueva tabla: `activity_logs`
+Same pattern for the non-2xx responses at lines 504-511 — return 200 with `success: false` instead of throwing.
 
-```sql
-CREATE TABLE public.activity_logs (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-  action text NOT NULL,           -- 'product_created', 'product_updated', 'bulk_import', 'ai_image_generated', 'order_received', 'error', etc.
-  category text NOT NULL DEFAULT 'info',  -- 'success', 'error', 'order', 'import', 'edit', 'info'
-  entity_type text,               -- 'product', 'order', 'category', etc.
-  entity_id uuid,
-  title text NOT NULL,
-  details text,                   -- Detailed message / error explanation
-  metadata jsonb DEFAULT '{}'
-);
+### 2. AdminProducts: Better error extraction + log in edit handler
 
-ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
+In `handleEditAiGenerateImage` (line 822):
+- Already checks `if (error) throw ...` but `data?.error` is undefined when status is non-2xx
+- After fix #1, this will work because data will contain the error message
+- Add `logActivity()` call in the catch block (same as `triggerAiGenerateImage` already has)
 
--- Only admins can view/insert logs
-CREATE POLICY "Admins can manage logs" ON public.activity_logs
-  FOR ALL TO authenticated
-  USING (has_role(auth.uid(), 'admin'))
-  WITH CHECK (has_role(auth.uid(), 'admin'));
-```
+### 3. AdminProducts: Same fix for `triggerAiGenerateImage` (line 645-648)
 
-### Helper: `src/lib/activity-log.ts`
-Utility function to insert logs from anywhere in the app:
-```typescript
-export async function logActivity(params: {
-  action: string;
-  category: 'success' | 'error' | 'order' | 'import' | 'edit' | 'info';
-  entity_type?: string;
-  entity_id?: string;
-  title: string;
-  details?: string;
-  metadata?: Record<string, any>;
-})
-```
+Already has logActivity, but error extraction will now work correctly after fix #1.
 
-### Integration points — call `logActivity()` from:
-- **BulkImportContext**: Log each item success/error + final summary
-- **AdminProducts**: Product create, update, delete, AI image generation, AI enhance, AI translate
-- **AdminOrders**: Order status changes
-- **AdminCategories**: Category create/update/delete
-- **AdminMaterials**: Material create/update/delete
+## Files to modify
 
-### Nueva pagina: `src/pages/admin/AdminLogs.tsx`
-- Tab-based UI with categories: **Todos**, **Exitos**, **Errores**, **Ordenes**, **Importaciones**, **Ediciones**
-- Table with columns: Fecha, Accion, Titulo, Detalles, Categoria (badge)
-- Each tab filters by `category` field
-- Paginated (50 per page), sorted newest first
-- Expandable rows to see full details/metadata
-- Color-coded badges per category
+- `supabase/functions/ai-product-import/index.ts` — change status 422 to 200 for image generation errors; also handle the `throw new Error("AI image generation failed")` case at line 510 to return a proper response instead of throwing
+- `src/pages/admin/AdminProducts.tsx` — add `logActivity()` to `handleEditAiGenerateImage` catch block
 
-### Routing & Sidebar
-- Add `{ title: 'Logs', url: '/admin/logs', icon: ScrollText }` to `AdminSidebar.tsx`
-- Add route `<Route path="logs" element={<AdminLogs />} />` in `App.tsx`
+## About the Groot image
 
-## Files to create/modify
-
-- **Create**: Migration for `activity_logs` table
-- **Create**: `src/lib/activity-log.ts`
-- **Create**: `src/pages/admin/AdminLogs.tsx`
-- **Modify**: `supabase/functions/ai-product-import/index.ts` — better error messages in generate_image
-- **Modify**: `src/contexts/BulkImportContext.tsx` — log each import result
-- **Modify**: `src/pages/admin/AdminProducts.tsx` — log product CRUD + AI operations
-- **Modify**: `src/pages/admin/AdminSidebar.tsx` — add Logs link
-- **Modify**: `src/App.tsx` — add Logs route
+The `IMAGE_PROHIBITED_CONTENT` filter blocks copyrighted characters. After these fixes, when you try to generate an image for Groot, you'll see a clear message: "La IA detectó contenido prohibido en la imagen. Intenta con otra imagen fuente." — and it will be logged. The workaround is to use a photo taken from a different angle or with less recognizable framing, though this may still trigger the filter for well-known characters.
 
