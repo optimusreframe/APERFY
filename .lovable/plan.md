@@ -1,63 +1,98 @@
 
 
-# Actualización AI Import Studio — Maker-Pro Aesthetic
+# Pricing Inteligente vía eBay + Bulk Import (hasta 10 URLs)
 
-## Resumen
+## Situación actual del precio
 
-Rediseñar el selector de fondo del modal AI Import con tarjetas estilo card, nuevos nombres/descripciones, prompts mejorados en el Edge Function, y un Progress Log animado durante la generación.
+Actualmente, el precio lo "inventa" la IA. En el prompt del Edge Function se le dice: `"suggested_price: Reasonable retail price in USD for a 3D printed product"`. Gemini simplemente adivina un precio sin consultar datos reales del mercado. No hay scraping de precios ni comparación con listings existentes.
 
-## Cambios
+## Cambios propuestos
 
-### 1. Edge Function — Nuevos prompts (`supabase/functions/ai-product-import/index.ts`)
+### 1. Pricing inteligente con datos de eBay (Edge Function)
 
-Reemplazar los prompts de `backgroundMode === "system"` y el default `"ai"`:
+Agregar un nuevo paso en la acción `scrape` del Edge Function `ai-product-import`:
 
-- **`system` → "Estudio Maker"**: `"High-fidelity photography of a 3D printed object on a grey industrial workbench. Background: Blurred professional 3D printer and colorful filament spools (orange/teal). Macro lens aesthetic, heavy bokeh, cinematic studio lighting with a cool rim light on the object edges."`
-- **`ai` → "Exhibición Tech"**: `"Luxury product display. Object placed on a dark carbon-fiber plinth. Background: Intricate 3D geometric network nodes in dark blue/grey. '3DtoPrint' logo subtly engraved in copper/gold on the plinth. Cyberpunk technology aesthetic."`
-- `custom` permanece igual.
+- **Después** de extraer el título/nombre del producto con Gemini, usar **Firecrawl Search** para buscar en eBay productos similares:
+  - Query: `site:ebay.com {original_title OR name_en} 3D printed`
+  - Limitar a 6 resultados
+  - Scrape del contenido de cada resultado para extraer el precio
+- **Enviar los precios encontrados a Gemini** como contexto adicional para que calcule un promedio ponderado y lo devuelva como `suggested_price`
+- Si Firecrawl no encuentra resultados o no hay API key, mantener el fallback actual (precio estimado por la IA)
 
-### 2. Frontend — Card-style radio selector (`AdminProducts.tsx`, líneas ~637-680)
-
-Reemplazar el `RadioGroup` plano con tarjetas interactivas:
-
-- Cada opción será un `div` clickeable con borde `border-2`, que cambia a `border-primary` (gold) cuando está activo.
-- Hover: `hover:border-primary/50` con `transition-all duration-200`.
-- Contenido de cada card:
-  - **system**: Título "Estudio Maker (Recomendado)" + sub-label "Fondo hiperrealista de taller con impresora 3D y desenfoque cinematográfico" + badge "Recomendado".
-  - **ai**: Título "Exhibición Tech Abstracta" + sub-label "Estilo geométrico oscuro con nodos de red y marca 3DtoPrint grabada".
-  - **custom**: Título "Fondo Personalizado" + sub-label "Sube tu propia imagen de fondo".
-- Se mantiene `RadioGroupItem` oculto para accesibilidad, el click en la card cambia el valor.
-
-### 3. Progress Log overlay durante generación (líneas ~777-785)
-
-Cuando `aiImageLoading === true`, superponer sobre el preview un overlay oscuro con mensajes secuenciales animados:
-
+**Flujo técnico:**
 ```text
-┌─────────────────────────┐
-│  ◉ Aislando modelo 3D...│  (0-2s)
-│  ◉ Configurando ilumina…│  (2-4s)
-│  ◉ Aplicando efecto …   │  (4-6s)
-│  ◉ Renderizando en 8K…  │  (6s+)
-│  [spinner]               │
-└─────────────────────────┘
+URL → Firecrawl scrape página → Gemini extrae metadata + título original
+  → Firecrawl search "site:ebay.com {título}" (4-6 resultados)
+  → Gemini analiza precios encontrados → suggested_price = promedio
 ```
 
-Implementación: un array de strings con `useEffect` + `setInterval` que avanza el índice cada ~2.5s. Cada mensaje aparece con `animate-fade-in`. El overlay tiene `bg-black/70 backdrop-blur-sm` y un borde interno con `shadow-[inset_0_0_30px_rgba(212,160,23,0.15)]`.
+**Cambio en el prompt de Gemini:** Agregar los precios de eBay como contexto:
+```
+EBAY MARKET PRICES FOUND:
+1. $12.99
+2. $15.50
+3. $11.00
+...
+Calculate suggested_price as the average of these market prices.
+```
 
-### 4. Image preview con inner glow (línea ~777)
+### 2. Bulk Import — hasta 10 URLs simultáneas
 
-Agregar al contenedor del preview la clase: `shadow-[inset_0_0_40px_rgba(212,160,23,0.1)]` cuando hay una imagen generada exitosamente.
+Agregar una tercera pestaña/modo en el modal de AI Import: **"Importar en lote (URLs)"**.
 
-### 5. Botón "Extraer y Generar" con pulse animation
+**UI en `AdminProducts.tsx`:**
+- Nuevo paso `source` con opción de tabs: "URL única" | "Lote (hasta 10)"
+- En modo lote: un `<textarea>` donde el admin pega hasta 10 URLs (una por línea)
+- Botón "Importar Lote" que valida las URLs y lanza el proceso
+- Vista de progreso tipo lista con estado por cada URL:
+  - ⏳ En cola → 🔄 Scraping → 🖼️ Generando imagen → ✅ Creado / ❌ Error
+- Cada producto se crea automáticamente con los valores por defecto (Estudio Maker, categoría sugerida, precio de mercado)
+- Al finalizar, mostrar resumen: X productos creados, Y errores
 
-Cuando `aiLoading || aiImageLoading`, agregar clase `animate-pulse` al botón principal de scrape/generación.
+**Lógica en el frontend:**
+- Procesar URLs secuencialmente (no en paralelo) para evitar rate limits
+- Para cada URL: scrape → generar imagen → guardar producto (reutilizando `handleAiScrape` + `handleAiSaveProduct` internos)
+- No hay paso de "review" en modo bulk — todo es automático
 
-### 6. Cambiar default de `aiBgMode`
+**Nueva acción en Edge Function** `ai-product-import`:
+- Acción `scrape_and_price`: combina el scrape actual + búsqueda de precios en eBay en una sola llamada
+- Se usa tanto para import individual como bulk
 
-En `resetAi()` (línea 369), cambiar el default de `'ai'` a `'system'` ya que "Estudio Maker" será la opción recomendada.
+### 3. Archivos a modificar
 
-## Archivos a modificar
+- **`supabase/functions/ai-product-import/index.ts`** — Agregar búsqueda de precios en eBay con Firecrawl Search dentro de la acción `scrape`, actualizar prompt de Gemini con precios de mercado
+- **`src/pages/admin/AdminProducts.tsx`** — Agregar modo "Bulk Import" con textarea, progress tracker por URL, y lógica de procesamiento secuencial con auto-save
 
-- `supabase/functions/ai-product-import/index.ts` — prompts (2 líneas)
-- `src/pages/admin/AdminProducts.tsx` — UI del selector, progress log, glow, default mode
+### Sección técnica
+
+**Búsqueda de precios (Edge Function):**
+```typescript
+// Después de obtener el título del producto...
+if (FIRECRAWL_API_KEY) {
+  const searchResp = await fetch("https://api.firecrawl.dev/v1/search", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: `site:ebay.com ${originalTitle} 3D printed`,
+      limit: 6,
+      scrapeOptions: { formats: ["markdown"] }
+    })
+  });
+  // Extraer precios con regex del markdown de cada resultado
+  // Pasar lista de precios a Gemini para calcular promedio
+}
+```
+
+**Bulk Import (Frontend):**
+```typescript
+const handleBulkImport = async (urls: string[]) => {
+  for (const url of urls) {
+    updateBulkStatus(url, 'scraping');
+    // 1. Scrape + price
+    // 2. Generate image
+    // 3. Auto-save product
+    updateBulkStatus(url, 'done');
+  }
+};
+```
 
