@@ -186,6 +186,15 @@ export default function AdminProducts() {
   const aiOriginalInputRef = useRef<HTMLInputElement>(null);
   const aiBgInputRef = useRef<HTMLInputElement>(null);
 
+  // Progress log step timer
+  useEffect(() => {
+    if (!aiImageLoading) { setAiProgressStep(0); return; }
+    const interval = setInterval(() => {
+      setAiProgressStep((prev) => Math.min(prev + 1, AI_PROGRESS_MESSAGES.length - 1));
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [aiImageLoading]);
+
   const qc = useQueryClient();
   const { toast } = useToast();
   const { language } = useLanguage();
