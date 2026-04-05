@@ -166,6 +166,10 @@ export const translations = {
       inStock: 'In Stock',
       outOfStock: 'Out of Stock',
       price: 'Price',
+      weight: 'Weight',
+      grams: 'g',
+      costPerKg: 'Cost per KG',
+      selectSize: 'Select a size',
     },
     store: {
       title: '3D Models',
@@ -441,6 +445,10 @@ export const translations = {
       inStock: 'En Stock',
       outOfStock: 'Agotado',
       price: 'Precio',
+      weight: 'Peso',
+      grams: 'g',
+      costPerKg: 'Costo por KG',
+      selectSize: 'Selecciona un tamaño',
     },
     store: {
       title: 'Modelos 3D',

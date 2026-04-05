@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2, Save, XCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -189,6 +189,21 @@ export default function AdminProducts() {
   const [translating, setTranslating] = useState(false);
   const aiOriginalInputRef = useRef<HTMLInputElement>(null);
   const aiBgInputRef = useRef<HTMLInputElement>(null);
+
+  // Variations state for product modal
+  interface VariationRow {
+    id?: string;
+    name_en: string;
+    name_es: string;
+    type: string;
+    weight_grams: number;
+    material_id: string;
+    is_active: boolean;
+    _isNew?: boolean;
+    _deleted?: boolean;
+  }
+  const [productVariations, setProductVariations] = useState<VariationRow[]>([]);
+  const [loadingVariations, setLoadingVariations] = useState(false);
 
   // Bulk Import state
   type BulkItemStatus = 'queued' | 'scraping' | 'generating' | 'saving' | 'done' | 'error';
@@ -396,6 +411,45 @@ export default function AdminProducts() {
         }
         await supabase.from('products').update({ images: imageUrls }).eq('id', productId);
       }
+      // Save variations
+      if (productId && productVariations.length > 0) {
+        // Delete removed variations
+        const existingIds = productVariations.filter(v => v.id && !v._deleted).map(v => v.id!);
+        if (editId) {
+          // Delete variations not in current list
+          const { data: currentVars } = await supabase.from('product_variations').select('id').eq('product_id', productId);
+          const toDelete = (currentVars || []).filter(cv => !existingIds.includes(cv.id));
+          for (const d of toDelete) {
+            await supabase.from('product_variations').delete().eq('id', d.id);
+          }
+        }
+        // Upsert variations
+        for (const v of productVariations.filter(vr => !vr._deleted)) {
+          // Find selected material for this product to calc price
+          const selectedMaterial = materials.find((m: any) => m.id === v.material_id);
+          const costPerKg = selectedMaterial ? Number(selectedMaterial.cost_per_kg || 0) : 0;
+          const calculatedPrice = v.weight_grams > 0 && costPerKg > 0
+            ? (v.weight_grams / 1000) * costPerKg
+            : 0;
+          
+          const varPayload = {
+            product_id: productId,
+            name_en: v.name_en,
+            name_es: v.name_es,
+            type: v.type || 'size',
+            weight_grams: v.weight_grams || null,
+            price_modifier: calculatedPrice,
+            value: `${v.weight_grams}g`,
+            is_active: v.is_active,
+          };
+          
+          if (v.id && !v._isNew) {
+            await supabase.from('product_variations').update(varPayload).eq('id', v.id);
+          } else {
+            await supabase.from('product_variations').insert(varPayload);
+          }
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-products'] });
@@ -404,6 +458,7 @@ export default function AdminProducts() {
       setEditId(null);
       setForm(empty);
       setMediaFiles([]);
+      setProductVariations([]);
       toast({ title: '✓', description: 'Producto guardado.' });
     },
     onError: (e: any) => {
@@ -441,6 +496,20 @@ export default function AdminProducts() {
       type: getMediaTypeFromUrl(url),
       isExisting: true,
     })));
+    // Load existing variations
+    setLoadingVariations(true);
+    supabase.from('product_variations').select('*').eq('product_id', p.id).order('created_at').then(({ data }) => {
+      setProductVariations((data || []).map((v: any) => ({
+        id: v.id,
+        name_en: v.name_en,
+        name_es: v.name_es,
+        type: v.type,
+        weight_grams: v.weight_grams || 0,
+        material_id: '', // We'll handle material via product_materials
+        is_active: v.is_active,
+      })));
+      setLoadingVariations(false);
+    });
     setOpen(true);
   };
 
@@ -1431,7 +1500,7 @@ export default function AdminProducts() {
           </Dialog>
 
           {/* ── ADD/EDIT PRODUCT DIALOG ── */}
-          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); } }}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); } }}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2"><Plus className="w-4 h-4" />Agregar Producto</Button>
             </DialogTrigger>
@@ -1534,6 +1603,162 @@ export default function AdminProducts() {
                   <div className="flex items-center gap-2"><Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} /><Label>Activo</Label></div>
                   <div className="flex items-center gap-2"><Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} /><Label>Destacado</Label></div>
                 </div>
+
+                {/* ── VARIATIONS (Size/Weight) ── */}
+                <div className="space-y-3 border-t border-border pt-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2 font-semibold">
+                      <Ruler className="w-4 h-4 text-primary" />
+                      Variaciones de Tamaño
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setProductVariations(prev => [...prev, {
+                        name_en: '', name_es: '', type: 'size', weight_grams: 0, material_id: '', is_active: true, _isNew: true,
+                      }])}
+                      className="gap-1 text-xs"
+                    >
+                      <Plus className="w-3 h-3" /> Agregar Variación
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Agrega variaciones de tamaño con su peso en gramos. El precio se calcula automáticamente: (peso / 1000) × costo por KG del material.
+                  </p>
+
+                  {productVariations.filter(v => !v._deleted).length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-3">Sin variaciones. El producto usará solo el precio base.</p>
+                  )}
+
+                  {productVariations.filter(v => !v._deleted).map((variation, idx) => {
+                    const actualIdx = productVariations.indexOf(variation);
+                    const selectedMat = materials.find((m: any) => m.id === variation.material_id);
+                    const costPerKg = selectedMat ? Number(selectedMat.cost_per_kg || 0) : 0;
+                    const calcPrice = variation.weight_grams > 0 && costPerKg > 0
+                      ? (variation.weight_grams / 1000) * costPerKg
+                      : 0;
+
+                    return (
+                      <div key={idx} className="p-3 rounded-lg bg-secondary/50 border border-border space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-muted-foreground">Variación #{idx + 1}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive"
+                            onClick={() => {
+                              setProductVariations(prev => {
+                                const updated = [...prev];
+                                if (updated[actualIdx].id && !updated[actualIdx]._isNew) {
+                                  updated[actualIdx] = { ...updated[actualIdx], _deleted: true };
+                                } else {
+                                  updated.splice(actualIdx, 1);
+                                }
+                                return updated;
+                              });
+                            }}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Nombre (ES)</Label>
+                            <Input
+                              value={variation.name_es}
+                              onChange={(e) => {
+                                setProductVariations(prev => {
+                                  const updated = [...prev];
+                                  updated[actualIdx] = { ...updated[actualIdx], name_es: e.target.value };
+                                  return updated;
+                                });
+                              }}
+                              placeholder="ej. Pequeño"
+                              className="bg-background text-sm h-8"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Nombre (EN)</Label>
+                            <Input
+                              value={variation.name_en}
+                              onChange={(e) => {
+                                setProductVariations(prev => {
+                                  const updated = [...prev];
+                                  updated[actualIdx] = { ...updated[actualIdx], name_en: e.target.value };
+                                  return updated;
+                                });
+                              }}
+                              placeholder="e.g. Small"
+                              className="bg-background text-sm h-8"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs flex items-center gap-1"><Weight className="w-3 h-3" /> Peso (g)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={variation.weight_grams}
+                              onChange={(e) => {
+                                setProductVariations(prev => {
+                                  const updated = [...prev];
+                                  updated[actualIdx] = { ...updated[actualIdx], weight_grams: parseFloat(e.target.value) || 0 };
+                                  return updated;
+                                });
+                              }}
+                              placeholder="100"
+                              className="bg-background text-sm h-8"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Material</Label>
+                            <Select
+                              value={variation.material_id}
+                              onValueChange={(v) => {
+                                setProductVariations(prev => {
+                                  const updated = [...prev];
+                                  updated[actualIdx] = { ...updated[actualIdx], material_id: v };
+                                  return updated;
+                                });
+                              }}
+                            >
+                              <SelectTrigger className="bg-background text-sm h-8"><SelectValue placeholder="—" /></SelectTrigger>
+                              <SelectContent>
+                                {materials.map((m: any) => (
+                                  <SelectItem key={m.id} value={m.id}>{m.name_es} (${Number(m.cost_per_kg || 0).toFixed(0)}/kg)</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Precio Calc.</Label>
+                            <div className="h-8 flex items-center px-3 rounded-md bg-background border border-input text-sm font-medium text-primary">
+                              {calcPrice > 0 ? `$${calcPrice.toFixed(2)}` : '—'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={variation.is_active}
+                            onCheckedChange={(c) => {
+                              setProductVariations(prev => {
+                                const updated = [...prev];
+                                updated[actualIdx] = { ...updated[actualIdx], is_active: c };
+                                return updated;
+                              });
+                            }}
+                          />
+                          <Label className="text-xs">Activa</Label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
                 <Button type="submit" disabled={save.isPending} className="w-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
                   {save.isPending ? '...' : 'Guardar Producto'}
                 </Button>

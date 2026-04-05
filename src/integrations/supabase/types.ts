@@ -99,6 +99,7 @@ export type Database = {
       }
       materials: {
         Row: {
+          cost_per_kg: number
           created_at: string
           description_en: string | null
           description_es: string | null
@@ -108,6 +109,7 @@ export type Database = {
           name_es: string
         }
         Insert: {
+          cost_per_kg?: number
           created_at?: string
           description_en?: string | null
           description_es?: string | null
@@ -117,6 +119,7 @@ export type Database = {
           name_es: string
         }
         Update: {
+          cost_per_kg?: number
           created_at?: string
           description_en?: string | null
           description_es?: string | null
@@ -372,6 +375,7 @@ export type Database = {
           product_id: string
           type: string
           value: string
+          weight_grams: number | null
         }
         Insert: {
           created_at?: string
@@ -383,6 +387,7 @@ export type Database = {
           product_id: string
           type?: string
           value?: string
+          weight_grams?: number | null
         }
         Update: {
           created_at?: string
@@ -394,6 +399,7 @@ export type Database = {
           product_id?: string
           type?: string
           value?: string
+          weight_grams?: number | null
         }
         Relationships: [
           {

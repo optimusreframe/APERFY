@@ -1,0 +1,1 @@
+ALTER TABLE public.materials ADD COLUMN cost_per_kg numeric NOT NULL DEFAULT 0;

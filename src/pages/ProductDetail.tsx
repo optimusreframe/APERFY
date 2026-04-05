@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Heart, ShoppingCart, Box, ArrowLeft, Minus, Plus, ZoomIn } from 'lucide-react';
+import { Heart, ShoppingCart, Box, ArrowLeft, Minus, Plus, ZoomIn, Weight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -147,12 +147,19 @@ export default function ProductDetail() {
     return acc;
   }, {});
 
+  // Calculate price: if a "size" variation is selected, use its price_modifier as absolute price
+  const selectedSizeVar = variations.find((v: any) => v.type === 'size' && v.id === selectedVariations['size']);
   const priceModifier = Object.values(selectedVariations).reduce((sum, varId) => {
     const v = variations.find((vr: any) => vr.id === varId);
     return sum + (v ? Number(v.price_modifier) : 0);
   }, 0);
 
-  const totalPrice = product ? (Number(product.base_price) + priceModifier) * quantity : 0;
+  // If a size variation is selected and it has a calculated price (price_modifier > 0), use that as the unit price
+  const unitPrice = selectedSizeVar && Number(selectedSizeVar.price_modifier) > 0
+    ? Number(selectedSizeVar.price_modifier)
+    : Number(product?.base_price || 0) + priceModifier;
+  const totalPrice = product ? unitPrice * quantity : 0;
+  const selectedWeight = selectedSizeVar ? Number(selectedSizeVar.weight_grams || 0) : null;
   const images = product ? (product.images as string[]) || [] : [];
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -271,6 +278,12 @@ export default function ProductDetail() {
               <Badge className="mt-2 bg-primary/10 text-primary border-primary/20 hover:bg-primary/15">
                 {t.product.inStock}
               </Badge>
+              {selectedWeight != null && selectedWeight > 0 && (
+                <Badge variant="outline" className="mt-2 ml-2 gap-1">
+                  <Weight className="w-3 h-3" />
+                  {selectedWeight}{t.product.grams}
+                </Badge>
+              )}
             </div>
 
             <p className="text-muted-foreground leading-relaxed text-sm sm:text-base">
@@ -298,25 +311,39 @@ export default function ProductDetail() {
                   {type === 'color' ? t.product.color : type === 'size' ? t.product.size : type}
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {(vars as any[]).map((v: any) => (
-                    <button
-                      key={v.id}
-                      onClick={() => setSelectedVariations(prev => ({ ...prev, [type]: v.id }))}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-all ${
-                        selectedVariations[type] === v.id
-                          ? 'border-primary bg-primary/10 text-primary shadow-gold'
-                          : 'border-border/50 bg-secondary text-foreground hover:border-primary/30'
-                      }`}
-                    >
-                      {type === 'color' && (
-                        <span className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: v.value }} />
-                      )}
-                      {language === 'es' ? v.name_es : v.name_en}
-                      {Number(v.price_modifier) > 0 && (
-                        <span className="text-xs text-muted-foreground">+${Number(v.price_modifier).toFixed(2)}</span>
-                      )}
-                    </button>
-                  ))}
+                  {(vars as any[]).map((v: any) => {
+                    const isSize = type === 'size';
+                    const vPrice = isSize && Number(v.price_modifier) > 0 ? Number(v.price_modifier) : null;
+                    const vWeight = isSize && v.weight_grams ? Number(v.weight_grams) : null;
+                    return (
+                      <button
+                        key={v.id}
+                        onClick={() => setSelectedVariations(prev => ({ ...prev, [type]: v.id }))}
+                        className={`flex flex-col items-start gap-0.5 px-3 py-2 rounded-lg border text-sm transition-all ${
+                          selectedVariations[type] === v.id
+                            ? 'border-primary bg-primary/10 text-primary shadow-gold'
+                            : 'border-border/50 bg-secondary text-foreground hover:border-primary/30'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {type === 'color' && (
+                            <span className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: v.value }} />
+                          )}
+                          <span>{language === 'es' ? v.name_es : v.name_en}</span>
+                        </div>
+                        {isSize && (vWeight || vPrice) && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {vWeight ? `${vWeight}${t.product.grams}` : ''}
+                            {vWeight && vPrice ? ' · ' : ''}
+                            {vPrice ? `$${vPrice.toFixed(2)}` : ''}
+                          </span>
+                        )}
+                        {!isSize && Number(v.price_modifier) > 0 && (
+                          <span className="text-xs text-muted-foreground">+${Number(v.price_modifier).toFixed(2)}</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -356,7 +383,7 @@ export default function ProductDetail() {
                   productImage: images[0] || '',
                   slug: product.slug,
                   quantity,
-                  unitPrice: Number(product.base_price),
+                  unitPrice: unitPrice,
                   selectedVariations: Object.entries(selectedVariations).map(([type, varId]) => {
                     const v = variations.find((vr: any) => vr.id === varId);
                     return { id: varId, type, name: v ? (language === 'es' ? v.name_es : v.name_en) : '', priceModifier: v ? Number(v.price_modifier) : 0 };
