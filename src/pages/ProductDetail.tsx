@@ -193,7 +193,7 @@ export default function ProductDetail() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-          <Link to="/3dmodels" className="hover:text-foreground transition-colors">{t.store.title}</Link>
+          <Link to="/" className="hover:text-foreground transition-colors">{t.store.title}</Link>
           <span className="text-border">/</span>
           {product.categories && (
             <>

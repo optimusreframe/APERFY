@@ -14,7 +14,7 @@ const banners = [
     subtitleEs: 'Explora, personaliza y ordena — entrega a tu puerta',
     ctaEn: 'Explore Models',
     ctaEs: 'Explorar Modelos',
-    href: '/3dmodels',
+    href: '/',
     gradient: 'from-primary/20 via-transparent to-transparent',
   },
   {

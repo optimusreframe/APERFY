@@ -43,7 +43,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/3dmodels" element={<Store />} />
+                <Route path="/3dmodels" element={<Navigate to="/" replace />} />
                 <Route path="/3dmodels/:slug" element={<ProductDetail />} />
                 <Route path="/catalog" element={<Catalog />} />
                 <Route path="/request-model" element={<RequestModel />} />

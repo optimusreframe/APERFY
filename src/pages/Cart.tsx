@@ -143,7 +143,7 @@ export default function Cart() {
                 <Button onClick={handleCheckout} className="w-full mt-6 bg-gradient-gold text-primary-foreground font-semibold h-12">
                   {t.cart.checkout}
                 </Button>
-                <Link to="/3dmodels" className="block mt-3">
+                <Link to="/" className="block mt-3">
                   <Button variant="ghost" className="w-full text-muted-foreground gap-2">
                     <ArrowLeft className="w-4 h-4" />
                     {t.cart.continueShopping}
