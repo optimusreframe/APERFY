@@ -190,6 +190,21 @@ export default function AdminProducts() {
   const aiOriginalInputRef = useRef<HTMLInputElement>(null);
   const aiBgInputRef = useRef<HTMLInputElement>(null);
 
+  // Variations state for product modal
+  interface VariationRow {
+    id?: string;
+    name_en: string;
+    name_es: string;
+    type: string;
+    weight_grams: number;
+    material_id: string;
+    is_active: boolean;
+    _isNew?: boolean;
+    _deleted?: boolean;
+  }
+  const [productVariations, setProductVariations] = useState<VariationRow[]>([]);
+  const [loadingVariations, setLoadingVariations] = useState(false);
+
   // Bulk Import state
   type BulkItemStatus = 'queued' | 'scraping' | 'generating' | 'saving' | 'done' | 'error';
   const [bulkMode, setBulkMode] = useState(false);
