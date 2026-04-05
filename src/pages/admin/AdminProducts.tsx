@@ -148,9 +148,10 @@ export default function AdminProducts() {
   const [aiData, setAiData] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
+  const [aiProgressStep, setAiProgressStep] = useState(0);
   const [aiExtractedImages, setAiExtractedImages] = useState<string[]>([]);
   const [aiSelectedSourceImage, setAiSelectedSourceImage] = useState<string | null>(null);
-  const [aiBgMode, setAiBgMode] = useState<'system' | 'ai' | 'custom'>('ai');
+  const [aiBgMode, setAiBgMode] = useState<'system' | 'ai' | 'custom'>('system');
   const [showEnglish, setShowEnglish] = useState(false);
   const [slugLocked, setSlugLocked] = useState(true);
   const [newCategoryName, setNewCategoryName] = useState('');
