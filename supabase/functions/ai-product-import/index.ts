@@ -469,12 +469,14 @@ ${imageListForAI || "No images found."}`
       let promptText: string;
       const contentParts: any[] = [];
 
+      const fidelityRule = "CRITICAL FIDELITY RULE: The 3D printed object MUST be reproduced with ABSOLUTE fidelity to the original image. Do NOT modify, alter, or reinterpret the object's design, colors, shape, size, proportions, textures, surface details, or any visual characteristic. The object must look EXACTLY like the original — same colors, same geometry, same style, same level of detail. The ONLY change is making it hyper-realistic with professional photography quality. You are changing the BACKGROUND and LIGHTING only, never the object itself.";
+
       if (backgroundMode === "system") {
-        promptText = "Isolate the 3D model object from the reference image. Remove its original background completely. High-fidelity photography of a 3D printed object on a grey industrial workbench. Background: Blurred professional 3D printer and colorful filament spools (orange/teal). Macro lens aesthetic, heavy bokeh, cinematic studio lighting with a cool rim light on the object edges. Maintain high fidelity to the original object's shape and color.";
+        promptText = `${fidelityRule} Isolate the 3D model object from the reference image. Remove its original background completely. Place the EXACT same object (unchanged in every detail) on a grey industrial workbench. Background: Blurred professional 3D printer and colorful filament spools (orange/teal). Macro lens aesthetic, heavy bokeh, cinematic studio lighting with a cool rim light on the object edges. Hyper-realistic rendering — the object must be a perfect replica of the original.`;
       } else if (backgroundMode === "custom") {
-        promptText = "Isolate the 3D model object from the reference image and remove its original background. Seamlessly composite and place this object onto the user-uploaded background image. Apply realistic lighting and soft contact shadows on the surface where the object is placed.";
+        promptText = `${fidelityRule} Isolate the 3D model object from the reference image and remove its original background. The object must remain COMPLETELY unchanged — same design, colors, shape, proportions, textures, and details. Seamlessly composite and place this identical object onto the user-uploaded background image. Apply realistic lighting and soft contact shadows on the surface where the object is placed.`;
       } else {
-        promptText = "Isolate the 3D model object from the reference image and remove its original background. Luxury product display. Object placed on a dark carbon-fiber plinth. Background: Intricate 3D geometric network nodes in dark blue/grey. '3DtoPrint' logo subtly engraved in copper/gold on the plinth. Cyberpunk technology aesthetic. The object must cast realistic, soft contact shadows on the plinth to look physically present.";
+        promptText = `${fidelityRule} Isolate the 3D model object from the reference image and remove its original background. The object must remain COMPLETELY unchanged. Luxury product display. Place the exact same object on a dark carbon-fiber plinth. Background: Intricate 3D geometric network nodes in dark blue/grey. '3DtoPrint' logo subtly engraved in copper/gold on the plinth. Cyberpunk technology aesthetic. The object must cast realistic, soft contact shadows on the plinth to look physically present. Hyper-realistic rendering of the identical original object.`;
       }
 
       contentParts.push({ type: "text", text: promptText });
