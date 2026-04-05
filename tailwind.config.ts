@@ -113,22 +113,22 @@ export default {
         },
         "bg-float-1": {
           "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
-          "50%": { transform: "translateY(-30px) rotate(8deg)" },
+          "50%": { transform: "translateY(-50px) rotate(12deg)" },
         },
         "bg-float-2": {
           "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
-          "33%": { transform: "translateY(-20px) rotate(-5deg)" },
-          "66%": { transform: "translateY(10px) rotate(5deg)" },
+          "33%": { transform: "translateY(-40px) rotate(-8deg)" },
+          "66%": { transform: "translateY(25px) rotate(8deg)" },
         },
         "bg-float-3": {
           "0%, 100%": { transform: "translateY(0) scale(1)" },
-          "50%": { transform: "translateY(-15px) scale(1.08)" },
+          "50%": { transform: "translateY(-35px) scale(1.12)" },
         },
         "bg-drift": {
           "0%, 100%": { transform: "translateX(0) translateY(0)" },
-          "25%": { transform: "translateX(20px) translateY(-10px)" },
-          "50%": { transform: "translateX(-10px) translateY(-25px)" },
-          "75%": { transform: "translateX(-20px) translateY(5px)" },
+          "25%": { transform: "translateX(40px) translateY(-20px)" },
+          "50%": { transform: "translateX(-20px) translateY(-35px)" },
+          "75%": { transform: "translateX(-40px) translateY(15px)" },
         },
       },
       animation: {
