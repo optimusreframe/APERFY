@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Heart, ShoppingCart, Box, ArrowLeft, Minus, Plus } from 'lucide-react';
+import { Heart, ShoppingCart, Box, ArrowLeft, Minus, Plus, ZoomIn } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import ProductCard from '@/components/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import LikeButton from '@/components/LikeButton';
 import ShareMenu from '@/components/ShareMenu';
 import ProductReviews from '@/components/ProductReviews';
+import { Badge } from '@/components/ui/badge';
 
 function ProductDetailSkeleton() {
   return (
@@ -53,6 +55,8 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
+  const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
+  const [isZooming, setIsZooming] = useState(false);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', slug],
@@ -151,6 +155,13 @@ export default function ProductDetail() {
   const totalPrice = product ? (Number(product.base_price) + priceModifier) * quantity : 0;
   const images = product ? (product.images as string[]) || [] : [];
 
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setZoomPos({ x, y });
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -183,35 +194,54 @@ export default function ProductDetail() {
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
           <Link to="/3dmodels" className="hover:text-foreground transition-colors">{t.store.title}</Link>
-          <span>/</span>
+          <span className="text-border">/</span>
           {product.categories && (
             <>
               <span>{language === 'es' ? product.categories.name_es : product.categories.name_en}</span>
-              <span>/</span>
+              <span className="text-border">/</span>
             </>
           )}
-          <span className="text-foreground">{language === 'es' ? product.name_es : product.name_en}</span>
+          <span className="text-foreground truncate">{language === 'es' ? product.name_es : product.name_en}</span>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-10">
-          {/* Image Gallery */}
+          {/* Image Gallery with Zoom */}
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-            <div className="aspect-square bg-card border border-border rounded-2xl overflow-hidden mb-3">
+            <div
+              className="aspect-square bg-card border border-border/50 rounded-2xl overflow-hidden mb-3 relative cursor-zoom-in group"
+              onMouseEnter={() => setIsZooming(true)}
+              onMouseLeave={() => setIsZooming(false)}
+              onMouseMove={handleMouseMove}
+            >
               {images.length > 0 ? (
-                <img src={images[selectedImage]} alt="" className="w-full h-full object-cover" />
+                <img
+                  src={images[selectedImage]}
+                  alt=""
+                  className="w-full h-full object-cover transition-transform duration-200"
+                  style={isZooming ? {
+                    transform: 'scale(2)',
+                    transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
+                  } : undefined}
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <Box className="w-24 h-24 text-muted-foreground/20" />
                 </div>
               )}
+              {images.length > 0 && (
+                <div className="absolute bottom-3 right-3 bg-background/70 backdrop-blur-sm rounded-lg px-2 py-1 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                  <ZoomIn className="w-3 h-3" />
+                  {language === 'es' ? 'Zoom' : 'Hover to zoom'}
+                </div>
+              )}
             </div>
             {images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide">
                 {images.map((img, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedImage(i)}
-                    className={`w-16 h-16 rounded-lg overflow-hidden border-2 shrink-0 transition-colors ${i === selectedImage ? 'border-primary' : 'border-border'}`}
+                    className={`w-16 h-16 rounded-lg overflow-hidden border-2 shrink-0 transition-all ${i === selectedImage ? 'border-primary shadow-gold' : 'border-border/50 hover:border-border'}`}
                   >
                     <img src={img} alt="" className="w-full h-full object-cover" />
                   </button>
@@ -224,7 +254,7 @@ export default function ProductDetail() {
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
             <div>
               <div className="flex items-start justify-between gap-3">
-                <h1 className="font-display font-black text-3xl sm:text-4xl text-foreground">
+                <h1 className="font-display font-black text-2xl sm:text-3xl lg:text-4xl text-foreground leading-tight">
                   {language === 'es' ? product.name_es : product.name_en}
                 </h1>
                 <div className="flex items-center gap-2 shrink-0 pt-1">
@@ -234,26 +264,26 @@ export default function ProductDetail() {
                   </button>
                 </div>
               </div>
-              <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center gap-4 mt-3">
                 <span className="text-3xl font-bold text-gradient-gold">${totalPrice.toFixed(2)}</span>
                 <LikeButton productId={product.id} size="md" />
               </div>
-              <span className="inline-block mt-2 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium">
+              <Badge className="mt-2 bg-primary/10 text-primary border-primary/20 hover:bg-primary/15">
                 {t.product.inStock}
-              </span>
+              </Badge>
             </div>
 
-            <p className="text-muted-foreground leading-relaxed">
+            <p className="text-muted-foreground leading-relaxed text-sm sm:text-base">
               {language === 'es' ? product.description_es : product.description_en}
             </p>
 
             {/* Materials */}
             {productMaterialsList.length > 0 && (
               <div>
-                <h3 className="font-display font-semibold text-sm text-foreground mb-2">{t.product.material}</h3>
+                <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-2">{t.product.material}</h3>
                 <div className="flex flex-wrap gap-2">
                   {productMaterialsList.map((pm: any) => (
-                    <span key={pm.id} className="px-3 py-1.5 rounded-lg bg-secondary text-sm text-foreground">
+                    <span key={pm.id} className="px-3 py-1.5 rounded-lg bg-secondary text-sm text-foreground border border-border/50">
                       {language === 'es' ? pm.materials.name_es : pm.materials.name_en}
                     </span>
                   ))}
@@ -264,7 +294,7 @@ export default function ProductDetail() {
             {/* Variations */}
             {Object.entries(variationsByType).map(([type, vars]) => (
               <div key={type}>
-                <h3 className="font-display font-semibold text-sm text-foreground mb-2 capitalize">
+                <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-2">
                   {type === 'color' ? t.product.color : type === 'size' ? t.product.size : type}
                 </h3>
                 <div className="flex flex-wrap gap-2">
@@ -274,8 +304,8 @@ export default function ProductDetail() {
                       onClick={() => setSelectedVariations(prev => ({ ...prev, [type]: v.id }))}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-all ${
                         selectedVariations[type] === v.id
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-border bg-secondary text-foreground hover:border-primary/30'
+                          ? 'border-primary bg-primary/10 text-primary shadow-gold'
+                          : 'border-border/50 bg-secondary text-foreground hover:border-primary/30'
                       }`}
                     >
                       {type === 'color' && (
@@ -293,13 +323,13 @@ export default function ProductDetail() {
 
             {/* Quantity */}
             <div>
-              <h3 className="font-display font-semibold text-sm text-foreground mb-2">{t.product.quantity}</h3>
+              <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-2">{t.product.quantity}</h3>
               <div className="flex items-center gap-3">
-                <Button variant="outline" size="icon" onClick={() => setQuantity(Math.max(1, quantity - 1))} className="border-border">
+                <Button variant="outline" size="icon" onClick={() => setQuantity(Math.max(1, quantity - 1))} className="border-border/50 h-9 w-9">
                   <Minus className="w-4 h-4" />
                 </Button>
                 <span className="font-display font-bold text-lg w-8 text-center">{quantity}</span>
-                <Button variant="outline" size="icon" onClick={() => setQuantity(quantity + 1)} className="border-border">
+                <Button variant="outline" size="icon" onClick={() => setQuantity(quantity + 1)} className="border-border/50 h-9 w-9">
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
@@ -307,77 +337,54 @@ export default function ProductDetail() {
 
             {/* Special Notes */}
             <div>
-              <h3 className="font-display font-semibold text-sm text-foreground mb-2">{t.product.specialNotes}</h3>
+              <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-2">{t.product.specialNotes}</h3>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={t.product.specialNotesPlaceholder}
-                className="bg-card border-border"
+                className="bg-card border-border/50"
                 rows={3}
               />
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3">
-              <Button
-                onClick={() => {
-                  addToCart({
-                    productId: product.id,
-                    productName: language === 'es' ? product.name_es : product.name_en,
-                    productImage: images[0] || '',
-                    slug: product.slug,
-                    quantity,
-                    unitPrice: Number(product.base_price),
-                    selectedVariations: Object.entries(selectedVariations).map(([type, varId]) => {
-                      const v = variations.find((vr: any) => vr.id === varId);
-                      return { id: varId, type, name: v ? (language === 'es' ? v.name_es : v.name_en) : '', priceModifier: v ? Number(v.price_modifier) : 0 };
-                    }),
-                    notes,
-                  });
-                  toast({ title: language === 'es' ? 'Agregado al carrito' : 'Added to cart' });
-                }}
-                className="flex-1 bg-gradient-gold text-primary-foreground font-semibold gap-2 h-12"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {t.product.addToCart}
-              </Button>
-            </div>
+            <Button
+              onClick={() => {
+                addToCart({
+                  productId: product.id,
+                  productName: language === 'es' ? product.name_es : product.name_en,
+                  productImage: images[0] || '',
+                  slug: product.slug,
+                  quantity,
+                  unitPrice: Number(product.base_price),
+                  selectedVariations: Object.entries(selectedVariations).map(([type, varId]) => {
+                    const v = variations.find((vr: any) => vr.id === varId);
+                    return { id: varId, type, name: v ? (language === 'es' ? v.name_es : v.name_en) : '', priceModifier: v ? Number(v.price_modifier) : 0 };
+                  }),
+                  notes,
+                });
+                toast({ title: language === 'es' ? 'Agregado al carrito' : 'Added to cart' });
+              }}
+              className="w-full bg-gradient-gold text-primary-foreground font-semibold gap-2 h-12 shadow-gold hover:shadow-gold-lg transition-shadow"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              {t.product.addToCart}
+            </Button>
           </motion.div>
         </div>
 
         {/* Reviews Section */}
-        <div className="mt-16 border-t border-border pt-12">
+        <div className="mt-16 border-t border-border/30 pt-12">
           <ProductReviews productId={product.id} />
         </div>
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (
-          <div className="mt-20">
-            <h2 className="font-display font-bold text-2xl mb-6">{t.product.relatedModels}</h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-              {relatedProducts.map((rp: any) => (
-                <Link key={rp.id} to={`/3dmodels/${rp.slug}`} className="group">
-                  <div className="rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
-                    <div className="aspect-[4/5] bg-secondary relative overflow-hidden">
-                      {(rp.images as string[])?.length > 0 ? (
-                        <img src={(rp.images as string[])[0]} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Box className="w-12 h-12 text-muted-foreground/30" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-3 sm:p-4">
-                      <h3 className="font-display font-semibold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate">
-                        {language === 'es' ? rp.name_es : rp.name_en}
-                      </h3>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-base sm:text-lg font-bold text-gradient-gold">${Number(rp.base_price).toFixed(2)}</span>
-                        <LikeButton productId={rp.id} size="sm" />
-                      </div>
-                    </div>
-                  </div>
-                </Link>
+          <div className="mt-16">
+            <h2 className="font-display font-bold text-xl sm:text-2xl mb-5">{t.product.relatedModels}</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              {relatedProducts.map((rp: any, i: number) => (
+                <ProductCard key={rp.id} product={rp} index={i} showBadges={false} />
               ))}
             </div>
           </div>

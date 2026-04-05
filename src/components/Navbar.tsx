@@ -105,7 +105,7 @@ export default function Navbar() {
                   <div key={link.href} className="flex items-center">
                     <Link
                       to={link.href}
-                      className={`nav-link-3d px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 relative ${
+                      className={`nav-link-3d px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 relative ${
                         isActive(link.href)
                           ? 'text-primary'
                           : 'text-muted-foreground hover:text-foreground'
