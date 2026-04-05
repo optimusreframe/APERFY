@@ -18,11 +18,15 @@ export default function TrendingSection({ products, likeCounts }: TrendingSectio
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, scrollLeft: 0 });
 
+  const trending = [...products]
+    .sort((a, b) => (likeCounts[b.id] || 0) - (likeCounts[a.id] || 0))
+    .slice(0, 10);
+
   const scroll = useCallback((dir: 'left' | 'right') => {
     if (!scrollRef.current) return;
     const amount = scrollRef.current.offsetWidth * 0.6;
     scrollRef.current.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' });
-  };
+  }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!scrollRef.current) return;
