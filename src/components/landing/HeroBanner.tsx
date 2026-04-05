@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { ArrowRight, Sparkles, Printer, Zap, Palette, Users } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 
@@ -68,6 +68,7 @@ const banners = [
 ];
 
 const INTERVAL = 6000;
+const SWIPE_THRESHOLD = 50;
 
 export default function HeroBanner() {
   const { language } = useLanguage();
@@ -78,6 +79,24 @@ export default function HeroBanner() {
     setCurrent(i);
     setProgress(0);
   }, []);
+
+  const goNext = useCallback(() => {
+    setCurrent(c => (c + 1) % banners.length);
+    setProgress(0);
+  }, []);
+
+  const goPrev = useCallback(() => {
+    setCurrent(c => (c - 1 + banners.length) % banners.length);
+    setProgress(0);
+  }, []);
+
+  const handleDragEnd = useCallback((_: unknown, info: PanInfo) => {
+    if (info.offset.x < -SWIPE_THRESHOLD) {
+      goNext();
+    } else if (info.offset.x > SWIPE_THRESHOLD) {
+      goPrev();
+    }
+  }, [goNext, goPrev]);
 
   useEffect(() => {
     const tick = 50;
@@ -98,7 +117,7 @@ export default function HeroBanner() {
   const Icon = banner.icon;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-primary/30 shadow-[0_0_30px_rgba(212,160,23,0.12)] bg-card">
+    <div className="relative overflow-hidden rounded-2xl border border-primary/30 shadow-[0_0_30px_rgba(212,160,23,0.12)] bg-card select-none">
       {/* Mesh gradient background */}
       <div className="absolute inset-0 opacity-40" style={{
         background: `
@@ -127,9 +146,13 @@ export default function HeroBanner() {
           animate={{ opacity: 1, scale: 1, x: 0 }}
           exit={{ opacity: 0, scale: 1.02, x: -30 }}
           transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="relative px-6 sm:px-10 py-8 sm:py-12"
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.15}
+          onDragEnd={handleDragEnd}
+          className="relative px-6 sm:px-10 py-8 sm:py-12 cursor-grab active:cursor-grabbing"
         >
-          <div className="relative flex items-center gap-5 sm:gap-8">
+          <div className="relative flex items-center gap-5 sm:gap-8 pointer-events-none">
             {/* Icon container with glass effect */}
             <div className="hidden sm:flex w-16 h-16 lg:w-20 lg:h-20 rounded-2xl bg-primary/10 backdrop-blur-sm border border-primary/30 items-center justify-center shrink-0 shadow-[0_0_20px_rgba(212,160,23,0.1)]">
               <Icon className="w-8 h-8 lg:w-10 lg:h-10 text-primary" />
@@ -147,7 +170,7 @@ export default function HeroBanner() {
             {/* Desktop CTA */}
             <Link
               to={banner.href}
-              className="hidden sm:flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-gold text-primary-foreground font-semibold text-sm shrink-0 hover:shadow-[0_0_25px_rgba(212,160,23,0.3)] transition-all duration-300 hover:scale-105"
+              className="hidden sm:flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-gold text-primary-foreground font-semibold text-sm shrink-0 hover:shadow-[0_0_25px_rgba(212,160,23,0.3)] transition-all duration-300 hover:scale-105 pointer-events-auto"
             >
               {language === 'es' ? banner.ctaEs : banner.ctaEn}
               <ArrowRight className="w-4 h-4" />
@@ -157,7 +180,7 @@ export default function HeroBanner() {
           {/* Mobile CTA */}
           <Link
             to={banner.href}
-            className="sm:hidden flex items-center justify-center gap-2 mt-5 px-5 py-3 rounded-xl bg-gradient-gold text-primary-foreground font-semibold text-sm hover:shadow-[0_0_25px_rgba(212,160,23,0.3)] transition-all duration-300"
+            className="sm:hidden flex items-center justify-center gap-2 mt-5 px-5 py-3 rounded-xl bg-gradient-gold text-primary-foreground font-semibold text-sm hover:shadow-[0_0_25px_rgba(212,160,23,0.3)] transition-all duration-300 pointer-events-auto"
           >
             {language === 'es' ? banner.ctaEs : banner.ctaEn}
             <ArrowRight className="w-4 h-4" />
