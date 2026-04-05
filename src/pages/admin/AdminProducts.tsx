@@ -631,9 +631,12 @@ export default function AdminProducts() {
 
   const handleAiSaveProduct = async () => {
     if (!aiData) return;
+    if (aiPersistingImage) {
+      toast({ title: 'Espera', description: 'La imagen aún se está guardando...', variant: 'destructive' });
+      return;
+    }
     const matchedCat = categories.find((c: any) => c.slug === aiData.suggested_category);
 
-    // If English wasn't generated, use Spanish as fallback
     const nameEn = aiData.name_en || aiData.name_es;
     const descEn = aiData.description_en || aiData.description_es;
 
@@ -649,20 +652,14 @@ export default function AdminProducts() {
       is_featured: false,
     });
 
-    if (aiGeneratedImage) {
-      try {
-        const resp = await fetch(aiGeneratedImage);
-        const blob = await resp.blob();
-        const file = new File([blob], 'ai-generated.png', { type: 'image/png' });
-        setMediaFiles([{
-          id: `ai-${Date.now()}`,
-          file,
-          preview: aiGeneratedImage,
-          type: 'image',
-        }]);
-      } catch {
-        setMediaFiles([]);
-      }
+    // Use the already-persisted storage URL instead of fetching the temporary one
+    if (aiStoredImageUrl) {
+      setMediaFiles([{
+        id: `ai-${Date.now()}`,
+        preview: aiStoredImageUrl,
+        type: 'image',
+        isExisting: true,
+      }]);
     } else {
       setMediaFiles([]);
     }
