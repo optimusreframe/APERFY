@@ -1,56 +1,64 @@
 
-Objetivo: corregir el bug donde la imagen generada con AI se ve en el review, pero se pierde al pasar al modal final de “Agregar Producto”, dejando el producto sin imágenes.
 
-1. Problema exacto
-- En `src/pages/admin/AdminProducts.tsx`, `handleAiSaveProduct()` intenta descargar `aiGeneratedImage` recién cuando el usuario pulsa “Crear Producto”.
-- Esa imagen AI puede venir como URL temporal/expirable. Si el `fetch(aiGeneratedImage)` falla, el código entra en `catch` y hace `setMediaFiles([])`.
-- Resultado: el segundo modal abre con la data textual, pero sin media.
-- El import bulk tiene el mismo riesgo porque también descarga la imagen AI más tarde y la sube después.
+# Búsqueda Avanzada de Precios en eBay — Multi-Estrategia
 
-2. Solución
-- Persistir la imagen AI inmediatamente después de generarla, no al final del flujo.
-- En `triggerAiGenerateImage()`:
-  - tomar el `generated_image`,
-  - convertirlo en `Blob/File` en ese mismo momento,
-  - subirlo a `product-images` con una ruta temporal tipo `ai-import-temp/...`,
-  - guardar su URL pública permanente en un nuevo estado.
-- El preview del review debe usar esa URL persistida, no depender de la URL temporal original.
+## Problema actual
 
-3. Refactor del flujo
-- Agregar estados dedicados, por ejemplo:
-  - `aiStoredImageUrl`
-  - `aiStoredImagePath`
-  - `aiPersistingImage`
-- Crear helpers en el mismo archivo:
-  - normalizar imagen AI (`data:image/...` o URL remota),
-  - convertir a `Blob/File`,
-  - subir a storage,
-  - borrar temporal anterior al regenerar/cancelar (best effort).
-- Cambiar `handleAiSaveProduct()` para que:
-  - deje de hacer `fetch(aiGeneratedImage)`,
-  - simplemente copie la imagen ya persistida a `mediaFiles` como `isExisting: true`,
-  - abra el modal final con media durable ya lista.
+La búsqueda actual es una sola query: `site:ebay.com {scrapedTitle} 3D printed`. Si el título del producto fuente es largo, genérico o no coincide con cómo se lista en eBay, la búsqueda falla o devuelve resultados irrelevantes con precios incorrectos.
 
-4. Ajustes UX
-- Deshabilitar “Crear Producto” mientras la imagen AI todavía se está persistiendo.
-- Si la persistencia falla, mostrar error explícito y no continuar silenciosamente con un producto sin imagen.
-- Si el usuario regenera imagen, reemplazar la referencia persistida anterior por la nueva.
+## Solución: Búsqueda en 3 fases con validación AI
 
-5. Bulk Import
-- Reutilizar la misma lógica de persistencia inmediata en `handleBulkImport()`.
-- Así cada producto del lote guarda una URL permanente antes de completar el alta, evitando productos creados sin imagen por expiración del asset AI.
+### Fase 1 — Generar queries inteligentes con Gemini
 
-6. Archivos a tocar
-- `src/pages/admin/AdminProducts.tsx` — fix principal.
-- No hace falta migración de base de datos.
-- No hace falta cambiar la estructura del producto.
+Antes de buscar en eBay, usar Gemini para analizar el contenido scrapeado y generar **3-4 queries de búsqueda optimizadas**:
 
-7. Detalle técnico
-- El `save` actual ya soporta imágenes “existentes” (`isExisting`) y las conserva en `products.images`, así que la solución encaja con el patrón actual.
-- La clave es que el modal final ya no dependa de una descarga tardía desde `aiGeneratedImage`, sino de una URL permanente preparada antes.
+- Query por título exacto: `site:ebay.com "{original title}" 3D printed`
+- Query por keywords: `site:ebay.com {keywords principales} 3D print figurine/model`
+- Query por categoría/tipo: `site:ebay.com {tipo de objeto} {franquicia/personaje} 3D printed`
+- Query simplificada: `site:ebay.com {nombre corto} 3D print`
 
-8. Validación
-- Caso 1: generar imagen, esperar un rato en review, pasar al modal final y confirmar que la miniatura siga presente.
-- Caso 2: guardar el producto y verificar imagen en admin y catálogo público.
-- Caso 3: regenerar imagen y confirmar que solo se conserva la última.
-- Caso 4: probar 2-3 URLs en bulk y verificar que todos los productos creados mantengan su imagen.
+Esto se hace con una llamada rápida a Gemini Flash Lite (barata y rápida) que recibe el título y descripción scrapeados y devuelve un array de queries optimizadas.
+
+### Fase 2 — Ejecutar búsquedas paralelas en Firecrawl
+
+Lanzar las 3-4 queries en paralelo con `Promise.allSettled()` contra Firecrawl Search, cada una con `limit: 4`. Esto maximiza la cobertura sin multiplicar el tiempo de espera.
+
+Extraer precios de todos los resultados combinados usando el regex existente `extractPricesFromText`.
+
+### Fase 3 — Filtrar precios con AI (validación de relevancia)
+
+Pasar a Gemini los resultados crudos (título + precio de cada listing encontrado) junto con la descripción del producto original. Gemini debe:
+
+1. Descartar listings que NO sean del mismo producto o similares
+2. De los relevantes, calcular el precio promedio
+3. Devolver `suggested_price`, `price_confidence` (high/medium/low), y `matched_listings` (cantidad usada)
+
+### Cambios técnicos en `ai-product-import/index.ts`
+
+**Nuevo helper `generateEbayQueries`**: Llamada a Gemini Flash Lite con tool calling que devuelve `{ queries: string[] }`.
+
+**Nuevo helper `searchEbayMulti`**: Ejecuta múltiples búsquedas Firecrawl en paralelo, deduplica resultados por URL.
+
+**Nuevo helper `validateAndAveragePrices`**: Llamada a Gemini Flash que recibe los listings encontrados + contexto del producto y devuelve precio validado con nivel de confianza.
+
+**Flujo actualizado del action `scrape`**:
+```text
+1. Firecrawl scrape URL → contenido + título
+2. Gemini Flash Lite → genera 3-4 queries eBay optimizadas
+3. Firecrawl Search × 3-4 en paralelo → listings con precios
+4. Gemini Flash → filtra irrelevantes, promedia relevantes
+5. Gemini Flash → extrae metadata producto (con precio validado)
+```
+
+**Respuesta enriquecida**: Agregar al response `price_confidence`, `matched_listings_count`, y `search_queries_used` para que el frontend pueda mostrar el nivel de confianza del precio.
+
+### Cambios en `AdminProducts.tsx`
+
+- Mostrar indicador de confianza del precio: 🟢 Alta (3+ matches), 🟡 Media (1-2 matches), 🔴 Baja (estimado AI)
+- Agregar las queries usadas en un tooltip/expandible para transparencia
+
+### Archivo a modificar
+
+- `supabase/functions/ai-product-import/index.ts` — lógica de búsqueda multi-query + validación AI
+- `src/pages/admin/AdminProducts.tsx` — indicador de confianza del precio
+
