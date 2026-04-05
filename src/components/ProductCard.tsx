@@ -62,7 +62,7 @@ export default function ProductCard({
             {/* Badges */}
             <div className="absolute top-2 left-2 flex flex-col gap-1">
               {isNew && (
-                <Badge className="bg-emerald-500/90 text-white border-0 text-[10px] px-1.5 py-0">NEW</Badge>
+                <Badge className="bg-accent/90 text-accent-foreground border-0 text-[10px] px-1.5 py-0">NEW</Badge>
               )}
               {isTrending && (
                 <Badge className="bg-primary/90 text-primary-foreground border-0 text-[10px] px-1.5 py-0">🔥 HOT</Badge>
