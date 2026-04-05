@@ -627,6 +627,120 @@ export default function AdminProducts() {
     });
   };
 
+  // ── BULK IMPORT ──
+  const handleBulkImport = async () => {
+    const urls = bulkUrls.split('\n').map(u => u.trim()).filter(u => u && isValidUrl(u));
+    if (urls.length === 0) {
+      toast({ title: 'Ingresa al menos una URL válida', variant: 'destructive' });
+      return;
+    }
+    if (urls.length > 10) {
+      toast({ title: 'Máximo 10 URLs permitidas', variant: 'destructive' });
+      return;
+    }
+
+    setBulkProcessing(true);
+    setBulkResults(urls.map(url => ({ url, status: 'queued' as BulkItemStatus })));
+
+    let created = 0;
+    let errors = 0;
+
+    for (let i = 0; i < urls.length; i++) {
+      const currentUrl = urls[i];
+      try {
+        // Step 1: Scrape
+        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'scraping' } : r));
+        const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke('ai-product-import', {
+          body: {
+            action: 'scrape',
+            url: currentUrl,
+            existingCategories: categories.map((c: any) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
+          },
+        });
+        if (scrapeError || !scrapeData?.success) throw new Error(scrapeData?.error || 'Scrape failed');
+        const productInfo = scrapeData.data;
+
+        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'generating', name: productInfo.name_es } : r));
+
+        // Step 2: Generate image (if source image available)
+        let generatedImageUrl: string | null = null;
+        const bestSourceImage = productInfo.reference_image_url || productInfo.extracted_images?.[0];
+        if (bestSourceImage) {
+          try {
+            const { data: imgData } = await supabase.functions.invoke('ai-product-import', {
+              body: {
+                action: 'generate_image',
+                sourceImage: bestSourceImage,
+                backgroundMode: 'system',
+                customBackground: systemBgSetting || undefined,
+              },
+            });
+            if (imgData?.success) {
+              generatedImageUrl = imgData.data.generated_image;
+            }
+          } catch {
+            // Image generation failed, continue without image
+          }
+        }
+
+        // Step 3: Save product
+        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'saving' } : r));
+        const matchedCat = categories.find((c: any) => c.slug === productInfo.suggested_category);
+        const nameEn = productInfo.name_en || productInfo.name_es;
+        const descEn = productInfo.description_en || productInfo.description_es;
+        const productSlug = productInfo.slug || slugify(productInfo.name_es || `product-${Date.now()}`);
+
+        const { data: newProduct, error: insertError } = await supabase.from('products').insert({
+          name_en: nameEn,
+          name_es: productInfo.name_es || '',
+          description_en: descEn,
+          description_es: productInfo.description_es || '',
+          slug: productSlug,
+          base_price: productInfo.suggested_price || 0,
+          category_id: matchedCat?.id || null,
+          is_active: true,
+          is_featured: false,
+          images: [],
+        }).select('id').single();
+        if (insertError) throw insertError;
+
+        // Upload generated image if available
+        if (generatedImageUrl && newProduct) {
+          try {
+            const resp = await fetch(generatedImageUrl);
+            const blob = await resp.blob();
+            const file = new File([blob], 'ai-generated.png', { type: 'image/png' });
+            const imgUrl = await uploadMedia(file, newProduct.id);
+            await supabase.from('products').update({ images: [imgUrl] }).eq('id', newProduct.id);
+          } catch {
+            // Image upload failed, product still created
+          }
+        }
+
+        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'done' } : r));
+        created++;
+      } catch (e: any) {
+        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'error', error: e.message } : r));
+        errors++;
+      }
+    }
+
+    setBulkProcessing(false);
+    qc.invalidateQueries({ queryKey: ['admin-products'] });
+    qc.invalidateQueries({ queryKey: ['admin-product-count'] });
+    toast({
+      title: `Importación completada`,
+      description: `${created} productos creados, ${errors} errores`,
+    });
+  };
+
+  function isValidUrl(str: string): boolean {
+    try {
+      const u = new URL(str);
+      return ['http:', 'https:'].includes(u.protocol);
+    } catch { return false; }
+  }
+
   // ══════════════════════════════════════════════════════════
   // ── RENDER ──
   // ══════════════════════════════════════════════════════════
