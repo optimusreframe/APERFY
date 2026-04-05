@@ -10,9 +10,7 @@ export default function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Brand */}
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-gradient-gold rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-display font-black text-xs">3D</span>
-            </div>
+            <img src="/logo.png" alt="3DtoPrint" className="w-7 h-7 object-contain" />
             <span className="font-display font-bold text-sm text-foreground">
               3Dto<span className="text-gradient-gold">Print</span>
             </span>

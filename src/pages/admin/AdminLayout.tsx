@@ -10,7 +10,8 @@ export default function AdminLayout() {
         <div className="flex-1 flex flex-col">
           <header className="h-14 flex items-center border-b border-border px-4 bg-card">
             <SidebarTrigger className="text-foreground" />
-            <span className="ml-3 font-display font-bold text-lg text-foreground">
+            <img src="/logo.png" alt="3DtoPrint" className="ml-3 w-8 h-8 object-contain" />
+            <span className="ml-2 font-display font-bold text-lg text-foreground">
               3Dto<span className="text-gradient-gold">Print</span> Admin
             </span>
           </header>

@@ -82,12 +82,7 @@ export default function Navbar() {
             <div className="flex items-center justify-between h-full">
               {/* Logo */}
               <Link to="/" className="flex items-center gap-2.5 group">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-primary/30 rounded-lg blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="relative w-9 h-9 bg-gradient-gold rounded-lg flex items-center justify-center shadow-gold group-hover:shadow-gold-lg transition-all duration-300 transform group-hover:[transform:rotateY(180deg)] [transition:transform_0.6s_ease]">
-                    <span className="text-primary-foreground font-display font-black text-sm [backface-visibility:hidden]">3D</span>
-                  </div>
-                </div>
+                <img src="/logo.png" alt="3DtoPrint" className="w-9 h-9 object-contain group-hover:scale-105 transition-transform duration-300" />
                 <span className="font-display font-bold text-lg text-foreground tracking-tight">
                   3Dto<span className="text-gradient-gold">Print</span>
                 </span>
