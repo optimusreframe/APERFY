@@ -170,7 +170,6 @@ export const translations = {
       grams: 'g',
       costPerKg: 'Cost per KG',
       selectSize: 'Select a size',
-      specifications: 'Specifications',
     },
     store: {
       title: '3D Models',
