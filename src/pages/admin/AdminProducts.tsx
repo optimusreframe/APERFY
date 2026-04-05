@@ -245,12 +245,13 @@ export default function AdminProducts() {
     },
   });
 
-  // Auto-slug from Spanish name
+  // Auto-slug from name (English if showEnglish is active, otherwise Spanish)
   useEffect(() => {
     if (aiData && slugLocked) {
-      setAiData((prev: any) => prev ? { ...prev, slug: slugify(prev.name_es || '') } : prev);
+      const source = showEnglish && aiData.name_en ? aiData.name_en : (aiData.name_es || '');
+      setAiData((prev: any) => prev ? { ...prev, slug: slugify(source) } : prev);
     }
-  }, [aiData?.name_es, slugLocked]);
+  }, [aiData?.name_es, aiData?.name_en, showEnglish, slugLocked]);
 
   // ── Media Upload ──
   const uploadMedia = async (file: File, productId: string): Promise<string> => {
