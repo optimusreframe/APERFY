@@ -397,9 +397,9 @@ export default function SplashLoader3D({ onComplete }: { onComplete: () => void 
       soundPlayed.current = true;
     } catch {}
 
-    const t1 = setTimeout(() => setPhase(1), 1200);
-    const t2 = setTimeout(() => setPhase(2), 2200);
-    const t3 = setTimeout(() => setOpacity(0), 2700);
+    const t1 = setTimeout(() => setPhase(1), 600);
+    const t2 = setTimeout(() => setPhase(2), 1400);
+    const t3 = setTimeout(() => setOpacity(0), 2600);
     const t4 = setTimeout(() => {
       sessionStorage.setItem("3dp-loaded", "true");
       onComplete();
