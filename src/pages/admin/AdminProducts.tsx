@@ -172,6 +172,9 @@ export default function AdminProducts() {
   const [aiCustomBgFile, setAiCustomBgFile] = useState<File | null>(null);
   const [aiGeneratedImage, setAiGeneratedImage] = useState<string | null>(null);
   const [aiPreviewImage, setAiPreviewImage] = useState<string | null>(null);
+  const [aiStoredImageUrl, setAiStoredImageUrl] = useState<string | null>(null);
+  const [aiStoredImagePath, setAiStoredImagePath] = useState<string | null>(null);
+  const [aiPersistingImage, setAiPersistingImage] = useState(false);
   const [aiData, setAiData] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
