@@ -755,6 +755,151 @@ export default function AdminProducts() {
     }
   };
 
+  // ── Edit Dialog AI Functions ──
+  const handleEditAiSourceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const b64 = await fileToBase64(file);
+    setEditAiSourceImage(b64);
+  };
+
+  const handleEditAiBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const b64 = await fileToBase64(file);
+    setEditAiCustomBg(b64);
+  };
+
+  const handleEditAiGenerateImage = async () => {
+    if (!editAiSourceImage) {
+      toast({ title: 'Sube una foto del producto primero', variant: 'destructive' });
+      return;
+    }
+
+    let customBackground: string | undefined;
+    if (editAiBgMode === 'system' && systemBgSetting) {
+      customBackground = systemBgSetting;
+    } else if (editAiBgMode === 'custom' && editAiCustomBg) {
+      customBackground = editAiCustomBg;
+    }
+
+    setEditAiGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-import', {
+        body: {
+          action: 'generate_image',
+          sourceImage: editAiSourceImage,
+          customBackground,
+          backgroundMode: editAiBgMode,
+        },
+      });
+      if (error) throw new Error(data?.error || error.message || 'Error');
+      if (!data?.success) throw new Error(data?.error || 'Error al generar imagen');
+
+      const generatedImg = data.data.generated_image;
+      // Persist to storage
+      const { url } = await persistAiImage(generatedImg);
+      
+      // Add to media files
+      setMediaFiles(prev => [...prev.slice(0, MAX_MEDIA - 1), {
+        id: `ai-edit-${Date.now()}`,
+        preview: url,
+        type: 'image' as const,
+        isExisting: true,
+      }]);
+
+      setEditAiImageOpen(false);
+      setEditAiSourceImage(null);
+      toast({ title: '✓', description: '¡Imagen AI generada y agregada!' });
+    } catch (e: any) {
+      toast({ title: 'Error generando imagen', description: e.message, variant: 'destructive' });
+    } finally {
+      setEditAiGenerating(false);
+    }
+  };
+
+  const handleEditEnhanceWithAi = async () => {
+    setEditEnhancing(true);
+    try {
+      // Get first image URL for context
+      const firstImage = mediaFiles[0]?.preview || null;
+      
+      const { data, error } = await supabase.functions.invoke('ai-product-import', {
+        body: {
+          action: 'enhance_product',
+          name_es: form.name_es,
+          description_es: form.description_es,
+          existingCategories: categories.map((c: any) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
+          imageUrl: firstImage,
+        },
+      });
+      if (error) throw new Error(data?.error || error.message);
+      if (!data?.success) throw new Error(data?.error || 'Error');
+
+      const enhanced = data.data;
+      const matchedCat = categories.find((c: any) => c.slug === enhanced.suggested_category);
+
+      setForm(prev => ({
+        ...prev,
+        name_es: enhanced.name_es || prev.name_es,
+        name_en: enhanced.name_en || prev.name_en,
+        description_es: enhanced.description_es || prev.description_es,
+        description_en: enhanced.description_en || prev.description_en,
+        slug: enhanced.slug || prev.slug,
+        category_id: matchedCat?.id || prev.category_id,
+      }));
+      toast({ title: '✓', description: 'Producto mejorado con AI' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setEditEnhancing(false);
+    }
+  };
+
+  const handleEditTranslateToEnglish = async () => {
+    if (!form.name_es && !form.description_es) return;
+    setEditTranslating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-import', {
+        body: { action: 'translate', name_es: form.name_es, description_es: form.description_es },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setForm(prev => ({
+          ...prev,
+          name_en: data.data.name_en,
+          description_en: data.data.description_en,
+          slug: slugify(data.data.name_en),
+        }));
+        toast({ title: '✓', description: 'Traducción generada' });
+      }
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setEditTranslating(false);
+    }
+  };
+
+  const handleEditVariationTranslate = async (idx: number) => {
+    const variation = productVariations[idx];
+    if (!variation.name_es) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-import', {
+        body: { action: 'translate', name_es: variation.name_es, description_es: '' },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setProductVariations(prev => {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], name_en: data.data.name_en };
+          return updated;
+        });
+      }
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    }
+  };
+
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return;
     setCreatingCategory(true);
