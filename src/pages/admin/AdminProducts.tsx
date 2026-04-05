@@ -1195,6 +1195,14 @@ export default function AdminProducts() {
                           <div className="space-y-1">
                             <Label className="text-xs">Precio ($)</Label>
                             <Input type="number" step="0.01" value={aiData.suggested_price} onChange={(e) => setAiData({ ...aiData, suggested_price: parseFloat(e.target.value) || 0 })} className="bg-secondary text-sm" />
+                            {aiData.price_source === 'ebay_market' && (
+                              <p className="text-[10px] text-primary flex items-center gap-1">
+                                📊 Precio basado en {aiData.ebay_prices?.length || 0} listings de eBay
+                              </p>
+                            )}
+                            {aiData.price_source === 'ai_estimate' && (
+                              <p className="text-[10px] text-muted-foreground">⚠️ Estimado por IA (sin datos de mercado)</p>
+                            )}
                           </div>
                           {/* Category with inline creation */}
                           <div className="space-y-1">
