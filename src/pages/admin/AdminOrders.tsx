@@ -51,6 +51,14 @@ export default function AdminOrders() {
     enabled: !!expandedOrder,
   });
 
+  const statusTemplateMap: Record<string, string> = {
+    confirmed: 'order-confirmed',
+    printing: 'order-printing',
+    shipped: 'order-shipped',
+    delivered: 'order-delivered',
+    cancelled: 'order-cancelled',
+  };
+
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabase.from('orders').update({ status: status as any }).eq('id', id);
@@ -66,12 +74,45 @@ export default function AdminOrders() {
         title: `Estado de orden cambiado a: ${variables.status}`,
         metadata: { new_status: variables.status },
       });
+
+      // Send status email to customer
+      const order = orders.find((o: any) => o.id === variables.id);
+      const templateName = statusTemplateMap[variables.status];
+      if (order && templateName) {
+        const email = (order.shipping_address as any)?.email;
+        const name = (order.shipping_address as any)?.full_name;
+        if (email) {
+          sendTransactionalEmail({
+            templateName,
+            recipientEmail: email,
+            idempotencyKey: `order-${variables.status}-${variables.id}`,
+            templateData: { customerName: name, orderId: variables.id },
+          });
+        }
+      }
+
       toast({ title: 'Order status updated' });
     },
     onError: (err: any) => {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     },
   });
+
+  const handleConfirmPayment = (order: any) => {
+    const email = (order.shipping_address as any)?.email;
+    const name = (order.shipping_address as any)?.full_name;
+    if (email) {
+      sendTransactionalEmail({
+        templateName: 'payment-received',
+        recipientEmail: email,
+        idempotencyKey: `payment-received-${order.id}`,
+        templateData: { customerName: name, orderId: order.id, total: Number(order.total).toFixed(2) },
+      });
+      toast({ title: 'Payment confirmation email sent' });
+    } else {
+      toast({ title: 'No email found for this order', variant: 'destructive' });
+    }
+  };
 
   return (
     <div>
