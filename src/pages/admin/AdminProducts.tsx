@@ -742,7 +742,7 @@ export default function AdminProducts() {
                     <Button
                       onClick={handleAiScrape}
                       disabled={!aiUrl}
-                      className="w-full h-12 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2 text-base font-semibold"
+                      className={`w-full h-12 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2 text-base font-semibold ${aiLoading ? 'animate-pulse' : ''}`}
                     >
                       <Wand2 className="w-5 h-5" />
                       Extraer y Generar con AI
