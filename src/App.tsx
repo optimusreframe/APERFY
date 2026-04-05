@@ -36,6 +36,7 @@ import AdminLogs from "./pages/admin/AdminLogs";
 import RequestModel from "./pages/RequestModel";
 import OurProcess from "./pages/OurProcess";
 import Materials from "./pages/Materials";
+import EmailUnsubscribe from "./pages/EmailUnsubscribe";
 
 const SplashLoader3D = lazy(() => import("@/components/SplashLoader3D"));
 
@@ -68,6 +69,7 @@ const AppContent = () => {
                 <Route path="/request-model" element={<RequestModel />} />
                 <Route path="/our-process" element={<OurProcess />} />
                 <Route path="/materials" element={<Materials />} />
+                <Route path="/unsubscribe" element={<EmailUnsubscribe />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
                 <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />

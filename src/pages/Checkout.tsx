@@ -261,12 +261,38 @@ export default function Checkout() {
     return order.id;
   };
 
+  const sendOrderEmail = async (orderId: string, paymentMethod: string) => {
+    const itemsSummary = items.map(item => {
+      const varInfo = item.selectedVariations.map(v => v.name).filter(Boolean).join(', ');
+      return `${item.productName}${varInfo ? ` (${varInfo})` : ''} x${item.quantity}`;
+    }).join(', ');
+    const shippingAddr = `${form.fullName}, ${form.address}, ${form.city}, ${form.state} ${form.zipCode}, ${form.country}`;
+    try {
+      await supabase.functions.invoke('send-transactional-email', {
+        body: {
+          templateName: 'order-confirmation',
+          recipientEmail: form.email,
+          idempotencyKey: `order-confirm-${orderId}`,
+          templateData: {
+            customerName: form.fullName,
+            orderId,
+            total: orderTotal.toFixed(2),
+            paymentMethod,
+            itemsSummary,
+            shippingAddress: shippingAddr,
+          },
+        },
+      });
+    } catch (e) { console.error('Email send failed:', e); }
+  };
+
   const handleWhatsApp = async () => {
     setLoading(true);
     try {
       const orderId = await createOrder('whatsapp');
       if (!orderId) { setLoading(false); return; }
       setCreatedOrderId(orderId);
+      await sendOrderEmail(orderId, 'WhatsApp');
       const orderCode = orderId.slice(0, 8).toUpperCase();
       const origin = window.location.origin;
       const itemLines = items.map(item => {
@@ -297,6 +323,7 @@ export default function Checkout() {
       const orderId = await createOrder(method);
       if (!orderId) { setLoading(false); return; }
       setCreatedOrderId(orderId);
+      await sendOrderEmail(orderId, method);
       setSelectedPayment(method);
       clearCart();
       setStep('payment-instructions');
