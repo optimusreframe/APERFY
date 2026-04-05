@@ -172,6 +172,9 @@ export default function AdminProducts() {
   const [aiCustomBgFile, setAiCustomBgFile] = useState<File | null>(null);
   const [aiGeneratedImage, setAiGeneratedImage] = useState<string | null>(null);
   const [aiPreviewImage, setAiPreviewImage] = useState<string | null>(null);
+  const [aiStoredImageUrl, setAiStoredImageUrl] = useState<string | null>(null);
+  const [aiStoredImagePath, setAiStoredImagePath] = useState<string | null>(null);
+  const [aiPersistingImage, setAiPersistingImage] = useState(false);
   const [aiData, setAiData] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
@@ -407,6 +410,9 @@ export default function AdminProducts() {
     setAiCustomBgFile(null);
     setAiGeneratedImage(null);
     setAiPreviewImage(null);
+    setAiStoredImageUrl(null);
+    setAiStoredImagePath(null);
+    setAiPersistingImage(false);
     setAiData(null);
     setAiExtractedImages([]);
     setAiSelectedSourceImage(null);
@@ -419,6 +425,29 @@ export default function AdminProducts() {
     setBulkUrls('');
     setBulkProcessing(false);
     setBulkResults([]);
+  };
+
+  // Helper: persist an AI image (data URI or remote URL) to storage immediately
+  const persistAiImage = async (imageSource: string): Promise<{ url: string; path: string }> => {
+    let blob: Blob;
+    if (imageSource.startsWith('data:')) {
+      const [header, b64] = imageSource.split(',');
+      const mime = header.match(/:(.*?);/)?.[1] || 'image/png';
+      const byteString = atob(b64);
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+      blob = new Blob([ia], { type: mime });
+    } else {
+      const resp = await fetch(imageSource);
+      if (!resp.ok) throw new Error('Failed to download AI image');
+      blob = await resp.blob();
+    }
+    const fileName = `ai-import-temp/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
+    const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { contentType: blob.type || 'image/png', upsert: true });
+    if (error) throw error;
+    const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
+    return { url: data.publicUrl, path: fileName };
   };
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -438,6 +467,13 @@ export default function AdminProducts() {
     }
 
     setAiImageLoading(true);
+    setAiPersistingImage(true);
+    // Delete previous temp image if regenerating
+    if (aiStoredImagePath) {
+      supabase.storage.from('product-images').remove([aiStoredImagePath]).catch(() => {});
+    }
+    setAiStoredImageUrl(null);
+    setAiStoredImagePath(null);
     try {
       const { data, error } = await supabase.functions.invoke('ai-product-import', {
         body: {
@@ -452,14 +488,30 @@ export default function AdminProducts() {
         throw new Error(errorMsg);
       }
       if (!data?.success) throw new Error(data?.error || 'Error al generar imagen');
-      setAiGeneratedImage(data.data.generated_image);
-      setAiPreviewImage(data.data.generated_image);
+      
+      const generatedImg = data.data.generated_image;
+      setAiGeneratedImage(generatedImg);
+      setAiPreviewImage(generatedImg);
+
+      // Persist to storage immediately
+      try {
+        const { url, path } = await persistAiImage(generatedImg);
+        setAiStoredImageUrl(url);
+        setAiStoredImagePath(path);
+      } catch (persistErr: any) {
+        console.error('Failed to persist AI image:', persistErr);
+        toast({ title: 'Error guardando imagen', description: 'La imagen se generó pero no se pudo guardar. Intenta regenerar.', variant: 'destructive' });
+        setAiGeneratedImage(null);
+        setAiPreviewImage(null);
+        return;
+      }
+
       toast({ title: '✓', description: '¡Imagen AI generada!' });
     } catch (e: any) {
       toast({ title: 'Error generando imagen', description: e.message, variant: 'destructive' });
-      // Don't set preview to source - leave it null so user sees the failure
     } finally {
       setAiImageLoading(false);
+      setAiPersistingImage(false);
     }
   };
 
@@ -579,9 +631,12 @@ export default function AdminProducts() {
 
   const handleAiSaveProduct = async () => {
     if (!aiData) return;
+    if (aiPersistingImage) {
+      toast({ title: 'Espera', description: 'La imagen aún se está guardando...', variant: 'destructive' });
+      return;
+    }
     const matchedCat = categories.find((c: any) => c.slug === aiData.suggested_category);
 
-    // If English wasn't generated, use Spanish as fallback
     const nameEn = aiData.name_en || aiData.name_es;
     const descEn = aiData.description_en || aiData.description_es;
 
@@ -597,20 +652,14 @@ export default function AdminProducts() {
       is_featured: false,
     });
 
-    if (aiGeneratedImage) {
-      try {
-        const resp = await fetch(aiGeneratedImage);
-        const blob = await resp.blob();
-        const file = new File([blob], 'ai-generated.png', { type: 'image/png' });
-        setMediaFiles([{
-          id: `ai-${Date.now()}`,
-          file,
-          preview: aiGeneratedImage,
-          type: 'image',
-        }]);
-      } catch {
-        setMediaFiles([]);
-      }
+    // Use the already-persisted storage URL instead of fetching the temporary one
+    if (aiStoredImageUrl) {
+      setMediaFiles([{
+        id: `ai-${Date.now()}`,
+        preview: aiStoredImageUrl,
+        type: 'image',
+        isExisting: true,
+      }]);
     } else {
       setMediaFiles([]);
     }
@@ -666,8 +715,8 @@ export default function AdminProducts() {
 
         setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'generating', name: productInfo.name_es } : r));
 
-        // Step 2: Generate image (if source image available)
-        let generatedImageUrl: string | null = null;
+        // Step 2: Generate image and persist immediately
+        let persistedImageUrl: string | null = null;
         const bestSourceImage = productInfo.reference_image_url || productInfo.extracted_images?.[0];
         if (bestSourceImage) {
           try {
@@ -679,22 +728,23 @@ export default function AdminProducts() {
                 customBackground: systemBgSetting || undefined,
               },
             });
-            if (imgData?.success) {
-              generatedImageUrl = imgData.data.generated_image;
+            if (imgData?.success && imgData.data.generated_image) {
+              const { url } = await persistAiImage(imgData.data.generated_image);
+              persistedImageUrl = url;
             }
           } catch {
-            // Image generation failed, continue without image
+            // Image generation/persist failed, continue without image
           }
         }
 
-        // Step 3: Save product
+        // Step 3: Save product with persisted image
         setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'saving' } : r));
         const matchedCat = categories.find((c: any) => c.slug === productInfo.suggested_category);
         const nameEn = productInfo.name_en || productInfo.name_es;
         const descEn = productInfo.description_en || productInfo.description_es;
         const productSlug = productInfo.slug || slugify(productInfo.name_es || `product-${Date.now()}`);
 
-        const { data: newProduct, error: insertError } = await supabase.from('products').insert({
+        const { error: insertError } = await supabase.from('products').insert({
           name_en: nameEn,
           name_es: productInfo.name_es || '',
           description_en: descEn,
@@ -704,22 +754,9 @@ export default function AdminProducts() {
           category_id: matchedCat?.id || null,
           is_active: true,
           is_featured: false,
-          images: [],
-        }).select('id').single();
+          images: persistedImageUrl ? [persistedImageUrl] : [],
+        });
         if (insertError) throw insertError;
-
-        // Upload generated image if available
-        if (generatedImageUrl && newProduct) {
-          try {
-            const resp = await fetch(generatedImageUrl);
-            const blob = await resp.blob();
-            const file = new File([blob], 'ai-generated.png', { type: 'image/png' });
-            const imgUrl = await uploadMedia(file, newProduct.id);
-            await supabase.from('products').update({ images: [imgUrl] }).eq('id', newProduct.id);
-          } catch {
-            // Image upload failed, product still created
-          }
-        }
 
         setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'done' } : r));
         created++;
