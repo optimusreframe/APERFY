@@ -467,37 +467,7 @@ export default function AdminProducts() {
       toast({ title: 'No hay imagen fuente disponible', variant: 'destructive' });
       return;
     }
-
-    let customBackground: string | undefined;
-    let backgroundMode = aiBgMode;
-
-    if (aiBgMode === 'system' && systemBgSetting) {
-      customBackground = systemBgSetting;
-    } else if (aiBgMode === 'custom' && aiCustomBg) {
-      customBackground = aiCustomBg;
-    }
-
-    setAiImageLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('ai-product-import', {
-        body: {
-          action: 'generate_image',
-          sourceImage,
-          customBackground,
-          backgroundMode,
-          productCategory: aiData?.suggested_category || '',
-        },
-      });
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'Error al generar imagen');
-      setAiGeneratedImage(data.data.generated_image);
-      setAiPreviewImage(data.data.generated_image);
-      toast({ title: '✓', description: '¡Imagen AI generada!' });
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
-    } finally {
-      setAiImageLoading(false);
-    }
+    await triggerAiGenerateImage(sourceImage);
   };
 
   const handleAiOriginalUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
