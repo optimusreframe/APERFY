@@ -1,54 +1,70 @@
 
 
-# Loader "3D to Print" + Background Enrichment + AI Image Fidelity
+# Product Detail Premium Redesign + Loader Timing Fix
 
-## 1. Loader: Texto completo "3D to Print" con diseño responsivo
+## Two tasks:
 
-**Archivo**: `src/components/SplashLoader3D.tsx`
+---
 
-### Nuevas letras
-Reemplazar los arrays de puntos actuales ("3", "D", "P") por puntos para las letras: **"3", "D", "t", "o", "P", "r", "i", "n", "t"** — formando "3D to Print". Esto incrementa de ~38 partículas a ~80-100.
+## 1. Image Zoom: Fix exit + add controls
 
-### Layout responsivo con `useIsMobile`
-- **Desktop** (>768px): Layout horizontal completo "3D to Print", cámara a z=12, fov=45. Escala 1.0.
-- **Tablet** (768px): Layout en 2 líneas — "3D to" arriba, "Print" abajo. Cámara z=10, fov=50. Escala 0.85.
-- **Mobile** (<768px): Layout en 2 líneas más compacto. Cámara z=9, fov=55. Escala 0.7. Partículas más pequeñas.
+**Problem**: Zoom activates on hover but there's no way to exit or control it on touch devices. On desktop, leaving the image should deactivate zoom but it feels broken.
 
-Se usa un hook `useResponsiveLayout()` interno que retorna `{ scale, cameraZ, fov, layout }` basado en `window.innerWidth` con listener de resize.
+**Solution**: Replace hover-zoom with a click-based lightbox/modal system:
 
-### Partículas de fondo temáticas
-Agregar ~20-30 partículas decorativas adicionales que NO forman el logo:
-- **Formas variadas**: Cilindros largos (filamentos), toroides (rollos/spools), cajas pequeñas (impresoras simplificadas), conos (hotends)
-- Material semi-transparente dorado con baja opacidad (`opacity: 0.15-0.3`)
-- Flotan permanentemente en el fondo (no se ensamblan), con rotación lenta y drift sutil
-- Distribuidas en un radio amplio (z: -5 a -15) para crear profundidad
-- Se implementan como un componente `BackgroundParticles` separado dentro del mismo archivo
+- **Click on image** opens a fullscreen overlay (`fixed inset-0 z-50 bg-black/90`)
+- Inside the overlay: image at full resolution with **pinch-to-zoom** and **scroll-to-zoom** support
+- Controls: **X button** (top-right) to close, **zoom slider** or **+/- buttons**, **reset zoom button**
+- Arrow buttons to navigate between images within the lightbox
+- Press **Escape** to close
+- On the main product page, keep a subtle hover magnify effect (scale 1.3x, not 2x) with a "Click to enlarge" label
 
-### Geometrías de fondo (sin importar modelos externos)
-- **Spool/Rollo**: `torusGeometry` con proportions de rollo
-- **Filamento**: `cylinderGeometry` muy delgado y largo
-- **Hotend**: `coneGeometry` invertido
-- **Printer simplificada**: `boxGeometry` con un `boxGeometry` más pequeño encima (grupo)
-- **Partículas finas**: `sphereGeometry` muy pequeñas como polvo
+---
 
-## 2. AI Image Generation: Fidelidad total al modelo original
+## 2. Product Detail Page Premium Redesign
 
-**Archivo**: `supabase/functions/ai-product-import/index.ts`
+**Current**: Basic two-column WordPress-style layout with plain cards.
 
-Modificar los 3 prompts de `generate_image` (líneas 472-478) para enfatizar la preservación exacta del modelo:
+**New design — tech/3D premium aesthetic**:
 
-**Instrucción base a agregar en TODOS los modos**:
-```
-"CRITICAL FIDELITY RULE: The 3D printed object must be reproduced with ABSOLUTE fidelity to the original image. Do NOT modify, alter, or reinterpret the object's design, colors, shape, size, proportions, textures, surface details, or any visual characteristic. The object must look EXACTLY like the original — same colors, same geometry, same style, same level of detail. The ONLY change is making it hyper-realistic with professional photography quality. You are changing the BACKGROUND and LIGHTING only, never the object itself."
-```
+### Visual overhaul:
+- **Hero image section**: Full-width on top for mobile, sticky sidebar for desktop. Add a glass-morphism border (`border border-white/10 backdrop-blur`) and subtle gold glow shadow
+- **Floating action bar**: Sticky bottom bar on mobile with price + Add to Cart button (like Apple Store)
+- **Glassmorphism cards** for each section (Materials, Variations, Quantity) with `bg-card/50 backdrop-blur-xl border border-white/5`
+- **Animated section reveals** with staggered `motion.div` animations
+- **Price display**: Larger, with animated counter effect, gold gradient text
+- **Tech grid lines**: Subtle grid pattern overlay behind the product info area
+- **Badge redesign**: Glowing neon-style badges with pulse animation for "In Stock"
+- **Thumbnail strip**: Horizontal scroll with active indicator glow, larger thumbnails (20x20 → w-20 h-20)
+- **Specs section**: Grid layout with icon cards for weight, dimensions, material — each in its own mini glass card
+- **Add to Cart button**: Larger with particle/shimmer animation on hover
 
-Actualizar cada prompt:
-- **system** (Estudio Maker): Agregar la regla de fidelidad + "hyper-realistic rendering of the exact same object"
-- **ai** (Exhibición Tech): Igual + mantener cyberpunk background pero objeto intacto
-- **custom**: Igual + compositing fiel del objeto sobre el fondo custom
+### Layout changes:
+- Desktop: Image column sticky (`sticky top-24`) so product info scrolls beside it
+- Mobile: Image carousel with dots indicator at top, then info flows below
+- Sections separated by subtle gold gradient dividers instead of plain borders
 
-## Archivos a modificar
+---
 
-- `src/components/SplashLoader3D.tsx` — reescritura completa con texto "3D to Print", layout responsivo, partículas de fondo
-- `supabase/functions/ai-product-import/index.ts` — actualizar prompts de generate_image (líneas 469-478)
+## 3. Loader Timing Fix
+
+**Problem**: The text "3D to Print" isn't readable before the loader fades out. Currently:
+- Phase 0 (floating): 0-1200ms
+- Phase 1 (assembly starts): 1200ms
+- Phase 2 (glow): 2200ms  
+- Fade out: 2700ms → only 500ms to read the assembled text
+
+**Fix**: Adjust timing so assembly completes faster and text is readable for ~1 second:
+- Phase 0 → Phase 1 at **600ms** (start assembling much earlier)
+- Increase lerp speed from 0.06 to **0.10** in phase 1, and 0.12 to **0.18** in phase 2
+- Phase 1 → Phase 2 at **1400ms** (glow kicks in earlier)
+- Keep total duration at 3s but delay fade: opacity fade at **2600ms**, complete at **3200ms**
+- This gives **~1.2 seconds** of readable assembled text before fade begins
+
+---
+
+## Files to modify
+
+- `src/pages/ProductDetail.tsx` — complete redesign with lightbox zoom, premium UI
+- `src/components/SplashLoader3D.tsx` — timing adjustments only (lines 400-406, 151-152)
 
