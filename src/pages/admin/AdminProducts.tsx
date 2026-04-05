@@ -206,6 +206,27 @@ export default function AdminProducts() {
   const [productVariations, setProductVariations] = useState<VariationRow[]>([]);
   const [loadingVariations, setLoadingVariations] = useState(false);
 
+  // Edit dialog AI state
+  const [editAiImageOpen, setEditAiImageOpen] = useState(false);
+  const [editAiSourceImage, setEditAiSourceImage] = useState<string | null>(null);
+  const [editAiBgMode, setEditAiBgMode] = useState<'system' | 'ai' | 'custom'>('system');
+  const [editAiCustomBg, setEditAiCustomBg] = useState<string | null>(null);
+  const [editAiGenerating, setEditAiGenerating] = useState(false);
+  const [editEnhancing, setEditEnhancing] = useState(false);
+  const [editTranslating, setEditTranslating] = useState(false);
+  const [editAiProgressStep, setEditAiProgressStep] = useState(0);
+  const editAiSourceRef = useRef<HTMLInputElement>(null);
+  const editAiBgRef = useRef<HTMLInputElement>(null);
+
+  // Progress log step timer for edit dialog
+  useEffect(() => {
+    if (!editAiGenerating) { setEditAiProgressStep(0); return; }
+    const interval = setInterval(() => {
+      setEditAiProgressStep((prev) => Math.min(prev + 1, AI_PROGRESS_MESSAGES.length - 1));
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [editAiGenerating]);
+
   // Bulk Import state
   type BulkItemStatus = 'queued' | 'scraping' | 'generating' | 'saving' | 'done' | 'error';
   const [bulkMode, setBulkMode] = useState(false);
@@ -731,6 +752,151 @@ export default function AdminProducts() {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     } finally {
       setTranslating(false);
+    }
+  };
+
+  // ── Edit Dialog AI Functions ──
+  const handleEditAiSourceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const b64 = await fileToBase64(file);
+    setEditAiSourceImage(b64);
+  };
+
+  const handleEditAiBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const b64 = await fileToBase64(file);
+    setEditAiCustomBg(b64);
+  };
+
+  const handleEditAiGenerateImage = async () => {
+    if (!editAiSourceImage) {
+      toast({ title: 'Sube una foto del producto primero', variant: 'destructive' });
+      return;
+    }
+
+    let customBackground: string | undefined;
+    if (editAiBgMode === 'system' && systemBgSetting) {
+      customBackground = systemBgSetting;
+    } else if (editAiBgMode === 'custom' && editAiCustomBg) {
+      customBackground = editAiCustomBg;
+    }
+
+    setEditAiGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-import', {
+        body: {
+          action: 'generate_image',
+          sourceImage: editAiSourceImage,
+          customBackground,
+          backgroundMode: editAiBgMode,
+        },
+      });
+      if (error) throw new Error(data?.error || error.message || 'Error');
+      if (!data?.success) throw new Error(data?.error || 'Error al generar imagen');
+
+      const generatedImg = data.data.generated_image;
+      // Persist to storage
+      const { url } = await persistAiImage(generatedImg);
+      
+      // Add to media files
+      setMediaFiles(prev => [...prev.slice(0, MAX_MEDIA - 1), {
+        id: `ai-edit-${Date.now()}`,
+        preview: url,
+        type: 'image' as const,
+        isExisting: true,
+      }]);
+
+      setEditAiImageOpen(false);
+      setEditAiSourceImage(null);
+      toast({ title: '✓', description: '¡Imagen AI generada y agregada!' });
+    } catch (e: any) {
+      toast({ title: 'Error generando imagen', description: e.message, variant: 'destructive' });
+    } finally {
+      setEditAiGenerating(false);
+    }
+  };
+
+  const handleEditEnhanceWithAi = async () => {
+    setEditEnhancing(true);
+    try {
+      // Get first image URL for context
+      const firstImage = mediaFiles[0]?.preview || null;
+      
+      const { data, error } = await supabase.functions.invoke('ai-product-import', {
+        body: {
+          action: 'enhance_product',
+          name_es: form.name_es,
+          description_es: form.description_es,
+          existingCategories: categories.map((c: any) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
+          imageUrl: firstImage,
+        },
+      });
+      if (error) throw new Error(data?.error || error.message);
+      if (!data?.success) throw new Error(data?.error || 'Error');
+
+      const enhanced = data.data;
+      const matchedCat = categories.find((c: any) => c.slug === enhanced.suggested_category);
+
+      setForm(prev => ({
+        ...prev,
+        name_es: enhanced.name_es || prev.name_es,
+        name_en: enhanced.name_en || prev.name_en,
+        description_es: enhanced.description_es || prev.description_es,
+        description_en: enhanced.description_en || prev.description_en,
+        slug: enhanced.slug || prev.slug,
+        category_id: matchedCat?.id || prev.category_id,
+      }));
+      toast({ title: '✓', description: 'Producto mejorado con AI' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setEditEnhancing(false);
+    }
+  };
+
+  const handleEditTranslateToEnglish = async () => {
+    if (!form.name_es && !form.description_es) return;
+    setEditTranslating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-import', {
+        body: { action: 'translate', name_es: form.name_es, description_es: form.description_es },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setForm(prev => ({
+          ...prev,
+          name_en: data.data.name_en,
+          description_en: data.data.description_en,
+          slug: slugify(data.data.name_en),
+        }));
+        toast({ title: '✓', description: 'Traducción generada' });
+      }
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setEditTranslating(false);
+    }
+  };
+
+  const handleEditVariationTranslate = async (idx: number) => {
+    const variation = productVariations[idx];
+    if (!variation.name_es) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-import', {
+        body: { action: 'translate', name_es: variation.name_es, description_es: '' },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        setProductVariations(prev => {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], name_en: data.data.name_en };
+          return updated;
+        });
+      }
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
     }
   };
 
@@ -1504,13 +1670,30 @@ export default function AdminProducts() {
           </Dialog>
 
           {/* ── ADD/EDIT PRODUCT DIALOG ── */}
-          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); } }}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); setEditAiImageOpen(false); setEditAiSourceImage(null); setEditAiCustomBg(null); } }}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2"><Plus className="w-4 h-4" />Agregar Producto</Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle className="font-display">{editId ? 'Editar' : 'Agregar'} Producto</DialogTitle></DialogHeader>
               <form onSubmit={(e) => { e.preventDefault(); save.mutate(form); }} className="space-y-5">
+
+                {/* ── AI ENHANCE BUTTON ── */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleEditEnhanceWithAi}
+                  disabled={editEnhancing}
+                  className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  {editEnhancing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {editEnhancing ? 'Generando con AI...' : '✨ Generar todo con AI'}
+                </Button>
+                {editEnhancing && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    La AI generará nombre, descripción, traducción, categoría y slug automáticamente
+                  </p>
+                )}
 
                 {/* ── MEDIA UPLOAD ZONE (TOP) ── */}
                 <div className="space-y-3">
@@ -1548,6 +1731,108 @@ export default function AdminProducts() {
                     )}
                   </div>
 
+                  {/* AI Image Generation Panel */}
+                  {mediaFiles.length < MAX_MEDIA && (
+                    <div className="space-y-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditAiImageOpen(!editAiImageOpen)}
+                        className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                      >
+                        <Wand2 className="w-3 h-3" />
+                        {editAiImageOpen ? 'Cerrar generador AI' : '✨ Generar imagen con AI'}
+                      </Button>
+
+                      <AnimatePresence>
+                        {editAiImageOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="p-4 rounded-xl bg-secondary/50 border border-primary/20 space-y-4">
+                              <div className="space-y-2">
+                                <Label className="text-xs font-semibold flex items-center gap-1">
+                                  <ImagePlus className="w-3 h-3 text-primary" />
+                                  Foto original del producto
+                                </Label>
+                                {editAiSourceImage ? (
+                                  <div className="relative inline-block">
+                                    <img src={editAiSourceImage} alt="Source" className="w-24 h-24 object-cover rounded-lg" />
+                                    <button type="button" onClick={() => setEditAiSourceImage(null)} className="absolute top-1 right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center">
+                                      <X className="w-3 h-3 text-white" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button type="button" onClick={() => editAiSourceRef.current?.click()} className="w-24 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors">
+                                    <Upload className="w-4 h-4 text-muted-foreground" />
+                                    <span className="text-[10px] text-muted-foreground">Subir foto</span>
+                                  </button>
+                                )}
+                                <input ref={editAiSourceRef} type="file" accept="image/*" onChange={handleEditAiSourceUpload} className="hidden" />
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label className="text-xs font-semibold">Fondo</Label>
+                                <div className="flex gap-2">
+                                  {[
+                                    { value: 'system', label: 'Estudio Maker', badge: '★' },
+                                    { value: 'ai', label: 'Exhibición Tech', badge: null },
+                                    { value: 'custom', label: 'Personalizado', badge: null },
+                                  ].map((opt) => (
+                                    <button
+                                      key={opt.value}
+                                      type="button"
+                                      onClick={() => setEditAiBgMode(opt.value as any)}
+                                      className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${editAiBgMode === opt.value ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-background border border-border hover:border-primary/30'}`}
+                                    >
+                                      {opt.badge && <span className="mr-1">{opt.badge}</span>}
+                                      {opt.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {editAiBgMode === 'custom' && (
+                                <div className="space-y-2">
+                                  {editAiCustomBg ? (
+                                    <div className="relative inline-block">
+                                      <img src={editAiCustomBg} alt="BG" className="w-24 h-16 object-cover rounded-lg" />
+                                      <button type="button" onClick={() => setEditAiCustomBg(null)} className="absolute top-1 right-1 w-4 h-4 bg-destructive rounded-full flex items-center justify-center">
+                                        <X className="w-2.5 h-2.5 text-white" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button type="button" onClick={() => editAiBgRef.current?.click()} className="w-24 h-16 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors">
+                                      <Upload className="w-3 h-3 text-muted-foreground" />
+                                      <span className="text-[9px] text-muted-foreground">Fondo</span>
+                                    </button>
+                                  )}
+                                  <input ref={editAiBgRef} type="file" accept="image/*" onChange={handleEditAiBgUpload} className="hidden" />
+                                </div>
+                              )}
+
+                              <Button
+                                type="button"
+                                onClick={handleEditAiGenerateImage}
+                                disabled={!editAiSourceImage || editAiGenerating}
+                                className="w-full gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground"
+                              >
+                                {editAiGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                                {editAiGenerating ? 'Generando...' : 'Generar con AI'}
+                              </Button>
+
+                              {editAiGenerating && <AiProgressLog step={editAiProgressStep} />}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1562,23 +1847,30 @@ export default function AdminProducts() {
                 {/* ── PRODUCT FIELDS ── */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Nombre (EN)</Label>
-                    <Input value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} className="bg-secondary" maxLength={255} required />
-                    {fieldErrors.name_en && <p className="text-xs text-destructive">{fieldErrors.name_en}</p>}
-                  </div>
-                  <div className="space-y-2">
                     <Label>Nombre (ES)</Label>
                     <Input value={form.name_es} onChange={(e) => setForm({ ...form, name_es: e.target.value })} className="bg-secondary" maxLength={255} required />
                     {fieldErrors.name_es && <p className="text-xs text-destructive">{fieldErrors.name_es}</p>}
                   </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Nombre (EN)</Label>
+                      <Button type="button" variant="ghost" size="sm" onClick={handleEditTranslateToEnglish} disabled={editTranslating} className="text-xs h-6 px-2 gap-1 text-primary">
+                        {editTranslating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Traducir
+                      </Button>
+                    </div>
+                    <Input value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} className="bg-secondary" maxLength={255} required />
+                    {fieldErrors.name_en && <p className="text-xs text-destructive">{fieldErrors.name_en}</p>}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Descripción (EN)</Label>
-                  <Textarea value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Descripción (ES)</Label>
-                  <Textarea value={form.description_es} onChange={(e) => setForm({ ...form, description_es: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Descripción (ES)</Label>
+                    <Textarea value={form.description_es} onChange={(e) => setForm({ ...form, description_es: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descripción (EN)</Label>
+                    <Textarea value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
@@ -1684,7 +1976,19 @@ export default function AdminProducts() {
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Nombre (EN)</Label>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs">Nombre (EN)</Label>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditVariationTranslate(actualIdx)}
+                                disabled={!variation.name_es}
+                                className="text-[10px] h-5 px-1.5 gap-0.5 text-primary"
+                              >
+                                <RefreshCw className="w-2.5 h-2.5" /> AI
+                              </Button>
+                            </div>
                             <Input
                               value={variation.name_en}
                               onChange={(e) => {
