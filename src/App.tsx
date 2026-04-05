@@ -1,3 +1,4 @@
+import { useState, useCallback, lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -33,14 +34,26 @@ import RequestModel from "./pages/RequestModel";
 import OurProcess from "./pages/OurProcess";
 import Materials from "./pages/Materials";
 
+const SplashLoader3D = lazy(() => import("@/components/SplashLoader3D"));
+
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
 
+  const shouldShowLoader = location.pathname === "/" && !sessionStorage.getItem("3dp-loaded");
+  const [showLoader, setShowLoader] = useState(shouldShowLoader);
+
+  const handleLoaderComplete = useCallback(() => setShowLoader(false), []);
+
   return (
     <>
+      {showLoader && (
+        <Suspense fallback={null}>
+          <SplashLoader3D onComplete={handleLoaderComplete} />
+        </Suspense>
+      )}
       {!isAdmin && <PrintingBackground />}
               <Routes>
                 <Route path="/" element={<Index />} />
