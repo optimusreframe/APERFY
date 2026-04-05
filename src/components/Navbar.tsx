@@ -230,26 +230,8 @@ export default function Navbar() {
               className="fixed top-0 right-0 bottom-0 z-40 w-[280px] nav-glass-mobile md:hidden overflow-y-auto"
             >
               <div className="pt-20 px-6 pb-8 space-y-2">
-                {navLinks.map((link, i) => (
-                  <motion.div
-                    key={link.href}
-                    initial={{ opacity: 0, x: 30 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 + i * 0.07 }}
-                  >
-                    <Link
-                      to={link.href}
-                      onClick={() => setIsOpen(false)}
-                      className={`block px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                        isActive(link.href)
-                          ? 'text-primary bg-primary/10 border border-primary/20'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  </motion.div>
-                ))}
+
+
 
                 <motion.div
                   initial={{ opacity: 0 }}
