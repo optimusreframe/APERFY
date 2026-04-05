@@ -198,6 +198,7 @@ export default function AdminProducts() {
     type: string;
     weight_grams: number;
     material_id: string;
+    dimensions: string;
     is_active: boolean;
     _isNew?: boolean;
     _deleted?: boolean;
