@@ -1976,7 +1976,19 @@ export default function AdminProducts() {
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Nombre (EN)</Label>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs">Nombre (EN)</Label>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditVariationTranslate(actualIdx)}
+                                disabled={!variation.name_es}
+                                className="text-[10px] h-5 px-1.5 gap-0.5 text-primary"
+                              >
+                                <RefreshCw className="w-2.5 h-2.5" /> AI
+                              </Button>
+                            </div>
                             <Input
                               value={variation.name_en}
                               onChange={(e) => {
