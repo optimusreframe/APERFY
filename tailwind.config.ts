@@ -111,6 +111,25 @@ export default {
           "30%": { transform: "scale(1.25)" },
           "60%": { transform: "scale(0.9)" },
         },
+        "bg-float-1": {
+          "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
+          "50%": { transform: "translateY(-30px) rotate(8deg)" },
+        },
+        "bg-float-2": {
+          "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
+          "33%": { transform: "translateY(-20px) rotate(-5deg)" },
+          "66%": { transform: "translateY(10px) rotate(5deg)" },
+        },
+        "bg-float-3": {
+          "0%, 100%": { transform: "translateY(0) scale(1)" },
+          "50%": { transform: "translateY(-15px) scale(1.08)" },
+        },
+        "bg-drift": {
+          "0%, 100%": { transform: "translateX(0) translateY(0)" },
+          "25%": { transform: "translateX(20px) translateY(-10px)" },
+          "50%": { transform: "translateX(-10px) translateY(-25px)" },
+          "75%": { transform: "translateX(-20px) translateY(5px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -118,6 +137,10 @@ export default {
         "float": "float 6s ease-in-out infinite",
         "pulse-gold": "pulse-gold 2s ease-in-out infinite",
         "spin-slow": "spin-slow 8s linear infinite",
+        "bg-float-1": "bg-float-1 22s ease-in-out infinite",
+        "bg-float-2": "bg-float-2 28s ease-in-out infinite",
+        "bg-float-3": "bg-float-3 20s ease-in-out infinite",
+        "bg-drift": "bg-drift 30s ease-in-out infinite",
       },
     },
   },
