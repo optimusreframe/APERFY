@@ -21,7 +21,7 @@ import FavoriteCount from '@/components/FavoriteCount';
 import ShareMenu from '@/components/ShareMenu';
 
 const WHATSAPP_NUMBER = '16893324656';
-const PUBLIC_URL = 'https://a3dtoprint.lovable.app';
+const PUBLIC_URL = 'https://3dtoprint.online';
 
 function CatalogCardSkeleton() {
   return (
