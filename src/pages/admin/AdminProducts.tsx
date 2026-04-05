@@ -508,7 +508,8 @@ export default function AdminProducts() {
         name_es: v.name_es,
         type: v.type,
         weight_grams: v.weight_grams || 0,
-        material_id: '', // We'll handle material via product_materials
+        material_id: v.material_id || '',
+        dimensions: v.dimensions || '',
         is_active: v.is_active,
       })));
       setLoadingVariations(false);
