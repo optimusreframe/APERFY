@@ -1,48 +1,25 @@
 
 
-# Consolidar Store en la Página Principal
+# Simplificar Navbar — Solo Elementos Esenciales
 
-## Resumen
-
-Eliminar `/3dmodels` como página separada. Mover los filtros avanzados de Store (precio, materiales, sidebar colapsable, toggle de grid) al Index. Redirigir `/3dmodels` a `/` para no romper links existentes. Mantener `/3dmodels/:slug` para el detalle de producto.
+## Problema
+El Navbar tiene un menú de navegación (Home, 3D Models, Request) que es redundante porque todo el contenido ya está en la página principal. Además, el link a `/catalog` no debería ser visible ya que esa página es solo para acceso directo.
 
 ## Cambios
 
-### 1. `src/pages/Index.tsx`
-Incorporar las funcionalidades exclusivas de Store que faltan:
-- Sidebar de filtros colapsable (precio, materiales, categorías con checkbox)
-- Toggle de grid 3/4 columnas
-- Filtro por rango de precio
+### `src/components/Navbar.tsx`
+- **Eliminar** completamente `navLinks`, el bloque de Desktop Nav Links (con las pills animadas y los dots separadores), y el bloque equivalente en el menú mobile
+- **Mantener** solo: Logo + título, carrito, language switch, y account (avatar/login)
+- El navbar queda más limpio y centrado: logo a la izquierda, acciones a la derecha
+- En mobile: el botón hamburguesa solo muestra cart, idioma, y opciones de cuenta (o se elimina si no hay suficiente contenido para justificarlo)
 
-### 2. `src/App.tsx`
-- Eliminar la ruta `/3dmodels` → `<Store />`
-- Agregar redirect: `/3dmodels` → `/` (usando `<Navigate to="/" replace />`)
-- Mantener `/3dmodels/:slug` → `<ProductDetail />`
-- Eliminar import de `Store`
+### Elementos que se mantienen intactos
+- Logo "3DtoPrint"
+- Carrito con badge de cantidad
+- Selector de idioma (EN/ES)
+- Avatar dropdown (admin/user) o botón de login
+- Toda la lógica de scroll, glass effect, etc.
 
-### 3. Referencias a `/3dmodels` → `/`
-Actualizar links en estos archivos:
-- `src/components/Navbar.tsx` — nav link apunta a `/`
-- `src/components/Footer.tsx` — footer link
-- `src/components/ProductCard.tsx` — links a producto usan `/3dmodels/:slug` (se mantienen)
-- `src/components/landing/HeroBanner.tsx` — CTA href
-- `src/pages/Cart.tsx` — "Continue shopping" link
-- `src/pages/ProductDetail.tsx` — breadcrumb y "back" link
-
-**Nota**: Los links a `/3dmodels/:slug` (detalle de producto) **no cambian** — esa ruta sigue activa.
-
-### 4. Eliminar `src/pages/Store.tsx`
-
-### 5. Limpiar import de `Catalog.tsx` en App.tsx
-La ruta `/catalog` también parece redundante ahora. Se puede eliminar o mantener según prefieras — el plan por defecto la mantiene ya que tiene funcionalidad diferente (WhatsApp ordering).
-
-## Archivos Modificados
-1. `src/pages/Index.tsx` — agregar filtros avanzados de Store
-2. `src/App.tsx` — redirect `/3dmodels` → `/`, eliminar Store
-3. `src/components/Navbar.tsx` — actualizar link
-4. `src/components/Footer.tsx` — actualizar link
-5. `src/components/landing/HeroBanner.tsx` — actualizar CTA
-6. `src/pages/Cart.tsx` — actualizar links
-7. `src/pages/ProductDetail.tsx` — actualizar breadcrumb
-8. Eliminar `src/pages/Store.tsx`
+### Archivos
+1. `src/components/Navbar.tsx` — eliminar nav links desktop y mobile
 
