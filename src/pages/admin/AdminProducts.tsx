@@ -510,9 +510,16 @@ export default function AdminProducts() {
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
       qc.invalidateQueries({ queryKey: ['admin-products'] });
       qc.invalidateQueries({ queryKey: ['admin-product-count'] });
+      logActivity({
+        action: 'product_deleted',
+        category: 'edit',
+        entity_type: 'product',
+        entity_id: deletedId,
+        title: 'Producto eliminado',
+      });
       toast({ title: '✓', description: 'Producto eliminado.' });
     },
   });
