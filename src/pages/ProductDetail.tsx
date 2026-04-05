@@ -147,12 +147,19 @@ export default function ProductDetail() {
     return acc;
   }, {});
 
+  // Calculate price: if a "size" variation is selected, use its price_modifier as absolute price
+  const selectedSizeVar = variations.find((v: any) => v.type === 'size' && v.id === selectedVariations['size']);
   const priceModifier = Object.values(selectedVariations).reduce((sum, varId) => {
     const v = variations.find((vr: any) => vr.id === varId);
     return sum + (v ? Number(v.price_modifier) : 0);
   }, 0);
 
-  const totalPrice = product ? (Number(product.base_price) + priceModifier) * quantity : 0;
+  // If a size variation is selected and it has a calculated price (price_modifier > 0), use that as the unit price
+  const unitPrice = selectedSizeVar && Number(selectedSizeVar.price_modifier) > 0
+    ? Number(selectedSizeVar.price_modifier)
+    : Number(product?.base_price || 0) + priceModifier;
+  const totalPrice = product ? unitPrice * quantity : 0;
+  const selectedWeight = selectedSizeVar ? Number(selectedSizeVar.weight_grams || 0) : null;
   const images = product ? (product.images as string[]) || [] : [];
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
