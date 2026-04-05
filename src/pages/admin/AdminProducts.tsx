@@ -1543,6 +1543,31 @@ export default function AdminProducts() {
         </div>
       </div>
 
+      {/* Bulk Edit Toggle */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          {bulkEditMode && bulkEditCount > 0 && (
+            <span className="text-sm text-muted-foreground">{bulkEditCount} producto(s) modificado(s)</span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {bulkEditMode ? (
+            <>
+              <Button variant="outline" size="sm" onClick={() => { setBulkEditMode(false); setBulkEdits({}); }} className="gap-1">
+                <XCircle className="w-4 h-4" /> Cancelar
+              </Button>
+              <Button size="sm" onClick={handleBulkSave} disabled={bulkSaving || bulkEditCount === 0} className="gap-1 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
+                <Save className="w-4 h-4" /> {bulkSaving ? 'Guardando...' : 'Guardar Cambios'}
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setBulkEditMode(true)} className="gap-1">
+              <Pencil className="w-3 h-3" /> Editar en Bulk
+            </Button>
+          )}
+        </div>
+      </div>
+
       {/* ── PRODUCTS TABLE ── */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <Table>
@@ -1557,7 +1582,7 @@ export default function AdminProducts() {
           </TableHeader>
           <TableBody>
             {products.map((p: any) => (
-              <TableRow key={p.id} className="border-border">
+              <TableRow key={p.id} className={`border-border ${bulkEdits[p.id] ? 'bg-primary/5' : ''}`}>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     {(p.images as string[])?.length > 0 ? (
@@ -1565,27 +1590,75 @@ export default function AdminProducts() {
                     ) : (
                       <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center"><Image className="w-4 h-4 text-muted-foreground" /></div>
                     )}
-                    <div>
-                      <p className="font-medium">{p.name_es}</p>
-                      <p className="text-xs text-muted-foreground">{p.slug}</p>
+                    <div className="flex-1 min-w-0">
+                      {bulkEditMode ? (
+                        <Input
+                          value={getBulkValue(p.id, 'name_es', p.name_es)}
+                          onChange={(e) => setBulkField(p.id, 'name_es', e.target.value, p.name_es)}
+                          className="bg-secondary text-sm h-8"
+                        />
+                      ) : (
+                        <>
+                          <p className="font-medium">{p.name_es}</p>
+                          <p className="text-xs text-muted-foreground">{p.slug}</p>
+                        </>
+                      )}
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {p.categories ? p.categories.name_es : '—'}
-                </TableCell>
-                <TableCell className="font-medium">${Number(p.base_price).toFixed(2)}</TableCell>
                 <TableCell>
-                  <div className="flex gap-1">
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${p.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                      {p.is_active ? 'Activo' : 'Inactivo'}
-                    </span>
-                    {p.is_featured && <span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">★</span>}
-                  </div>
+                  {bulkEditMode ? (
+                    <Select
+                      value={getBulkValue(p.id, 'category_id', p.category_id || '') || ''}
+                      onValueChange={(v) => setBulkField(p.id, 'category_id', v || null, p.category_id || '')}
+                    >
+                      <SelectTrigger className="bg-secondary text-sm h-8 w-[140px]"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        {categories.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name_es}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="text-muted-foreground">{p.categories ? p.categories.name_es : '—'}</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {bulkEditMode ? (
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={getBulkValue(p.id, 'base_price', p.base_price)}
+                      onChange={(e) => setBulkField(p.id, 'base_price', parseFloat(e.target.value) || 0, p.base_price)}
+                      className="bg-secondary text-sm h-8 w-[100px]"
+                    />
+                  ) : (
+                    <span className="font-medium">${Number(p.base_price).toFixed(2)}</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {bulkEditMode ? (
+                    <Switch
+                      checked={getBulkValue(p.id, 'is_active', p.is_active)}
+                      onCheckedChange={(c) => setBulkField(p.id, 'is_active', c, p.is_active)}
+                    />
+                  ) : (
+                    <div className="flex gap-1">
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${p.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                        {p.is_active ? 'Activo' : 'Inactivo'}
+                      </span>
+                      {p.is_featured && <span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">★</span>}
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => del.mutate(p.id)} className="text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                  {!bulkEditMode && (
+                    <>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => del.mutate(p.id)} className="text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                    </>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
