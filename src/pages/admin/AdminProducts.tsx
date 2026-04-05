@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2, Save, XCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -197,6 +197,52 @@ export default function AdminProducts() {
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [bulkResults, setBulkResults] = useState<{ url: string; status: BulkItemStatus; name?: string; error?: string }[]>([]);
 
+  // Bulk Edit state
+  const [bulkEditMode, setBulkEditMode] = useState(false);
+  const [bulkEdits, setBulkEdits] = useState<Record<string, { name_es?: string; base_price?: number; category_id?: string | null; is_active?: boolean }>>({});
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  const bulkEditCount = Object.keys(bulkEdits).length;
+
+  const getBulkValue = (productId: string, field: string, original: any) => {
+    const edits = bulkEdits[productId];
+    if (edits && field in edits) return (edits as any)[field];
+    return original;
+  };
+
+  const setBulkField = (productId: string, field: string, value: any, original: any) => {
+    setBulkEdits(prev => {
+      const current = { ...prev };
+      if (!current[productId]) current[productId] = {};
+      (current[productId] as any)[field] = value;
+      if (value === original) {
+        delete (current[productId] as any)[field];
+        if (Object.keys(current[productId]).length === 0) delete current[productId];
+      }
+      return current;
+    });
+  };
+
+  const handleBulkSave = async () => {
+    const entries = Object.entries(bulkEdits);
+    if (entries.length === 0) return;
+    setBulkSaving(true);
+    try {
+      for (const [id, changes] of entries) {
+        const { error } = await supabase.from('products').update(changes).eq('id', id);
+        if (error) throw error;
+      }
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      setBulkEditMode(false);
+      setBulkEdits({});
+      toast({ title: '✓', description: `${entries.length} producto(s) actualizado(s).` });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
   // Progress log step timer
   useEffect(() => {
     if (!aiImageLoading) { setAiProgressStep(0); return; }
@@ -245,12 +291,13 @@ export default function AdminProducts() {
     },
   });
 
-  // Auto-slug from Spanish name
+  // Auto-slug from name (English if showEnglish is active, otherwise Spanish)
   useEffect(() => {
     if (aiData && slugLocked) {
-      setAiData((prev: any) => prev ? { ...prev, slug: slugify(prev.name_es || '') } : prev);
+      const source = showEnglish && aiData.name_en ? aiData.name_en : (aiData.name_es || '');
+      setAiData((prev: any) => prev ? { ...prev, slug: slugify(source) } : prev);
     }
-  }, [aiData?.name_es, slugLocked]);
+  }, [aiData?.name_es, aiData?.name_en, showEnglish, slugLocked]);
 
   // ── Media Upload ──
   const uploadMedia = async (file: File, productId: string): Promise<string> => {
@@ -596,7 +643,15 @@ export default function AdminProducts() {
       });
       if (error) throw error;
       if (data?.success) {
-        setAiData((prev: any) => ({ ...prev, name_en: data.data.name_en, description_en: data.data.description_en }));
+        const newNameEn = data.data.name_en;
+        setAiData((prev: any) => {
+          const updated = { ...prev, name_en: newNameEn, description_en: data.data.description_en };
+          // Regenerate slug from English name if English mode is on and slug is locked
+          if (showEnglish && slugLocked && newNameEn) {
+            updated.slug = slugify(newNameEn);
+          }
+          return updated;
+        });
         toast({ title: '✓', description: 'Traducción generada' });
       }
     } catch (e: any) {
@@ -1224,7 +1279,7 @@ export default function AdminProducts() {
                             className="bg-secondary text-sm"
                             readOnly={slugLocked}
                           />
-                          {slugLocked && <p className="text-[10px] text-muted-foreground">Se genera automáticamente del nombre</p>}
+                          {slugLocked && <p className="text-[10px] text-muted-foreground">Se genera automáticamente del nombre {showEnglish ? '(EN)' : '(ES)'}</p>}
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -1488,6 +1543,31 @@ export default function AdminProducts() {
         </div>
       </div>
 
+      {/* Bulk Edit Toggle */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          {bulkEditMode && bulkEditCount > 0 && (
+            <span className="text-sm text-muted-foreground">{bulkEditCount} producto(s) modificado(s)</span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {bulkEditMode ? (
+            <>
+              <Button variant="outline" size="sm" onClick={() => { setBulkEditMode(false); setBulkEdits({}); }} className="gap-1">
+                <XCircle className="w-4 h-4" /> Cancelar
+              </Button>
+              <Button size="sm" onClick={handleBulkSave} disabled={bulkSaving || bulkEditCount === 0} className="gap-1 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
+                <Save className="w-4 h-4" /> {bulkSaving ? 'Guardando...' : 'Guardar Cambios'}
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setBulkEditMode(true)} className="gap-1">
+              <Pencil className="w-3 h-3" /> Editar en Bulk
+            </Button>
+          )}
+        </div>
+      </div>
+
       {/* ── PRODUCTS TABLE ── */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <Table>
@@ -1502,7 +1582,7 @@ export default function AdminProducts() {
           </TableHeader>
           <TableBody>
             {products.map((p: any) => (
-              <TableRow key={p.id} className="border-border">
+              <TableRow key={p.id} className={`border-border ${bulkEdits[p.id] ? 'bg-primary/5' : ''}`}>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     {(p.images as string[])?.length > 0 ? (
@@ -1510,27 +1590,75 @@ export default function AdminProducts() {
                     ) : (
                       <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center"><Image className="w-4 h-4 text-muted-foreground" /></div>
                     )}
-                    <div>
-                      <p className="font-medium">{p.name_es}</p>
-                      <p className="text-xs text-muted-foreground">{p.slug}</p>
+                    <div className="flex-1 min-w-0">
+                      {bulkEditMode ? (
+                        <Input
+                          value={getBulkValue(p.id, 'name_es', p.name_es)}
+                          onChange={(e) => setBulkField(p.id, 'name_es', e.target.value, p.name_es)}
+                          className="bg-secondary text-sm h-8"
+                        />
+                      ) : (
+                        <>
+                          <p className="font-medium">{p.name_es}</p>
+                          <p className="text-xs text-muted-foreground">{p.slug}</p>
+                        </>
+                      )}
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {p.categories ? p.categories.name_es : '—'}
-                </TableCell>
-                <TableCell className="font-medium">${Number(p.base_price).toFixed(2)}</TableCell>
                 <TableCell>
-                  <div className="flex gap-1">
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${p.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                      {p.is_active ? 'Activo' : 'Inactivo'}
-                    </span>
-                    {p.is_featured && <span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">★</span>}
-                  </div>
+                  {bulkEditMode ? (
+                    <Select
+                      value={getBulkValue(p.id, 'category_id', p.category_id || '') || ''}
+                      onValueChange={(v) => setBulkField(p.id, 'category_id', v || null, p.category_id || '')}
+                    >
+                      <SelectTrigger className="bg-secondary text-sm h-8 w-[140px]"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        {categories.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name_es}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="text-muted-foreground">{p.categories ? p.categories.name_es : '—'}</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {bulkEditMode ? (
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={getBulkValue(p.id, 'base_price', p.base_price)}
+                      onChange={(e) => setBulkField(p.id, 'base_price', parseFloat(e.target.value) || 0, p.base_price)}
+                      className="bg-secondary text-sm h-8 w-[100px]"
+                    />
+                  ) : (
+                    <span className="font-medium">${Number(p.base_price).toFixed(2)}</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {bulkEditMode ? (
+                    <Switch
+                      checked={getBulkValue(p.id, 'is_active', p.is_active)}
+                      onCheckedChange={(c) => setBulkField(p.id, 'is_active', c, p.is_active)}
+                    />
+                  ) : (
+                    <div className="flex gap-1">
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${p.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                        {p.is_active ? 'Activo' : 'Inactivo'}
+                      </span>
+                      {p.is_featured && <span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">★</span>}
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => del.mutate(p.id)} className="text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                  {!bulkEditMode && (
+                    <>
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => del.mutate(p.id)} className="text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                    </>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
