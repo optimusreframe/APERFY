@@ -160,6 +160,7 @@ export default function ProductDetail() {
     : Number(product?.base_price || 0) + priceModifier;
   const totalPrice = product ? unitPrice * quantity : 0;
   const selectedWeight = selectedSizeVar ? Number(selectedSizeVar.weight_grams || 0) : null;
+  const selectedDimensions = selectedSizeVar ? (selectedSizeVar as any).dimensions : null;
   const images = product ? (product.images as string[]) || [] : [];
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
