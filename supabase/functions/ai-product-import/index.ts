@@ -42,7 +42,6 @@ serve(async (req) => {
         });
       }
 
-      // Get existing categories to help AI match
       const existingCategories = body.existingCategories || [];
 
       let scrapedContent = "";
@@ -85,6 +84,7 @@ serve(async (req) => {
       }
 
       const categorySlugs = existingCategories.map((c: any) => c.slug).join(", ");
+      const imageListForAI = scrapedImages.slice(0, 10).map((u, i) => `${i + 1}. ${u}`).join("\n");
 
       const extractResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -97,13 +97,20 @@ serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: `You are a product data extraction expert for a 3D printing e-commerce store called "3DtoPrint". 
-Given scraped content from a product page, extract and GENERATE NEW product data.
-IMPORTANT: Create a NEW unique product name that is different from the original but describes the same product.
-Generate compelling bilingual descriptions (English and Spanish).
-Extract any materials, colors, and pricing info mentioned.
+              content: `You are a product data extraction expert for a 3D printing e-commerce store called "3DtoPrint".
 
-EXISTING CATEGORIES in the store (use one of these slugs if applicable, or suggest a new one): ${categorySlugs || "none yet"}`
+STRICT RULES:
+- Product name (name_en, name_es): Create a TOTALLY NEW name. MAX 4 WORDS. Short, catchy, commercial. NEVER copy the original name.
+- Description (description_en, description_es): MAX 150 characters each. 2-3 short sentences. Attractive and concise.
+- reference_image_url: From the list of extracted images below, pick the SINGLE BEST image URL that shows the product most clearly (front view, clean, high-res). If no good image, return empty string.
+- slug: URL-friendly, lowercase, hyphens only, based on the new name.
+- suggested_price: Reasonable retail price in USD for a 3D printed product.
+- suggested_category: Use one of these existing slugs if applicable: ${categorySlugs || "none yet"}. Otherwise suggest a new slug.
+- materials: Logical 3D printing materials (PLA, ABS, PETG, Resin, etc.)
+- colors: Recommended colors in Spanish (Negro, Blanco, Dorado, etc.)
+
+EXTRACTED IMAGES:
+${imageListForAI || "No images found."}`
             },
             {
               role: "user",
@@ -118,20 +125,21 @@ EXISTING CATEGORIES in the store (use one of these slugs if applicable, or sugge
               parameters: {
                 type: "object",
                 properties: {
-                  name_en: { type: "string", description: "NEW unique product name in English (not same as original)" },
-                  name_es: { type: "string", description: "NEW unique product name in Spanish" },
-                  description_en: { type: "string", description: "Short compelling description in English (2-3 sentences)" },
-                  description_es: { type: "string", description: "Short compelling description in Spanish (2-3 sentences)" },
+                  name_en: { type: "string", description: "NEW unique product name in English (max 4 words)" },
+                  name_es: { type: "string", description: "NEW unique product name in Spanish (max 4 words)" },
+                  description_en: { type: "string", description: "Short description in English (max 150 chars, 2-3 sentences)" },
+                  description_es: { type: "string", description: "Short description in Spanish (max 150 chars, 2-3 sentences)" },
                   slug: { type: "string", description: "URL-friendly slug (lowercase, hyphens only)" },
                   suggested_price: { type: "number", description: "Suggested retail price in USD" },
-                  suggested_category: { type: "string", description: "Best matching existing category slug, or a new slug if none match" },
+                  suggested_category: { type: "string", description: "Best matching existing category slug, or a new slug" },
                   suggested_category_name_en: { type: "string", description: "Category name in English (for new categories)" },
                   suggested_category_name_es: { type: "string", description: "Category name in Spanish (for new categories)" },
-                  materials: { type: "array", items: { type: "string" }, description: "Material names that apply (e.g. PLA, ABS, PETG, Resin)" },
-                  colors: { type: "array", items: { type: "string" }, description: "Colors recommended (e.g. Negro, Blanco, Dorado, Plateado, Rojo, Azul)" },
+                  materials: { type: "array", items: { type: "string" }, description: "Material names (e.g. PLA, ABS, PETG, Resin)" },
+                  colors: { type: "array", items: { type: "string" }, description: "Colors in Spanish (e.g. Negro, Blanco, Dorado)" },
                   original_title: { type: "string", description: "The original product title from the source" },
+                  reference_image_url: { type: "string", description: "The single best product image URL from the extracted images list" },
                 },
-                required: ["name_en", "name_es", "description_en", "description_es", "slug", "suggested_price", "suggested_category", "materials", "colors"],
+                required: ["name_en", "name_es", "description_en", "description_es", "slug", "suggested_price", "suggested_category", "materials", "colors", "reference_image_url"],
                 additionalProperties: false,
               },
             },
@@ -164,46 +172,35 @@ EXISTING CATEGORIES in the store (use one of these slugs if applicable, or sugge
 
     // ── ACTION: generate_image ──
     if (action === "generate_image") {
-      const { sourceImage, customBackground, backgroundMode, productCategory } = body;
+      const { sourceImage, customBackground, backgroundMode } = body;
       if (!sourceImage) {
         return new Response(JSON.stringify({ error: "Source image is required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Category-aware premium background prompt selection
-      const cat = (productCategory || '').toLowerCase();
-      let defaultBgPrompt: string;
+      // Build prompt based on backgroundMode
+      let promptText: string;
+      const contentParts: any[] = [];
 
-      if (['figuras', 'figures', 'decoracion', 'decoration', 'figure', 'figurine'].some(k => cat.includes(k))) {
-        defaultBgPrompt = `A photo of a museum gallery exhibit. A minimalist glass and dark wood plinth. Diffused light from above, creating very soft shadows. Large, elegant 3DtoPrint logo engraved on a plaque at the base of the plinth. Minimalist, clean white walls in the deep background with abstract architectural patterns. The scene feels premium and curated.`;
-      } else if (['funcional', 'functional', 'engineering', 'herramientas', 'tools', 'mechanical'].some(k => cat.includes(k))) {
-        defaultBgPrompt = `A high-end engineering schematics surface. Dark, infinite glass surface with a clean, precise technical grid pattern of electric cyan and warm orange lines. Embedded LED strips along the grid lines. Text annotations and call-out arrows pointing to the center of the plinth. 3DtoPrint logo as a precise, professional engineering stamp in the bottom right corner title block. The plinth is a heavy-duty, monolithic dark concrete base. The lighting is crisp and technical.`;
+      if (backgroundMode === "system") {
+        promptText = "Isolate the 3D model object from the reference image. Remove its original background completely. Place the object on a clean, solid, slightly warm light-gray studio background with soft contact shadows beneath it. Maintain high fidelity to the original object's shape and color.";
+      } else if (backgroundMode === "custom") {
+        promptText = "Isolate the 3D model object from the reference image and remove its original background. Seamlessly composite and place this object onto the user-uploaded background image. Apply realistic lighting and soft contact shadows on the surface where the object is placed.";
       } else {
-        defaultBgPrompt = `A high-resolution, museum-grade photo of a professional exhibition plinth. The plinth is made of dark, polished concrete and warm-toned brushed metal. A central, recessed lighting element provides focused, crisp light, creating defined contact shadows. The surrounding environment is a minimalist, dark architectural space with subtle geometric patterns. Two elegant light lines, one in warm white and one in electric cobalt blue, are integrated into the architecture. A large, stylized, laser-etched 3DtoPrint logo is subtly and precisely integrated into the metal texture of the plinth base. The background is slightly out of focus to keep attention on the central area, creating a deep sense of scale and premium quality.`;
+        // "ai" (premium) - default
+        promptText = "Isolate the 3D model object from the reference image and remove its original background. Place this object centrally on a high-end, dark exhibition plinth made of polished dark concrete and brushed copper. The plinth has the logo '3DtoPrint' precisely laser-etched on its front face. The scene is a dark, minimalist showroom with cinematic lighting: a soft warm light from above and a subtle electric blue neon line in the background. The object must cast realistic, soft contact shadows on the plinth to look physically present.";
       }
 
-      let bgInstruction = defaultBgPrompt;
-      let promptText = `Take this 3D printed product/figurine image. Extract the main object from the image completely, remove its current background, and place it centered on top of ${bgInstruction} The product is placed centrally on the plinth with realistic, detailed contact shadows and subtle reflections, making it the undeniable hero of the scene. The object should be well-lit with professional studio lighting. Keep the object exactly as it is - only change the background, add the display stand beneath it, and enhance the lighting. IMPORTANT: Include a subtle "3DtoPrint" watermark/brand text in the bottom-right corner.`;
+      contentParts.push({ type: "text", text: promptText });
+      contentParts.push({ type: "image_url", image_url: { url: sourceImage } });
 
-      const messages: any[] = [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: promptText },
-            { type: "image_url", image_url: { url: sourceImage } }
-          ]
-        }
-      ];
-
-      // If custom background provided (system or uploaded)
-      if (customBackground && backgroundMode !== 'ai') {
-        messages[0].content.push({
-          type: "image_url",
-          image_url: { url: customBackground }
-        });
-        messages[0].content[0].text = `Take this 3D printed product/figurine from the first image. Extract the main object completely, remove its background, and place it on the background/surface shown in the second image. Make it look like a premium e-commerce product photo with professional lighting and realistic contact shadows. Keep the object exactly as it is - only change the background. IMPORTANT: Include a subtle "3DtoPrint" watermark/brand text in the bottom-right corner.`;
+      // Attach custom/system background as second image when applicable
+      if (customBackground && (backgroundMode === "custom" || backgroundMode === "system")) {
+        contentParts.push({ type: "image_url", image_url: { url: customBackground } });
       }
+
+      const messages = [{ role: "user", content: contentParts }];
 
       const imgResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
