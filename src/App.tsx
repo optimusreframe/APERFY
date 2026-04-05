@@ -63,6 +63,20 @@ const AppContent = () => {
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
+    </>
+  );
+};
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <LanguageProvider>
+      <AuthProvider>
+        <CartProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AppContent />
             </BrowserRouter>
           </TooltipProvider>
         </CartProvider>
