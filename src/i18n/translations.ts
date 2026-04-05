@@ -468,6 +468,7 @@ export const translations = {
       weight: 'Peso',
       grams: 'g',
       costPerKg: 'Costo por KG',
+      dimensions: 'Dimensiones',
       selectSize: 'Selecciona un tamaño',
     },
     store: {
