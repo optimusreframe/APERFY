@@ -311,25 +311,39 @@ export default function ProductDetail() {
                   {type === 'color' ? t.product.color : type === 'size' ? t.product.size : type}
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {(vars as any[]).map((v: any) => (
-                    <button
-                      key={v.id}
-                      onClick={() => setSelectedVariations(prev => ({ ...prev, [type]: v.id }))}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-all ${
-                        selectedVariations[type] === v.id
-                          ? 'border-primary bg-primary/10 text-primary shadow-gold'
-                          : 'border-border/50 bg-secondary text-foreground hover:border-primary/30'
-                      }`}
-                    >
-                      {type === 'color' && (
-                        <span className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: v.value }} />
-                      )}
-                      {language === 'es' ? v.name_es : v.name_en}
-                      {Number(v.price_modifier) > 0 && (
-                        <span className="text-xs text-muted-foreground">+${Number(v.price_modifier).toFixed(2)}</span>
-                      )}
-                    </button>
-                  ))}
+                  {(vars as any[]).map((v: any) => {
+                    const isSize = type === 'size';
+                    const vPrice = isSize && Number(v.price_modifier) > 0 ? Number(v.price_modifier) : null;
+                    const vWeight = isSize && v.weight_grams ? Number(v.weight_grams) : null;
+                    return (
+                      <button
+                        key={v.id}
+                        onClick={() => setSelectedVariations(prev => ({ ...prev, [type]: v.id }))}
+                        className={`flex flex-col items-start gap-0.5 px-3 py-2 rounded-lg border text-sm transition-all ${
+                          selectedVariations[type] === v.id
+                            ? 'border-primary bg-primary/10 text-primary shadow-gold'
+                            : 'border-border/50 bg-secondary text-foreground hover:border-primary/30'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {type === 'color' && (
+                            <span className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: v.value }} />
+                          )}
+                          <span>{language === 'es' ? v.name_es : v.name_en}</span>
+                        </div>
+                        {isSize && (vWeight || vPrice) && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {vWeight ? `${vWeight}${t.product.grams}` : ''}
+                            {vWeight && vPrice ? ' · ' : ''}
+                            {vPrice ? `$${vPrice.toFixed(2)}` : ''}
+                          </span>
+                        )}
+                        {!isSize && Number(v.price_modifier) > 0 && (
+                          <span className="text-xs text-muted-foreground">+${Number(v.price_modifier).toFixed(2)}</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))}
