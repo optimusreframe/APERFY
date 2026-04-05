@@ -5,9 +5,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, Package } from 'lucide-react';
+import { ChevronDown, ChevronUp, Package, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
+import { sendTransactionalEmail } from '@/lib/send-email';
 
 const statuses = ['pending', 'confirmed', 'printing', 'shipped', 'delivered', 'cancelled'] as const;
 
