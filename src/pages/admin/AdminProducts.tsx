@@ -1188,11 +1188,11 @@ export default function AdminProducts() {
 
                         <Button
                           onClick={handleBulkImport}
-                          disabled={!bulkUrls.trim()}
+                          disabled={!bulkUrls.trim() || bulkImportRunning}
                           className="w-full h-12 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2 text-base font-semibold"
                         >
                           <Wand2 className="w-5 h-5" />
-                          Importar Lote con AI
+                          {bulkImportRunning ? 'Importación en curso...' : 'Importar Lote con AI'}
                         </Button>
                       </TabsContent>
                     </Tabs>
