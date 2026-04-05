@@ -52,6 +52,32 @@ const COMMON_COLORS = [
   'Naranja', 'Morado', 'Rosa', 'Dorado', 'Plateado', 'Marrón', 'Transparente'
 ];
 
+// ── AI Progress Log ──
+const AI_PROGRESS_MESSAGES = [
+  '◉ Aislando modelo 3D...',
+  '◉ Configurando iluminación de estudio...',
+  '◉ Aplicando efecto Bokeh...',
+  '◉ Renderizando en 8K...',
+];
+
+function AiProgressLog({ step }: { step: number }) {
+  return (
+    <div className="space-y-2 text-left px-6 w-full max-w-xs">
+      {AI_PROGRESS_MESSAGES.map((msg, i) => (
+        <motion.p
+          key={msg}
+          initial={{ opacity: 0, x: -10 }}
+          animate={i <= step ? { opacity: 1, x: 0 } : { opacity: 0.2, x: 0 }}
+          transition={{ delay: i * 0.1, duration: 0.3 }}
+          className={`text-xs font-mono ${i <= step ? 'text-primary' : 'text-muted-foreground'}`}
+        >
+          {msg}
+        </motion.p>
+      ))}
+    </div>
+  );
+}
+
 // ── Helpers ──
 function slugify(text: string): string {
   return text.toLowerCase().trim()
@@ -148,9 +174,10 @@ export default function AdminProducts() {
   const [aiData, setAiData] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
+  const [aiProgressStep, setAiProgressStep] = useState(0);
   const [aiExtractedImages, setAiExtractedImages] = useState<string[]>([]);
   const [aiSelectedSourceImage, setAiSelectedSourceImage] = useState<string | null>(null);
-  const [aiBgMode, setAiBgMode] = useState<'system' | 'ai' | 'custom'>('ai');
+  const [aiBgMode, setAiBgMode] = useState<'system' | 'ai' | 'custom'>('system');
   const [showEnglish, setShowEnglish] = useState(false);
   const [slugLocked, setSlugLocked] = useState(true);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -158,6 +185,15 @@ export default function AdminProducts() {
   const [translating, setTranslating] = useState(false);
   const aiOriginalInputRef = useRef<HTMLInputElement>(null);
   const aiBgInputRef = useRef<HTMLInputElement>(null);
+
+  // Progress log step timer
+  useEffect(() => {
+    if (!aiImageLoading) { setAiProgressStep(0); return; }
+    const interval = setInterval(() => {
+      setAiProgressStep((prev) => Math.min(prev + 1, AI_PROGRESS_MESSAGES.length - 1));
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [aiImageLoading]);
 
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -366,7 +402,7 @@ export default function AdminProducts() {
     setAiData(null);
     setAiExtractedImages([]);
     setAiSelectedSourceImage(null);
-    setAiBgMode('ai');
+    setAiBgMode('system');
     setShowEnglish(false);
     setSlugLocked(true);
     setNewCategoryName('');
@@ -633,51 +669,88 @@ export default function AdminProducts() {
                       </div>
                     </div>
 
-                    {/* Background Mode Selector */}
+                    {/* Background Mode Selector — Card Style */}
                     <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-4">
                       <Label className="flex items-center gap-2 text-sm font-semibold">
                         <Image className="w-4 h-4 text-primary" />
                         Fondo para imagen AI
                       </Label>
-                      <RadioGroup value={aiBgMode} onValueChange={(v) => setAiBgMode(v as 'system' | 'ai' | 'custom')} className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <RadioGroupItem value="system" id="bg-system" disabled={!systemBgSetting} />
-                          <Label htmlFor="bg-system" className={`text-sm ${!systemBgSetting ? 'text-muted-foreground' : ''}`}>
-                            Usar background del sistema {!systemBgSetting && '(no configurado)'}
-                          </Label>
+                      <RadioGroup value={aiBgMode} onValueChange={(v) => setAiBgMode(v as 'system' | 'ai' | 'custom')} className="space-y-3">
+                        {/* Estudio Maker */}
+                        <div
+                          onClick={() => setAiBgMode('system')}
+                          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:border-primary/50 ${aiBgMode === 'system' ? 'border-primary bg-primary/5 shadow-[0_0_15px_rgba(212,160,23,0.1)]' : 'border-border bg-background'}`}
+                        >
+                          <RadioGroupItem value="system" id="bg-system" className="sr-only" />
+                          <div className="flex items-start gap-3">
+                            <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${aiBgMode === 'system' ? 'border-primary' : 'border-muted-foreground'}`}>
+                              {aiBgMode === 'system' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-sm">Estudio Maker</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/20 text-primary">Recomendado</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">Fondo hiperrealista de taller con impresora 3D y desenfoque cinematográfico</p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <RadioGroupItem value="ai" id="bg-ai" />
-                          <Label htmlFor="bg-ai" className="text-sm">Generar con AI (expositor premium con marca 3DtoPrint)</Label>
+
+                        {/* Exhibición Tech */}
+                        <div
+                          onClick={() => setAiBgMode('ai')}
+                          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:border-primary/50 ${aiBgMode === 'ai' ? 'border-primary bg-primary/5 shadow-[0_0_15px_rgba(212,160,23,0.1)]' : 'border-border bg-background'}`}
+                        >
+                          <RadioGroupItem value="ai" id="bg-ai" className="sr-only" />
+                          <div className="flex items-start gap-3">
+                            <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${aiBgMode === 'ai' ? 'border-primary' : 'border-muted-foreground'}`}>
+                              {aiBgMode === 'ai' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="font-semibold text-sm">Exhibición Tech Abstracta</span>
+                              <p className="text-xs text-muted-foreground mt-1">Estilo geométrico oscuro con nodos de red y marca 3DtoPrint grabada</p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <RadioGroupItem value="custom" id="bg-custom" />
-                          <Label htmlFor="bg-custom" className="text-sm">Subir background personalizado</Label>
+
+                        {/* Fondo Personalizado */}
+                        <div
+                          onClick={() => setAiBgMode('custom')}
+                          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:border-primary/50 ${aiBgMode === 'custom' ? 'border-primary bg-primary/5 shadow-[0_0_15px_rgba(212,160,23,0.1)]' : 'border-border bg-background'}`}
+                        >
+                          <RadioGroupItem value="custom" id="bg-custom" className="sr-only" />
+                          <div className="flex items-start gap-3">
+                            <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${aiBgMode === 'custom' ? 'border-primary' : 'border-muted-foreground'}`}>
+                              {aiBgMode === 'custom' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="font-semibold text-sm">Fondo Personalizado</span>
+                              <p className="text-xs text-muted-foreground mt-1">Sube tu propia imagen de fondo</p>
+                            </div>
+                          </div>
                         </div>
                       </RadioGroup>
 
-                      {aiBgMode === 'custom' && (
-                        <div className="mt-2">
-                          {aiCustomBg ? (
-                            <div className="relative inline-block">
-                              <img src={aiCustomBg} alt="Background" className="w-32 h-20 object-cover rounded-lg" />
-                              <button onClick={() => { setAiCustomBg(null); setAiCustomBgFile(null); }} className="absolute top-1 right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"><X className="w-3 h-3 text-white" /></button>
+                      <AnimatePresence>
+                        {aiBgMode === 'custom' && (
+                          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                            <div className="pt-2">
+                              {aiCustomBg ? (
+                                <div className="relative inline-block">
+                                  <img src={aiCustomBg} alt="Background" className="w-32 h-20 object-cover rounded-lg" />
+                                  <button onClick={() => { setAiCustomBg(null); setAiCustomBgFile(null); }} className="absolute top-1 right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"><X className="w-3 h-3 text-white" /></button>
+                                </div>
+                              ) : (
+                                <button onClick={() => aiBgInputRef.current?.click()} className="w-32 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors">
+                                  <Upload className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">Subir</span>
+                                </button>
+                              )}
+                              <input ref={aiBgInputRef} type="file" accept="image/*" onChange={handleAiBgUpload} className="hidden" />
                             </div>
-                          ) : (
-                            <button onClick={() => aiBgInputRef.current?.click()} className="w-32 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors">
-                              <Upload className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">Subir</span>
-                            </button>
-                          )}
-                          <input ref={aiBgInputRef} type="file" accept="image/*" onChange={handleAiBgUpload} className="hidden" />
-                        </div>
-                      )}
-
-                      {aiBgMode === 'system' && systemBgSetting && (
-                        <div className="mt-2">
-                          <img src={systemBgSetting} alt="System BG" className="w-32 h-20 object-cover rounded-lg border border-border" />
-                        </div>
-                      )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     {/* Original Product Photo */}
@@ -704,7 +777,7 @@ export default function AdminProducts() {
                     <Button
                       onClick={handleAiScrape}
                       disabled={!aiUrl}
-                      className="w-full h-12 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2 text-base font-semibold"
+                      className={`w-full h-12 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2 text-base font-semibold ${aiLoading ? 'animate-pulse' : ''}`}
                     >
                       <Wand2 className="w-5 h-5" />
                       Extraer y Generar con AI
@@ -774,7 +847,7 @@ export default function AdminProducts() {
                         )}
 
                         {/* Generated image preview */}
-                        <div className="aspect-square rounded-xl overflow-hidden bg-secondary border border-border">
+                        <div className={`relative aspect-square rounded-xl overflow-hidden bg-secondary border border-border ${aiGeneratedImage && !aiImageLoading ? 'shadow-[inset_0_0_40px_rgba(212,160,23,0.1)]' : ''}`}>
                           {(aiPreviewImage || aiGeneratedImage || aiOriginalImage || aiSelectedSourceImage) ? (
                             <img src={(aiPreviewImage || aiGeneratedImage || aiOriginalImage || aiSelectedSourceImage)!} alt="Preview" className="w-full h-full object-contain" />
                           ) : (
@@ -782,6 +855,20 @@ export default function AdminProducts() {
                               <p className="text-sm text-muted-foreground">Sin imagen disponible</p>
                             </div>
                           )}
+                          {/* Progress Log Overlay */}
+                          <AnimatePresence>
+                            {aiImageLoading && (
+                              <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-3 shadow-[inset_0_0_30px_rgba(212,160,23,0.15)]"
+                              >
+                                <AiProgressLog step={aiProgressStep} />
+                                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
 
                         <div className="flex gap-2">
