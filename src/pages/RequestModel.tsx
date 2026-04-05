@@ -109,8 +109,20 @@ export default function RequestModel() {
         images: uploadedUrls,
       };
 
-      const { error } = await supabase.from('model_requests').insert(sanitized);
+      const { data: inserted, error } = await supabase.from('model_requests').insert(sanitized).select('id').single();
       if (error) throw error;
+
+      // Send confirmation email
+      try {
+        await supabase.functions.invoke('send-transactional-email', {
+          body: {
+            templateName: 'model-request-received',
+            recipientEmail: sanitized.email,
+            idempotencyKey: `model-request-${inserted.id}`,
+            templateData: { customerName: sanitized.name, productName: sanitized.product_name },
+          },
+        });
+      } catch (e) { console.error('Email send failed:', e); }
 
       setSuccess(true);
     } catch {

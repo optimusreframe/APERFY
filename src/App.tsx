@@ -69,6 +69,7 @@ const AppContent = () => {
                 <Route path="/request-model" element={<RequestModel />} />
                 <Route path="/our-process" element={<OurProcess />} />
                 <Route path="/materials" element={<Materials />} />
+                <Route path="/unsubscribe" element={<EmailUnsubscribe />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
                 <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />

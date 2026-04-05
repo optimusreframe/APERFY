@@ -166,7 +166,12 @@ export default function AdminOrders() {
                     <TableCell className="font-bold">${Number(order.total).toFixed(2)}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{new Date(order.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      {expandedOrder === order.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      <div className="flex items-center gap-2">
+                        {expandedOrder === order.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={(e) => { e.stopPropagation(); handleConfirmPayment(order); }}>
+                          <DollarSign className="w-3 h-3" /> Payment
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                   {expandedOrder === order.id && (
