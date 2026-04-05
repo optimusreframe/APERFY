@@ -1731,6 +1731,108 @@ export default function AdminProducts() {
                     )}
                   </div>
 
+                  {/* AI Image Generation Panel */}
+                  {mediaFiles.length < MAX_MEDIA && (
+                    <div className="space-y-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditAiImageOpen(!editAiImageOpen)}
+                        className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                      >
+                        <Wand2 className="w-3 h-3" />
+                        {editAiImageOpen ? 'Cerrar generador AI' : '✨ Generar imagen con AI'}
+                      </Button>
+
+                      <AnimatePresence>
+                        {editAiImageOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="p-4 rounded-xl bg-secondary/50 border border-primary/20 space-y-4">
+                              <div className="space-y-2">
+                                <Label className="text-xs font-semibold flex items-center gap-1">
+                                  <ImagePlus className="w-3 h-3 text-primary" />
+                                  Foto original del producto
+                                </Label>
+                                {editAiSourceImage ? (
+                                  <div className="relative inline-block">
+                                    <img src={editAiSourceImage} alt="Source" className="w-24 h-24 object-cover rounded-lg" />
+                                    <button type="button" onClick={() => setEditAiSourceImage(null)} className="absolute top-1 right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center">
+                                      <X className="w-3 h-3 text-white" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button type="button" onClick={() => editAiSourceRef.current?.click()} className="w-24 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors">
+                                    <Upload className="w-4 h-4 text-muted-foreground" />
+                                    <span className="text-[10px] text-muted-foreground">Subir foto</span>
+                                  </button>
+                                )}
+                                <input ref={editAiSourceRef} type="file" accept="image/*" onChange={handleEditAiSourceUpload} className="hidden" />
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label className="text-xs font-semibold">Fondo</Label>
+                                <div className="flex gap-2">
+                                  {[
+                                    { value: 'system', label: 'Estudio Maker', badge: '★' },
+                                    { value: 'ai', label: 'Exhibición Tech', badge: null },
+                                    { value: 'custom', label: 'Personalizado', badge: null },
+                                  ].map((opt) => (
+                                    <button
+                                      key={opt.value}
+                                      type="button"
+                                      onClick={() => setEditAiBgMode(opt.value as any)}
+                                      className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${editAiBgMode === opt.value ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-background border border-border hover:border-primary/30'}`}
+                                    >
+                                      {opt.badge && <span className="mr-1">{opt.badge}</span>}
+                                      {opt.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {editAiBgMode === 'custom' && (
+                                <div className="space-y-2">
+                                  {editAiCustomBg ? (
+                                    <div className="relative inline-block">
+                                      <img src={editAiCustomBg} alt="BG" className="w-24 h-16 object-cover rounded-lg" />
+                                      <button type="button" onClick={() => setEditAiCustomBg(null)} className="absolute top-1 right-1 w-4 h-4 bg-destructive rounded-full flex items-center justify-center">
+                                        <X className="w-2.5 h-2.5 text-white" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button type="button" onClick={() => editAiBgRef.current?.click()} className="w-24 h-16 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors">
+                                      <Upload className="w-3 h-3 text-muted-foreground" />
+                                      <span className="text-[9px] text-muted-foreground">Fondo</span>
+                                    </button>
+                                  )}
+                                  <input ref={editAiBgRef} type="file" accept="image/*" onChange={handleEditAiBgUpload} className="hidden" />
+                                </div>
+                              )}
+
+                              <Button
+                                type="button"
+                                onClick={handleEditAiGenerateImage}
+                                disabled={!editAiSourceImage || editAiGenerating}
+                                className="w-full gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground"
+                              >
+                                {editAiGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                                {editAiGenerating ? 'Generando...' : 'Generar con AI'}
+                              </Button>
+
+                              {editAiGenerating && <AiProgressLog step={editAiProgressStep} />}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+
                   <input
                     ref={fileInputRef}
                     type="file"
