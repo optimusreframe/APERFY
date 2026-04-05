@@ -776,8 +776,15 @@ export default function AdminProducts() {
 
               <div className="p-6 pt-4">
                 {/* ── STEP: SOURCE ── */}
-                {aiStep === 'source' && (
+                {aiStep === 'source' && !bulkProcessing && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                    <Tabs value={bulkMode ? 'bulk' : 'single'} onValueChange={(v) => setBulkMode(v === 'bulk')}>
+                      <TabsList className="w-full">
+                        <TabsTrigger value="single" className="flex-1 gap-2"><Link2 className="w-3 h-3" /> URL única</TabsTrigger>
+                        <TabsTrigger value="bulk" className="flex-1 gap-2"><List className="w-3 h-3" /> Lote (hasta 10)</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="single" className="space-y-6 mt-4">
                     <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-4">
                       <div className="space-y-2">
                         <Label className="flex items-center gap-2 text-sm font-semibold">
