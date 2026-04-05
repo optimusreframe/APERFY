@@ -15,6 +15,21 @@ function isValidUrl(str: string): boolean {
   }
 }
 
+// Extract prices from markdown text using common patterns
+function extractPricesFromText(text: string): number[] {
+  const prices: number[] = [];
+  // Match $XX.XX, USD XX.XX, US $XX.XX patterns
+  const priceRegex = /(?:US\s*)?(?:\$|USD\s*)(\d{1,5}(?:\.\d{1,2})?)/gi;
+  let match;
+  while ((match = priceRegex.exec(text)) !== null) {
+    const price = parseFloat(match[1]);
+    if (price >= 1 && price <= 500) { // reasonable range for 3D printed products
+      prices.push(price);
+    }
+  }
+  return prices;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -83,8 +98,51 @@ serve(async (req) => {
         scrapedContent = `URL provided: ${url}. Unable to scrape content directly.`;
       }
 
+      // ── eBay Price Research ──
+      let ebayPriceContext = "";
+      let ebayPrices: number[] = [];
+      if (FIRECRAWL_API_KEY && scrapedTitle) {
+        try {
+          const searchQuery = `site:ebay.com ${scrapedTitle} 3D printed`;
+          console.log("eBay price search:", searchQuery);
+          const searchResp = await fetch("https://api.firecrawl.dev/v1/search", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              query: searchQuery,
+              limit: 6,
+              scrapeOptions: { formats: ["markdown"] },
+            }),
+          });
+          const searchData = await searchResp.json();
+          if (searchResp.ok && searchData.success && searchData.data) {
+            for (const result of searchData.data) {
+              const text = result.markdown || result.description || "";
+              const foundPrices = extractPricesFromText(text);
+              ebayPrices.push(...foundPrices);
+            }
+            // Deduplicate and take up to 10
+            ebayPrices = [...new Set(ebayPrices)].slice(0, 10);
+            if (ebayPrices.length > 0) {
+              const avg = ebayPrices.reduce((a, b) => a + b, 0) / ebayPrices.length;
+              ebayPriceContext = `\n\nEBAY MARKET PRICES FOUND:\n${ebayPrices.map((p, i) => `${i + 1}. $${p.toFixed(2)}`).join("\n")}\nAverage: $${avg.toFixed(2)}\n\nIMPORTANT: Use the average of these eBay market prices as the suggested_price. Do NOT invent a price.`;
+              console.log(`Found ${ebayPrices.length} eBay prices, avg: $${avg.toFixed(2)}`);
+            }
+          }
+        } catch (e) {
+          console.error("eBay search error:", e);
+        }
+      }
+
       const categorySlugs = existingCategories.map((c: any) => c.slug).join(", ");
       const imageListForAI = scrapedImages.slice(0, 10).map((u, i) => `${i + 1}. ${u}`).join("\n");
+
+      const priceInstruction = ebayPrices.length > 0
+        ? `suggested_price: Calculate as the average of the eBay market prices provided below. Round to 2 decimal places.`
+        : `suggested_price: Reasonable retail price in USD for a 3D printed product.`;
 
       const extractResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -104,13 +162,13 @@ STRICT RULES:
 - Description (description_en, description_es): MAX 150 characters each. 2-3 short sentences. Attractive and concise.
 - reference_image_url: From the list of extracted images below, pick the SINGLE BEST image URL that shows the product most clearly (front view, clean, high-res). If no good image, return empty string.
 - slug: URL-friendly, lowercase, hyphens only, based on the new name.
-- suggested_price: Reasonable retail price in USD for a 3D printed product.
+- ${priceInstruction}
 - suggested_category: Use one of these existing slugs if applicable: ${categorySlugs || "none yet"}. Otherwise suggest a new slug.
 - materials: Logical 3D printing materials (PLA, ABS, PETG, Resin, etc.)
 - colors: Recommended colors in Spanish (Negro, Blanco, Dorado, etc.)
 
 EXTRACTED IMAGES:
-${imageListForAI || "No images found."}`
+${imageListForAI || "No images found."}${ebayPriceContext}`
             },
             {
               role: "user",
@@ -130,7 +188,7 @@ ${imageListForAI || "No images found."}`
                   description_en: { type: "string", description: "Short description in English (max 150 chars, 2-3 sentences)" },
                   description_es: { type: "string", description: "Short description in Spanish (max 150 chars, 2-3 sentences)" },
                   slug: { type: "string", description: "URL-friendly slug (lowercase, hyphens only)" },
-                  suggested_price: { type: "number", description: "Suggested retail price in USD" },
+                  suggested_price: { type: "number", description: "Suggested retail price in USD based on eBay market data when available" },
                   suggested_category: { type: "string", description: "Best matching existing category slug, or a new slug" },
                   suggested_category_name_en: { type: "string", description: "Category name in English (for new categories)" },
                   suggested_category_name_es: { type: "string", description: "Category name in Spanish (for new categories)" },
@@ -164,7 +222,12 @@ ${imageListForAI || "No images found."}`
 
       return new Response(JSON.stringify({
         success: true,
-        data: { ...productData, extracted_images: uniqueImages },
+        data: {
+          ...productData,
+          extracted_images: uniqueImages,
+          ebay_prices: ebayPrices.length > 0 ? ebayPrices : undefined,
+          price_source: ebayPrices.length > 0 ? 'ebay_market' : 'ai_estimate',
+        },
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -179,7 +242,6 @@ ${imageListForAI || "No images found."}`
         });
       }
 
-      // Build prompt based on backgroundMode
       let promptText: string;
       const contentParts: any[] = [];
 
@@ -188,14 +250,12 @@ ${imageListForAI || "No images found."}`
       } else if (backgroundMode === "custom") {
         promptText = "Isolate the 3D model object from the reference image and remove its original background. Seamlessly composite and place this object onto the user-uploaded background image. Apply realistic lighting and soft contact shadows on the surface where the object is placed.";
       } else {
-        // "ai" - Exhibición Tech Abstracta
         promptText = "Isolate the 3D model object from the reference image and remove its original background. Luxury product display. Object placed on a dark carbon-fiber plinth. Background: Intricate 3D geometric network nodes in dark blue/grey. '3DtoPrint' logo subtly engraved in copper/gold on the plinth. Cyberpunk technology aesthetic. The object must cast realistic, soft contact shadows on the plinth to look physically present.";
       }
 
       contentParts.push({ type: "text", text: promptText });
       contentParts.push({ type: "image_url", image_url: { url: sourceImage } });
 
-      // Attach custom/system background as second image when applicable
       if (customBackground && (backgroundMode === "custom" || backgroundMode === "system")) {
         contentParts.push({ type: "image_url", image_url: { url: customBackground } });
       }
@@ -229,24 +289,18 @@ ${imageListForAI || "No images found."}`
       const message = imgResult.choices?.[0]?.message;
       console.log("Message keys:", message ? JSON.stringify(Object.keys(message)) : "no message");
 
-      // Defensive parsing: try multiple known response shapes
       let generatedImage: string | undefined;
 
-      // Shape 1: message.images array (Lovable gateway format)
       if (message?.images?.[0]?.image_url?.url) {
         generatedImage = message.images[0].image_url.url;
-      }
-      // Shape 2: inline base64 in content parts
-      else if (Array.isArray(message?.content)) {
+      } else if (Array.isArray(message?.content)) {
         const imgPart = message.content.find((p: any) => p.type === "image_url" || p.type === "image");
         if (imgPart?.image_url?.url) {
           generatedImage = imgPart.image_url.url;
         } else if (imgPart?.url) {
           generatedImage = imgPart.url;
         }
-      }
-      // Shape 3: direct base64 in content string (data:image prefix)
-      else if (typeof message?.content === "string" && message.content.startsWith("data:image")) {
+      } else if (typeof message?.content === "string" && message.content.startsWith("data:image")) {
         generatedImage = message.content;
       }
 
