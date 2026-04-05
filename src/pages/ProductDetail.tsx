@@ -285,6 +285,12 @@ export default function ProductDetail() {
                   {selectedWeight}{t.product.grams}
                 </Badge>
               )}
+              {selectedDimensions && (
+                <Badge variant="outline" className="mt-2 ml-2 gap-1">
+                  <Ruler className="w-3 h-3" />
+                  {selectedDimensions}mm
+                </Badge>
+              )}
             </div>
 
             <p className="text-muted-foreground leading-relaxed text-sm sm:text-base">
