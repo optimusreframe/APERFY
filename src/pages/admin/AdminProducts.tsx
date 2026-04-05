@@ -1199,78 +1199,7 @@ export default function AdminProducts() {
                   </motion.div>
                 )}
 
-                {/* ── STEP: BULK PROCESSING ── */}
-                {bulkProcessing && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 py-4">
-                    <div className="text-center space-y-2 mb-6">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center mx-auto animate-pulse">
-                        <Sparkles className="w-6 h-6 text-primary-foreground" />
-                      </div>
-                      <p className="font-display text-lg font-semibold">Importando productos...</p>
-                      <p className="text-sm text-muted-foreground">
-                        {bulkResults.filter(r => r.status === 'done').length} / {bulkResults.length} completados
-                      </p>
-                    </div>
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                      {bulkResults.map((item, i) => (
-                        <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                          item.status === 'done' ? 'border-green-500/30 bg-green-500/5' :
-                          item.status === 'error' ? 'border-destructive/30 bg-destructive/5' :
-                          item.status === 'queued' ? 'border-border bg-secondary/30' :
-                          'border-primary/30 bg-primary/5'
-                        }`}>
-                          <div className="flex-shrink-0">
-                            {item.status === 'queued' && <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />}
-                            {(item.status === 'scraping' || item.status === 'generating' || item.status === 'saving') && (
-                              <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                            )}
-                            {item.status === 'done' && <CheckCircle2 className="w-5 h-5 text-green-500" />}
-                            {item.status === 'error' && <AlertCircle className="w-5 h-5 text-destructive" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-mono truncate">{item.url}</p>
-                            {item.name && <p className="text-xs text-muted-foreground">{item.name}</p>}
-                            {item.error && <p className="text-xs text-destructive">{item.error}</p>}
-                          </div>
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex-shrink-0">
-                            {item.status === 'queued' && 'En cola'}
-                            {item.status === 'scraping' && '🔄 Scraping'}
-                            {item.status === 'generating' && '🖼️ Imagen'}
-                            {item.status === 'saving' && '💾 Guardando'}
-                            {item.status === 'done' && '✅ Creado'}
-                            {item.status === 'error' && '❌ Error'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* ── BULK RESULTS (after processing) ── */}
-                {!bulkProcessing && bulkResults.length > 0 && aiStep === 'source' && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 py-4">
-                    <div className="text-center space-y-2 mb-4">
-                      <p className="font-display text-lg font-semibold">Importación completada</p>
-                      <p className="text-sm text-muted-foreground">
-                        {bulkResults.filter(r => r.status === 'done').length} creados · {bulkResults.filter(r => r.status === 'error').length} errores
-                      </p>
-                    </div>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                      {bulkResults.map((item, i) => (
-                        <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border ${
-                          item.status === 'done' ? 'border-green-500/30 bg-green-500/5' : 'border-destructive/30 bg-destructive/5'
-                        }`}>
-                          {item.status === 'done' ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <AlertCircle className="w-5 h-5 text-destructive" />}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium">{item.name || item.url}</p>
-                            {item.error && <p className="text-xs text-destructive">{item.error}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <Button onClick={resetAi} variant="outline" className="w-full">Cerrar</Button>
-                  </motion.div>
-                )}
+                {/* Bulk processing and results are now shown in BulkImportBanner */}
 
                 {/* ── STEP: LOADING ── */}
                 {aiStep === 'loading' && (
