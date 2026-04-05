@@ -72,9 +72,16 @@ export default function AdminMaterials() {
       const { error } = await supabase.from('materials').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
       qc.invalidateQueries({ queryKey: ['admin-materials'] });
       qc.invalidateQueries({ queryKey: ['admin-material-count'] });
+      logActivity({
+        action: 'material_deleted',
+        category: 'edit',
+        entity_type: 'material',
+        entity_id: deletedId,
+        title: 'Material eliminado',
+      });
       toast({ title: '✓', description: 'Material deleted.' });
     },
   });

@@ -668,6 +668,14 @@ export default function AdminProducts() {
       toast({ title: '✓', description: '¡Imagen AI generada!' });
     } catch (e: any) {
       toast({ title: 'Error generando imagen', description: e.message, variant: 'destructive' });
+      logActivity({
+        action: 'ai_image_error',
+        category: 'error',
+        entity_type: 'product',
+        title: 'Error generando imagen AI',
+        details: e.message,
+        metadata: { backgroundMode: aiBgMode },
+      });
     } finally {
       setAiImageLoading(false);
       setAiPersistingImage(false);

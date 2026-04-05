@@ -69,9 +69,16 @@ export default function AdminCategories() {
       const { error } = await supabase.from('categories').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
       qc.invalidateQueries({ queryKey: ['admin-categories'] });
       qc.invalidateQueries({ queryKey: ['admin-category-count'] });
+      logActivity({
+        action: 'category_deleted',
+        category: 'edit',
+        entity_type: 'category',
+        entity_id: deletedId,
+        title: 'Categoría eliminada',
+      });
       toast({ title: '✓', description: 'Category deleted.' });
     },
   });
