@@ -474,9 +474,16 @@ export default function AdminProducts() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['admin-products'] });
       qc.invalidateQueries({ queryKey: ['admin-product-count'] });
+      logActivity({
+        action: editId ? 'product_updated' : 'product_created',
+        category: editId ? 'edit' : 'success',
+        entity_type: 'product',
+        title: `${editId ? 'Editado' : 'Creado'}: ${variables.name_es || variables.name_en}`,
+        metadata: { slug: variables.slug },
+      });
       setOpen(false);
       setEditId(null);
       setForm(empty);
@@ -487,6 +494,13 @@ export default function AdminProducts() {
     onError: (e: any) => {
       if (e.message !== 'Validation failed') {
         toast({ title: 'Error', description: e.message, variant: 'destructive' });
+        logActivity({
+          action: 'product_save_error',
+          category: 'error',
+          entity_type: 'product',
+          title: 'Error guardando producto',
+          details: e.message,
+        });
       }
     },
   });
