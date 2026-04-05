@@ -184,12 +184,12 @@ ${imageListForAI || "No images found."}`
       const contentParts: any[] = [];
 
       if (backgroundMode === "system") {
-        promptText = "Isolate the 3D model object from the reference image. Remove its original background completely. Place the object on a clean, solid, slightly warm light-gray studio background with soft contact shadows beneath it. Maintain high fidelity to the original object's shape and color.";
+        promptText = "Isolate the 3D model object from the reference image. Remove its original background completely. High-fidelity photography of a 3D printed object on a grey industrial workbench. Background: Blurred professional 3D printer and colorful filament spools (orange/teal). Macro lens aesthetic, heavy bokeh, cinematic studio lighting with a cool rim light on the object edges. Maintain high fidelity to the original object's shape and color.";
       } else if (backgroundMode === "custom") {
         promptText = "Isolate the 3D model object from the reference image and remove its original background. Seamlessly composite and place this object onto the user-uploaded background image. Apply realistic lighting and soft contact shadows on the surface where the object is placed.";
       } else {
-        // "ai" (premium) - default
-        promptText = "Isolate the 3D model object from the reference image and remove its original background. Place this object centrally on a high-end, dark exhibition plinth made of polished dark concrete and brushed copper. The plinth has the logo '3DtoPrint' precisely laser-etched on its front face. The scene is a dark, minimalist showroom with cinematic lighting: a soft warm light from above and a subtle electric blue neon line in the background. The object must cast realistic, soft contact shadows on the plinth to look physically present.";
+        // "ai" - Exhibición Tech Abstracta
+        promptText = "Isolate the 3D model object from the reference image and remove its original background. Luxury product display. Object placed on a dark carbon-fiber plinth. Background: Intricate 3D geometric network nodes in dark blue/grey. '3DtoPrint' logo subtly engraved in copper/gold on the plinth. Cyberpunk technology aesthetic. The object must cast realistic, soft contact shadows on the plinth to look physically present.";
       }
 
       contentParts.push({ type: "text", text: promptText });
