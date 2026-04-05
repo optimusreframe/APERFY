@@ -225,10 +225,40 @@ ${imageListForAI || "No images found."}`
       }
 
       const imgResult = await imgResp.json();
-      const generatedImage = imgResult.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      console.log("AI image response keys:", JSON.stringify(Object.keys(imgResult)));
+      const message = imgResult.choices?.[0]?.message;
+      console.log("Message keys:", message ? JSON.stringify(Object.keys(message)) : "no message");
+
+      // Defensive parsing: try multiple known response shapes
+      let generatedImage: string | undefined;
+
+      // Shape 1: message.images array (Lovable gateway format)
+      if (message?.images?.[0]?.image_url?.url) {
+        generatedImage = message.images[0].image_url.url;
+      }
+      // Shape 2: inline base64 in content parts
+      else if (Array.isArray(message?.content)) {
+        const imgPart = message.content.find((p: any) => p.type === "image_url" || p.type === "image");
+        if (imgPart?.image_url?.url) {
+          generatedImage = imgPart.image_url.url;
+        } else if (imgPart?.url) {
+          generatedImage = imgPart.url;
+        }
+      }
+      // Shape 3: direct base64 in content string (data:image prefix)
+      else if (typeof message?.content === "string" && message.content.startsWith("data:image")) {
+        generatedImage = message.content;
+      }
 
       if (!generatedImage) {
-        throw new Error("AI did not return an image");
+        console.error("Full AI response (no image found):", JSON.stringify(imgResult).substring(0, 2000));
+        return new Response(JSON.stringify({
+          success: false,
+          error: "La IA no devolvió una imagen. Intenta con otra imagen fuente o modo diferente.",
+        }), {
+          status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       return new Response(JSON.stringify({
