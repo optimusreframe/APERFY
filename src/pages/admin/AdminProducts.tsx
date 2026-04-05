@@ -228,11 +228,8 @@ export default function AdminProducts() {
   }, [editAiGenerating]);
 
   // Bulk Import state
-  type BulkItemStatus = 'queued' | 'scraping' | 'generating' | 'saving' | 'done' | 'error';
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkUrls, setBulkUrls] = useState('');
-  const [bulkProcessing, setBulkProcessing] = useState(false);
-  const [bulkResults, setBulkResults] = useState<{ url: string; status: BulkItemStatus; name?: string; error?: string }[]>([]);
 
   // Bulk Edit state
   const [bulkEditMode, setBulkEditMode] = useState(false);
