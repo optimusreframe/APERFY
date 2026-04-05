@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageCircle, CreditCard, ArrowLeft, CheckCircle2, ExternalLink, MapPin, User, Phone, Mail, Truck, Package, Shield, Clock } from 'lucide-react';
+import { Loader2, MessageCircle, CreditCard, ArrowLeft, CheckCircle2, ExternalLink, MapPin, User, Phone, Mail, Truck, Package, Shield, Clock, Weight, Ruler } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
 
@@ -156,9 +156,8 @@ export default function Checkout() {
   const selectedProvider = shippingProviders.find(p => p.id === selectedShipping);
   const totalWeight = useMemo(() => {
     return items.reduce((sum, item) => {
-      const sizeVar = item.selectedVariations.find(v => v.type === 'size');
-      // Approximate weight - we'd ideally get from variations but use 100g default
-      return sum + (item.quantity * 100) / 1000; // default 0.1kg per item
+      const w = item.weightGrams && item.weightGrams > 0 ? item.weightGrams : 100;
+      return sum + (item.quantity * w) / 1000;
     }, 0);
   }, [items]);
 
@@ -480,7 +479,15 @@ export default function Checkout() {
                               {item.selectedVariations.length > 0 && (
                                 <p className="text-[11px] text-muted-foreground">{item.selectedVariations.map(v => v.name).filter(Boolean).join(', ')}</p>
                               )}
-                              <p className="text-xs text-muted-foreground">x{item.quantity}</p>
+                              <div className="flex flex-wrap gap-x-2 gap-y-0 mt-0.5">
+                                {item.weightGrams && item.weightGrams > 0 && (
+                                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><Weight className="w-2.5 h-2.5" />{item.weightGrams}g</span>
+                                )}
+                                {item.dimensions && (
+                                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><Ruler className="w-2.5 h-2.5" />{item.dimensions}mm</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">${item.unitPrice.toFixed(2)} × {item.quantity}</p>
                             </div>
                             <span className="font-semibold text-sm shrink-0">${itemTotal.toFixed(2)}</span>
                           </div>

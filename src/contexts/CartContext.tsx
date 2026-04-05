@@ -10,6 +10,8 @@ export interface CartItem {
   unitPrice: number;
   selectedVariations: { id: string; type: string; name: string; priceModifier: number }[];
   notes: string;
+  weightGrams?: number;
+  dimensions?: string;
 }
 
 // Zod schema for cart data integrity
@@ -27,6 +29,8 @@ const cartItemSchema = z.object({
     priceModifier: z.number().min(-999999).max(999999),
   })),
   notes: z.string().max(500),
+  weightGrams: z.number().min(0).max(999999).optional(),
+  dimensions: z.string().max(100).optional(),
 });
 
 const cartSchema = z.array(cartItemSchema);
