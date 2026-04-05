@@ -1,49 +1,68 @@
 
 
-# Background Animado de Impresión 3D
+# Background Animado Mejorado + Detalles en Carrito/Checkout
 
-## Enfoque
+## Parte 1: Background con más velocidad y objetos dinámicos
 
-Crear un componente `PrintingBackground` con elementos SVG ligeros (partículas, trozos de filamento, rollos, objetos 3D, siluetas de impresoras Bambulab) que flotan suavemente usando CSS animations puras — sin canvas ni WebGL para mantener el rendimiento.
+### Animaciones más rápidas
+- Reducir duración de keyframes: `bg-float-1` de 22s→10s, `bg-float-2` de 28s→14s, `bg-float-3` de 20s→9s, `bg-drift` de 30s→12s
+- Reducir rango de duración por elemento de `18-43s` a `8-18s`
+- Los elementos se desplazarán visiblemente por toda la pantalla
 
-## Implementación
+### Nuevos objetos 3D SVG (inline, ligeros)
+Agregar ~6 nuevas siluetas temáticas:
+- **Benchy** (barco benchmark de impresión 3D)
+- **Engranaje** (gear mecánico)
+- **Nozzle/Hotend** (boquilla de impresora)
+- **Pirámide/Cono** (forma geométrica)
+- **Llave/Wrench** (herramienta)
+- **Estrella 3D** (low-poly star)
 
-### 1. Nuevo componente `src/components/PrintingBackground.tsx`
+### Objetos dinámicos desde productos publicados
+- El componente `PrintingBackground` hará un query ligero a `products` (solo `id`, `name_en`, `category_id`, `images`) de productos activos
+- Por cada producto, se genera un "hash visual" que selecciona un objeto SVG del pool de formas disponibles (mapeo determinístico basado en el ID del producto)
+- Los productos se mezclan con los elementos estáticos base, aumentando la variedad
+- Máximo ~25 elementos totales para mantener rendimiento
+- Al publicar un producto nuevo, automáticamente aparecerá un nuevo objeto en el background en la próxima carga
 
-- ~15-20 elementos SVG inline posicionados absolutamente con `pointer-events-none` y `z-index: 0`
-- Cada elemento tiene: posición aleatoria fija (no re-renderiza), opacidad muy baja (0.03-0.08), tamaño variado (16-48px), color dorado (#D4A017) para mantener la estética
-- Animaciones CSS puras: `float` (ya existe en tailwind), rotación lenta, drift horizontal sutil
-- Los SVGs representarán:
-  - **Partículas/puntos**: círculos pequeños dorados
-  - **Trozos de filamento**: líneas curvas SVG
-  - **Rollos de filamento**: círculo con hueco central (spool shape)
-  - **Objetos 3D**: cubo isométrico simple, esfera con líneas de capa
-  - **Impresora Bambulab**: silueta simplificada tipo caja con eje
-- Componente usa `useMemo` para generar posiciones una sola vez
-- Todo envuelto en `fixed inset-0 overflow-hidden pointer-events-none` con `z-index: 0`
+### Archivos
+- `src/components/PrintingBackground.tsx` — reescribir con nuevos SVGs, query a productos, animaciones más rápidas
+- `tailwind.config.ts` — ajustar duraciones de keyframes
 
-### 2. Nuevos keyframes en `tailwind.config.ts`
+---
 
-- `drift`: movimiento horizontal sutil (±30px) en 20-40s
-- `float-slow`: variante más lenta del float existente (15-25s)
-- `rotate-slow`: rotación completa en 30-60s
+## Parte 2: Detalles del producto en Carrito y Checkout
 
-### 3. Integración en `src/App.tsx`
+### Ampliar CartItem interface
+Agregar campos opcionales a `CartItem` en `CartContext.tsx`:
+- `weightGrams?: number`
+- `dimensions?: string`
 
-- Renderizar `<PrintingBackground />` fuera de las rutas admin (antes del `<Routes>`)
-- Usar `useLocation` para ocultar en rutas `/admin*`
+### ProductDetail.tsx — Enviar datos completos al carrito
+Al hacer `addToCart`, incluir `weightGrams` y `dimensions` del tamaño seleccionado.
 
-### 4. Performance
+### Cart.tsx — Mostrar detalles completos
+Debajo del nombre del producto, mostrar:
+- Variaciones seleccionadas (size, color, etc.)
+- Peso (ej: `80g`)
+- Dimensiones (ej: `25x25x10mm`)
+- Precio unitario
 
-- Solo CSS animations (GPU-accelerated via `transform` y `opacity`)
-- Sin JavaScript animation loops, sin requestAnimationFrame
-- Elementos con `will-change: transform` para composición GPU
-- Opacidad muy baja para que no distraiga del contenido
-- ~15 elementos máximo en pantalla
+### Checkout.tsx — Order Summary mejorado
+En el resumen del pedido (paso 1 y paso 2), mostrar para cada item:
+- Nombre del producto
+- Size seleccionado
+- Peso y dimensiones
+- Precio unitario × cantidad = subtotal
 
-## Archivos
+---
 
-- **Crear**: `src/components/PrintingBackground.tsx`
-- **Editar**: `tailwind.config.ts` (keyframes drift/float-slow/rotate-slow)
-- **Editar**: `src/App.tsx` (agregar componente condicionalmente fuera de admin)
+## Archivos a modificar
+
+- `src/components/PrintingBackground.tsx` — nuevos SVGs + query productos + velocidad
+- `tailwind.config.ts` — duraciones de animación
+- `src/contexts/CartContext.tsx` — campos weightGrams, dimensions
+- `src/pages/ProductDetail.tsx` — enviar weight/dimensions al carrito
+- `src/pages/Cart.tsx` — mostrar detalles completos del producto
+- `src/pages/Checkout.tsx` — mostrar detalles en order summary
 
