@@ -28,6 +28,7 @@ import AdminMaterials from "./pages/admin/AdminMaterials";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminRequests from "./pages/admin/AdminRequests";
 import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
+import AdminShipping from "./pages/admin/AdminShipping";
 import RequestModel from "./pages/RequestModel";
 
 const queryClient = new QueryClient();
@@ -60,6 +61,7 @@ const AppContent = () => {
                   <Route path="orders" element={<AdminOrders />} />
                   <Route path="requests" element={<AdminRequests />} />
                   <Route path="payments" element={<AdminPaymentSettings />} />
+                  <Route path="shipping" element={<AdminShipping />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

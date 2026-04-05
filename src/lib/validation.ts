@@ -32,9 +32,14 @@ export const profileSchema = z.object({
 // ── Checkout ──
 export const checkoutSchema = z.object({
   fullName: requiredSanitizedString(100),
+  email: z.string().trim().email('Invalid email').max(255),
   phone: z.string().trim().min(1, 'Required').max(20).regex(/^[+\d\s()-]+$/, 'Invalid phone'),
   address: requiredSanitizedString(255),
+  address2: sanitizedString(255).optional().or(z.literal('')),
   city: requiredSanitizedString(100),
+  state: requiredSanitizedString(100),
+  zipCode: requiredSanitizedString(20),
+  country: requiredSanitizedString(100),
   notes: sanitizedString(500).optional().or(z.literal('')),
 });
 

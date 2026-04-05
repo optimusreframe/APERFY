@@ -395,7 +395,9 @@ export default function ProductDetail() {
                   unitPrice: unitPrice,
                   selectedVariations: Object.entries(selectedVariations).map(([type, varId]) => {
                     const v = variations.find((vr: any) => vr.id === varId);
-                    return { id: varId, type, name: v ? (language === 'es' ? v.name_es : v.name_en) : '', priceModifier: v ? Number(v.price_modifier) : 0 };
+                    // If size variation is used as absolute price (already set in unitPrice), don't also add as modifier
+                    const isAbsoluteSize = type === 'size' && v && Number(v.price_modifier) > 0;
+                    return { id: varId, type, name: v ? (language === 'es' ? v.name_es : v.name_en) : '', priceModifier: isAbsoluteSize ? 0 : (v ? Number(v.price_modifier) : 0) };
                   }),
                   notes,
                 });
