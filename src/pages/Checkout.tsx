@@ -479,7 +479,15 @@ export default function Checkout() {
                               {item.selectedVariations.length > 0 && (
                                 <p className="text-[11px] text-muted-foreground">{item.selectedVariations.map(v => v.name).filter(Boolean).join(', ')}</p>
                               )}
-                              <p className="text-xs text-muted-foreground">x{item.quantity}</p>
+                              <div className="flex flex-wrap gap-x-2 gap-y-0 mt-0.5">
+                                {item.weightGrams && item.weightGrams > 0 && (
+                                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><Weight className="w-2.5 h-2.5" />{item.weightGrams}g</span>
+                                )}
+                                {item.dimensions && (
+                                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><Ruler className="w-2.5 h-2.5" />{item.dimensions}mm</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">${item.unitPrice.toFixed(2)} × {item.quantity}</p>
                             </div>
                             <span className="font-semibold text-sm shrink-0">${itemTotal.toFixed(2)}</span>
                           </div>

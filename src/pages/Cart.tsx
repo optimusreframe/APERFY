@@ -78,6 +78,21 @@ export default function Cart() {
                         {item.selectedVariations.map(v => v.name).join(', ')}
                       </p>
                     )}
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                      {item.weightGrams && item.weightGrams > 0 && (
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <Weight className="w-3 h-3" />{item.weightGrams}g
+                        </span>
+                      )}
+                      {item.dimensions && (
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <Ruler className="w-3 h-3" />{item.dimensions}mm
+                        </span>
+                      )}
+                      <span className="text-[11px] text-muted-foreground">
+                        ${item.unitPrice.toFixed(2)} {language === 'es' ? 'c/u' : 'each'}
+                      </span>
+                    </div>
                     <div className="mt-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateQuantity(item.productId, item.quantity - 1)}>
