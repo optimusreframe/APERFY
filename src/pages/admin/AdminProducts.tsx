@@ -562,8 +562,6 @@ export default function AdminProducts() {
     setCreatingCategory(false);
     setBulkMode(false);
     setBulkUrls('');
-    setBulkProcessing(false);
-    setBulkResults([]);
   };
 
   // Helper: persist an AI image (data URI or remote URL) to storage immediately
