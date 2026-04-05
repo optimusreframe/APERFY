@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Heart, ShoppingCart, Box, ArrowLeft, Minus, Plus, ZoomIn } from 'lucide-react';
+import { Heart, ShoppingCart, Box, ArrowLeft, Minus, Plus, ZoomIn, Weight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
