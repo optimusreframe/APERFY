@@ -597,7 +597,15 @@ export default function AdminProducts() {
       });
       if (error) throw error;
       if (data?.success) {
-        setAiData((prev: any) => ({ ...prev, name_en: data.data.name_en, description_en: data.data.description_en }));
+        const newNameEn = data.data.name_en;
+        setAiData((prev: any) => {
+          const updated = { ...prev, name_en: newNameEn, description_en: data.data.description_en };
+          // Regenerate slug from English name if English mode is on and slug is locked
+          if (showEnglish && slugLocked && newNameEn) {
+            updated.slug = slugify(newNameEn);
+          }
+          return updated;
+        });
         toast({ title: '✓', description: 'Traducción generada' });
       }
     } catch (e: any) {
