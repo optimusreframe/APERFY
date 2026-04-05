@@ -439,6 +439,8 @@ export default function AdminProducts() {
             name_es: v.name_es,
             type: v.type || 'size',
             weight_grams: v.weight_grams || null,
+            dimensions: v.dimensions || null,
+            material_id: v.material_id || null,
             price_modifier: calculatedPrice,
             value: `${v.weight_grams}g`,
             is_active: v.is_active,
