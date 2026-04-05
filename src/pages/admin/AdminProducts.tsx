@@ -456,6 +456,20 @@ export default function AdminProducts() {
       type: getMediaTypeFromUrl(url),
       isExisting: true,
     })));
+    // Load existing variations
+    setLoadingVariations(true);
+    supabase.from('product_variations').select('*').eq('product_id', p.id).order('created_at').then(({ data }) => {
+      setProductVariations((data || []).map((v: any) => ({
+        id: v.id,
+        name_en: v.name_en,
+        name_es: v.name_es,
+        type: v.type,
+        weight_grams: v.weight_grams || 0,
+        material_id: '', // We'll handle material via product_materials
+        is_active: v.is_active,
+      })));
+      setLoadingVariations(false);
+    });
     setOpen(true);
   };
 
