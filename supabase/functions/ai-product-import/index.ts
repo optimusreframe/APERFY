@@ -15,19 +15,254 @@ function isValidUrl(str: string): boolean {
   }
 }
 
-// Extract prices from markdown text using common patterns
 function extractPricesFromText(text: string): number[] {
   const prices: number[] = [];
-  // Match $XX.XX, USD XX.XX, US $XX.XX patterns
   const priceRegex = /(?:US\s*)?(?:\$|USD\s*)(\d{1,5}(?:\.\d{1,2})?)/gi;
   let match;
   while ((match = priceRegex.exec(text)) !== null) {
     const price = parseFloat(match[1]);
-    if (price >= 1 && price <= 500) { // reasonable range for 3D printed products
-      prices.push(price);
-    }
+    if (price >= 1 && price <= 500) prices.push(price);
   }
   return prices;
+}
+
+// ── Phase 1: Generate optimized eBay search queries using AI ──
+async function generateEbayQueries(
+  title: string,
+  description: string,
+  LOVABLE_API_KEY: string
+): Promise<string[]> {
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `You generate eBay search queries to find 3D printed products similar to the one described. Generate 3-4 diverse search queries that maximize the chance of finding relevant listings.
+
+Rules:
+- All queries MUST start with "site:ebay.com"
+- Query 1: Use the most distinctive keywords from the title + "3D printed"
+- Query 2: Use the product type/category + character/franchise name + "3D print"
+- Query 3: Use a simplified 2-3 word description + "3D printed figurine" or "3D printed model"
+- Query 4 (optional): If the product is from a known franchise, use the franchise name + product type + "3D print"
+- Strip site names like "MakerWorld", "Thingiverse", "Printables" from queries
+- Strip phrases like "Free 3D Print Model", "STL file", etc.
+- Keep queries concise (under 10 words after "site:ebay.com")`
+          },
+          {
+            role: "user",
+            content: `Product title: ${title}\nDescription snippet: ${description.substring(0, 500)}`
+          }
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "return_queries",
+            description: "Return optimized eBay search queries",
+            parameters: {
+              type: "object",
+              properties: {
+                queries: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "3-4 eBay search queries, each starting with site:ebay.com"
+                }
+              },
+              required: ["queries"],
+              additionalProperties: false,
+            },
+          },
+        }],
+        tool_choice: { type: "function", function: { name: "return_queries" } },
+      }),
+    });
+
+    if (!resp.ok) {
+      console.error("Query generation failed:", resp.status);
+      return [`site:ebay.com ${title.substring(0, 50)} 3D printed`];
+    }
+
+    const result = await resp.json();
+    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall) return [`site:ebay.com ${title.substring(0, 50)} 3D printed`];
+
+    const parsed = JSON.parse(toolCall.function.arguments);
+    const queries = (parsed.queries || []).filter((q: string) => q && q.length > 10);
+    console.log("Generated eBay queries:", queries);
+    return queries.length > 0 ? queries : [`site:ebay.com ${title.substring(0, 50)} 3D printed`];
+  } catch (e) {
+    console.error("generateEbayQueries error:", e);
+    return [`site:ebay.com ${title.substring(0, 50)} 3D printed`];
+  }
+}
+
+// ── Phase 2: Execute parallel Firecrawl searches ──
+interface EbayListing {
+  title: string;
+  price: number;
+  url: string;
+}
+
+async function searchEbayMulti(
+  queries: string[],
+  FIRECRAWL_API_KEY: string
+): Promise<EbayListing[]> {
+  const allListings: EbayListing[] = [];
+  const seenUrls = new Set<string>();
+
+  const results = await Promise.allSettled(
+    queries.map(async (query) => {
+      try {
+        const resp = await fetch("https://api.firecrawl.dev/v1/search", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query,
+            limit: 4,
+            scrapeOptions: { formats: ["markdown"] },
+          }),
+        });
+        const data = await resp.json();
+        if (resp.ok && data.success && data.data) {
+          return data.data.map((r: any) => ({
+            title: r.title || r.metadata?.title || "",
+            markdown: r.markdown || r.description || "",
+            url: r.url || r.metadata?.sourceURL || "",
+          }));
+        }
+      } catch (e) {
+        console.error(`Search failed for query "${query}":`, e);
+      }
+      return [];
+    })
+  );
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      for (const item of result.value) {
+        if (item.url && seenUrls.has(item.url)) continue;
+        if (item.url) seenUrls.add(item.url);
+
+        const prices = extractPricesFromText(item.markdown + " " + item.title);
+        for (const price of prices) {
+          allListings.push({ title: item.title, price, url: item.url });
+        }
+      }
+    }
+  }
+
+  console.log(`searchEbayMulti: found ${allListings.length} listings from ${queries.length} queries`);
+  return allListings;
+}
+
+// ── Phase 3: AI-powered price validation and filtering ──
+interface ValidatedPrice {
+  suggested_price: number;
+  price_confidence: "high" | "medium" | "low";
+  matched_listings_count: number;
+  price_source: "ebay_market" | "ai_estimate";
+}
+
+async function validateAndAveragePrices(
+  productTitle: string,
+  productDescription: string,
+  listings: EbayListing[],
+  LOVABLE_API_KEY: string
+): Promise<ValidatedPrice> {
+  if (listings.length === 0) {
+    return { suggested_price: 0, price_confidence: "low", matched_listings_count: 0, price_source: "ai_estimate" };
+  }
+
+  try {
+    const listingSummary = listings
+      .slice(0, 20)
+      .map((l, i) => `${i + 1}. "${l.title}" — $${l.price.toFixed(2)}`)
+      .join("\n");
+
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          {
+            role: "system",
+            content: `You are a pricing analyst for 3D printed products. Given a target product and a list of eBay listings found via search, determine which listings are ACTUALLY the same or very similar product (same character, same type, similar size/complexity).
+
+Rules:
+- DISCARD listings that are clearly different products (wrong character, wrong type, unrelated items)
+- DISCARD listings that are STL files or digital downloads (we sell physical 3D printed items)
+- From the RELEVANT listings, calculate the average price
+- If 3+ relevant listings match → confidence "high"
+- If 1-2 relevant listings match → confidence "medium"
+- If 0 relevant listings match → confidence "low" and suggest a reasonable price based on product type`
+          },
+          {
+            role: "user",
+            content: `TARGET PRODUCT:\nTitle: ${productTitle}\nDescription: ${productDescription.substring(0, 300)}\n\nEBAY LISTINGS FOUND:\n${listingSummary}`
+          }
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "validate_prices",
+            description: "Return validated price analysis",
+            parameters: {
+              type: "object",
+              properties: {
+                suggested_price: { type: "number", description: "Recommended price in USD" },
+                price_confidence: { type: "string", enum: ["high", "medium", "low"] },
+                matched_listings_count: { type: "number", description: "Number of relevant listings used" },
+                reasoning: { type: "string", description: "Brief explanation of the pricing decision" },
+              },
+              required: ["suggested_price", "price_confidence", "matched_listings_count", "reasoning"],
+              additionalProperties: false,
+            },
+          },
+        }],
+        tool_choice: { type: "function", function: { name: "validate_prices" } },
+      }),
+    });
+
+    if (!resp.ok) {
+      console.error("Price validation AI failed:", resp.status);
+      const avg = listings.reduce((a, b) => a + b.price, 0) / listings.length;
+      return { suggested_price: Math.round(avg * 100) / 100, price_confidence: "medium", matched_listings_count: listings.length, price_source: "ebay_market" };
+    }
+
+    const result = await resp.json();
+    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall) {
+      const avg = listings.reduce((a, b) => a + b.price, 0) / listings.length;
+      return { suggested_price: Math.round(avg * 100) / 100, price_confidence: "medium", matched_listings_count: listings.length, price_source: "ebay_market" };
+    }
+
+    const validated = JSON.parse(toolCall.function.arguments);
+    console.log("Price validation result:", validated.reasoning);
+    return {
+      suggested_price: Math.round((validated.suggested_price || 0) * 100) / 100,
+      price_confidence: validated.price_confidence || "low",
+      matched_listings_count: validated.matched_listings_count || 0,
+      price_source: validated.matched_listings_count > 0 ? "ebay_market" : "ai_estimate",
+    };
+  } catch (e) {
+    console.error("validateAndAveragePrices error:", e);
+    const avg = listings.reduce((a, b) => a + b.price, 0) / listings.length;
+    return { suggested_price: Math.round(avg * 100) / 100, price_confidence: "low", matched_listings_count: listings.length, price_source: "ebay_market" };
+  }
 }
 
 serve(async (req) => {
@@ -98,50 +333,32 @@ serve(async (req) => {
         scrapedContent = `URL provided: ${url}. Unable to scrape content directly.`;
       }
 
-      // ── eBay Price Research ──
-      let ebayPriceContext = "";
-      let ebayPrices: number[] = [];
+      // ── Multi-Strategy eBay Price Research ──
+      let priceResult: ValidatedPrice = {
+        suggested_price: 0,
+        price_confidence: "low",
+        matched_listings_count: 0,
+        price_source: "ai_estimate",
+      };
+      let searchQueriesUsed: string[] = [];
+
       if (FIRECRAWL_API_KEY && scrapedTitle) {
-        try {
-          const searchQuery = `site:ebay.com ${scrapedTitle} 3D printed`;
-          console.log("eBay price search:", searchQuery);
-          const searchResp = await fetch("https://api.firecrawl.dev/v1/search", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              query: searchQuery,
-              limit: 6,
-              scrapeOptions: { formats: ["markdown"] },
-            }),
-          });
-          const searchData = await searchResp.json();
-          if (searchResp.ok && searchData.success && searchData.data) {
-            for (const result of searchData.data) {
-              const text = result.markdown || result.description || "";
-              const foundPrices = extractPricesFromText(text);
-              ebayPrices.push(...foundPrices);
-            }
-            // Deduplicate and take up to 10
-            ebayPrices = [...new Set(ebayPrices)].slice(0, 10);
-            if (ebayPrices.length > 0) {
-              const avg = ebayPrices.reduce((a, b) => a + b, 0) / ebayPrices.length;
-              ebayPriceContext = `\n\nEBAY MARKET PRICES FOUND:\n${ebayPrices.map((p, i) => `${i + 1}. $${p.toFixed(2)}`).join("\n")}\nAverage: $${avg.toFixed(2)}\n\nIMPORTANT: Use the average of these eBay market prices as the suggested_price. Do NOT invent a price.`;
-              console.log(`Found ${ebayPrices.length} eBay prices, avg: $${avg.toFixed(2)}`);
-            }
-          }
-        } catch (e) {
-          console.error("eBay search error:", e);
-        }
+        // Phase 1: Generate smart queries
+        const queries = await generateEbayQueries(scrapedTitle, scrapedContent.substring(0, 500), LOVABLE_API_KEY);
+        searchQueriesUsed = queries;
+
+        // Phase 2: Parallel search
+        const listings = await searchEbayMulti(queries, FIRECRAWL_API_KEY);
+
+        // Phase 3: AI validation
+        priceResult = await validateAndAveragePrices(scrapedTitle, scrapedContent.substring(0, 500), listings, LOVABLE_API_KEY);
       }
 
       const categorySlugs = existingCategories.map((c: any) => c.slug).join(", ");
       const imageListForAI = scrapedImages.slice(0, 10).map((u, i) => `${i + 1}. ${u}`).join("\n");
 
-      const priceInstruction = ebayPrices.length > 0
-        ? `suggested_price: Calculate as the average of the eBay market prices provided below. Round to 2 decimal places.`
+      const priceInstruction = priceResult.price_source === "ebay_market"
+        ? `suggested_price: Use exactly ${priceResult.suggested_price} as the price (validated from eBay market data).`
         : `suggested_price: Reasonable retail price in USD for a 3D printed product.`;
 
       const extractResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -168,7 +385,7 @@ STRICT RULES:
 - colors: Recommended colors in Spanish (Negro, Blanco, Dorado, etc.)
 
 EXTRACTED IMAGES:
-${imageListForAI || "No images found."}${ebayPriceContext}`
+${imageListForAI || "No images found."}`
             },
             {
               role: "user",
@@ -188,7 +405,7 @@ ${imageListForAI || "No images found."}${ebayPriceContext}`
                   description_en: { type: "string", description: "Short description in English (max 150 chars, 2-3 sentences)" },
                   description_es: { type: "string", description: "Short description in Spanish (max 150 chars, 2-3 sentences)" },
                   slug: { type: "string", description: "URL-friendly slug (lowercase, hyphens only)" },
-                  suggested_price: { type: "number", description: "Suggested retail price in USD based on eBay market data when available" },
+                  suggested_price: { type: "number", description: "Suggested retail price in USD" },
                   suggested_category: { type: "string", description: "Best matching existing category slug, or a new slug" },
                   suggested_category_name_en: { type: "string", description: "Category name in English (for new categories)" },
                   suggested_category_name_es: { type: "string", description: "Category name in Spanish (for new categories)" },
@@ -220,13 +437,20 @@ ${imageListForAI || "No images found."}${ebayPriceContext}`
       const productData = JSON.parse(toolCall.function.arguments);
       const uniqueImages = [...new Set(scrapedImages)].slice(0, 5);
 
+      // Override price with validated eBay price when available
+      if (priceResult.price_source === "ebay_market" && priceResult.suggested_price > 0) {
+        productData.suggested_price = priceResult.suggested_price;
+      }
+
       return new Response(JSON.stringify({
         success: true,
         data: {
           ...productData,
           extracted_images: uniqueImages,
-          ebay_prices: ebayPrices.length > 0 ? ebayPrices : undefined,
-          price_source: ebayPrices.length > 0 ? 'ebay_market' : 'ai_estimate',
+          price_confidence: priceResult.price_confidence,
+          matched_listings_count: priceResult.matched_listings_count,
+          price_source: priceResult.price_source,
+          search_queries_used: searchQueriesUsed,
         },
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
