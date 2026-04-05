@@ -278,6 +278,12 @@ export default function ProductDetail() {
               <Badge className="mt-2 bg-primary/10 text-primary border-primary/20 hover:bg-primary/15">
                 {t.product.inStock}
               </Badge>
+              {selectedWeight != null && selectedWeight > 0 && (
+                <Badge variant="outline" className="mt-2 ml-2 gap-1">
+                  <Weight className="w-3 h-3" />
+                  {selectedWeight}{t.product.grams}
+                </Badge>
+              )}
             </div>
 
             <p className="text-muted-foreground leading-relaxed text-sm sm:text-base">
