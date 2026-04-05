@@ -503,11 +503,13 @@ ${imageListForAI || "No images found."}`
 
       if (!imgResp.ok) {
         const status = imgResp.status;
-        if (status === 429) return new Response(JSON.stringify({ error: "Rate limited, please try again later." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         const t = await imgResp.text();
         console.error("Image generation error:", status, t);
-        throw new Error("AI image generation failed");
+        let errorMsg = 'Error al generar imagen con IA.';
+        if (status === 429) errorMsg = 'Demasiadas solicitudes. Intenta de nuevo en unos minutos.';
+        else if (status === 402) errorMsg = 'Créditos de IA agotados.';
+        else errorMsg = `Error del servicio de IA (código ${status}). Intenta de nuevo más tarde.`;
+        return new Response(JSON.stringify({ success: false, error: errorMsg }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       const imgResult = await imgResp.json();
@@ -551,7 +553,7 @@ ${imageListForAI || "No images found."}`
           error: readableError,
           error_code: nativeReason || finishReason,
         }), {
-          status: 422,
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
