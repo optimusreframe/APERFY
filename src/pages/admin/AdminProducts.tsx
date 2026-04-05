@@ -197,6 +197,52 @@ export default function AdminProducts() {
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [bulkResults, setBulkResults] = useState<{ url: string; status: BulkItemStatus; name?: string; error?: string }[]>([]);
 
+  // Bulk Edit state
+  const [bulkEditMode, setBulkEditMode] = useState(false);
+  const [bulkEdits, setBulkEdits] = useState<Record<string, { name_es?: string; base_price?: number; category_id?: string | null; is_active?: boolean }>>({});
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  const bulkEditCount = Object.keys(bulkEdits).length;
+
+  const getBulkValue = (productId: string, field: string, original: any) => {
+    const edits = bulkEdits[productId];
+    if (edits && field in edits) return (edits as any)[field];
+    return original;
+  };
+
+  const setBulkField = (productId: string, field: string, value: any, original: any) => {
+    setBulkEdits(prev => {
+      const current = { ...prev };
+      if (!current[productId]) current[productId] = {};
+      (current[productId] as any)[field] = value;
+      if (value === original) {
+        delete (current[productId] as any)[field];
+        if (Object.keys(current[productId]).length === 0) delete current[productId];
+      }
+      return current;
+    });
+  };
+
+  const handleBulkSave = async () => {
+    const entries = Object.entries(bulkEdits);
+    if (entries.length === 0) return;
+    setBulkSaving(true);
+    try {
+      for (const [id, changes] of entries) {
+        const { error } = await supabase.from('products').update(changes).eq('id', id);
+        if (error) throw error;
+      }
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      setBulkEditMode(false);
+      setBulkEdits({});
+      toast({ title: '✓', description: `${entries.length} producto(s) actualizado(s).` });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
   // Progress log step timer
   useEffect(() => {
     if (!aiImageLoading) { setAiProgressStep(0); return; }
