@@ -383,7 +383,7 @@ export default function ProductDetail() {
                   productImage: images[0] || '',
                   slug: product.slug,
                   quantity,
-                  unitPrice: Number(product.base_price),
+                  unitPrice: unitPrice,
                   selectedVariations: Object.entries(selectedVariations).map(([type, varId]) => {
                     const v = variations.find((vr: any) => vr.id === varId);
                     return { id: varId, type, name: v ? (language === 'es' ? v.name_es : v.name_en) : '', priceModifier: v ? Number(v.price_modifier) : 0 };
