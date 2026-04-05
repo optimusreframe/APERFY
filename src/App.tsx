@@ -30,6 +30,8 @@ import AdminRequests from "./pages/admin/AdminRequests";
 import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
 import AdminShipping from "./pages/admin/AdminShipping";
 import RequestModel from "./pages/RequestModel";
+import OurProcess from "./pages/OurProcess";
+import Materials from "./pages/Materials";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +50,8 @@ const AppContent = () => {
                 <Route path="/3dmodels/:slug" element={<ProductDetail />} />
                 <Route path="/catalog" element={<Catalog />} />
                 <Route path="/request-model" element={<RequestModel />} />
+                <Route path="/our-process" element={<OurProcess />} />
+                <Route path="/materials" element={<Materials />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
                 <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />

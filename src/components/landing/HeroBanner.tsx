@@ -10,8 +10,8 @@ const banners = [
     icon: Sparkles,
     titleEn: 'Premium 3D Printed Models',
     titleEs: 'Modelos 3D Impresos Premium',
-    subtitleEn: 'Museum-quality prints with stunning detail — delivered to your door',
-    subtitleEs: 'Impresiones de calidad museo con detalle impresionante — a tu puerta',
+    subtitleEn: 'High-quality 3D prints with stunning detail — delivered to your door',
+    subtitleEs: 'Impresiones 3D de alta calidad con detalle impresionante — a tu puerta',
     ctaEn: 'Explore Models',
     ctaEs: 'Explorar Modelos',
     href: '/catalog',
@@ -38,7 +38,7 @@ const banners = [
     subtitleEs: 'Con tecnología Bambu Lab — precisión a velocidad en cada capa',
     ctaEn: 'See Our Process',
     ctaEs: 'Ver Proceso',
-    href: '/catalog',
+    href: '/our-process',
     accentColor: 'primary',
   },
   {
@@ -50,7 +50,7 @@ const banners = [
     subtitleEs: 'PLA · PETG · ABS · TPU — elige el acabado perfecto para tu modelo',
     ctaEn: 'Browse Materials',
     ctaEs: 'Ver Materiales',
-    href: '/catalog',
+    href: '/materials',
     accentColor: 'accent',
   },
   {

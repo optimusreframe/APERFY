@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-const PUBLIC_URL = 'https://a3dtoprint.lovable.app';
+const PUBLIC_URL = 'https://3dtoprint.online';
 
 interface ShareMenuProps {
   slug: string;
