@@ -16,10 +16,11 @@ interface MaterialForm {
   name_es: string;
   description_en: string;
   description_es: string;
+  cost_per_kg: number;
   is_active: boolean;
 }
 
-const empty: MaterialForm = { name_en: '', name_es: '', description_en: '', description_es: '', is_active: true };
+const empty: MaterialForm = { name_en: '', name_es: '', description_en: '', description_es: '', cost_per_kg: 0, is_active: true };
 
 export default function AdminMaterials() {
   const [open, setOpen] = useState(false);
@@ -39,11 +40,12 @@ export default function AdminMaterials() {
 
   const save = useMutation({
     mutationFn: async (f: MaterialForm) => {
+      const payload = { ...f, cost_per_kg: Number(f.cost_per_kg) || 0 };
       if (editId) {
-        const { error } = await supabase.from('materials').update(f).eq('id', editId);
+        const { error } = await supabase.from('materials').update(payload).eq('id', editId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('materials').insert(f);
+        const { error } = await supabase.from('materials').insert(payload);
         if (error) throw error;
       }
     },
@@ -72,7 +74,14 @@ export default function AdminMaterials() {
 
   const openEdit = (m: any) => {
     setEditId(m.id);
-    setForm({ name_en: m.name_en, name_es: m.name_es, description_en: m.description_en || '', description_es: m.description_es || '', is_active: m.is_active });
+    setForm({
+      name_en: m.name_en,
+      name_es: m.name_es,
+      description_en: m.description_en || '',
+      description_es: m.description_es || '',
+      cost_per_kg: m.cost_per_kg || 0,
+      is_active: m.is_active,
+    });
     setOpen(true);
   };
 
@@ -93,6 +102,23 @@ export default function AdminMaterials() {
               </div>
               <div className="space-y-2"><Label>Description (EN)</Label><Textarea value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} className="bg-secondary" /></div>
               <div className="space-y-2"><Label>Description (ES)</Label><Textarea value={form.description_es} onChange={(e) => setForm({ ...form, description_es: e.target.value })} className="bg-secondary" /></div>
+              
+              <div className="space-y-2">
+                <Label>Costo por KG ($)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.cost_per_kg}
+                  onChange={(e) => setForm({ ...form, cost_per_kg: parseFloat(e.target.value) || 0 })}
+                  className="bg-secondary"
+                  placeholder="50.00"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Costo total por 1 KG de filamento (incluye material + tiempo de impresión + labor + otros gastos)
+                </p>
+              </div>
+
               <div className="flex items-center gap-2">
                 <Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} />
                 <Label>Active</Label>
@@ -111,6 +137,7 @@ export default function AdminMaterials() {
             <TableRow className="border-border">
               <TableHead>Name (EN)</TableHead>
               <TableHead>Name (ES)</TableHead>
+              <TableHead>Costo/KG</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -120,6 +147,7 @@ export default function AdminMaterials() {
               <TableRow key={m.id} className="border-border">
                 <TableCell className="font-medium">{m.name_en}</TableCell>
                 <TableCell>{m.name_es}</TableCell>
+                <TableCell className="font-medium">${Number(m.cost_per_kg || 0).toFixed(2)}</TableCell>
                 <TableCell>
                   <span className={`px-2 py-1 rounded-full text-xs ${m.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
                     {m.is_active ? 'Active' : 'Inactive'}
@@ -132,7 +160,7 @@ export default function AdminMaterials() {
               </TableRow>
             ))}
             {materials.length === 0 && (
-              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No materials yet.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No materials yet.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
