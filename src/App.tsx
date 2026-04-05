@@ -30,6 +30,8 @@ import AdminRequests from "./pages/admin/AdminRequests";
 import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
 import AdminShipping from "./pages/admin/AdminShipping";
 import RequestModel from "./pages/RequestModel";
+import OurProcess from "./pages/OurProcess";
+import Materials from "./pages/Materials";
 
 const queryClient = new QueryClient();
 
