@@ -812,7 +812,7 @@ export default function AdminProducts() {
                         )}
 
                         {/* Generated image preview */}
-                        <div className="aspect-square rounded-xl overflow-hidden bg-secondary border border-border">
+                        <div className={`relative aspect-square rounded-xl overflow-hidden bg-secondary border border-border ${aiGeneratedImage && !aiImageLoading ? 'shadow-[inset_0_0_40px_rgba(212,160,23,0.1)]' : ''}`}>
                           {(aiPreviewImage || aiGeneratedImage || aiOriginalImage || aiSelectedSourceImage) ? (
                             <img src={(aiPreviewImage || aiGeneratedImage || aiOriginalImage || aiSelectedSourceImage)!} alt="Preview" className="w-full h-full object-contain" />
                           ) : (
@@ -820,6 +820,20 @@ export default function AdminProducts() {
                               <p className="text-sm text-muted-foreground">Sin imagen disponible</p>
                             </div>
                           )}
+                          {/* Progress Log Overlay */}
+                          <AnimatePresence>
+                            {aiImageLoading && (
+                              <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-3 shadow-[inset_0_0_30px_rgba(212,160,23,0.15)]"
+                              >
+                                <AiProgressLog step={aiProgressStep} />
+                                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
 
                         <div className="flex gap-2">
