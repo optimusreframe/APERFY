@@ -467,6 +467,13 @@ export default function AdminProducts() {
     }
 
     setAiImageLoading(true);
+    setAiPersistingImage(true);
+    // Delete previous temp image if regenerating
+    if (aiStoredImagePath) {
+      supabase.storage.from('product-images').remove([aiStoredImagePath]).catch(() => {});
+    }
+    setAiStoredImageUrl(null);
+    setAiStoredImagePath(null);
     try {
       const { data, error } = await supabase.functions.invoke('ai-product-import', {
         body: {
@@ -481,14 +488,30 @@ export default function AdminProducts() {
         throw new Error(errorMsg);
       }
       if (!data?.success) throw new Error(data?.error || 'Error al generar imagen');
-      setAiGeneratedImage(data.data.generated_image);
-      setAiPreviewImage(data.data.generated_image);
+      
+      const generatedImg = data.data.generated_image;
+      setAiGeneratedImage(generatedImg);
+      setAiPreviewImage(generatedImg);
+
+      // Persist to storage immediately
+      try {
+        const { url, path } = await persistAiImage(generatedImg);
+        setAiStoredImageUrl(url);
+        setAiStoredImagePath(path);
+      } catch (persistErr: any) {
+        console.error('Failed to persist AI image:', persistErr);
+        toast({ title: 'Error guardando imagen', description: 'La imagen se generó pero no se pudo guardar. Intenta regenerar.', variant: 'destructive' });
+        setAiGeneratedImage(null);
+        setAiPreviewImage(null);
+        return;
+      }
+
       toast({ title: '✓', description: '¡Imagen AI generada!' });
     } catch (e: any) {
       toast({ title: 'Error generando imagen', description: e.message, variant: 'destructive' });
-      // Don't set preview to source - leave it null so user sees the failure
     } finally {
       setAiImageLoading(false);
+      setAiPersistingImage(false);
     }
   };
 
