@@ -43,7 +43,7 @@ export default function Cart() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
             <ShoppingCart className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
             <p className="text-muted-foreground mb-4">{t.cart.empty}</p>
-            <Link to="/3dmodels">
+            <Link to="/">
               <Button variant="outline" className="gap-2"><ArrowLeft className="w-4 h-4" />{t.cart.continueShopping}</Button>
             </Link>
           </motion.div>
