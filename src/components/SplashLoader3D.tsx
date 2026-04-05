@@ -148,7 +148,7 @@ function Particle({ target, geo, initialPos, initialRot, phase, size }: Particle
       meshRef.current.rotation.copy(currentRot.current);
       meshRef.current.position.copy(currentPos.current);
     } else if (phase >= 1) {
-      const speed = phase === 2 ? 0.12 : 0.06;
+      const speed = phase === 2 ? 0.18 : 0.10;
       currentPos.current.lerp(targetVec, speed);
       meshRef.current.position.copy(currentPos.current);
       currentRot.current.x *= 0.96;
@@ -397,9 +397,9 @@ export default function SplashLoader3D({ onComplete }: { onComplete: () => void 
       soundPlayed.current = true;
     } catch {}
 
-    const t1 = setTimeout(() => setPhase(1), 1200);
-    const t2 = setTimeout(() => setPhase(2), 2200);
-    const t3 = setTimeout(() => setOpacity(0), 2700);
+    const t1 = setTimeout(() => setPhase(1), 600);
+    const t2 = setTimeout(() => setPhase(2), 1400);
+    const t3 = setTimeout(() => setOpacity(0), 2600);
     const t4 = setTimeout(() => {
       sessionStorage.setItem("3dp-loaded", "true");
       onComplete();
