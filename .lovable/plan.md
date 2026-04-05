@@ -1,46 +1,47 @@
 
 
-# Emails de Autenticación con Diseño Premium 3DtoPrint
+# Email Templates: Dark Theme + English Language
 
-## Prerrequisito: Configurar dominio de email
+## Problem
+1. The logo is invisible against the white background — needs a dark background
+2. All emails are in Spanish, but there's no way to detect user language in auth email hooks (the payload doesn't include locale). Switching all to English as requested.
 
-Actualmente no hay dominio de email configurado. El primer paso es configurar el dominio (`3dtoprint.online`) para que los correos se envíen desde tu marca.
+## Changes
 
-**Acción requerida del usuario**: Configurar el dominio de email usando el botón de abajo. Después de eso, procederé con todo lo demás automáticamente.
+### All 6 templates get the same style updates:
 
-## Después de configurar el dominio
+**Colors/Theme:**
+- `main` background: `#0A0A0F` (dark, matches site)
+- `card` background: `#13131A` with gold border `${gold}33`
+- `brandName` color: `#ffffff`
+- `h1` color: `#ffffff`
+- `text` color: `#A0A0AB` (lighter muted for readability on dark)
+- `footerText` color: `#666670`
+- `footerBrand` color: `#666670`
+- `button` color stays dark text on gold button (good contrast)
+- `Html lang="en"`
 
-### 1. Scaffolding de templates de auth email
-- Generar los 6 templates de email de autenticación (signup, recovery, magic-link, invite, email-change, reauthentication)
+**Content — English translations:**
 
-### 2. Diseño premium con identidad 3DtoPrint
-Cada template llevará:
-- **Logo**: `/logo.png` subido al storage y embebido en cada email
-- **Nombre**: "3Dto**Print**" con el "Print" en dorado
-- **Colores**: Fondo blanco (`#ffffff` — obligatorio para emails), acentos en gold (`hsl(43, 76%, 53%)` → `#D4A017`), textos en dark (`hsl(240, 10%, 4%)` → `#0A0A0F`)
-- **Botones**: Gradiente dorado con texto oscuro, bordes redondeados (0.75rem)
-- **Tipografía**: Outfit/Inter con fallback a Arial
-- **Estilo 3D**: Sombras en botones y contenedor para efecto de profundidad, bordes sutiles dorados
-- **Footer**: "© 2026 3DtoPrint — Premium 3D Printing" con link al sitio
+| Template | Subject | Key text |
+|----------|---------|----------|
+| signup | Confirm your account | Welcome to the world of premium 3D printing |
+| recovery | Reset your password | We received a request to reset your password |
+| magic-link | Your login link | Click the button to access your account |
+| invite | You've been invited | You've been invited to join 3DtoPrint |
+| email-change | Confirm your new email | You requested to change your email address |
+| reauthentication | Your verification code | Use this code to verify your identity |
 
-### 3. Templates a personalizar
+### auth-email-hook/index.ts
+- `EMAIL_SUBJECTS` already in English — no change needed
 
-| Template | Asunto | Mensaje |
-|----------|--------|---------|
-| Signup | Confirma tu cuenta en 3DtoPrint | Bienvenido al mundo de la impresión 3D premium |
-| Recovery | Restablece tu contraseña | Link para crear nueva contraseña |
-| Magic Link | Tu enlace de acceso | Accede a tu cuenta con un click |
-| Invite | Has sido invitado a 3DtoPrint | Únete a la plataforma |
-| Email Change | Confirma tu nuevo email | Verifica tu nueva dirección |
-| Reauthentication | Código de verificación | Código OTP para reautenticación |
+### Files to modify
+- `supabase/functions/_shared/email-templates/signup.tsx`
+- `supabase/functions/_shared/email-templates/recovery.tsx`
+- `supabase/functions/_shared/email-templates/magic-link.tsx`
+- `supabase/functions/_shared/email-templates/invite.tsx`
+- `supabase/functions/_shared/email-templates/email-change.tsx`
+- `supabase/functions/_shared/email-templates/reauthentication.tsx`
 
-Todos los mensajes en **español**, acorde al idioma principal de la app.
-
-### 4. Deploy
-- Desplegar la edge function `auth-email-hook`
-
-### Archivos a crear/modificar
-- `supabase/functions/_shared/email-templates/*.tsx` — 6 templates con diseño premium
-- `supabase/functions/auth-email-hook/index.ts` — edge function (scaffolded)
-- Subir logo al storage para uso en emails
+Then redeploy `auth-email-hook`.
 
