@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages } from 'lucide-react';
+import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -185,6 +186,13 @@ export default function AdminProducts() {
   const [translating, setTranslating] = useState(false);
   const aiOriginalInputRef = useRef<HTMLInputElement>(null);
   const aiBgInputRef = useRef<HTMLInputElement>(null);
+
+  // Bulk Import state
+  type BulkItemStatus = 'queued' | 'scraping' | 'generating' | 'saving' | 'done' | 'error';
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkUrls, setBulkUrls] = useState('');
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkResults, setBulkResults] = useState<{ url: string; status: BulkItemStatus; name?: string; error?: string }[]>([]);
 
   // Progress log step timer
   useEffect(() => {
@@ -407,6 +415,10 @@ export default function AdminProducts() {
     setSlugLocked(true);
     setNewCategoryName('');
     setCreatingCategory(false);
+    setBulkMode(false);
+    setBulkUrls('');
+    setBulkProcessing(false);
+    setBulkResults([]);
   };
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -619,6 +631,120 @@ export default function AdminProducts() {
     });
   };
 
+  // ── BULK IMPORT ──
+  const handleBulkImport = async () => {
+    const urls = bulkUrls.split('\n').map(u => u.trim()).filter(u => u && isValidUrl(u));
+    if (urls.length === 0) {
+      toast({ title: 'Ingresa al menos una URL válida', variant: 'destructive' });
+      return;
+    }
+    if (urls.length > 10) {
+      toast({ title: 'Máximo 10 URLs permitidas', variant: 'destructive' });
+      return;
+    }
+
+    setBulkProcessing(true);
+    setBulkResults(urls.map(url => ({ url, status: 'queued' as BulkItemStatus })));
+
+    let created = 0;
+    let errors = 0;
+
+    for (let i = 0; i < urls.length; i++) {
+      const currentUrl = urls[i];
+      try {
+        // Step 1: Scrape
+        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'scraping' } : r));
+        const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke('ai-product-import', {
+          body: {
+            action: 'scrape',
+            url: currentUrl,
+            existingCategories: categories.map((c: any) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
+          },
+        });
+        if (scrapeError || !scrapeData?.success) throw new Error(scrapeData?.error || 'Scrape failed');
+        const productInfo = scrapeData.data;
+
+        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'generating', name: productInfo.name_es } : r));
+
+        // Step 2: Generate image (if source image available)
+        let generatedImageUrl: string | null = null;
+        const bestSourceImage = productInfo.reference_image_url || productInfo.extracted_images?.[0];
+        if (bestSourceImage) {
+          try {
+            const { data: imgData } = await supabase.functions.invoke('ai-product-import', {
+              body: {
+                action: 'generate_image',
+                sourceImage: bestSourceImage,
+                backgroundMode: 'system',
+                customBackground: systemBgSetting || undefined,
+              },
+            });
+            if (imgData?.success) {
+              generatedImageUrl = imgData.data.generated_image;
+            }
+          } catch {
+            // Image generation failed, continue without image
+          }
+        }
+
+        // Step 3: Save product
+        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'saving' } : r));
+        const matchedCat = categories.find((c: any) => c.slug === productInfo.suggested_category);
+        const nameEn = productInfo.name_en || productInfo.name_es;
+        const descEn = productInfo.description_en || productInfo.description_es;
+        const productSlug = productInfo.slug || slugify(productInfo.name_es || `product-${Date.now()}`);
+
+        const { data: newProduct, error: insertError } = await supabase.from('products').insert({
+          name_en: nameEn,
+          name_es: productInfo.name_es || '',
+          description_en: descEn,
+          description_es: productInfo.description_es || '',
+          slug: productSlug,
+          base_price: productInfo.suggested_price || 0,
+          category_id: matchedCat?.id || null,
+          is_active: true,
+          is_featured: false,
+          images: [],
+        }).select('id').single();
+        if (insertError) throw insertError;
+
+        // Upload generated image if available
+        if (generatedImageUrl && newProduct) {
+          try {
+            const resp = await fetch(generatedImageUrl);
+            const blob = await resp.blob();
+            const file = new File([blob], 'ai-generated.png', { type: 'image/png' });
+            const imgUrl = await uploadMedia(file, newProduct.id);
+            await supabase.from('products').update({ images: [imgUrl] }).eq('id', newProduct.id);
+          } catch {
+            // Image upload failed, product still created
+          }
+        }
+
+        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'done' } : r));
+        created++;
+      } catch (e: any) {
+        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'error', error: e.message } : r));
+        errors++;
+      }
+    }
+
+    setBulkProcessing(false);
+    qc.invalidateQueries({ queryKey: ['admin-products'] });
+    qc.invalidateQueries({ queryKey: ['admin-product-count'] });
+    toast({
+      title: `Importación completada`,
+      description: `${created} productos creados, ${errors} errores`,
+    });
+  };
+
+  function isValidUrl(str: string): boolean {
+    try {
+      const u = new URL(str);
+      return ['http:', 'https:'].includes(u.protocol);
+    } catch { return false; }
+  }
+
   // ══════════════════════════════════════════════════════════
   // ── RENDER ──
   // ══════════════════════════════════════════════════════════
@@ -650,8 +776,15 @@ export default function AdminProducts() {
 
               <div className="p-6 pt-4">
                 {/* ── STEP: SOURCE ── */}
-                {aiStep === 'source' && (
+                {aiStep === 'source' && !bulkProcessing && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                    <Tabs value={bulkMode ? 'bulk' : 'single'} onValueChange={(v) => setBulkMode(v === 'bulk')}>
+                      <TabsList className="w-full">
+                        <TabsTrigger value="single" className="flex-1 gap-2"><Link2 className="w-3 h-3" /> URL única</TabsTrigger>
+                        <TabsTrigger value="bulk" className="flex-1 gap-2"><List className="w-3 h-3" /> Lote (hasta 10)</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="single" className="space-y-6 mt-4">
                     <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-4">
                       <div className="space-y-2">
                         <Label className="flex items-center gap-2 text-sm font-semibold">
@@ -782,6 +915,109 @@ export default function AdminProducts() {
                       <Wand2 className="w-5 h-5" />
                       Extraer y Generar con AI
                     </Button>
+                      </TabsContent>
+
+                      <TabsContent value="bulk" className="space-y-4 mt-4">
+                        <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-4">
+                          <Label className="flex items-center gap-2 text-sm font-semibold">
+                            <List className="w-4 h-4 text-primary" />
+                            URLs de productos (una por línea)
+                          </Label>
+                          <Textarea
+                            value={bulkUrls}
+                            onChange={(e) => setBulkUrls(e.target.value)}
+                            placeholder={"https://www.thingiverse.com/thing/12345\nhttps://www.thingiverse.com/thing/67890\nhttps://cults3d.com/en/3d-model/..."}
+                            className="bg-background min-h-[160px] font-mono text-xs"
+                            rows={6}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Máximo 10 URLs. Cada producto se creará automáticamente con fondo "Estudio Maker" y precio de mercado (eBay).
+                          </p>
+                        </div>
+
+                        <Button
+                          onClick={handleBulkImport}
+                          disabled={!bulkUrls.trim()}
+                          className="w-full h-12 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2 text-base font-semibold"
+                        >
+                          <Wand2 className="w-5 h-5" />
+                          Importar Lote con AI
+                        </Button>
+                      </TabsContent>
+                    </Tabs>
+                  </motion.div>
+                )}
+
+                {/* ── STEP: BULK PROCESSING ── */}
+                {bulkProcessing && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 py-4">
+                    <div className="text-center space-y-2 mb-6">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center mx-auto animate-pulse">
+                        <Sparkles className="w-6 h-6 text-primary-foreground" />
+                      </div>
+                      <p className="font-display text-lg font-semibold">Importando productos...</p>
+                      <p className="text-sm text-muted-foreground">
+                        {bulkResults.filter(r => r.status === 'done').length} / {bulkResults.length} completados
+                      </p>
+                    </div>
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                      {bulkResults.map((item, i) => (
+                        <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                          item.status === 'done' ? 'border-green-500/30 bg-green-500/5' :
+                          item.status === 'error' ? 'border-destructive/30 bg-destructive/5' :
+                          item.status === 'queued' ? 'border-border bg-secondary/30' :
+                          'border-primary/30 bg-primary/5'
+                        }`}>
+                          <div className="flex-shrink-0">
+                            {item.status === 'queued' && <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />}
+                            {(item.status === 'scraping' || item.status === 'generating' || item.status === 'saving') && (
+                              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                            )}
+                            {item.status === 'done' && <CheckCircle2 className="w-5 h-5 text-green-500" />}
+                            {item.status === 'error' && <AlertCircle className="w-5 h-5 text-destructive" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-mono truncate">{item.url}</p>
+                            {item.name && <p className="text-xs text-muted-foreground">{item.name}</p>}
+                            {item.error && <p className="text-xs text-destructive">{item.error}</p>}
+                          </div>
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex-shrink-0">
+                            {item.status === 'queued' && 'En cola'}
+                            {item.status === 'scraping' && '🔄 Scraping'}
+                            {item.status === 'generating' && '🖼️ Imagen'}
+                            {item.status === 'saving' && '💾 Guardando'}
+                            {item.status === 'done' && '✅ Creado'}
+                            {item.status === 'error' && '❌ Error'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* ── BULK RESULTS (after processing) ── */}
+                {!bulkProcessing && bulkResults.length > 0 && aiStep === 'source' && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 py-4">
+                    <div className="text-center space-y-2 mb-4">
+                      <p className="font-display text-lg font-semibold">Importación completada</p>
+                      <p className="text-sm text-muted-foreground">
+                        {bulkResults.filter(r => r.status === 'done').length} creados · {bulkResults.filter(r => r.status === 'error').length} errores
+                      </p>
+                    </div>
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      {bulkResults.map((item, i) => (
+                        <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border ${
+                          item.status === 'done' ? 'border-green-500/30 bg-green-500/5' : 'border-destructive/30 bg-destructive/5'
+                        }`}>
+                          {item.status === 'done' ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <AlertCircle className="w-5 h-5 text-destructive" />}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium">{item.name || item.url}</p>
+                            {item.error && <p className="text-xs text-destructive">{item.error}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <Button onClick={resetAi} variant="outline" className="w-full">Cerrar</Button>
                   </motion.div>
                 )}
 
@@ -959,6 +1195,14 @@ export default function AdminProducts() {
                           <div className="space-y-1">
                             <Label className="text-xs">Precio ($)</Label>
                             <Input type="number" step="0.01" value={aiData.suggested_price} onChange={(e) => setAiData({ ...aiData, suggested_price: parseFloat(e.target.value) || 0 })} className="bg-secondary text-sm" />
+                            {aiData.price_source === 'ebay_market' && (
+                              <p className="text-[10px] text-primary flex items-center gap-1">
+                                📊 Precio basado en {aiData.ebay_prices?.length || 0} listings de eBay
+                              </p>
+                            )}
+                            {aiData.price_source === 'ai_estimate' && (
+                              <p className="text-[10px] text-muted-foreground">⚠️ Estimado por IA (sin datos de mercado)</p>
+                            )}
                           </div>
                           {/* Category with inline creation */}
                           <div className="space-y-1">
