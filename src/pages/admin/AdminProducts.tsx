@@ -970,8 +970,10 @@ export default function AdminProducts() {
     });
   };
 
-  // ── BULK IMPORT ──
-  const handleBulkImport = async () => {
+  // ── BULK IMPORT (delegated to global context) ──
+  const { startBulkImport, isRunning: bulkImportRunning } = useBulkImport();
+
+  const handleBulkImport = () => {
     const urls = bulkUrls.split('\n').map(u => u.trim()).filter(u => u && isValidUrl(u));
     if (urls.length === 0) {
       toast({ title: 'Ingresa al menos una URL válida', variant: 'destructive' });
@@ -981,88 +983,10 @@ export default function AdminProducts() {
       toast({ title: 'Máximo 10 URLs permitidas', variant: 'destructive' });
       return;
     }
-
-    setBulkProcessing(true);
-    setBulkResults(urls.map(url => ({ url, status: 'queued' as BulkItemStatus })));
-
-    let created = 0;
-    let errors = 0;
-
-    for (let i = 0; i < urls.length; i++) {
-      const currentUrl = urls[i];
-      try {
-        // Step 1: Scrape
-        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'scraping' } : r));
-        const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke('ai-product-import', {
-          body: {
-            action: 'scrape',
-            url: currentUrl,
-            existingCategories: categories.map((c: any) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
-          },
-        });
-        if (scrapeError || !scrapeData?.success) throw new Error(scrapeData?.error || 'Scrape failed');
-        const productInfo = scrapeData.data;
-
-        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'generating', name: productInfo.name_es } : r));
-
-        // Step 2: Generate image and persist immediately
-        let persistedImageUrl: string | null = null;
-        const bestSourceImage = productInfo.reference_image_url || productInfo.extracted_images?.[0];
-        if (bestSourceImage) {
-          try {
-            const { data: imgData } = await supabase.functions.invoke('ai-product-import', {
-              body: {
-                action: 'generate_image',
-                sourceImage: bestSourceImage,
-                backgroundMode: 'system',
-                customBackground: systemBgSetting || undefined,
-              },
-            });
-            if (imgData?.success && imgData.data.generated_image) {
-              const { url } = await persistAiImage(imgData.data.generated_image);
-              persistedImageUrl = url;
-            }
-          } catch {
-            // Image generation/persist failed, continue without image
-          }
-        }
-
-        // Step 3: Save product with persisted image
-        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'saving' } : r));
-        const matchedCat = categories.find((c: any) => c.slug === productInfo.suggested_category);
-        const nameEn = productInfo.name_en || productInfo.name_es;
-        const descEn = productInfo.description_en || productInfo.description_es;
-        const productSlug = productInfo.slug || slugify(productInfo.name_es || `product-${Date.now()}`);
-
-        const { error: insertError } = await supabase.from('products').insert({
-          name_en: nameEn,
-          name_es: productInfo.name_es || '',
-          description_en: descEn,
-          description_es: productInfo.description_es || '',
-          slug: productSlug,
-          base_price: productInfo.suggested_price || 0,
-          category_id: matchedCat?.id || null,
-          is_active: true,
-          is_featured: false,
-          images: persistedImageUrl ? [persistedImageUrl] : [],
-        });
-        if (insertError) throw insertError;
-
-        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'done' } : r));
-        created++;
-      } catch (e: any) {
-        setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'error', error: e.message } : r));
-        errors++;
-      }
-    }
-
-    setBulkProcessing(false);
-    qc.invalidateQueries({ queryKey: ['admin-products'] });
-    qc.invalidateQueries({ queryKey: ['admin-product-count'] });
-    toast({
-      title: `Importación completada`,
-      description: `${created} productos creados, ${errors} errores`,
-    });
+    startBulkImport(urls, categories, systemBgSetting || null);
+    setAiOpen(false);
+    resetAi();
+    toast({ title: '🚀 Importación iniciada', description: 'Puedes seguir navegando. Verás el progreso en el banner inferior.' });
   };
 
   function isValidUrl(str: string): boolean {
