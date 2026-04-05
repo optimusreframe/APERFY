@@ -206,6 +206,27 @@ export default function AdminProducts() {
   const [productVariations, setProductVariations] = useState<VariationRow[]>([]);
   const [loadingVariations, setLoadingVariations] = useState(false);
 
+  // Edit dialog AI state
+  const [editAiImageOpen, setEditAiImageOpen] = useState(false);
+  const [editAiSourceImage, setEditAiSourceImage] = useState<string | null>(null);
+  const [editAiBgMode, setEditAiBgMode] = useState<'system' | 'ai' | 'custom'>('system');
+  const [editAiCustomBg, setEditAiCustomBg] = useState<string | null>(null);
+  const [editAiGenerating, setEditAiGenerating] = useState(false);
+  const [editEnhancing, setEditEnhancing] = useState(false);
+  const [editTranslating, setEditTranslating] = useState(false);
+  const [editAiProgressStep, setEditAiProgressStep] = useState(0);
+  const editAiSourceRef = useRef<HTMLInputElement>(null);
+  const editAiBgRef = useRef<HTMLInputElement>(null);
+
+  // Progress log step timer for edit dialog
+  useEffect(() => {
+    if (!editAiGenerating) { setEditAiProgressStep(0); return; }
+    const interval = setInterval(() => {
+      setEditAiProgressStep((prev) => Math.min(prev + 1, AI_PROGRESS_MESSAGES.length - 1));
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [editAiGenerating]);
+
   // Bulk Import state
   type BulkItemStatus = 'queued' | 'scraping' | 'generating' | 'saving' | 'done' | 'error';
   const [bulkMode, setBulkMode] = useState(false);
