@@ -1,71 +1,129 @@
 
 
-# Precio por Peso/Material + Variaciones de Tamaño
+# Variaciones + Checkout Seguro con WhatsApp y Pagos Online
 
 ## Resumen
 
-Tres cambios principales:
-1. Agregar campo `cost_per_kg` a la tabla `materials` y UI en AdminMaterials para configurarlo
-2. Agregar campos `weight_grams` y `size_label` a `product_variations` para que cada variación de tamaño tenga peso y el precio se calcule automáticamente
-3. Refactorizar el ProductDetail para mostrar tamaño, peso, material y precio calculado dinámicamente al seleccionar variación
+8 cambios principales: 3 fixes de variaciones, rediseño del checkout con 2 caminos (WhatsApp + pago online), página admin de pagos, y capa de seguridad reforzada en todo el flujo de pagos.
 
-## Cambios en Base de Datos (2 migraciones)
+---
 
-**Migración 1 — Agregar `cost_per_kg` a `materials`:**
+## Base de Datos (3 migraciones)
+
+**Migración 1 — `dimensions` y `material_id` en `product_variations`:**
 ```sql
-ALTER TABLE public.materials ADD COLUMN cost_per_kg numeric NOT NULL DEFAULT 0;
+ALTER TABLE public.product_variations ADD COLUMN dimensions text DEFAULT NULL;
+ALTER TABLE public.product_variations ADD COLUMN material_id uuid DEFAULT NULL;
 ```
-Esto permite configurar el costo total por kg de cada filamento (incluyendo tiempo, labor, etc.).
 
-**Migración 2 — Agregar `weight_grams` a `product_variations`:**
+**Migración 2 — `payment_method` en `orders`:**
 ```sql
-ALTER TABLE public.product_variations ADD COLUMN weight_grams numeric DEFAULT NULL;
-```
-Cada variación de tipo "size" tendrá su peso en gramos. El precio se calcula: `(weight_grams / 1000) * material.cost_per_kg`.
-
-## Cambios en Código
-
-### 1. `src/pages/admin/AdminMaterials.tsx`
-- Agregar campo `cost_per_kg` al formulario (input numérico con label "Costo por KG ($)")
-- Mostrar columna de costo en la tabla de materiales
-- Actualizar el tipo `MaterialForm` para incluir `cost_per_kg`
-
-### 2. `src/pages/admin/AdminProducts.tsx`
-- En el modal de crear/editar producto, agregar sección "Variaciones" donde se puedan:
-  - Agregar variaciones de tipo `size` con: nombre (S/M/L/XL o custom), `weight_grams`, y selección de material
-  - El `price_modifier` se calcula automáticamente: `(weight_grams / 1000) * selectedMaterial.cost_per_kg - base_price`
-  - CRUD inline de variaciones asociadas al producto
-- Agregar campos `weight_grams` (peso base del modelo) al formulario del producto para referencia
-
-### 3. `src/pages/ProductDetail.tsx`
-- Cuando el usuario selecciona una variación de tipo "size":
-  - Mostrar el peso de esa variación (ej: "150g")
-  - Recalcular el precio total usando `price_modifier` de la variación
-- En la sección de especificaciones, mostrar: tamaño seleccionado, peso, material(es), color
-- Si no hay variación seleccionada, mostrar el `base_price` como ahora
-
-### 4. `src/i18n/translations.ts`
-- Agregar traducciones: "Peso", "Tamaño", "Costo por KG", "gramos", etc.
-
-## Flujo del Cálculo de Precio
-
-```text
-Admin configura:
-  Material "PETG" → cost_per_kg = $50
-
-Admin crea producto con variaciones:
-  Variación "Small"  → weight_grams = 100  → precio = (100/1000) * 50 = $5
-  Variación "Medium" → weight_grams = 200  → precio = (200/1000) * 50 = $10
-  Variación "Large"  → weight_grams = 350  → precio = (350/1000) * 50 = $17.50
-
-Cliente ve en ProductDetail:
-  Selecciona "Medium" → muestra "200g" y "$10.00"
+ALTER TABLE public.orders ADD COLUMN payment_method text DEFAULT NULL;
 ```
 
-## Archivos a modificar
-- `src/pages/admin/AdminMaterials.tsx` — campo cost_per_kg
-- `src/pages/admin/AdminProducts.tsx` — gestión de variaciones size/weight en el modal
-- `src/pages/ProductDetail.tsx` — mostrar peso y precio dinámico por variación
+**Migración 3 — Seed payment settings en `admin_settings`:**
+```sql
+INSERT INTO public.admin_settings (setting_key, setting_value) VALUES
+  ('payment_zelle', '{"active": true, "label": "Zelle", "info": "", "instructions": ""}'),
+  ('payment_binance', '{"active": true, "label": "Binance Pay (USDT)", "info": "", "instructions": ""}'),
+  ('payment_cashapp', '{"active": true, "label": "CashApp", "info": "", "instructions": ""}')
+ON CONFLICT (setting_key) DO NOTHING;
+```
+
+---
+
+## 1. Campo "Dimensiones" en variaciones
+
+**AdminProducts.tsx**: Agregar input "Medidas (mm)" (ej: `25x25x10`) en cada variación.
+
+**ProductDetail.tsx**: Mostrar dimensiones junto al peso en botones de variación.
+
+## 2. Fix: Material no persiste
+
+**AdminProducts.tsx**: Al cargar variaciones existentes (línea 508), leer `material_id` de la DB en vez de hardcodear `''`.
+
+## 3. Fix: Campo precio con cero
+
+**AdminProducts.tsx**: Agregar `onFocus={e => e.target.select()}` en todos los inputs numéricos (base_price, weight_grams, cost_per_kg) para que al hacer clic se seleccione el valor y se reemplace al escribir.
+
+---
+
+## 4. Checkout rediseñado con seguridad reforzada
+
+**Flujo nuevo en `Checkout.tsx`:**
+
+1. Formulario de envío (igual que ahora, con validación Zod)
+2. Paso 2: Elegir método — "Continuar por WhatsApp" o "Pagar Online"
+3. Ambas opciones crean la orden en DB antes de proceder
+
+### Opción WhatsApp
+- Crea orden con `payment_method: 'whatsapp'`, status `pending`
+- Genera mensaje con: orden ID (8 chars), lista de productos con URL (`/3dmodels/{slug}`), variación, precio, total
+- Abre `wa.me/16893324656?text=...`
+- Admin puede gestionar la orden desde AdminOrders
+
+### Opción Pago Online
+- Muestra métodos activos (cargados desde `admin_settings`)
+- Al seleccionar método, crea orden con `payment_method: 'zelle'|'binance'|'cashapp'`
+- Muestra instrucciones de pago configuradas por el admin
+
+### Medidas de Seguridad del Checkout
+
+**Cliente:**
+- Rate limiting: máximo 3 órdenes cada 5 minutos (ya existe, se mantiene)
+- Validación Zod de todos los campos del formulario (ya existe)
+- Sanitización de inputs con `stripHtml` (ya existe)
+- Re-verificación de precios contra la DB antes de crear orden (ya existe)
+- CSRF-like: token de sesión verificado via Supabase Auth (user.id en RLS)
+- No exponer datos sensibles de pago en el cliente — las instrucciones se cargan bajo demanda solo después de crear la orden
+- Sanitización del mensaje WhatsApp con `encodeURIComponent` para prevenir inyección de URLs
+- Deshabilitar botón de submit durante procesamiento para prevenir doble-submit
+- Validar que `payment_method` sea uno de los valores permitidos antes de enviar
+
+**Servidor (RLS ya configurado):**
+- `orders`: INSERT solo con `user_id = auth.uid()` (ya existe)
+- `order_items`: INSERT solo si la orden pertenece al usuario (ya existe)
+- `admin_settings`: SELECT público para leer métodos de pago, UPDATE solo admin (ya existe)
+- Los datos de pago del admin (email Zelle, wallet Binance) solo se muestran al cliente DESPUÉS de crear la orden exitosamente, nunca antes del checkout
+
+**Validación adicional:**
+- Nuevo schema Zod `paymentMethodSchema` para validar que el método seleccionado sea uno de `['whatsapp', 'zelle', 'binance', 'cashapp']`
+- Máximo de items por orden: 20 (previene abuso)
+- Máximo de cantidad por item: 99
+- Verificación de que todos los productos en el carrito existan y estén activos antes de crear la orden
+- Logs de auditoría: la orden guarda `payment_method` para trazabilidad
+
+---
+
+## 5. Admin Payment Settings
+
+**Nueva página `AdminPaymentSettings.tsx`:**
+- 3 secciones fijas: Zelle, Binance Pay, CashApp
+- Cada sección: Label, datos de pago (email/wallet/tag), instrucciones para el cliente, toggle activo/inactivo
+- Guarda en `admin_settings` con keys `payment_zelle`, `payment_binance`, `payment_cashapp`
+- Sanitización de inputs antes de guardar
+
+**AdminSidebar.tsx**: Agregar link "Payments" con icono `CreditCard`.
+
+**App.tsx**: Agregar ruta `admin/payments`.
+
+---
+
+## 6. Traducciones
+
+Nuevas keys en `translations.ts`: dimensiones, medidas, continuar por WhatsApp, pagar online, instrucciones de pago, métodos de pago, etc.
+
+---
+
+## Archivos a modificar/crear
+
+- 3 migraciones de base de datos
+- `src/pages/admin/AdminProducts.tsx` — fix material, fix precio, campo dimensiones
+- `src/pages/ProductDetail.tsx` — mostrar dimensiones
+- `src/pages/Checkout.tsx` — rediseño completo con 2 caminos + seguridad
+- `src/pages/admin/AdminPaymentSettings.tsx` — nueva página
+- `src/pages/admin/AdminSidebar.tsx` — link Payments
+- `src/App.tsx` — ruta admin/payments
+- `src/lib/validation.ts` — schema paymentMethod
 - `src/i18n/translations.ts` — nuevas traducciones
-- 2 migraciones de base de datos
 
