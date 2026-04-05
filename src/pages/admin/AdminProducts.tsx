@@ -407,8 +407,10 @@ export default function AdminProducts() {
 
       setAiData(data.data);
       setAiExtractedImages(data.data.extracted_images || []);
-      if (data.data.extracted_images?.length > 0) {
-        setAiSelectedSourceImage(data.data.extracted_images[0]);
+      // Priority: manual upload > AI-selected reference_image_url > first extracted
+      if (!aiOriginalImage) {
+        const bestImage = data.data.reference_image_url || data.data.extracted_images?.[0] || null;
+        setAiSelectedSourceImage(bestImage);
       }
       setAiStep('review');
       // Auto-trigger AI image generation after scrape
