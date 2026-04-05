@@ -235,6 +235,8 @@ export type Database = {
           notes: string | null
           payment_method: string | null
           shipping_address: Json | null
+          shipping_cost: number | null
+          shipping_provider_id: string | null
           status: Database["public"]["Enums"]["order_status"]
           total: number
           updated_at: string
@@ -246,6 +248,8 @@ export type Database = {
           notes?: string | null
           payment_method?: string | null
           shipping_address?: Json | null
+          shipping_cost?: number | null
+          shipping_provider_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
           updated_at?: string
@@ -257,6 +261,8 @@ export type Database = {
           notes?: string | null
           payment_method?: string | null
           shipping_address?: Json | null
+          shipping_cost?: number | null
+          shipping_provider_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
           updated_at?: string
@@ -497,6 +503,48 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+        }
+        Relationships: []
+      }
+      shipping_providers: {
+        Row: {
+          base_rate: number
+          created_at: string
+          description_en: string | null
+          description_es: string | null
+          estimated_days_max: number | null
+          estimated_days_min: number | null
+          id: string
+          is_active: boolean
+          name: string
+          per_kg_rate: number
+          updated_at: string
+        }
+        Insert: {
+          base_rate?: number
+          created_at?: string
+          description_en?: string | null
+          description_es?: string | null
+          estimated_days_max?: number | null
+          estimated_days_min?: number | null
+          id?: string
+          is_active?: boolean
+          name: string
+          per_kg_rate?: number
+          updated_at?: string
+        }
+        Update: {
+          base_rate?: number
+          created_at?: string
+          description_en?: string | null
+          description_es?: string | null
+          estimated_days_max?: number | null
+          estimated_days_min?: number | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          per_kg_rate?: number
+          updated_at?: string
         }
         Relationships: []
       }
