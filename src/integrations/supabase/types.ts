@@ -233,6 +233,7 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          payment_method: string | null
           shipping_address: Json | null
           status: Database["public"]["Enums"]["order_status"]
           total: number
@@ -243,6 +244,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          payment_method?: string | null
           shipping_address?: Json | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
@@ -253,6 +255,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          payment_method?: string | null
           shipping_address?: Json | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
@@ -367,8 +370,10 @@ export type Database = {
       product_variations: {
         Row: {
           created_at: string
+          dimensions: string | null
           id: string
           is_active: boolean
+          material_id: string | null
           name_en: string
           name_es: string
           price_modifier: number
@@ -379,8 +384,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dimensions?: string | null
           id?: string
           is_active?: boolean
+          material_id?: string | null
           name_en: string
           name_es?: string
           price_modifier?: number
@@ -391,8 +398,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dimensions?: string | null
           id?: string
           is_active?: boolean
+          material_id?: string | null
           name_en?: string
           name_es?: string
           price_modifier?: number

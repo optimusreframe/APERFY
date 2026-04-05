@@ -38,6 +38,12 @@ export const checkoutSchema = z.object({
   notes: sanitizedString(500).optional().or(z.literal('')),
 });
 
+// ── Payment Method ──
+export const VALID_PAYMENT_METHODS = ['whatsapp', 'zelle', 'binance', 'cashapp'] as const;
+export const paymentMethodSchema = z.enum(VALID_PAYMENT_METHODS);
+export const MAX_ORDER_ITEMS = 20;
+export const MAX_ITEM_QUANTITY = 99;
+
 // ── Admin: Products ──
 export const productSchema = z.object({
   name_en: requiredSanitizedString(255),

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Heart, ShoppingCart, Box, ArrowLeft, Minus, Plus, ZoomIn, Weight } from 'lucide-react';
+import { Heart, ShoppingCart, Box, ArrowLeft, Minus, Plus, ZoomIn, Weight, Ruler } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -160,6 +160,7 @@ export default function ProductDetail() {
     : Number(product?.base_price || 0) + priceModifier;
   const totalPrice = product ? unitPrice * quantity : 0;
   const selectedWeight = selectedSizeVar ? Number(selectedSizeVar.weight_grams || 0) : null;
+  const selectedDimensions = selectedSizeVar ? (selectedSizeVar as any).dimensions : null;
   const images = product ? (product.images as string[]) || [] : [];
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -284,6 +285,12 @@ export default function ProductDetail() {
                   {selectedWeight}{t.product.grams}
                 </Badge>
               )}
+              {selectedDimensions && (
+                <Badge variant="outline" className="mt-2 ml-2 gap-1">
+                  <Ruler className="w-3 h-3" />
+                  {selectedDimensions}mm
+                </Badge>
+              )}
             </div>
 
             <p className="text-muted-foreground leading-relaxed text-sm sm:text-base">
@@ -331,10 +338,12 @@ export default function ProductDetail() {
                           )}
                           <span>{language === 'es' ? v.name_es : v.name_en}</span>
                         </div>
-                        {isSize && (vWeight || vPrice) && (
+                        {isSize && (vWeight || vPrice || v.dimensions) && (
                           <span className="text-[10px] text-muted-foreground">
                             {vWeight ? `${vWeight}${t.product.grams}` : ''}
-                            {vWeight && vPrice ? ' · ' : ''}
+                            {vWeight && v.dimensions ? ' · ' : ''}
+                            {v.dimensions ? `${v.dimensions}mm` : ''}
+                            {(vWeight || v.dimensions) && vPrice ? ' · ' : ''}
                             {vPrice ? `$${vPrice.toFixed(2)}` : ''}
                           </span>
                         )}

@@ -198,6 +198,7 @@ export default function AdminProducts() {
     type: string;
     weight_grams: number;
     material_id: string;
+    dimensions: string;
     is_active: boolean;
     _isNew?: boolean;
     _deleted?: boolean;
@@ -438,6 +439,8 @@ export default function AdminProducts() {
             name_es: v.name_es,
             type: v.type || 'size',
             weight_grams: v.weight_grams || null,
+            dimensions: v.dimensions || null,
+            material_id: v.material_id || null,
             price_modifier: calculatedPrice,
             value: `${v.weight_grams}g`,
             is_active: v.is_active,
@@ -505,7 +508,8 @@ export default function AdminProducts() {
         name_es: v.name_es,
         type: v.type,
         weight_grams: v.weight_grams || 0,
-        material_id: '', // We'll handle material via product_materials
+        material_id: v.material_id || '',
+        dimensions: v.dimensions || '',
         is_active: v.is_active,
       })));
       setLoadingVariations(false);
@@ -1584,7 +1588,7 @@ export default function AdminProducts() {
                   </div>
                   <div className="space-y-2">
                     <Label>Precio Base ($)</Label>
-                    <Input type="number" step="0.01" min="0" max="999999" value={form.base_price} onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} className="bg-secondary" required />
+                    <Input type="number" step="0.01" min="0" max="999999" value={form.base_price} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} className="bg-secondary" required />
                     {fieldErrors.base_price && <p className="text-xs text-destructive">{fieldErrors.base_price}</p>}
                   </div>
                   <div className="space-y-2">
@@ -1616,7 +1620,7 @@ export default function AdminProducts() {
                       variant="outline"
                       size="sm"
                       onClick={() => setProductVariations(prev => [...prev, {
-                        name_en: '', name_es: '', type: 'size', weight_grams: 0, material_id: '', is_active: true, _isNew: true,
+                        name_en: '', name_es: '', type: 'size', weight_grams: 0, material_id: '', dimensions: '', is_active: true, _isNew: true,
                       }])}
                       className="gap-1 text-xs"
                     >
@@ -1695,7 +1699,7 @@ export default function AdminProducts() {
                             />
                           </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1">
                             <Label className="text-xs flex items-center gap-1"><Weight className="w-3 h-3" /> Peso (g)</Label>
                             <Input
@@ -1703,6 +1707,7 @@ export default function AdminProducts() {
                               min="0"
                               step="0.1"
                               value={variation.weight_grams}
+                              onFocus={(e) => e.target.select()}
                               onChange={(e) => {
                                 setProductVariations(prev => {
                                   const updated = [...prev];
@@ -1714,6 +1719,23 @@ export default function AdminProducts() {
                               className="bg-background text-sm h-8"
                             />
                           </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs flex items-center gap-1"><Ruler className="w-3 h-3" /> Medidas (mm)</Label>
+                            <Input
+                              value={variation.dimensions}
+                              onChange={(e) => {
+                                setProductVariations(prev => {
+                                  const updated = [...prev];
+                                  updated[actualIdx] = { ...updated[actualIdx], dimensions: e.target.value };
+                                  return updated;
+                                });
+                              }}
+                              placeholder="25x25x10"
+                              className="bg-background text-sm h-8"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
                           <div className="space-y-1">
                             <Label className="text-xs">Material</Label>
                             <Select

@@ -26,6 +26,7 @@ import AdminCategories from "./pages/admin/AdminCategories";
 import AdminMaterials from "./pages/admin/AdminMaterials";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminRequests from "./pages/admin/AdminRequests";
+import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
 import RequestModel from "./pages/RequestModel";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,7 @@ const App = () => (
                   <Route path="materials" element={<AdminMaterials />} />
                   <Route path="orders" element={<AdminOrders />} />
                   <Route path="requests" element={<AdminRequests />} />
+                  <Route path="payments" element={<AdminPaymentSettings />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
