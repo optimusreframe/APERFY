@@ -1,61 +1,54 @@
 
 
-# Potenciar el diálogo de Editar Producto con funcionalidades AI
+# Loader "3D to Print" + Background Enrichment + AI Image Fidelity
 
-## Problema actual
+## 1. Loader: Texto completo "3D to Print" con diseño responsivo
 
-El diálogo de editar producto (líneas 1506-1789) es básico: solo permite subir fotos manualmente, editar campos de texto sin asistencia AI, y no tiene traducción automática ni generación de imagen. Toda la lógica AI existe solo en el flujo de "AI Import Studio".
+**Archivo**: `src/components/SplashLoader3D.tsx`
 
-## Solución
+### Nuevas letras
+Reemplazar los arrays de puntos actuales ("3", "D", "P") por puntos para las letras: **"3", "D", "t", "o", "P", "r", "i", "n", "t"** — formando "3D to Print". Esto incrementa de ~38 partículas a ~80-100.
 
-Agregar capacidades AI al diálogo de editar/crear producto, reutilizando las mismas funciones y edge functions que ya existen.
+### Layout responsivo con `useIsMobile`
+- **Desktop** (>768px): Layout horizontal completo "3D to Print", cámara a z=12, fov=45. Escala 1.0.
+- **Tablet** (768px): Layout en 2 líneas — "3D to" arriba, "Print" abajo. Cámara z=10, fov=50. Escala 0.85.
+- **Mobile** (<768px): Layout en 2 líneas más compacto. Cámara z=9, fov=55. Escala 0.7. Partículas más pequeñas.
 
-### Cambios en `src/pages/admin/AdminProducts.tsx`
+Se usa un hook `useResponsiveLayout()` interno que retorna `{ scale, cameraZ, fov, layout }` basado en `window.innerWidth` con listener de resize.
 
-**1. Botón "Generar Imagen AI" en la sección Media del diálogo de editar:**
-- Agregar un botón junto al área de upload que abre un mini-panel inline
-- El panel permite: subir foto original + seleccionar modo de fondo (Estudio Maker / Exhibición Tech / Custom) + botón "Generar con AI"
-- Reutiliza `triggerAiGenerateImage()` y `persistAiImage()` que ya existen
-- La imagen generada se agrega al array `mediaFiles` como nueva imagen
+### Partículas de fondo temáticas
+Agregar ~20-30 partículas decorativas adicionales que NO forman el logo:
+- **Formas variadas**: Cilindros largos (filamentos), toroides (rollos/spools), cajas pequeñas (impresoras simplificadas), conos (hotends)
+- Material semi-transparente dorado con baja opacidad (`opacity: 0.15-0.3`)
+- Flotan permanentemente en el fondo (no se ensamblan), con rotación lenta y drift sutil
+- Distribuidas en un radio amplio (z: -5 a -15) para crear profundidad
+- Se implementan como un componente `BackgroundParticles` separado dentro del mismo archivo
 
-**2. Botones AI para Nombre y Descripción:**
-- Agregar un botón `✨ Generar con AI` encima de los campos de nombre/descripción
-- Al presionar, invoca el edge function con action `'enhance_product'` (nueva acción) que recibe el nombre/descripción actual + las imágenes del producto y genera versiones mejoradas en ES e EN
-- También sugiere categoría (existente o nueva) y genera slug automático en inglés
+### Geometrías de fondo (sin importar modelos externos)
+- **Spool/Rollo**: `torusGeometry` con proportions de rollo
+- **Filamento**: `cylinderGeometry` muy delgado y largo
+- **Hotend**: `coneGeometry` invertido
+- **Printer simplificada**: `boxGeometry` con un `boxGeometry` más pequeño encima (grupo)
+- **Partículas finas**: `sphereGeometry` muy pequeñas como polvo
 
-**3. Botón "Traducir con AI" para campos EN:**
-- Agregar botón junto a los campos EN (nombre y descripción) que invoca la acción `translate` existente del edge function
-- Genera `name_en` y `description_en` desde los campos ES
-- Auto-genera el slug desde el nombre EN
+## 2. AI Image Generation: Fidelidad total al modelo original
 
-**4. Traducción AI en Variaciones:**
-- Agregar botón "Traducir" junto al campo `Nombre (EN)` de cada variación
-- Invoca la misma acción `translate` para convertir `name_es` → `name_en`
+**Archivo**: `supabase/functions/ai-product-import/index.ts`
 
-### Nueva acción en edge function `supabase/functions/ai-product-import/index.ts`
+Modificar los 3 prompts de `generate_image` (líneas 472-478) para enfatizar la preservación exacta del modelo:
 
-**Acción `enhance_product`:**
-- Recibe: `name_es`, `description_es`, `existingCategories`, imagen(es) del producto (opcional)
-- Genera: nombre mejorado (ES/EN, max 4 palabras), descripción mejorada (ES/EN, max 150 chars), categoría sugerida, slug EN
-- Reutiliza el mismo modelo y prompt style del scrape pero adaptado para productos existentes
+**Instrucción base a agregar en TODOS los modos**:
+```
+"CRITICAL FIDELITY RULE: The 3D printed object must be reproduced with ABSOLUTE fidelity to the original image. Do NOT modify, alter, or reinterpret the object's design, colors, shape, size, proportions, textures, surface details, or any visual characteristic. The object must look EXACTLY like the original — same colors, same geometry, same style, same level of detail. The ONLY change is making it hyper-realistic with professional photography quality. You are changing the BACKGROUND and LIGHTING only, never the object itself."
+```
 
-### Estado adicional en el componente
-
-- `editAiImageOpen`: boolean para mostrar/ocultar el panel de generación de imagen AI dentro del diálogo de editar
-- `editAiSourceImage`: string | null para la foto fuente subida
-- `editAiBgMode`: 'system' | 'ai' | 'custom'
-- `editAiGenerating`: boolean para loading states
-- `editTranslating`: boolean para traducción en progreso
-
-### Flujo UX
-
-1. **Imagen**: Usuario ve sus fotos actuales + botón "✨ Generar con AI" → sube foto original → elige fondo → genera → imagen se agrega a media
-2. **Texto**: Usuario presiona "✨ Generar con AI" → AI genera nombre, descripción, categoría, slug en ambos idiomas basándose en las imágenes y texto existente
-3. **Traducción**: Usuario escribe en ES → presiona "🔄 Traducir" junto a campos EN → AI traduce y genera slug
-4. **Variaciones**: Usuario escribe nombre ES → presiona "🔄" junto a Nombre EN → AI traduce
+Actualizar cada prompt:
+- **system** (Estudio Maker): Agregar la regla de fidelidad + "hyper-realistic rendering of the exact same object"
+- **ai** (Exhibición Tech): Igual + mantener cyberpunk background pero objeto intacto
+- **custom**: Igual + compositing fiel del objeto sobre el fondo custom
 
 ## Archivos a modificar
 
-- `src/pages/admin/AdminProducts.tsx` — agregar UI y lógica AI al diálogo de editar
-- `supabase/functions/ai-product-import/index.ts` — agregar acción `enhance_product`
+- `src/components/SplashLoader3D.tsx` — reescritura completa con texto "3D to Print", layout responsivo, partículas de fondo
+- `supabase/functions/ai-product-import/index.ts` — actualizar prompts de generate_image (líneas 469-478)
 
