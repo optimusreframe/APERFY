@@ -915,6 +915,109 @@ export default function AdminProducts() {
                       <Wand2 className="w-5 h-5" />
                       Extraer y Generar con AI
                     </Button>
+                      </TabsContent>
+
+                      <TabsContent value="bulk" className="space-y-4 mt-4">
+                        <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-4">
+                          <Label className="flex items-center gap-2 text-sm font-semibold">
+                            <List className="w-4 h-4 text-primary" />
+                            URLs de productos (una por línea)
+                          </Label>
+                          <Textarea
+                            value={bulkUrls}
+                            onChange={(e) => setBulkUrls(e.target.value)}
+                            placeholder={"https://www.thingiverse.com/thing/12345\nhttps://www.thingiverse.com/thing/67890\nhttps://cults3d.com/en/3d-model/..."}
+                            className="bg-background min-h-[160px] font-mono text-xs"
+                            rows={6}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Máximo 10 URLs. Cada producto se creará automáticamente con fondo "Estudio Maker" y precio de mercado (eBay).
+                          </p>
+                        </div>
+
+                        <Button
+                          onClick={handleBulkImport}
+                          disabled={!bulkUrls.trim()}
+                          className="w-full h-12 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2 text-base font-semibold"
+                        >
+                          <Wand2 className="w-5 h-5" />
+                          Importar Lote con AI
+                        </Button>
+                      </TabsContent>
+                    </Tabs>
+                  </motion.div>
+                )}
+
+                {/* ── STEP: BULK PROCESSING ── */}
+                {bulkProcessing && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 py-4">
+                    <div className="text-center space-y-2 mb-6">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center mx-auto animate-pulse">
+                        <Sparkles className="w-6 h-6 text-primary-foreground" />
+                      </div>
+                      <p className="font-display text-lg font-semibold">Importando productos...</p>
+                      <p className="text-sm text-muted-foreground">
+                        {bulkResults.filter(r => r.status === 'done').length} / {bulkResults.length} completados
+                      </p>
+                    </div>
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                      {bulkResults.map((item, i) => (
+                        <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                          item.status === 'done' ? 'border-green-500/30 bg-green-500/5' :
+                          item.status === 'error' ? 'border-destructive/30 bg-destructive/5' :
+                          item.status === 'queued' ? 'border-border bg-secondary/30' :
+                          'border-primary/30 bg-primary/5'
+                        }`}>
+                          <div className="flex-shrink-0">
+                            {item.status === 'queued' && <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />}
+                            {(item.status === 'scraping' || item.status === 'generating' || item.status === 'saving') && (
+                              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                            )}
+                            {item.status === 'done' && <CheckCircle2 className="w-5 h-5 text-green-500" />}
+                            {item.status === 'error' && <AlertCircle className="w-5 h-5 text-destructive" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-mono truncate">{item.url}</p>
+                            {item.name && <p className="text-xs text-muted-foreground">{item.name}</p>}
+                            {item.error && <p className="text-xs text-destructive">{item.error}</p>}
+                          </div>
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex-shrink-0">
+                            {item.status === 'queued' && 'En cola'}
+                            {item.status === 'scraping' && '🔄 Scraping'}
+                            {item.status === 'generating' && '🖼️ Imagen'}
+                            {item.status === 'saving' && '💾 Guardando'}
+                            {item.status === 'done' && '✅ Creado'}
+                            {item.status === 'error' && '❌ Error'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* ── BULK RESULTS (after processing) ── */}
+                {!bulkProcessing && bulkResults.length > 0 && aiStep === 'source' && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 py-4">
+                    <div className="text-center space-y-2 mb-4">
+                      <p className="font-display text-lg font-semibold">Importación completada</p>
+                      <p className="text-sm text-muted-foreground">
+                        {bulkResults.filter(r => r.status === 'done').length} creados · {bulkResults.filter(r => r.status === 'error').length} errores
+                      </p>
+                    </div>
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      {bulkResults.map((item, i) => (
+                        <div key={i} className={`flex items-center gap-3 p-3 rounded-lg border ${
+                          item.status === 'done' ? 'border-green-500/30 bg-green-500/5' : 'border-destructive/30 bg-destructive/5'
+                        }`}>
+                          {item.status === 'done' ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <AlertCircle className="w-5 h-5 text-destructive" />}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium">{item.name || item.url}</p>
+                            {item.error && <p className="text-xs text-destructive">{item.error}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <Button onClick={resetAi} variant="outline" className="w-full">Cerrar</Button>
                   </motion.div>
                 )}
 
