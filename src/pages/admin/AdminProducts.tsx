@@ -715,8 +715,8 @@ export default function AdminProducts() {
 
         setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'generating', name: productInfo.name_es } : r));
 
-        // Step 2: Generate image (if source image available)
-        let generatedImageUrl: string | null = null;
+        // Step 2: Generate image and persist immediately
+        let persistedImageUrl: string | null = null;
         const bestSourceImage = productInfo.reference_image_url || productInfo.extracted_images?.[0];
         if (bestSourceImage) {
           try {
@@ -728,22 +728,23 @@ export default function AdminProducts() {
                 customBackground: systemBgSetting || undefined,
               },
             });
-            if (imgData?.success) {
-              generatedImageUrl = imgData.data.generated_image;
+            if (imgData?.success && imgData.data.generated_image) {
+              const { url } = await persistAiImage(imgData.data.generated_image);
+              persistedImageUrl = url;
             }
           } catch {
-            // Image generation failed, continue without image
+            // Image generation/persist failed, continue without image
           }
         }
 
-        // Step 3: Save product
+        // Step 3: Save product with persisted image
         setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'saving' } : r));
         const matchedCat = categories.find((c: any) => c.slug === productInfo.suggested_category);
         const nameEn = productInfo.name_en || productInfo.name_es;
         const descEn = productInfo.description_en || productInfo.description_es;
         const productSlug = productInfo.slug || slugify(productInfo.name_es || `product-${Date.now()}`);
 
-        const { data: newProduct, error: insertError } = await supabase.from('products').insert({
+        const { error: insertError } = await supabase.from('products').insert({
           name_en: nameEn,
           name_es: productInfo.name_es || '',
           description_en: descEn,
@@ -753,21 +754,9 @@ export default function AdminProducts() {
           category_id: matchedCat?.id || null,
           is_active: true,
           is_featured: false,
-          images: [],
-        }).select('id').single();
+          images: persistedImageUrl ? [persistedImageUrl] : [],
+        });
         if (insertError) throw insertError;
-
-        // Upload generated image if available
-        if (generatedImageUrl && newProduct) {
-          try {
-            const resp = await fetch(generatedImageUrl);
-            const blob = await resp.blob();
-            const file = new File([blob], 'ai-generated.png', { type: 'image/png' });
-            const imgUrl = await uploadMedia(file, newProduct.id);
-            await supabase.from('products').update({ images: [imgUrl] }).eq('id', newProduct.id);
-          } catch {
-            // Image upload failed, product still created
-          }
         }
 
         setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'done' } : r));
