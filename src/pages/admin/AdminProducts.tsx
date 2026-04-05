@@ -844,10 +844,9 @@ export default function AdminProducts() {
         action: 'ai_image_generation_failed',
         category: 'error',
         entity_type: 'product',
-        entity_id: editingProduct?.id,
         title: 'Error generando imagen AI (edición)',
         details: errorMessage,
-        metadata: { product_name: editingProduct?.name_es },
+        metadata: { product_name: form.name_es },
       });
     } finally {
       setEditAiGenerating(false);
