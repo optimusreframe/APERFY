@@ -381,6 +381,40 @@ export default function AdminProducts() {
       reader.readAsDataURL(file);
     });
 
+  const triggerAiGenerateImage = async (sourceImg: string) => {
+    let customBackground: string | undefined;
+    if (aiBgMode === 'system' && systemBgSetting) {
+      customBackground = systemBgSetting;
+    } else if (aiBgMode === 'custom' && aiCustomBg) {
+      customBackground = aiCustomBg;
+    }
+
+    setAiImageLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-import', {
+        body: {
+          action: 'generate_image',
+          sourceImage: sourceImg,
+          customBackground,
+          backgroundMode: aiBgMode,
+        },
+      });
+      if (error) {
+        const errorMsg = data?.error || error.message || 'Error al generar imagen';
+        throw new Error(errorMsg);
+      }
+      if (!data?.success) throw new Error(data?.error || 'Error al generar imagen');
+      setAiGeneratedImage(data.data.generated_image);
+      setAiPreviewImage(data.data.generated_image);
+      toast({ title: '✓', description: '¡Imagen AI generada!' });
+    } catch (e: any) {
+      toast({ title: 'Error generando imagen', description: e.message, variant: 'destructive' });
+      // Don't set preview to source - leave it null so user sees the failure
+    } finally {
+      setAiImageLoading(false);
+    }
+  };
+
   const handleAiScrape = async () => {
     if (!aiUrl) {
       toast({ title: 'Ingresa una URL', variant: 'destructive' });
@@ -407,14 +441,18 @@ export default function AdminProducts() {
 
       setAiData(data.data);
       setAiExtractedImages(data.data.extracted_images || []);
-      // Priority: manual upload > AI-selected reference_image_url > first extracted
+
+      // Determine best source image: manual upload > AI reference > first extracted
+      const bestImage = aiOriginalImage || data.data.reference_image_url || data.data.extracted_images?.[0] || null;
       if (!aiOriginalImage) {
-        const bestImage = data.data.reference_image_url || data.data.extracted_images?.[0] || null;
         setAiSelectedSourceImage(bestImage);
       }
       setAiStep('review');
-      // Auto-trigger AI image generation after scrape
-      setTimeout(() => handleAiGenerateImage(), 100);
+
+      // Auto-trigger image generation with the resolved source image directly
+      if (bestImage) {
+        triggerAiGenerateImage(bestImage);
+      }
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
       setAiStep('source');
