@@ -458,6 +458,7 @@ export default function AdminProducts() {
       setEditId(null);
       setForm(empty);
       setMediaFiles([]);
+      setProductVariations([]);
       toast({ title: '✓', description: 'Producto guardado.' });
     },
     onError: (e: any) => {
