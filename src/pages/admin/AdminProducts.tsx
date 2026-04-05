@@ -1620,7 +1620,7 @@ export default function AdminProducts() {
                       variant="outline"
                       size="sm"
                       onClick={() => setProductVariations(prev => [...prev, {
-                        name_en: '', name_es: '', type: 'size', weight_grams: 0, material_id: '', is_active: true, _isNew: true,
+                        name_en: '', name_es: '', type: 'size', weight_grams: 0, material_id: '', dimensions: '', is_active: true, _isNew: true,
                       }])}
                       className="gap-1 text-xs"
                     >
