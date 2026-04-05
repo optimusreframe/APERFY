@@ -410,6 +410,9 @@ export default function AdminProducts() {
     setAiCustomBgFile(null);
     setAiGeneratedImage(null);
     setAiPreviewImage(null);
+    setAiStoredImageUrl(null);
+    setAiStoredImagePath(null);
+    setAiPersistingImage(false);
     setAiData(null);
     setAiExtractedImages([]);
     setAiSelectedSourceImage(null);
@@ -422,6 +425,29 @@ export default function AdminProducts() {
     setBulkUrls('');
     setBulkProcessing(false);
     setBulkResults([]);
+  };
+
+  // Helper: persist an AI image (data URI or remote URL) to storage immediately
+  const persistAiImage = async (imageSource: string): Promise<{ url: string; path: string }> => {
+    let blob: Blob;
+    if (imageSource.startsWith('data:')) {
+      const [header, b64] = imageSource.split(',');
+      const mime = header.match(/:(.*?);/)?.[1] || 'image/png';
+      const byteString = atob(b64);
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+      blob = new Blob([ia], { type: mime });
+    } else {
+      const resp = await fetch(imageSource);
+      if (!resp.ok) throw new Error('Failed to download AI image');
+      blob = await resp.blob();
+    }
+    const fileName = `ai-import-temp/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
+    const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { contentType: blob.type || 'image/png', upsert: true });
+    if (error) throw error;
+    const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
+    return { url: data.publicUrl, path: fileName };
   };
 
   const fileToBase64 = (file: File): Promise<string> =>
