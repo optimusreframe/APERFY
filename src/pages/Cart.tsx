@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ShoppingCart, Trash2, Minus, Plus, ArrowLeft } from 'lucide-react';
+import { ShoppingCart, Trash2, Minus, Plus, ArrowLeft, Weight, Ruler } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
