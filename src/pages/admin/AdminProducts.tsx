@@ -1233,7 +1233,7 @@ export default function AdminProducts() {
                             className="bg-secondary text-sm"
                             readOnly={slugLocked}
                           />
-                          {slugLocked && <p className="text-[10px] text-muted-foreground">Se genera automáticamente del nombre</p>}
+                          {slugLocked && <p className="text-[10px] text-muted-foreground">Se genera automáticamente del nombre {showEnglish ? '(EN)' : '(ES)'}</p>}
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
