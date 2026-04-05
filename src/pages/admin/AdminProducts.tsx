@@ -187,6 +187,13 @@ export default function AdminProducts() {
   const aiOriginalInputRef = useRef<HTMLInputElement>(null);
   const aiBgInputRef = useRef<HTMLInputElement>(null);
 
+  // Bulk Import state
+  type BulkItemStatus = 'queued' | 'scraping' | 'generating' | 'saving' | 'done' | 'error';
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkUrls, setBulkUrls] = useState('');
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkResults, setBulkResults] = useState<{ url: string; status: BulkItemStatus; name?: string; error?: string }[]>([]);
+
   // Progress log step timer
   useEffect(() => {
     if (!aiImageLoading) { setAiProgressStep(0); return; }
