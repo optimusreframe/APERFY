@@ -148,9 +148,25 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
 
           setItems(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'done' } : r));
           created++;
+          logActivity({
+            action: 'bulk_import_item',
+            category: 'import',
+            entity_type: 'product',
+            title: `Producto importado: ${productInfo.name_es || productSlug}`,
+            details: `URL: ${currentUrl}`,
+            metadata: { url: currentUrl, slug: productSlug },
+          });
         } catch (e: any) {
           setItems(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'error', error: e.message } : r));
           errors++;
+          logActivity({
+            action: 'bulk_import_error',
+            category: 'error',
+            entity_type: 'product',
+            title: `Error importando producto`,
+            details: `URL: ${currentUrl}\nError: ${e.message}`,
+            metadata: { url: currentUrl, error: e.message },
+          });
         }
       }
 
