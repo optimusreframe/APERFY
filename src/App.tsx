@@ -11,7 +11,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
-import Store from "./pages/Store";
+import { Navigate } from "react-router-dom";
 import ProductDetail from "./pages/ProductDetail";
 import Catalog from "./pages/Catalog";
 import Cart from "./pages/Cart";
@@ -43,7 +43,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/3dmodels" element={<Store />} />
+                <Route path="/3dmodels" element={<Navigate to="/" replace />} />
                 <Route path="/3dmodels/:slug" element={<ProductDetail />} />
                 <Route path="/catalog" element={<Catalog />} />
                 <Route path="/request-model" element={<RequestModel />} />

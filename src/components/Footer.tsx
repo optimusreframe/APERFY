@@ -21,7 +21,7 @@ export default function Footer() {
           {/* Links */}
           <div className="flex items-center gap-5 text-xs text-muted-foreground">
             <Link to="/" className="hover:text-foreground transition-colors">{t.nav.home}</Link>
-            <Link to="/3dmodels" className="hover:text-foreground transition-colors">{t.nav.models}</Link>
+            <Link to="/catalog" className="hover:text-foreground transition-colors">{t.nav.models}</Link>
             <Link to="/request-model" className="hover:text-foreground transition-colors">{t.footer.requestModel}</Link>
           </div>
 

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Search, Box, SlidersHorizontal } from 'lucide-react';
+import { Search, Box, SlidersHorizontal, X, LayoutGrid, Grid3X3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,12 +13,15 @@ import CategoryPills from '@/components/landing/CategoryPills';
 import TrendingSection from '@/components/landing/TrendingSection';
 import ProductCard from '@/components/ProductCard';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 
-function GridSkeleton() {
+function GridSkeleton({ gridClass }: { gridClass: string }) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className={gridClass}>
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="rounded-2xl bg-card border border-border/50 overflow-hidden">
           <Skeleton className="aspect-[4/3] w-full" />
@@ -39,6 +42,10 @@ export default function Index() {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('newest');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
+  const [priceRange, setPriceRange] = useState([0, 100]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [gridCols, setGridCols] = useState<3 | 4>(4);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['all-products'],
@@ -89,6 +96,24 @@ export default function Index() {
     },
   });
 
+  const { data: materials = [] } = useQuery({
+    queryKey: ['store-materials'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('materials').select('*').eq('is_active', true).order('name_en');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: productMaterials = [] } = useQuery({
+    queryKey: ['store-product-materials'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('product_materials').select('*');
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: favorites = [], refetch: refetchFavorites } = useQuery({
     queryKey: ['user-favorites', user?.id],
     queryFn: async () => {
@@ -114,6 +139,17 @@ export default function Index() {
     refetchFavorites();
   };
 
+  const toggleMaterial = (id: string) => setSelectedMaterials(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+
+  const clearFilters = () => {
+    setSelectedCategory(null);
+    setSelectedMaterials([]);
+    setPriceRange([0, 100]);
+    setSearch('');
+  };
+
+  const hasActiveFilters = selectedCategory || selectedMaterials.length > 0 || priceRange[0] > 0 || priceRange[1] < 100;
+
   const filtered = useMemo(() => {
     let result = [...products];
     if (search) {
@@ -125,6 +161,13 @@ export default function Index() {
     if (selectedCategory) {
       result = result.filter((p: any) => p.category_id === selectedCategory);
     }
+    if (selectedMaterials.length > 0) {
+      const productIdsWithMaterial = productMaterials
+        .filter((pm: any) => selectedMaterials.includes(pm.material_id))
+        .map((pm: any) => pm.product_id);
+      result = result.filter((p: any) => productIdsWithMaterial.includes(p.id));
+    }
+    result = result.filter((p: any) => Number(p.base_price) >= priceRange[0] && Number(p.base_price) <= priceRange[1]);
     switch (sort) {
       case 'price_asc': result.sort((a: any, b: any) => Number(a.base_price) - Number(b.base_price)); break;
       case 'price_desc': result.sort((a: any, b: any) => Number(b.base_price) - Number(a.base_price)); break;
@@ -132,7 +175,11 @@ export default function Index() {
       default: break;
     }
     return result;
-  }, [products, search, sort, selectedCategory, likeCounts]);
+  }, [products, search, sort, selectedCategory, selectedMaterials, priceRange, productMaterials, likeCounts]);
+
+  const gridClass = gridCols === 4
+    ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4'
+    : 'grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5';
 
   return (
     <div className="min-h-screen bg-background">
@@ -143,7 +190,7 @@ export default function Index() {
           <HeroBanner />
         </motion.div>
 
-        {/* Search + Sort bar */}
+        {/* Search + Sort + Filters bar */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -170,6 +217,20 @@ export default function Index() {
               <SelectItem value="popular">{t.store.popular}</SelectItem>
             </SelectContent>
           </Select>
+          {/* Grid toggle - desktop only */}
+          <div className="hidden lg:flex items-center gap-1 bg-card border border-border/50 rounded-lg p-1">
+            <button onClick={() => setGridCols(3)} className={`p-1.5 rounded ${gridCols === 3 ? 'bg-secondary text-foreground' : 'text-muted-foreground'}`}>
+              <Grid3X3 className="w-4 h-4" />
+            </button>
+            <button onClick={() => setGridCols(4)} className={`p-1.5 rounded ${gridCols === 4 ? 'bg-secondary text-foreground' : 'text-muted-foreground'}`}>
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+          </div>
+          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2 border-border/50 h-10">
+            <SlidersHorizontal className="w-4 h-4" />
+            {t.store.filters}
+            {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-primary" />}
+          </Button>
         </motion.div>
 
         {/* Category Pills */}
@@ -183,7 +244,7 @@ export default function Index() {
         </motion.div>
 
         {/* Trending Section */}
-        {!isLoading && !search && !selectedCategory && (
+        {!isLoading && !search && !selectedCategory && !hasActiveFilters && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -194,40 +255,80 @@ export default function Index() {
           </motion.div>
         )}
 
-        {/* Results count */}
-        <div className="flex items-center justify-between mt-8 mb-4">
-          <p className="text-sm text-muted-foreground">
-            {isLoading ? '...' : (
-              language === 'es'
-                ? `${filtered.length} modelo${filtered.length !== 1 ? 's' : ''}`
-                : `${filtered.length} model${filtered.length !== 1 ? 's' : ''}`
-            )}
-          </p>
-        </div>
+        {/* Main content area with optional filter sidebar */}
+        <div className="flex gap-6 mt-8">
+          {/* Filter sidebar */}
+          {showFilters && (
+            <motion.aside
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="w-full sm:w-56 shrink-0"
+            >
+              <div className="bg-card border border-border/50 rounded-xl p-4 space-y-5 sticky top-24">
+                <div>
+                  <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">{t.store.materialFilter}</h3>
+                  <div className="space-y-2">
+                    {materials.map((m: any) => (
+                      <label key={m.id} className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        <Checkbox checked={selectedMaterials.includes(m.id)} onCheckedChange={() => toggleMaterial(m.id)} />
+                        {language === 'es' ? m.name_es : m.name_en}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">{t.store.priceRange}</h3>
+                  <Slider value={priceRange} onValueChange={setPriceRange} min={0} max={100} step={1} className="mt-2" />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                    <span>${priceRange[0]}</span>
+                    <span>${priceRange[1]}</span>
+                  </div>
+                </div>
+                <Button variant="ghost" onClick={clearFilters} className="w-full text-muted-foreground hover:text-foreground gap-2 text-xs">
+                  <X className="w-3 h-3" />
+                  {t.store.clearFilters}
+                </Button>
+              </div>
+            </motion.aside>
+          )}
 
-        {/* Product Grid */}
-        {isLoading ? (
-          <GridSkeleton />
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground">
-            <Box className="w-12 h-12 mx-auto mb-4 opacity-30" />
-            <p>{t.store.noResults}</p>
+          {/* Product grid */}
+          <div className="flex-1 min-w-0">
+            {/* Results count */}
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-muted-foreground">
+                {isLoading ? '...' : (
+                  language === 'es'
+                    ? `${filtered.length} modelo${filtered.length !== 1 ? 's' : ''}`
+                    : `${filtered.length} model${filtered.length !== 1 ? 's' : ''}`
+                )}
+              </p>
+            </div>
+
+            {isLoading ? (
+              <GridSkeleton gridClass={gridClass} />
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-20 text-muted-foreground">
+                <Box className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                <p>{t.store.noResults}</p>
+              </div>
+            ) : (
+              <div className={gridClass}>
+                {filtered.map((product: any, i: number) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    index={i}
+                    likeCount={likeCounts[product.id] || 0}
+                    favCount={favCounts[product.id] || 0}
+                    isFavorite={favorites.includes(product.id)}
+                    onToggleFavorite={toggleFavorite}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {filtered.map((product: any, i: number) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                index={i}
-                likeCount={likeCounts[product.id] || 0}
-                favCount={favCounts[product.id] || 0}
-                isFavorite={favorites.includes(product.id)}
-                onToggleFavorite={toggleFavorite}
-              />
-            ))}
-          </div>
-        )}
+        </div>
       </div>
       <Footer />
     </div>
