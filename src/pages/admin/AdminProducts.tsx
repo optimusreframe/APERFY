@@ -757,7 +757,6 @@ export default function AdminProducts() {
           images: persistedImageUrl ? [persistedImageUrl] : [],
         });
         if (insertError) throw insertError;
-        }
 
         setBulkResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'done' } : r));
         created++;
