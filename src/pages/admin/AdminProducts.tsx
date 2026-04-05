@@ -415,6 +415,10 @@ export default function AdminProducts() {
     setSlugLocked(true);
     setNewCategoryName('');
     setCreatingCategory(false);
+    setBulkMode(false);
+    setBulkUrls('');
+    setBulkProcessing(false);
+    setBulkResults([]);
   };
 
   const fileToBase64 = (file: File): Promise<string> =>
