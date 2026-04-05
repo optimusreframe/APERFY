@@ -411,6 +411,45 @@ export default function AdminProducts() {
         }
         await supabase.from('products').update({ images: imageUrls }).eq('id', productId);
       }
+      // Save variations
+      if (productId && productVariations.length > 0) {
+        // Delete removed variations
+        const existingIds = productVariations.filter(v => v.id && !v._deleted).map(v => v.id!);
+        if (editId) {
+          // Delete variations not in current list
+          const { data: currentVars } = await supabase.from('product_variations').select('id').eq('product_id', productId);
+          const toDelete = (currentVars || []).filter(cv => !existingIds.includes(cv.id));
+          for (const d of toDelete) {
+            await supabase.from('product_variations').delete().eq('id', d.id);
+          }
+        }
+        // Upsert variations
+        for (const v of productVariations.filter(vr => !vr._deleted)) {
+          // Find selected material for this product to calc price
+          const selectedMaterial = materials.find((m: any) => m.id === v.material_id);
+          const costPerKg = selectedMaterial ? Number(selectedMaterial.cost_per_kg || 0) : 0;
+          const calculatedPrice = v.weight_grams > 0 && costPerKg > 0
+            ? (v.weight_grams / 1000) * costPerKg
+            : 0;
+          
+          const varPayload = {
+            product_id: productId,
+            name_en: v.name_en,
+            name_es: v.name_es,
+            type: v.type || 'size',
+            weight_grams: v.weight_grams || null,
+            price_modifier: calculatedPrice,
+            value: `${v.weight_grams}g`,
+            is_active: v.is_active,
+          };
+          
+          if (v.id && !v._isNew) {
+            await supabase.from('product_variations').update(varPayload).eq('id', v.id);
+          } else {
+            await supabase.from('product_variations').insert(varPayload);
+          }
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-products'] });
