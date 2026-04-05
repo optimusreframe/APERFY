@@ -36,6 +36,7 @@ import AdminLogs from "./pages/admin/AdminLogs";
 import RequestModel from "./pages/RequestModel";
 import OurProcess from "./pages/OurProcess";
 import Materials from "./pages/Materials";
+import EmailUnsubscribe from "./pages/EmailUnsubscribe";
 
 const SplashLoader3D = lazy(() => import("@/components/SplashLoader3D"));
 
