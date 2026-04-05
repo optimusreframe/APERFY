@@ -180,7 +180,7 @@ function createElement(i: number, type: ElementType): FloatingElement {
     opacity: isSmall ? 0.06 + r(5) * 0.06 : 0.03 + r(5) * 0.06,
     animClass: ANIM_CLASSES[Math.floor(r(6) * ANIM_CLASSES.length)],
     delay: `${(r(7) * -15).toFixed(1)}s`,
-    duration: `${8 + r(8) * 10}s`,
+    duration: `${3 + r(8) * 4}s`,
     rotate: Math.floor(r(9) * 360),
   };
 }
