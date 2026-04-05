@@ -1027,7 +1027,7 @@ export default function AdminProducts() {
 
               <div className="p-6 pt-4">
                 {/* ── STEP: SOURCE ── */}
-                {aiStep === 'source' && !bulkProcessing && (
+                {aiStep === 'source' && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                     <Tabs value={bulkMode ? 'bulk' : 'single'} onValueChange={(v) => setBulkMode(v === 'bulk')}>
                       <TabsList className="w-full">
