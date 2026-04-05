@@ -1847,23 +1847,30 @@ export default function AdminProducts() {
                 {/* ── PRODUCT FIELDS ── */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Nombre (EN)</Label>
-                    <Input value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} className="bg-secondary" maxLength={255} required />
-                    {fieldErrors.name_en && <p className="text-xs text-destructive">{fieldErrors.name_en}</p>}
-                  </div>
-                  <div className="space-y-2">
                     <Label>Nombre (ES)</Label>
                     <Input value={form.name_es} onChange={(e) => setForm({ ...form, name_es: e.target.value })} className="bg-secondary" maxLength={255} required />
                     {fieldErrors.name_es && <p className="text-xs text-destructive">{fieldErrors.name_es}</p>}
                   </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Nombre (EN)</Label>
+                      <Button type="button" variant="ghost" size="sm" onClick={handleEditTranslateToEnglish} disabled={editTranslating} className="text-xs h-6 px-2 gap-1 text-primary">
+                        {editTranslating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Traducir
+                      </Button>
+                    </div>
+                    <Input value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} className="bg-secondary" maxLength={255} required />
+                    {fieldErrors.name_en && <p className="text-xs text-destructive">{fieldErrors.name_en}</p>}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Descripción (EN)</Label>
-                  <Textarea value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Descripción (ES)</Label>
-                  <Textarea value={form.description_es} onChange={(e) => setForm({ ...form, description_es: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Descripción (ES)</Label>
+                    <Textarea value={form.description_es} onChange={(e) => setForm({ ...form, description_es: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descripción (EN)</Label>
+                    <Textarea value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
