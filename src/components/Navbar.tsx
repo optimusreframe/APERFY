@@ -53,13 +53,7 @@ export default function Navbar() {
       });
   }, [user]);
 
-  const navLinks = [
-    { href: '/', label: t.nav.home },
-    { href: '/catalog', label: t.nav.models },
-    { href: '/request-model', label: t.nav.requestModel },
-  ];
-
-  const isActive = (path: string) => location.pathname === path;
+  
 
   const initials = fullName
     ? fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
