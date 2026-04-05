@@ -1,43 +1,54 @@
 
 
-# Banner Premium + Background Ultra-Rápido
+# Correcciones: Banners con páginas reales, dominio y logo OG
 
-## 1. HeroBanner Premium Redesign (`src/components/landing/HeroBanner.tsx`)
+## Problema 1: Banners apuntan a /catalog sin sentido
 
-Reescribir completamente con diseño premium:
+Los banners 3 ("Fast & Reliable Printing") y 4 ("Custom Colors & Materials") apuntan a `/catalog` sin contexto relevante. Además, el banner 1 dice "calidad museo" que debe cambiarse.
 
-**5 banners temáticos:**
-1. "Premium 3D Printed Models" — con grid holográfico animado y glow dorado
-2. "Can't Find Your Model?" — solicitar modelo personalizado
-3. "Fast & Reliable Printing" — velocidad de entrega con Bambulab
-4. "Custom Colors & Materials" — variedad de filamentos PLA/PETG/ABS
-5. "Join the 3D Community" — registrarse para ofertas exclusivas
+### Solución
 
-**Mejoras visuales:**
-- Fondo con mesh gradient animado (CSS `background` con múltiples radial-gradients que se mueven via keyframes)
-- Bordes con `border-primary/30` y `shadow-[0_0_30px_rgba(212,160,23,0.15)]` para efecto glow
-- Icono más grande (20x20) dentro de un contenedor con `backdrop-blur` y borde dorado brillante
-- Texto del título con gradiente dorado via `bg-clip-text text-transparent bg-gradient-to-r from-primary via-gold-light to-primary`
-- Partículas decorativas flotantes dentro del banner (3-4 puntos dorados con `animate-pulse`)
-- Transición entre banners más cinematográfica: scale + fade + slide
-- Progress bar dorada animada debajo de los dots que avanza durante los 6s del timer
-- CTA button con hover glow más intenso
+- **Banner 1** ("Premium 3D Printed Models"): Cambiar subtítulo a enfocarse en "alta calidad" sin mención de museo. Mantener href a `/` (home/marketplace).
+- **Banner 2** ("Can't Find Your Model?"): Ya apunta a `/request-model` — correcto.
+- **Banner 3** ("Fast & Reliable Printing"): Crear nueva página `/our-process` con contenido sobre el proceso de impresión con Bambu Lab (velocidad, precisión, tecnología).
+- **Banner 4** ("Custom Colors & Materials"): Crear nueva página `/materials` con información sobre los materiales disponibles (PLA, PETG, ABS, TPU) y sus características.
+- **Banner 5** ("Join the Community"): Ya apunta a `/auth` — correcto.
 
-## 2. Background Mucho Más Rápido (`PrintingBackground.tsx` + `tailwind.config.ts`)
+### Nuevas páginas a crear
 
-**Velocidades de animación drásticamente reducidas:**
-- `bg-float-1`: 10s → **4s** (movimiento más amplio: ±50px)
-- `bg-float-2`: 14s → **5s** (movimiento más amplio: ±40px)
-- `bg-float-3`: 9s → **3.5s**
-- `bg-drift`: 12s → **5s** (drift más amplio: ±40px en X, ±35px en Y)
+**`src/pages/OurProcess.tsx`**: Página informativa con secciones sobre tecnología Bambu Lab, proceso de impresión paso a paso, calidad y velocidad. Diseño premium con iconos y gradientes dorados consistentes con el resto del sitio.
 
-**Duración por elemento:** de `8-18s` → **3-7s**
+**`src/pages/Materials.tsx`**: Página con tarjetas para cada material (PLA, PETG, ABS, TPU) mostrando propiedades, usos recomendados y acabados disponibles. Diseño con cards estilo glass-morphism.
 
-**Keyframes más amplios** para que el movimiento sea realmente visible y cubra más pantalla.
+Agregar ambas rutas en `App.tsx`.
 
-## 3. Archivos
+## Problema 2: Dominio incorrecto en compartidos
 
-- **Reescribir**: `src/components/landing/HeroBanner.tsx`
-- **Editar**: `tailwind.config.ts` (velocidades de keyframes)
-- **Editar**: `src/components/PrintingBackground.tsx` (duraciones por elemento)
+`PUBLIC_URL` en `ShareMenu.tsx` y `Catalog.tsx` usa `https://a3dtoprint.lovable.app` en lugar de `https://3dtoprint.online`.
+
+### Solución
+
+Cambiar `PUBLIC_URL` a `https://3dtoprint.online` en:
+- `src/components/ShareMenu.tsx` (línea 13)
+- `src/pages/Catalog.tsx` (línea 24)
+
+## Problema 3: Logo OG incorrecto en WhatsApp/social shares
+
+La imagen OG en `index.html` usa una URL temporal de Google Storage que no muestra el logo correcto de 3DtoPrint.
+
+### Solución
+
+- Copiar el logo subido (imagen 2, el "3P" negro/dorado) a `public/og-image.png`
+- Actualizar `index.html` meta tags `og:image` y `twitter:image` para usar `https://3dtoprint.online/og-image.png` (URL absoluta al dominio real)
+- Actualizar `og:url` a `https://3dtoprint.online`
+
+## Archivos
+
+- **Crear**: `src/pages/OurProcess.tsx`, `src/pages/Materials.tsx`
+- **Editar**: `src/components/landing/HeroBanner.tsx` (hrefs + subtítulo banner 1)
+- **Editar**: `src/App.tsx` (nuevas rutas)
+- **Editar**: `src/components/ShareMenu.tsx` (PUBLIC_URL)
+- **Editar**: `src/pages/Catalog.tsx` (PUBLIC_URL)
+- **Editar**: `index.html` (og:image, og:url meta tags)
+- **Copiar**: logo OG a `public/og-image.png`
 
