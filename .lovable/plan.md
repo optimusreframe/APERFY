@@ -1,46 +1,63 @@
 
 
-# Actualizar Logo y Favicon del Website
+# Actualización AI Import Studio — Maker-Pro Aesthetic
 
 ## Resumen
 
-Reemplazar el logo actual (insignia "3D" generada con CSS) por la imagen subida del nuevo logo en todo el sitio, y usarla tambien como favicon.
+Rediseñar el selector de fondo del modal AI Import con tarjetas estilo card, nuevos nombres/descripciones, prompts mejorados en el Edge Function, y un Progress Log animado durante la generación.
 
 ## Cambios
 
-### 1. Copiar la imagen al proyecto
+### 1. Edge Function — Nuevos prompts (`supabase/functions/ai-product-import/index.ts`)
 
-- Copiar `user-uploads://Photoroom_20260405_011813.png` a `src/assets/logo.png` (para componentes React)
-- Copiar tambien a `public/logo.png` (para favicon y meta tags)
-- Eliminar `public/favicon.ico` existente
+Reemplazar los prompts de `backgroundMode === "system"` y el default `"ai"`:
 
-### 2. Actualizar `index.html`
+- **`system` → "Estudio Maker"**: `"High-fidelity photography of a 3D printed object on a grey industrial workbench. Background: Blurred professional 3D printer and colorful filament spools (orange/teal). Macro lens aesthetic, heavy bokeh, cinematic studio lighting with a cool rim light on the object edges."`
+- **`ai` → "Exhibición Tech"**: `"Luxury product display. Object placed on a dark carbon-fiber plinth. Background: Intricate 3D geometric network nodes in dark blue/grey. '3DtoPrint' logo subtly engraved in copper/gold on the plinth. Cyberpunk technology aesthetic."`
+- `custom` permanece igual.
 
-- Reemplazar la referencia al favicon con `<link rel="icon" href="/logo.png" type="image/png">`
-- Actualizar las meta tags de og:image y twitter:image con `/logo.png`
+### 2. Frontend — Card-style radio selector (`AdminProducts.tsx`, líneas ~637-680)
 
-### 3. Actualizar `src/components/Navbar.tsx` (lineas 84-94)
+Reemplazar el `RadioGroup` plano con tarjetas interactivas:
 
-- Reemplazar el div con gradiente dorado y texto "3D" por una etiqueta `<img>` importando el logo desde `@/assets/logo.png`
-- Mantener el texto "3DtoPrint" al lado
+- Cada opción será un `div` clickeable con borde `border-2`, que cambia a `border-primary` (gold) cuando está activo.
+- Hover: `hover:border-primary/50` con `transition-all duration-200`.
+- Contenido de cada card:
+  - **system**: Título "Estudio Maker (Recomendado)" + sub-label "Fondo hiperrealista de taller con impresora 3D y desenfoque cinematográfico" + badge "Recomendado".
+  - **ai**: Título "Exhibición Tech Abstracta" + sub-label "Estilo geométrico oscuro con nodos de red y marca 3DtoPrint grabada".
+  - **custom**: Título "Fondo Personalizado" + sub-label "Sube tu propia imagen de fondo".
+- Se mantiene `RadioGroupItem` oculto para accesibilidad, el click en la card cambia el valor.
 
-### 4. Actualizar `src/components/Footer.tsx` (lineas 12-18)
+### 3. Progress Log overlay durante generación (líneas ~777-785)
 
-- Mismo cambio: reemplazar el cuadro CSS "3D" por la imagen del logo
+Cuando `aiImageLoading === true`, superponer sobre el preview un overlay oscuro con mensajes secuenciales animados:
 
-### 5. Actualizar `src/pages/Auth.tsx` (lineas 180-191)
+```text
+┌─────────────────────────┐
+│  ◉ Aislando modelo 3D...│  (0-2s)
+│  ◉ Configurando ilumina…│  (2-4s)
+│  ◉ Aplicando efecto …   │  (4-6s)
+│  ◉ Renderizando en 8K…  │  (6s+)
+│  [spinner]               │
+└─────────────────────────┘
+```
 
-- Reemplazar la insignia "3D" por la imagen del logo (version mas grande, ~14x14)
+Implementación: un array de strings con `useEffect` + `setInterval` que avanza el índice cada ~2.5s. Cada mensaje aparece con `animate-fade-in`. El overlay tiene `bg-black/70 backdrop-blur-sm` y un borde interno con `shadow-[inset_0_0_30px_rgba(212,160,23,0.15)]`.
 
-### 6. Actualizar `src/pages/admin/AdminLayout.tsx` (linea 13-14)
+### 4. Image preview con inner glow (línea ~777)
 
-- Agregar la imagen del logo antes del texto "3DtoPrint Admin"
+Agregar al contenedor del preview la clase: `shadow-[inset_0_0_40px_rgba(212,160,23,0.1)]` cuando hay una imagen generada exitosamente.
 
-## Archivos modificados
+### 5. Botón "Extraer y Generar" con pulse animation
 
-- `index.html`
-- `src/components/Navbar.tsx`
-- `src/components/Footer.tsx`
-- `src/pages/Auth.tsx`
-- `src/pages/admin/AdminLayout.tsx`
+Cuando `aiLoading || aiImageLoading`, agregar clase `animate-pulse` al botón principal de scrape/generación.
+
+### 6. Cambiar default de `aiBgMode`
+
+En `resetAi()` (línea 369), cambiar el default de `'ai'` a `'system'` ya que "Estudio Maker" será la opción recomendada.
+
+## Archivos a modificar
+
+- `supabase/functions/ai-product-import/index.ts` — prompts (2 líneas)
+- `src/pages/admin/AdminProducts.tsx` — UI del selector, progress log, glow, default mode
 
