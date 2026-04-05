@@ -366,7 +366,7 @@ export default function AdminProducts() {
     setAiData(null);
     setAiExtractedImages([]);
     setAiSelectedSourceImage(null);
-    setAiBgMode('ai');
+    setAiBgMode('system');
     setShowEnglish(false);
     setSlugLocked(true);
     setNewCategoryName('');
