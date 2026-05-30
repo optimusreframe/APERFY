@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { motion, AnimatePresence } from "framer-motion";
 import * as THREE from "three";
 
 // ─── Responsive layout hook ───
