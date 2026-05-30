@@ -473,44 +473,69 @@ export default function ProductDetail() {
             className="lg:sticky lg:top-32 lg:self-start"
           >
             <div
-              className="aspect-square rounded-2xl overflow-hidden relative cursor-zoom-in group border border-white/[0.06] bg-card/30 backdrop-blur-sm"
+              className="aspect-square rounded-2xl overflow-hidden relative group border border-white/[0.06] bg-card/30 backdrop-blur-sm"
               style={{ boxShadow: '0 0 60px hsl(var(--primary) / 0.06), 0 30px 80px hsl(var(--background) / 0.5)' }}
-              onClick={() => setLightboxOpen(true)}
             >
-              <AnimatePresence mode="wait">
-                {images.length > 0 ? (
-                  <motion.img
-                    key={selectedImage}
-                    src={images[selectedImage]}
-                    alt={language === 'es' ? product.name_es : product.name_en}
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Box className="w-24 h-24 text-muted-foreground/20" />
-                  </div>
-                )}
-              </AnimatePresence>
+              {view3D && product.model_3d_url ? (
+                <Model3DViewer
+                  src={product.model_3d_url}
+                  poster={images[selectedImage]}
+                  alt={language === 'es' ? product.name_es : product.name_en}
+                  className="absolute inset-0 w-full h-full"
+                />
+              ) : (
+                <div className="absolute inset-0 cursor-zoom-in" onClick={() => setLightboxOpen(true)}>
+                  <AnimatePresence mode="wait">
+                    {images.length > 0 ? (
+                      <motion.img
+                        key={selectedImage}
+                        src={images[selectedImage]}
+                        alt={language === 'es' ? product.name_es : product.name_en}
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Box className="w-24 h-24 text-muted-foreground/20" />
+                      </div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
+              {/* 3D toggle */}
+              {product.model_3d_url && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setView3D(v => !v); }}
+                  className={`absolute top-4 right-4 z-10 px-3 py-1.5 rounded-md backdrop-blur-md border font-mono text-[10px] uppercase tracking-[0.15em] flex items-center gap-1.5 transition-all ${
+                    view3D
+                      ? 'bg-primary/20 border-primary/40 text-primary'
+                      : 'bg-background/70 border-white/[0.06] text-foreground/80 hover:bg-background/90'
+                  }`}
+                >
+                  <Box className="w-3 h-3" />
+                  {view3D ? '2D' : '3D'}
+                </button>
+              )}
 
               {/* Counter chip */}
-              {images.length > 1 && (
+              {!view3D && images.length > 1 && (
                 <div className="absolute bottom-4 left-4 px-2.5 py-1 rounded-md bg-background/70 backdrop-blur-md border border-white/[0.06] font-mono text-[10px] tabular-nums uppercase tracking-[0.15em] text-foreground/80">
                   {String(selectedImage + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
                 </div>
               )}
 
               {/* Zoom hint */}
-              {images.length > 0 && (
-                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background/70 backdrop-blur-md border border-white/[0.06] rounded-md px-2.5 py-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-foreground/80">
+              {!view3D && images.length > 0 && (
+                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background/70 backdrop-blur-md border border-white/[0.06] rounded-md px-2.5 py-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-foreground/80 pointer-events-none">
                   <Maximize2 className="w-3 h-3 text-primary" />
                   Zoom
                 </div>
               )}
 
               {/* Arrow nav */}
-              {images.length > 1 && (
+              {!view3D && images.length > 1 && (
                 <>
                   <button
                     onClick={(e) => { e.stopPropagation(); setSelectedImage((selectedImage - 1 + images.length) % images.length); }}
