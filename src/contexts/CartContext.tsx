@@ -43,6 +43,8 @@ interface CartContextType {
   clearCart: () => void;
   getTotal: () => number;
   itemCount: number;
+  lastAdded: { item: CartItem; at: number } | null;
+  dismissLastAdded: () => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -69,13 +71,13 @@ function loadCart(): CartItem[] {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(loadCart);
+  const [lastAdded, setLastAdded] = useState<{ item: CartItem; at: number } | null>(null);
 
   useEffect(() => {
     localStorage.setItem(CART_KEY, JSON.stringify(items));
   }, [items]);
 
   const addToCart = (item: CartItem) => {
-    // Validate incoming item
     const result = cartItemSchema.safeParse(item);
     if (!result.success) return;
 
@@ -90,6 +92,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, item];
     });
+    setLastAdded({ item, at: Date.now() });
   };
 
   const removeFromCart = (productId: string) => {
@@ -109,8 +112,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return sum + (i.unitPrice + varMod) * i.quantity;
   }, 0);
 
+  const dismissLastAdded = () => setLastAdded(null);
+
   return (
-    <CartContext.Provider value={{ items, addToCart, removeFromCart, updateQuantity, clearCart, getTotal, itemCount: items.reduce((s, i) => s + i.quantity, 0) }}>
+    <CartContext.Provider value={{ items, addToCart, removeFromCart, updateQuantity, clearCart, getTotal, itemCount: items.reduce((s, i) => s + i.quantity, 0), lastAdded, dismissLastAdded }}>
       {children}
     </CartContext.Provider>
   );

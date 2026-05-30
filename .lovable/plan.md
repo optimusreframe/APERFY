@@ -1,79 +1,83 @@
+# Checkout Apple-style + Floating Cart + Visual Admin Product Creator
 
+Tres mejoras independientes, todas frontend (sin cambios de schema ni de lógica de negocio).
 
-# Transactional Emails for All Order & Business Events
+---
 
-## Overview
+## 1. Checkout estilo Apple
 
-Set up the full transactional email infrastructure and create templates for every key business event in the app. Each template will match the existing dark premium 3DtoPrint branding (dark background `#0A0A0F`, gold `#D4A017`, white text). All emails in English.
+Rediseño visual y de flujo de `src/pages/Checkout.tsx` inspirado en `apple.com/shop/bag` → checkout.
 
-## Email Templates to Create
+**Cambios de UX:**
+- Layout de **dos columnas** en desktop (form a la izquierda, resumen sticky a la derecha con miniaturas de productos, envío, total). En móvil, resumen colapsable arriba.
+- Tipografía SF-like (mantener fuentes actuales, pero pesos y tracking más Apple: títulos grandes `text-4xl font-semibold tracking-tight`, mucho whitespace, líneas divisorias finas `border-border/40`).
+- **Step indicator minimalista**: barra de progreso fina arriba con 3 puntos numerados conectados, no las pills doradas actuales.
+- **Inputs flotantes** (floating label) en lugar de label-sobre-input — patrón Apple Pay sheet. Bordes redondeados `rounded-xl`, foco con anillo dorado sutil.
+- Cada sección como una **"card" blanca/oscura** apilada (Contact → Shipping Address → Shipping Method → Payment), con botón "Continue" grande al final de cada sección que colapsa la anterior y muestra check ✓ con datos resumidos editables.
+- Botones de método de pago como **tarjetas seleccionables** grandes (radio cards) con iconos.
+- Pantalla de confirmación con animación de check grande, número de pedido tipo "Order #XXXX", y CTA "View order" / "Continue shopping".
 
-| # | Template Name | Trigger | Where to wire |
-|---|--------------|---------|---------------|
-| 1 | `order-confirmation` | Customer places an order (WhatsApp or online payment) | `Checkout.tsx` — after `createOrder()` succeeds |
-| 2 | `order-confirmed` | Admin changes status to "confirmed" | `AdminOrders.tsx` — `updateStatus` mutation |
-| 3 | `order-printing` | Admin changes status to "printing" | `AdminOrders.tsx` — `updateStatus` mutation |
-| 4 | `order-shipped` | Admin changes status to "shipped" | `AdminOrders.tsx` — `updateStatus` mutation |
-| 5 | `order-delivered` | Admin changes status to "delivered" | `AdminOrders.tsx` — `updateStatus` mutation |
-| 6 | `order-cancelled` | Admin changes status to "cancelled" | `AdminOrders.tsx` — `updateStatus` mutation |
-| 7 | `payment-received` | Admin confirms payment (new button on order row) | `AdminOrders.tsx` — new "Confirm Payment" action |
-| 8 | `model-request-received` | User submits a model request form | `RequestModel.tsx` — after insert succeeds |
+**Sin cambios** en: validación, RLS, envío de emails, integración WhatsApp/pagos, cálculo de shipping. Solo presentación y orquestación de pasos.
 
-## Implementation Steps
+---
 
-### Step 1: Scaffold transactional email infrastructure
-- Use the built-in tooling to create the `send-transactional-email` edge function, suppression handling, and unsubscribe support.
+## 2. Carrito flotante al agregar producto
 
-### Step 2: Create 8 email templates
-All in `supabase/functions/_shared/transactional-email-templates/`:
-- Each template uses the same dark premium style as the auth emails (dark bg, gold accents, white text, logo)
-- Dynamic props for order ID, customer name, total, items list, shipping info, etc.
-- Register all in `registry.ts`
+Cuando el usuario hace "Add to cart" (desde `ProductDetail.tsx` o cualquier lugar):
 
-### Step 3: Wire up triggers in frontend code
+- Mostrar un **mini-toast/sheet flotante** en la esquina inferior derecha (desktop) o bottom sheet (móvil) durante ~5 segundos.
+- Contenido: miniatura del producto añadido, nombre, "Added to cart", y dos botones:
+  - **"Continue shopping"** (secundario, cierra el toast)
+  - **"View cart"** (primario dorado, navega a `/cart`)
+- Animación slide-in desde abajo/derecha con framer-motion, auto-dismiss con barra de progreso fina.
+- Implementación: nuevo componente `src/components/CartAddedToast.tsx` + estado en `CartContext` (`lastAddedItem` + timestamp) o un evento simple. Renderizado global en `App.tsx` para que aparezca desde cualquier página.
 
-**`Checkout.tsx`** — After `createOrder()` returns an order ID:
-```
-supabase.functions.invoke('send-transactional-email', {
-  body: { templateName: 'order-confirmation', recipientEmail: form.email, idempotencyKey: `order-confirm-${orderId}`, templateData: { ... } }
-})
-```
+---
 
-**`AdminOrders.tsx`** — In `updateStatus` mutation `onSuccess`:
-- Fetch the order's shipping_address email
-- Send the appropriate status template based on the new status
-- Add a "Confirm Payment" button that sends `payment-received` email
+## 3. Admin: creación de productos visual (Apple × Palantir)
 
-**`RequestModel.tsx`** — After successful insert:
-- Send `model-request-received` to the requester's email
+Refactor del formulario de creación/edición en `src/pages/admin/AdminProducts.tsx` (sin tocar la lógica de guardado, mutaciones, ni schema). Solo la UI del Dialog/modal.
 
-### Step 4: Create unsubscribe page
-- Add `/email-unsubscribe` route with branded UI matching the site
+**Nuevo flujo guiado por pasos (wizard), full-screen sheet:**
 
-### Step 5: Deploy edge functions
-- Deploy `send-transactional-email`, `handle-email-unsubscribe`, `handle-email-suppression`
+1. **Media** — Drag & drop grande tipo Apple: zona central con preview en grid, reordenable, primera imagen marcada como "Cover". Botón "Generate with AI" prominente.
+2. **Identity** — Nombre EN/ES lado a lado con toggle de idioma estilo segmented control, slug auto-generado con campo editable bajo el nombre, descripción en editor amplio.
+3. **Pricing & Category** — Precio base con input grande tipo Apple Pay (símbolo $ flotante), selector de categoría como pills/chips visuales con icono.
+4. **Variations & Materials** — Tabla densa estilo Palantir: filas con inputs inline, columnas para tamaño/peso/dimensiones/material/modificador de precio. Acentos monoespaciados para números, líneas de grid finas, hover highlight.
+5. **Review & Publish** — Preview del ProductCard real + toggles `is_active` / `is_featured` como switches grandes con descripción.
 
-## Files to create/modify
+**Estética:**
+- Sidebar izquierda con los 5 pasos (numerados, check verde al completar, paso activo en dorado).
+- Header sticky con nombre del producto en vivo + botones "Cancel" / "Save draft" / "Publish".
+- Transiciones suaves entre pasos con framer-motion.
+- Densidad Palantir en la tabla de variaciones: fuente más pequeña, monospace para números, sin padding excesivo.
 
-**Create:**
-- `supabase/functions/_shared/transactional-email-templates/order-confirmation.tsx`
-- `supabase/functions/_shared/transactional-email-templates/order-confirmed.tsx`
-- `supabase/functions/_shared/transactional-email-templates/order-printing.tsx`
-- `supabase/functions/_shared/transactional-email-templates/order-shipped.tsx`
-- `supabase/functions/_shared/transactional-email-templates/order-delivered.tsx`
-- `supabase/functions/_shared/transactional-email-templates/order-cancelled.tsx`
-- `supabase/functions/_shared/transactional-email-templates/payment-received.tsx`
-- `supabase/functions/_shared/transactional-email-templates/model-request-received.tsx`
-- `supabase/functions/_shared/transactional-email-templates/registry.ts`
-- `src/pages/EmailUnsubscribe.tsx`
+**Lógica preservada:** todas las mutaciones, validaciones Zod, subida de media, integración AI, bulk import — sin cambios.
 
-**Modify:**
-- `src/pages/Checkout.tsx` — add email send after order creation
-- `src/pages/admin/AdminOrders.tsx` — add email send on status change + payment confirmation
-- `src/pages/RequestModel.tsx` — add email send after model request
-- `src/App.tsx` — add `/email-unsubscribe` route
+---
 
-## Final Deliverable
+## 4. Verificación del sistema
 
-A complete list of all emails in the system, their triggers, and connection status.
+Después de los cambios:
+- Recorrer manualmente: añadir producto al carrito → ver toast → ir a checkout → completar los 4 sub-pasos → confirmar email enviado en logs.
+- Verificar que el admin puede crear un producto nuevo con el wizard, subir media, añadir 2 variaciones, y que aparece correctamente en el catálogo.
+- Revisar console + network para errores.
+- Sin cambios de DB ni edge functions, así que no hay migraciones que correr.
 
+---
+
+## Archivos
+
+**Modificar:**
+- `src/pages/Checkout.tsx` — rediseño visual completo, misma lógica.
+- `src/pages/admin/AdminProducts.tsx` — wizard UI para el dialog de crear/editar.
+- `src/contexts/CartContext.tsx` — exponer `lastAdded` para el toast.
+- `src/App.tsx` — montar `<CartAddedToast />` global.
+
+**Crear:**
+- `src/components/CartAddedToast.tsx`
+- `src/components/checkout/CheckoutSection.tsx` (card colapsable reutilizable)
+- `src/components/checkout/OrderSummary.tsx` (panel sticky derecha)
+- `src/components/admin/ProductWizard.tsx` (contenedor del wizard + sub-componentes por paso si conviene)
+
+Sin cambios en backend, schema, RLS, edge functions, ni emails.
