@@ -2277,7 +2277,8 @@ export default function AdminProducts() {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
+        }
+      />
 
       {/* Bulk Edit Toggle */}
       <div className="flex items-center justify-between mb-4">
