@@ -68,7 +68,7 @@ export default function BottomTabBar() {
                         transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                       />
                     )}
-                    <div className="relative">
+                    <div className="relative" {...(path === '/cart' ? { 'data-mobile-cart-icon': 'true' } : {})}>
                       <tab.icon
                         className={`w-[22px] h-[22px] transition-colors ${
                           active ? 'text-primary' : 'text-muted-foreground'

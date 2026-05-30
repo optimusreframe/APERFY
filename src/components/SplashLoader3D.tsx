@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { motion, AnimatePresence } from "framer-motion";
 import * as THREE from "three";
 
 // ─── Responsive layout hook ───
@@ -71,52 +72,57 @@ function buildTargets(mode: "desktop" | "tablet" | "mobile", scale: number) {
   const targets: { pos: [number, number, number]; geo: "box" | "sphere" | "cylinder" }[] = [];
   const geos: ("box" | "sphere" | "cylinder")[] = ["box", "sphere", "cylinder"];
 
-  // "3D to Print" — 9 characters
-  const word1 = ["3", "D"]; // "3D"
-  const word2 = ["t", "o"]; // "to"
-  const word3 = ["P", "r", "i", "n", "t"]; // "Print"
+  const word1 = ["3", "D"];
+  const word2 = ["t", "o"];
+  const word3 = ["P", "r", "i", "n", "t"];
 
   const spacing = 1.15 * scale;
+  const wordGap = 0.55 * scale;
   let globalIdx = 0;
 
-  const addLetter = (char: string, ox: number, oy: number) => {
-    const pts = LETTERS[char];
-    if (!pts) return;
-    pts.forEach((p, i) => {
-      targets.push({
-        pos: [(p[0] + ox) * scale, (p[1] + oy) * scale, 0],
-        geo: geos[globalIdx % 3],
+  // Place a line of words around startX (unscaled? no — in scaled world coords).
+  // We collect placements first to compute true geometric centre, then centre them.
+  const placeLine = (words: string[][], y: number) => {
+    type Pt = { x: number; y: number; geo: "box" | "sphere" | "cylinder" };
+    const pts: Pt[] = [];
+    let cursor = 0;
+    words.forEach((word, wi) => {
+      word.forEach((char) => {
+        const def = LETTERS[char];
+        if (def) {
+          def.forEach((p) => {
+            pts.push({
+              x: (p[0] * scale) + cursor,
+              y: p[1] * scale + y,
+              geo: geos[globalIdx % 3],
+            });
+            globalIdx++;
+          });
+        }
+        cursor += spacing;
       });
-      globalIdx++;
+      if (wi < words.length - 1) cursor += wordGap;
     });
+    // True centre: average of min and max x (covers all letter widths)
+    if (pts.length > 0) {
+      let minX = Infinity, maxX = -Infinity;
+      for (const p of pts) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+      }
+      const shift = -(minX + maxX) / 2;
+      pts.forEach((p) => {
+        targets.push({ pos: [p.x + shift, p.y, 0], geo: p.geo });
+      });
+    }
   };
 
   if (mode === "desktop") {
-    // Single line: "3D to Print"
-    // Calculate total width: 2 + gap + 2 + gap + 5 = 9 letters + 2 word gaps
-    const wordGap = 0.6;
-    let x = -5.5;
-    word1.forEach(c => { addLetter(c, x, 0); x += spacing; });
-    x += wordGap;
-    word2.forEach(c => { addLetter(c, x, 0); x += spacing; });
-    x += wordGap;
-    word3.forEach(c => { addLetter(c, x, 0); x += spacing; });
+    placeLine([word1, word2, word3], 0);
   } else {
-    // Two lines: "3D to" on top, "Print" on bottom
-    const wordGap = 0.5;
     const lineGap = 2.2 * scale;
-
-    // Line 1: "3D to"
-    let x1 = -2.5 * scale;
-    const y1 = lineGap / 2;
-    word1.forEach(c => { addLetter(c, x1 / scale, y1 / scale); x1 += spacing; });
-    x1 += wordGap * scale;
-    word2.forEach(c => { addLetter(c, x1 / scale, y1 / scale); x1 += spacing; });
-
-    // Line 2: "Print"
-    let x2 = -2.8 * scale;
-    const y2 = -lineGap / 2;
-    word3.forEach(c => { addLetter(c, x2 / scale, y2 / scale); x2 += spacing; });
+    placeLine([word1, word2], lineGap / 2);
+    placeLine([word3], -lineGap / 2);
   }
 
   return targets;
@@ -130,14 +136,16 @@ interface ParticleProps {
   initialRot: [number, number, number];
   phase: number;
   size: number;
+  printDelay: number; // seconds, layer-line stagger
 }
 
-function Particle({ target, geo, initialPos, initialRot, phase, size }: ParticleProps) {
+function Particle({ target, geo, initialPos, initialRot, phase, size, printDelay }: ParticleProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const matRef = useRef<THREE.MeshStandardMaterial>(null);
   const currentPos = useRef(new THREE.Vector3(...initialPos));
   const currentRot = useRef(new THREE.Euler(...initialRot));
   const targetVec = useMemo(() => new THREE.Vector3(...target), [target]);
+  const elapsed = useRef(0);
 
   useFrame((_, delta) => {
     if (!meshRef.current || !matRef.current) return;
@@ -147,16 +155,24 @@ function Particle({ target, geo, initialPos, initialRot, phase, size }: Particle
       currentRot.current.y += delta * 0.3;
       meshRef.current.rotation.copy(currentRot.current);
       meshRef.current.position.copy(currentPos.current);
+      elapsed.current = 0;
     } else if (phase >= 1) {
-      const speed = phase === 2 ? 0.18 : 0.10;
+      elapsed.current += delta;
+      if (elapsed.current < printDelay) {
+        // wait for our layer turn
+        meshRef.current.position.copy(currentPos.current);
+        meshRef.current.rotation.copy(currentRot.current);
+        return;
+      }
+      const speed = phase === 2 ? 0.20 : 0.13;
       currentPos.current.lerp(targetVec, speed);
       meshRef.current.position.copy(currentPos.current);
-      currentRot.current.x *= 0.96;
-      currentRot.current.y *= 0.96;
+      currentRot.current.x *= 0.94;
+      currentRot.current.y *= 0.94;
       meshRef.current.rotation.set(currentRot.current.x, currentRot.current.y, 0);
     }
 
-    if (phase === 2) {
+    if (phase === 2 && elapsed.current >= printDelay) {
       matRef.current.emissiveIntensity = THREE.MathUtils.lerp(
         matRef.current.emissiveIntensity, 1.5, 0.05
       );
@@ -175,6 +191,71 @@ function Particle({ target, geo, initialPos, initialRot, phase, size }: Particle
         roughness={0.15}
         emissive="#D4A017"
         emissiveIntensity={0.15}
+      />
+    </mesh>
+  );
+}
+
+// ─── Print head (extruder) sliding across letters ───
+function PrintHead({ phase, ys, scale }: { phase: number; ys: number[]; scale: number }) {
+  const ref = useRef<THREE.Group>(null);
+  const xRange = 4 * scale;
+  useFrame((state) => {
+    if (!ref.current) return;
+    if (phase < 1) {
+      ref.current.visible = false;
+      return;
+    }
+    if (phase >= 2 && state.clock.elapsedTime > 2.3) {
+      // retract upward
+      ref.current.visible = true;
+      ref.current.position.y += 0.05;
+      return;
+    }
+    ref.current.visible = true;
+    const t = state.clock.elapsedTime;
+    ref.current.position.x = Math.sin(t * 2.4) * xRange;
+    // hover above current "printing" layer
+    const layerIdx = Math.min(ys.length - 1, Math.floor((t - 0.5) * 1.5));
+    const targetY = ys[Math.max(0, layerIdx)] + 0.6 * scale;
+    ref.current.position.y += (targetY - ref.current.position.y) * 0.15;
+  });
+  return (
+    <group ref={ref} position={[0, 3, 0.4]}>
+      {/* body */}
+      <mesh>
+        <boxGeometry args={[0.5 * scale, 0.35 * scale, 0.35 * scale]} />
+        <meshStandardMaterial color="#1a1a1a" metalness={0.9} roughness={0.3} />
+      </mesh>
+      {/* nozzle cone */}
+      <mesh position={[0, -0.3 * scale, 0]} rotation={[Math.PI, 0, 0]}>
+        <coneGeometry args={[0.1 * scale, 0.25 * scale, 12]} />
+        <meshStandardMaterial color="#D4A017" metalness={0.9} roughness={0.2} emissive="#D4A017" emissiveIntensity={0.5} />
+      </mesh>
+      {/* extrusion glow */}
+      <pointLight position={[0, -0.45 * scale, 0]} intensity={0.8} color="#D4A017" distance={2} />
+    </group>
+  );
+}
+
+// ─── Build plate beneath the text ───
+function BuildPlate({ phase, scale }: { phase: number; scale: number }) {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame(() => {
+    if (!ref.current) return;
+    const targetY = phase >= 2 ? -3.2 * scale - (phase === 2 ? 0 : 1) : -1.8 * scale;
+    ref.current.position.y += (targetY - ref.current.position.y) * 0.06;
+  });
+  return (
+    <mesh ref={ref} position={[0, -1.8 * scale, -0.1]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[12 * scale, 6 * scale, 24, 12]} />
+      <meshStandardMaterial
+        color="#D4A017"
+        transparent
+        opacity={0.12}
+        metalness={0.6}
+        roughness={0.4}
+        wireframe
       />
     </mesh>
   );
@@ -285,21 +366,38 @@ function BgItem({ data }: { data: BgParticle }) {
 function Scene({ phase, mode, scale, particleSize }: { phase: number; mode: "desktop" | "tablet" | "mobile"; scale: number; particleSize: number }) {
   const targets = useMemo(() => buildTargets(mode, scale), [mode, scale]);
 
-  const particles = useMemo(() => {
-    return targets.map((t, i) => ({
-      ...t,
-      initialPos: [
-        (Math.random() - 0.5) * 16,
-        (Math.random() - 0.5) * 12,
-        (Math.random() - 0.5) * 10,
-      ] as [number, number, number],
-      initialRot: [
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2,
-      ] as [number, number, number],
-      key: i,
-    }));
+  const { particles, layerYs } = useMemo(() => {
+    if (targets.length === 0) return { particles: [], layerYs: [] as number[] };
+    // Find min/max Y to build layer-line stagger (bottom prints first)
+    let minY = Infinity, maxY = -Infinity;
+    for (const t of targets) {
+      if (t.pos[1] < minY) minY = t.pos[1];
+      if (t.pos[1] > maxY) maxY = t.pos[1];
+    }
+    const range = Math.max(0.001, maxY - minY);
+    const PRINT_DURATION = 0.55; // seconds across all layers
+    const parts = targets.map((t, i) => {
+      const normalized = (t.pos[1] - minY) / range; // 0 (bottom) → 1 (top)
+      const printDelay = normalized * PRINT_DURATION;
+      return {
+        ...t,
+        initialPos: [
+          (Math.random() - 0.5) * 16,
+          (Math.random() - 0.5) * 12,
+          (Math.random() - 0.5) * 10,
+        ] as [number, number, number],
+        initialRot: [
+          Math.random() * Math.PI * 2,
+          Math.random() * Math.PI * 2,
+          Math.random() * Math.PI * 2,
+        ] as [number, number, number],
+        key: i,
+        printDelay,
+      };
+    });
+    // Distinct Y layers, ascending
+    const ys = Array.from(new Set(targets.map((t) => Number(t.pos[1].toFixed(2))))).sort((a, b) => a - b);
+    return { particles: parts, layerYs: ys };
   }, [targets]);
 
   return (
@@ -308,6 +406,8 @@ function Scene({ phase, mode, scale, particleSize }: { phase: number; mode: "des
       <pointLight position={[0, 5, 3]} intensity={1.5} color="#D4A017" />
       <spotLight position={[0, 0, 8]} intensity={1} angle={0.5} penumbra={0.5} color="#ffffff" />
       <BackgroundParticles />
+      <BuildPlate phase={phase} scale={scale} />
+      <PrintHead phase={phase} ys={layerYs} scale={scale} />
       {particles.map((p) => (
         <Particle
           key={p.key}
@@ -317,6 +417,7 @@ function Scene({ phase, mode, scale, particleSize }: { phase: number; mode: "des
           initialRot={p.initialRot}
           phase={phase}
           size={particleSize}
+          printDelay={p.printDelay}
         />
       ))}
     </>
@@ -431,14 +532,62 @@ export default function SplashLoader3D({ onComplete }: { onComplete: () => void 
         <Scene phase={phase} mode={mode} scale={scale} particleSize={particleSize} />
       </Canvas>
 
-      <div
-        className="absolute bottom-12 left-1/2 -translate-x-1/2 text-primary/60 text-sm tracking-[0.3em] uppercase font-light"
-        style={{
-          opacity: phase >= 2 ? 1 : 0,
-          transition: "opacity 0.5s ease-in",
-        }}
-      >
-        3D Printing
+      {/* ─── Premium Palantir-style HUD ─── */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-10 sm:bottom-14 flex flex-col items-center text-center px-6">
+        <AnimatePresence>
+          {phase >= 1 && (
+            <motion.div
+              key="kicker"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.5em] text-primary/70 mb-3"
+            >
+              INITIALIZING
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {phase >= 1 && (
+            <motion.div
+              key="bar"
+              initial={{ opacity: 0, scaleX: 0 }}
+              animate={{ opacity: 1, scaleX: 1 }}
+              transition={{ duration: 2.0, delay: 0.1, ease: "easeInOut" }}
+              className="h-px w-44 sm:w-56 origin-left bg-gradient-to-r from-transparent via-primary to-transparent"
+              style={{ filter: "drop-shadow(0 0 4px hsl(var(--primary) / 0.6))" }}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {phase >= 2 && (
+            <motion.div
+              key="layer"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="mt-3 font-mono text-[9px] sm:text-[10px] tracking-[0.3em] uppercase text-primary/50 tabular-nums"
+            >
+              LAYER 100 / 100 · COMPLETE
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {phase >= 2 && (
+            <motion.div
+              key="label"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="mt-2 text-primary/80 text-xs sm:text-sm tracking-[0.35em] uppercase font-light"
+            >
+              3D · PRINT
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
