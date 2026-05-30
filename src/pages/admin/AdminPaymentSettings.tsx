@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CreditCard, Save } from 'lucide-react';
+import { AdminPageHeader } from './_shared';
 
 const PAYMENT_KEYS = ['payment_zelle', 'payment_binance', 'payment_cashapp'] as const;
 
@@ -100,17 +101,12 @@ export default function AdminPaymentSettings() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display font-black text-2xl flex items-center gap-2">
-            <CreditCard className="w-6 h-6 text-primary" />
-            Métodos de Pago
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Configura los datos de pago que verán los clientes al realizar un pedido.
-          </p>
-        </div>
+    <div className="space-y-6 max-w-[1400px] mx-auto">
+      <AdminPageHeader
+        eyebrow="operations · payments"
+        title="Métodos de Pago"
+        meta="Configura los datos de pago que verán los clientes al realizar un pedido."
+        actions={
         <Button
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending}
@@ -119,7 +115,8 @@ export default function AdminPaymentSettings() {
           {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           Guardar
         </Button>
-      </div>
+        }
+      />
 
       <div className="grid gap-6">
         {PAYMENT_KEYS.map((key) => {
