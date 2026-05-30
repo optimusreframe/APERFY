@@ -157,6 +157,7 @@ function MediaThumb({ item, onRemove, onDragStart, onDragOver, onDrop, index }: 
 // ══════════════════════════════════════════════════════════════
 export default function AdminProducts() {
   const [open, setOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState<number>(0); // 0=Media, 1=Identity, 2=Pricing, 3=Variations, 4=Review
   const [aiOpen, setAiOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(empty);
