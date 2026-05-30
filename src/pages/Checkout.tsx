@@ -10,7 +10,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check } from 'lucide-react';
+import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
 
@@ -563,41 +563,86 @@ export default function Checkout() {
     </div>
   );
 
+  // ─── Unified stage model (Apple "one decision per screen") ───
+  type Stage = 'contact' | 'address' | 'shipping-method' | 'payment';
+  const allStages: Stage[] = shippingProviders.length > 0
+    ? ['contact', 'address', 'shipping-method', 'payment']
+    : ['contact', 'address', 'payment'];
+  const activeStage: Stage = step === 'method' ? 'payment' : (section === 'shipping' ? 'shipping-method' : section);
+  const isStageDone = (s: Stage): boolean => {
+    if (s === 'contact') return completed.contact;
+    if (s === 'address') return completed.address;
+    if (s === 'shipping-method') return completed.shipping;
+    if (s === 'payment') return false;
+    return false;
+  };
+  const goToStage = (s: Stage) => {
+    if (s === 'payment') {
+      if (!completed.contact || !completed.address || (shippingProviders.length > 0 && !completed.shipping)) return;
+      setStep('method');
+      return;
+    }
+    setStep('shipping');
+    setSection(s === 'shipping-method' ? 'shipping' : s);
+  };
+  const stageLabel = (s: Stage): string => {
+    const en = { contact: 'Contact', address: 'Address', 'shipping-method': 'Shipping', payment: 'Payment' };
+    const es = { contact: 'Contacto', address: 'Dirección', 'shipping-method': 'Envío', payment: 'Pago' };
+    return (language === 'es' ? es : en)[s];
+  };
+
+  const isInFlow = step === 'shipping' || step === 'method';
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-20 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
-        {step !== 'whatsapp-sent' && step !== 'payment-instructions' && (
-          <>
-            <div className="text-center mb-10">
-              <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-3">
-                {String(currentStepNum + 1).padStart(2, '0')} / {String(stepLabels.length).padStart(2, '0')} — {stepLabels[currentStepNum]}
-              </div>
-              <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-foreground">
-                {language === 'es' ? 'Finalizar compra' : 'Checkout'}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-3">
-                {language === 'es' ? 'Revisa tu pedido y completa el envío' : 'Review your order and complete shipping'}
-              </p>
+      {/* ═══ Top Command Bar (sticky, only during flow) ═══ */}
+      {isInFlow && (
+        <div className="sticky top-16 z-30 border-b border-white/[0.05] bg-background/80 backdrop-blur-xl">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center justify-between gap-4">
+            <button onClick={() => navigate('/cart')} className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{language === 'es' ? 'Volver al carrito' : 'Back to cart'}</span>
+            </button>
+            <div className="flex items-center gap-3 text-[10px] font-mono uppercase tracking-[0.25em] text-muted-foreground">
+              <span className="hidden sm:inline">Checkout</span>
+              <span className="hidden sm:inline text-border">·</span>
+              <span className="text-foreground tabular-nums">
+                {String(allStages.indexOf(activeStage) + 1).padStart(2, '0')} / {String(allStages.length).padStart(2, '0')}
+              </span>
+              <span className="text-border">·</span>
+              <span className="text-primary">{stageLabel(activeStage).toUpperCase()}</span>
             </div>
-            <StepRail current={currentStepNum} labels={stepLabels} />
-          </>
-        )}
+            <span className="hidden md:inline font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 tabular-nums">
+              {createdOrderId ? `ORD-${createdOrderId.slice(0, 6).toUpperCase()}` : 'DRAFT'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-8 lg:pt-10 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         <AnimatePresence mode="wait">
-          {/* ── STEP 1: SHIPPING (3 collapsible sub-sections) ── */}
-          {step === 'shipping' && (
-            <motion.div key="shipping" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+
+          {/* ════ MAIN FLOW: 3-col layout with left rail + stage + summary ════ */}
+          {isInFlow && (
+            <motion.div key="flow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+
+              {/* Mobile horizontal step indicator */}
+              <div className="lg:hidden mb-6">
+                <StepRail current={['contact', 'address', 'shipping-method', 'payment'].indexOf(activeStage)} labels={allStages.map(stageLabel)} />
+              </div>
+
               {/* Mobile collapsible summary */}
               <div className="lg:hidden mb-6">
                 <button
                   onClick={() => setSummaryOpen(o => !o)}
-                  className="w-full flex items-center justify-between p-4 rounded-2xl border border-border bg-card/60 backdrop-blur-sm"
+                  className="w-full flex items-center justify-between p-4 rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-sm"
                 >
-                  <span className="text-sm font-medium">{language === 'es' ? 'Resumen del pedido' : 'Order summary'}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{language === 'es' ? 'Resumen' : 'Order summary'}</span>
                   <span className="flex items-center gap-2">
-                    <span className="text-base font-semibold">${orderTotal.toFixed(2)}</span>
+                    <span className="text-base font-semibold tabular-nums">${orderTotal.toFixed(2)}</span>
                     <ChevronDown className={`w-4 h-4 transition-transform ${summaryOpen ? 'rotate-180' : ''}`} />
                   </span>
                 </button>
@@ -613,194 +658,279 @@ export default function Checkout() {
                 </AnimatePresence>
               </div>
 
-              <div className="grid lg:grid-cols-5 gap-8">
-                <div className="lg:col-span-3 space-y-4">
-                  {/* Section 1: Contact */}
-                  <SectionCard
-                    index={1}
-                    title={language === 'es' ? 'Contacto' : 'Contact'}
-                    subtitle={language === 'es' ? 'Para confirmación y seguimiento' : 'For order updates'}
-                    isActive={section === 'contact'}
-                    isComplete={completed.contact && section !== 'contact'}
-                    summary={<>{form.fullName} · {form.email}</>}
-                    onEdit={() => setSection('contact')}
-                    ctaLabel={language === 'es' ? 'Continuar a dirección' : 'Continue to address'}
-                    onContinue={continueContact}
-                  >
-                    <Field label={language === 'es' ? 'Nombre completo' : 'Full name'} value={form.fullName} onChange={v => setF('fullName', v)} error={fieldErrors.fullName} maxLength={100} autoComplete="name" />
-                    <Field label="Email" type="email" value={form.email} onChange={v => setF('email', v)} error={fieldErrors.email} maxLength={255} autoComplete="email" />
-                    <Field label={language === 'es' ? 'Teléfono' : 'Phone'} type="tel" value={form.phone} onChange={v => setF('phone', v)} error={fieldErrors.phone} maxLength={20} autoComplete="tel" />
-                  </SectionCard>
+              <div className="grid lg:grid-cols-[220px_minmax(0,1fr)_340px] gap-6 lg:gap-10">
 
-                  {/* Section 2: Address */}
-                  <SectionCard
-                    index={2}
-                    title={language === 'es' ? 'Dirección de envío' : 'Shipping address'}
-                    subtitle={language === 'es' ? 'Dirección completa para la entrega' : 'Full delivery address'}
-                    isActive={section === 'address'}
-                    isComplete={completed.address && section !== 'address'}
-                    summary={<>{form.address}, {form.city}, {form.state} {form.zipCode}</>}
-                    onEdit={() => setSection('address')}
-                    ctaLabel={shippingProviders.length > 0 ? (language === 'es' ? 'Continuar a envío' : 'Continue to shipping') : (language === 'es' ? 'Continuar a pago' : 'Continue to payment')}
-                    onContinue={continueAddress}
-                  >
-                    <Field label={language === 'es' ? 'Dirección' : 'Address'} value={form.address} onChange={v => setF('address', v)} error={fieldErrors.address} maxLength={255} autoComplete="street-address" />
-                    <Field label={language === 'es' ? 'Apto, suite (opcional)' : 'Apt, suite (optional)'} value={form.address2} onChange={v => setF('address2', v)} maxLength={255} />
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      <Field label={language === 'es' ? 'Ciudad' : 'City'} value={form.city} onChange={v => setF('city', v)} error={fieldErrors.city} maxLength={100} autoComplete="address-level2" />
-                      <Field label={language === 'es' ? 'Estado / Provincia' : 'State / Province'} value={form.state} onChange={v => setF('state', v)} error={fieldErrors.state} maxLength={100} autoComplete="address-level1" />
-                    </div>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      <Field label={language === 'es' ? 'Código Postal' : 'ZIP / Postal'} value={form.zipCode} onChange={v => setF('zipCode', v)} error={fieldErrors.zipCode} maxLength={20} autoComplete="postal-code" />
-                      <Field label={language === 'es' ? 'País' : 'Country'} value={form.country} onChange={v => setF('country', v)} error={fieldErrors.country} maxLength={100} autoComplete="country-name" />
-                    </div>
-                    <TAField label={language === 'es' ? 'Notas (opcional)' : 'Notes (optional)'} value={form.notes} onChange={v => setF('notes', v)} rows={2} maxLength={500} />
-                  </SectionCard>
-
-                  {/* Section 3: Shipping method */}
-                  {shippingProviders.length > 0 && (
-                    <SectionCard
-                      index={3}
-                      title={language === 'es' ? 'Método de envío' : 'Shipping method'}
-                      subtitle={language === 'es' ? 'Selecciona cómo recibir tu pedido' : 'Choose how to receive your order'}
-                      isActive={section === 'shipping'}
-                      isComplete={completed.shipping && section !== 'shipping'}
-                      summary={selectedProvider && <>{selectedProvider.name} · ${shippingCost.toFixed(2)}</>}
-                      onEdit={() => setSection('shipping')}
-                      ctaLabel={language === 'es' ? 'Continuar a pago' : 'Continue to payment'}
-                      onContinue={continueShipping}
-                      disabled={!selectedShipping}
-                    >
-                      <div className="space-y-2.5">
-                        {shippingProviders.map(sp => {
-                          const cost = Number(sp.base_rate) + (totalWeight * Number(sp.per_kg_rate));
-                          const isSelected = selectedShipping === sp.id;
-                          return (
-                            <button
-                              key={sp.id}
-                              onClick={() => setSelectedShipping(sp.id)}
-                              className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${
-                                isSelected ? 'border-primary bg-primary/5 shadow-[0_0_0_4px_hsl(var(--primary)/0.1)]' : 'border-border hover:border-primary/30 bg-background'
-                              }`}
-                            >
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-primary' : 'border-muted-foreground/30'}`}>
-                                {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                              </div>
-                              <div className="flex-1">
-                                <div className="font-medium text-foreground text-[15px] tracking-tight">{sp.name}</div>
-                                <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                                  <Clock className="w-3 h-3" />
-                                  {sp.estimated_days_min}-{sp.estimated_days_max} {language === 'es' ? 'días' : 'days'}
-                                </div>
-                              </div>
-                              <span className="font-semibold text-foreground shrink-0">${cost.toFixed(2)}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </SectionCard>
-                  )}
-                </div>
-
-                {/* Sticky summary */}
-                <aside className="hidden lg:block lg:col-span-2">
-                  <div className="sticky top-24">{SummaryPanel}</div>
-                </aside>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ── STEP 2: PAYMENT METHOD ── */}
-          {step === 'method' && (
-            <motion.div key="method" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <div className="grid lg:grid-cols-5 gap-8">
-                <div className="lg:col-span-3 space-y-4">
-                  <div className="rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-xl p-6">
-                    <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2">02 / Payment</div>
-                    <h2 className="text-2xl font-semibold tracking-tight mb-1">{language === 'es' ? 'Método de pago' : 'Payment method'}</h2>
-                    <p className="text-sm text-muted-foreground mb-6">{language === 'es' ? 'Elige cómo quieres pagar' : 'Choose how you want to pay'}</p>
-
-                    {/* WhatsApp */}
-                    <motion.button
-                      onClick={handleWhatsApp}
-                      disabled={loading}
-                      whileHover={{ y: -2 }}
-                      whileTap={{ scale: 0.99 }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                      className="relative w-full p-5 rounded-2xl border border-white/[0.06] hover:border-green-500/40 bg-background/40 text-left transition-colors group disabled:opacity-50 mb-3 overflow-hidden"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0 border border-green-500/20">
-                          <MessageCircle className="w-6 h-6 text-green-500" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-[15px] tracking-tight">WhatsApp</h3>
-                            <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 border border-green-500/20">Instant</span>
+                {/* ─── LEFT NAV RAIL (desktop) ─── */}
+                <aside className="hidden lg:block">
+                  <div className="sticky top-32 space-y-1">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground/70 px-3 mb-3">Stages</div>
+                    {allStages.map((s, i) => {
+                      const isActive = s === activeStage;
+                      const done = isStageDone(s);
+                      const reachable = done || isActive || (i === 0) || allStages.slice(0, i).every(isStageDone);
+                      return (
+                        <button
+                          key={s}
+                          onClick={() => reachable && goToStage(s)}
+                          disabled={!reachable}
+                          className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                            isActive ? 'bg-white/[0.04]' : reachable ? 'hover:bg-white/[0.02]' : 'opacity-40 cursor-not-allowed'
+                          }`}
+                        >
+                          {isActive && (
+                            <motion.span
+                              layoutId="checkout-rail-active"
+                              className="absolute left-0 top-2 bottom-2 w-[2px] bg-primary rounded-full"
+                              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                            />
+                          )}
+                          <div className={`w-7 h-7 rounded-md flex items-center justify-center font-mono text-[10px] font-semibold tabular-nums shrink-0 ${
+                            done ? 'bg-primary/15 text-primary border border-primary/30' :
+                            isActive ? 'bg-foreground text-background' :
+                            'bg-white/[0.03] text-muted-foreground border border-white/[0.06]'
+                          }`}>
+                            {done ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : String(i + 1).padStart(2, '0')}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">{language === 'es' ? 'Confirma y paga por mensaje' : 'Confirm and pay via message'}</p>
+                          <div className="min-w-0 flex-1">
+                            <div className={`text-[13px] font-medium tracking-tight ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {stageLabel(s)}
+                            </div>
+                            <div className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/60">
+                              {done ? 'Complete' : isActive ? 'In progress' : 'Pending'}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    {/* Status footer */}
+                    <div className="mt-6 pt-6 border-t border-white/[0.05] space-y-2 px-3">
+                      <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <span className="flex items-center gap-1.5"><Lock className="w-3 h-3" /> Secure</span>
+                        <span>TLS 1.3</span>
+                      </div>
+                      <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <span>Items</span>
+                        <span className="tabular-nums">{String(items.length).padStart(2, '0')}</span>
+                      </div>
+                      {selectedProvider && (
+                        <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <span>ETA</span>
+                          <span className="tabular-nums">{selectedProvider.estimated_days_min}–{selectedProvider.estimated_days_max}d</span>
                         </div>
-                        {loading && selectedPayment === null
-                          ? <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                          : <span className="text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all">→</span>}
-                      </div>
-                    </motion.button>
+                      )}
+                    </div>
+                  </div>
+                </aside>
 
-                    {/* Online payments header */}
-                    {Object.keys(paymentConfigs).length > 0 && (
-                      <div className="flex items-center gap-3 my-6">
-                        <div className="flex-1 h-px bg-white/[0.06]" />
-                        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
-                          <CreditCard className="w-3 h-3" /> {language === 'es' ? 'Pago directo' : 'Direct payment'}
-                        </span>
-                        <div className="flex-1 h-px bg-white/[0.06]" />
+                {/* ─── CENTER STAGE (active section only) ─── */}
+                <main className="min-w-0">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeStage}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      {/* Stage header */}
+                      <div className="mb-6">
+                        <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-2">
+                          {String(allStages.indexOf(activeStage) + 1).padStart(2, '0')} / {String(allStages.length).padStart(2, '0')}
+                        </div>
+                        <h1 className="text-3xl lg:text-4xl font-semibold tracking-tight text-foreground">
+                          {stageLabel(activeStage)}
+                        </h1>
                       </div>
-                    )}
 
-                    <div className="grid gap-2.5">
-                      {Object.entries(paymentConfigs).map(([key, cfg]) => {
-                        const isLoadingThis = loading && selectedPayment === key;
-                        return (
+                      {/* Stage content */}
+                      {activeStage === 'contact' && (
+                        <SectionCard
+                          index={1}
+                          title={language === 'es' ? 'Información de contacto' : 'Contact information'}
+                          subtitle={language === 'es' ? 'Para confirmación y seguimiento' : 'For order updates'}
+                          isActive
+                          isComplete={false}
+                          onEdit={() => {}}
+                          summary={null}
+                          ctaLabel={language === 'es' ? 'Continuar a dirección' : 'Continue to address'}
+                          onContinue={continueContact}
+                        >
+                          <Field label={language === 'es' ? 'Nombre completo' : 'Full name'} value={form.fullName} onChange={v => setF('fullName', v)} error={fieldErrors.fullName} maxLength={100} autoComplete="name" />
+                          <Field label="Email" type="email" value={form.email} onChange={v => setF('email', v)} error={fieldErrors.email} maxLength={255} autoComplete="email" />
+                          <Field label={language === 'es' ? 'Teléfono' : 'Phone'} type="tel" value={form.phone} onChange={v => setF('phone', v)} error={fieldErrors.phone} maxLength={20} autoComplete="tel" />
+                        </SectionCard>
+                      )}
+
+                      {activeStage === 'address' && (
+                        <SectionCard
+                          index={2}
+                          title={language === 'es' ? 'Dirección de envío' : 'Shipping address'}
+                          subtitle={language === 'es' ? 'Dirección completa para la entrega' : 'Full delivery address'}
+                          isActive
+                          isComplete={false}
+                          onEdit={() => {}}
+                          summary={null}
+                          ctaLabel={shippingProviders.length > 0 ? (language === 'es' ? 'Continuar a envío' : 'Continue to shipping') : (language === 'es' ? 'Continuar a pago' : 'Continue to payment')}
+                          onContinue={continueAddress}
+                        >
+                          <Field label={language === 'es' ? 'Dirección' : 'Address'} value={form.address} onChange={v => setF('address', v)} error={fieldErrors.address} maxLength={255} autoComplete="street-address" />
+                          <Field label={language === 'es' ? 'Apto, suite (opcional)' : 'Apt, suite (optional)'} value={form.address2} onChange={v => setF('address2', v)} maxLength={255} />
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            <Field label={language === 'es' ? 'Ciudad' : 'City'} value={form.city} onChange={v => setF('city', v)} error={fieldErrors.city} maxLength={100} autoComplete="address-level2" />
+                            <Field label={language === 'es' ? 'Estado' : 'State'} value={form.state} onChange={v => setF('state', v)} error={fieldErrors.state} maxLength={100} autoComplete="address-level1" />
+                          </div>
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            <Field label={language === 'es' ? 'Código Postal' : 'ZIP / Postal'} value={form.zipCode} onChange={v => setF('zipCode', v)} error={fieldErrors.zipCode} maxLength={20} autoComplete="postal-code" />
+                            <Field label={language === 'es' ? 'País' : 'Country'} value={form.country} onChange={v => setF('country', v)} error={fieldErrors.country} maxLength={100} autoComplete="country-name" />
+                          </div>
+                          <TAField label={language === 'es' ? 'Notas (opcional)' : 'Notes (optional)'} value={form.notes} onChange={v => setF('notes', v)} rows={2} maxLength={500} />
+                        </SectionCard>
+                      )}
+
+                      {activeStage === 'shipping-method' && (
+                        <SectionCard
+                          index={3}
+                          title={language === 'es' ? 'Método de envío' : 'Shipping method'}
+                          subtitle={language === 'es' ? 'Selecciona cómo recibir tu pedido' : 'Choose how to receive your order'}
+                          isActive
+                          isComplete={false}
+                          onEdit={() => {}}
+                          summary={null}
+                          ctaLabel={language === 'es' ? 'Continuar a pago' : 'Continue to payment'}
+                          onContinue={continueShipping}
+                          disabled={!selectedShipping}
+                        >
+                          <div className="space-y-2.5">
+                            {shippingProviders.map(sp => {
+                              const cost = Number(sp.base_rate) + (totalWeight * Number(sp.per_kg_rate));
+                              const isSelected = selectedShipping === sp.id;
+                              return (
+                                <motion.button
+                                  key={sp.id}
+                                  onClick={() => setSelectedShipping(sp.id)}
+                                  whileTap={{ scale: 0.99 }}
+                                  className={`relative w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-colors ${
+                                    isSelected ? 'border-primary/60 bg-primary/[0.05]' : 'border-white/[0.06] hover:border-primary/30 bg-background/40'
+                                  }`}
+                                >
+                                  {isSelected && (
+                                    <motion.span
+                                      layoutId="shipping-active-ring"
+                                      className="absolute inset-0 rounded-xl ring-1 ring-primary pointer-events-none"
+                                      transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                                    />
+                                  )}
+                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-primary' : 'border-muted-foreground/30'}`}>
+                                    {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="font-medium text-foreground text-[15px] tracking-tight">{sp.name}</div>
+                                    <div className="font-mono text-[10px] text-muted-foreground flex items-center gap-1.5 mt-1 uppercase tracking-wider">
+                                      <Clock className="w-3 h-3" />
+                                      {sp.estimated_days_min}–{sp.estimated_days_max} {language === 'es' ? 'DÍAS' : 'DAYS'}
+                                    </div>
+                                  </div>
+                                  <span className="font-mono font-semibold text-foreground shrink-0 tabular-nums">${cost.toFixed(2)}</span>
+                                </motion.button>
+                              );
+                            })}
+                          </div>
+                        </SectionCard>
+                      )}
+
+                      {activeStage === 'payment' && (
+                        <div className="rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-xl p-6">
+                          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2">
+                            {String(allStages.indexOf('payment') + 1).padStart(2, '0')} / Payment method
+                          </div>
+                          <h2 className="text-2xl font-semibold tracking-tight mb-1">{language === 'es' ? 'Método de pago' : 'Choose payment'}</h2>
+                          <p className="text-sm text-muted-foreground mb-6">{language === 'es' ? 'Elige cómo quieres pagar' : 'Choose how you want to pay'}</p>
+
+                          {/* WhatsApp */}
                           <motion.button
-                            key={key}
-                            onClick={() => handleOnlinePayment(key)}
+                            onClick={handleWhatsApp}
                             disabled={loading}
                             whileHover={{ y: -2 }}
                             whileTap={{ scale: 0.99 }}
                             transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                            className="relative flex items-center gap-4 p-4 rounded-xl border border-white/[0.06] hover:border-primary/40 bg-background/40 transition-colors disabled:opacity-50 text-left group"
+                            className="relative w-full p-5 rounded-2xl border border-white/[0.06] hover:border-green-500/40 bg-background/40 text-left transition-colors group disabled:opacity-50 mb-3 overflow-hidden"
                           >
-                            <div className="w-11 h-11 rounded-xl bg-primary/5 border border-primary/15 flex items-center justify-center text-xl shrink-0">
-                              {paymentIcons[key] || '💳'}
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0 border border-green-500/20">
+                                <MessageCircle className="w-6 h-6 text-green-500" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-semibold text-[15px] tracking-tight">WhatsApp</h3>
+                                  <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 border border-green-500/20">Instant</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">{language === 'es' ? 'Confirma y paga por mensaje' : 'Confirm and pay via message'}</p>
+                              </div>
+                              {loading && selectedPayment === null
+                                ? <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                                : <span className="text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all">→</span>}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="font-medium text-[15px] tracking-tight block">{cfg.label}</span>
-                              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Manual transfer</span>
-                            </div>
-                            {isLoadingThis
-                              ? <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                              : <span className="text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all">→</span>}
                           </motion.button>
-                        );
-                      })}
-                      {Object.keys(paymentConfigs).length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center py-2">{t.checkout.noPaymentMethods}</p>
+
+                          {Object.keys(paymentConfigs).length > 0 && (
+                            <div className="flex items-center gap-3 my-6">
+                              <div className="flex-1 h-px bg-white/[0.06]" />
+                              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
+                                <CreditCard className="w-3 h-3" /> {language === 'es' ? 'Pago directo' : 'Direct payment'}
+                              </span>
+                              <div className="flex-1 h-px bg-white/[0.06]" />
+                            </div>
+                          )}
+
+                          <div className="grid gap-2.5">
+                            {Object.entries(paymentConfigs).map(([key, cfg]) => {
+                              const isLoadingThis = loading && selectedPayment === key;
+                              return (
+                                <motion.button
+                                  key={key}
+                                  onClick={() => handleOnlinePayment(key)}
+                                  disabled={loading}
+                                  whileHover={{ y: -2 }}
+                                  whileTap={{ scale: 0.99 }}
+                                  transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                                  className="relative flex items-center gap-4 p-4 rounded-xl border border-white/[0.06] hover:border-primary/40 bg-background/40 transition-colors disabled:opacity-50 text-left group"
+                                >
+                                  <div className="w-11 h-11 rounded-xl bg-primary/5 border border-primary/15 flex items-center justify-center text-xl shrink-0">
+                                    {paymentIcons[key] || '💳'}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <span className="font-medium text-[15px] tracking-tight block">{cfg.label}</span>
+                                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Manual transfer</span>
+                                  </div>
+                                  {isLoadingThis
+                                    ? <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                    : <span className="text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all">→</span>}
+                                </motion.button>
+                              );
+                            })}
+                            {Object.keys(paymentConfigs).length === 0 && (
+                              <p className="text-sm text-muted-foreground text-center py-2">{t.checkout.noPaymentMethods}</p>
+                            )}
+                          </div>
+
+                          <button onClick={() => { setStep('shipping'); setSection(shippingProviders.length > 0 ? 'shipping' : 'address'); }} className="mt-6 text-sm font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
+                            ← {language === 'es' ? 'Volver' : 'Back'}
+                          </button>
+                        </div>
                       )}
-                    </div>
-                  </div>
+                    </motion.div>
+                  </AnimatePresence>
+                </main>
 
-
-                  <button onClick={() => setStep('shipping')} className="text-sm text-muted-foreground hover:text-foreground transition-colors px-2">
-                    ← {language === 'es' ? 'Volver a envío' : 'Back to shipping'}
-                  </button>
-                </div>
-
-                <aside className="hidden lg:block lg:col-span-2">
-                  <div className="sticky top-24">{SummaryPanel}</div>
+                {/* ─── RIGHT SUMMARY (sticky) ─── */}
+                <aside className="hidden lg:block">
+                  <div className="sticky top-32">{SummaryPanel}</div>
                 </aside>
               </div>
             </motion.div>
           )}
+
 
           {/* ── STEP 3: PAYMENT INSTRUCTIONS ── */}
           {step === 'payment-instructions' && selectedPayment && (
