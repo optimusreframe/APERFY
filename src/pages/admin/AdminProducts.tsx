@@ -203,11 +203,17 @@ export default function AdminProducts() {
     material_id: string;
     dimensions: string;
     is_active: boolean;
+    price_override: number | null;
+    use_manual_price: boolean;
+    image_url: string | null;
     _isNew?: boolean;
     _deleted?: boolean;
+    _uploadingImage?: boolean;
+    _generatingImage?: boolean;
   }
   const [productVariations, setProductVariations] = useState<VariationRow[]>([]);
   const [loadingVariations, setLoadingVariations] = useState(false);
+
 
   // Edit dialog AI state
   const [editAiImageOpen, setEditAiImageOpen] = useState(false);
@@ -453,7 +459,10 @@ export default function AdminProducts() {
           const calculatedPrice = v.weight_grams > 0 && costPerKg > 0
             ? (v.weight_grams / 1000) * costPerKg
             : 0;
-          
+          const effectivePrice = v.use_manual_price && v.price_override !== null && v.price_override >= 0
+            ? Number(v.price_override)
+            : calculatedPrice;
+
           const varPayload = {
             product_id: productId,
             name_en: v.name_en,
@@ -462,7 +471,10 @@ export default function AdminProducts() {
             weight_grams: v.weight_grams || null,
             dimensions: v.dimensions || null,
             material_id: v.material_id || null,
-            price_modifier: calculatedPrice,
+            price_modifier: effectivePrice,
+            price_override: v.use_manual_price && v.price_override !== null ? Number(v.price_override) : null,
+            use_manual_price: !!v.use_manual_price,
+            image_url: v.image_url || null,
             value: `${v.weight_grams}g`,
             is_active: v.is_active,
           };
@@ -473,6 +485,7 @@ export default function AdminProducts() {
             await supabase.from('product_variations').insert(varPayload);
           }
         }
+
       }
     },
     onSuccess: (_data, variables) => {
@@ -553,9 +566,13 @@ export default function AdminProducts() {
         material_id: v.material_id || '',
         dimensions: v.dimensions || '',
         is_active: v.is_active,
+        price_override: v.price_override !== null && v.price_override !== undefined ? Number(v.price_override) : null,
+        use_manual_price: !!v.use_manual_price,
+        image_url: v.image_url || null,
       })));
       setLoadingVariations(false);
     });
+
     setOpen(true);
   };
 
@@ -1896,8 +1913,10 @@ export default function AdminProducts() {
                       variant="outline"
                       size="sm"
                       onClick={() => setProductVariations(prev => [...prev, {
-                        name_en: '', name_es: '', type: 'size', weight_grams: 0, material_id: '', dimensions: '', is_active: true, _isNew: true,
+                        name_en: '', name_es: '', type: 'size', weight_grams: 0, material_id: '', dimensions: '', is_active: true,
+                        price_override: null, use_manual_price: false, image_url: null, _isNew: true,
                       }])}
+
                       className="gap-1 text-xs"
                     >
                       <Plus className="w-3 h-3" /> Agregar Variación
@@ -2023,7 +2042,7 @@ export default function AdminProducts() {
                             />
                           </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div className="space-y-1">
                             <Label className="text-xs">Material</Label>
                             <Select
@@ -2045,12 +2064,174 @@ export default function AdminProducts() {
                             </Select>
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Precio Calc.</Label>
-                            <div className="h-8 flex items-center px-3 rounded-md bg-background border border-input text-sm font-medium text-primary">
-                              {calcPrice > 0 ? `$${calcPrice.toFixed(2)}` : '—'}
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs">Precio</Label>
+                              <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground cursor-pointer select-none">
+                                <Switch
+                                  checked={variation.use_manual_price}
+                                  onCheckedChange={(c) => {
+                                    setProductVariations(prev => {
+                                      const updated = [...prev];
+                                      updated[actualIdx] = {
+                                        ...updated[actualIdx],
+                                        use_manual_price: c,
+                                        price_override: c && updated[actualIdx].price_override === null ? calcPrice : updated[actualIdx].price_override,
+                                      };
+                                      return updated;
+                                    });
+                                  }}
+                                  className="scale-75"
+                                />
+                                Manual
+                              </label>
+                            </div>
+                            {variation.use_manual_price ? (
+                              <div className="space-y-1">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={variation.price_override ?? ''}
+                                  placeholder="0.00"
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? null : parseFloat(e.target.value);
+                                    setProductVariations(prev => {
+                                      const updated = [...prev];
+                                      updated[actualIdx] = { ...updated[actualIdx], price_override: val };
+                                      return updated;
+                                    });
+                                  }}
+                                  className="bg-background text-sm h-8 font-mono text-primary"
+                                />
+                                {calcPrice > 0 && (
+                                  <p className="text-[10px] text-muted-foreground font-mono">
+                                    Sugerido: ${calcPrice.toFixed(2)} (peso × material)
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="h-8 flex items-center px-3 rounded-md bg-background border border-input text-sm font-medium text-primary font-mono">
+                                {calcPrice > 0 ? `$${calcPrice.toFixed(2)}` : '—'}
+                                <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground">auto</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Imagen opcional por variación */}
+                        <div className="space-y-1">
+                          <Label className="text-xs flex items-center gap-1.5">
+                            <Image className="w-3 h-3" /> Imagen de variación
+                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">opcional</span>
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            {variation.image_url ? (
+                              <div className="relative group w-16 h-16 rounded-lg overflow-hidden border border-border shrink-0">
+                                <img src={variation.image_url} alt="" className="w-full h-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setProductVariations(prev => {
+                                      const updated = [...prev];
+                                      updated[actualIdx] = { ...updated[actualIdx], image_url: null };
+                                      return updated;
+                                    });
+                                  }}
+                                  className="absolute top-0.5 right-0.5 w-5 h-5 bg-destructive/90 hover:bg-destructive rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="w-3 h-3 text-white" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="w-16 h-16 rounded-lg border border-dashed border-border flex items-center justify-center bg-background shrink-0">
+                                <ImagePlus className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="flex flex-col gap-1 flex-1">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                id={`var-img-${actualIdx}`}
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  const v = await validateMediaFile(file);
+                                  if (!v.valid) { toast({ title: v.error || 'Archivo inválido', variant: 'destructive' }); return; }
+
+                                  setProductVariations(prev => {
+                                    const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _uploadingImage: true }; return u;
+                                  });
+                                  const fileName = `${editId || 'new'}/var-${Date.now()}-${sanitizeFileName(file.name)}`;
+                                  const { error: upErr } = await supabase.storage.from('product-images').upload(fileName, file, { upsert: true });
+                                  if (upErr) {
+                                    toast({ title: 'Error al subir', description: upErr.message, variant: 'destructive' });
+                                    setProductVariations(prev => { const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _uploadingImage: false }; return u; });
+                                    return;
+                                  }
+                                  const { data: pub } = supabase.storage.from('product-images').getPublicUrl(fileName);
+                                  setProductVariations(prev => {
+                                    const u = [...prev];
+                                    u[actualIdx] = { ...u[actualIdx], image_url: pub.publicUrl, _uploadingImage: false };
+                                    return u;
+                                  });
+                                  e.target.value = '';
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1"
+                                disabled={variation._uploadingImage}
+                                onClick={() => document.getElementById(`var-img-${actualIdx}`)?.click()}
+                              >
+                                {variation._uploadingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                                {variation.image_url ? 'Reemplazar' : 'Subir'}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs gap-1 text-primary"
+                                disabled={variation._generatingImage || !mediaFiles[0]?.preview}
+                                title={!mediaFiles[0]?.preview ? 'Sube primero una imagen principal del producto' : 'Generar con IA usando la imagen principal como referencia'}
+                                onClick={async () => {
+                                  const base = mediaFiles[0]?.preview;
+                                  if (!base) { toast({ title: 'Necesitas una imagen principal primero', variant: 'destructive' }); return; }
+                                  setProductVariations(prev => { const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _generatingImage: true }; return u; });
+                                  try {
+                                    const variantDesc = `${variation.name_es || variation.name_en || 'variation'}${variation.dimensions ? ` (${variation.dimensions}mm)` : ''}${variation.weight_grams ? `, ${variation.weight_grams}g` : ''}`;
+                                    const { data, error } = await supabase.functions.invoke('ai-product-import', {
+                                      body: {
+                                        action: 'generate_image',
+                                        source_image: base,
+                                        prompt_addition: `Same 3D printed product, identical design, color and texture. Show this specific variation: ${variantDesc}. Clean studio background, premium product photography.`,
+                                      },
+                                    });
+                                    if (error || !data?.success) throw new Error(error?.message || data?.error || 'Falló la generación');
+                                    const generated = data.data?.generated_image;
+                                    if (!generated) throw new Error('No se obtuvo imagen');
+                                    setProductVariations(prev => {
+                                      const u = [...prev];
+                                      u[actualIdx] = { ...u[actualIdx], image_url: generated, _generatingImage: false };
+                                      return u;
+                                    });
+                                    toast({ title: '✨ Imagen generada' });
+                                  } catch (err: any) {
+                                    toast({ title: 'Error al generar', description: err.message, variant: 'destructive' });
+                                    setProductVariations(prev => { const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _generatingImage: false }; return u; });
+                                  }
+                                }}
+                              >
+                                {variation._generatingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                Generar con IA
+                              </Button>
                             </div>
                           </div>
                         </div>
+
                         <div className="flex items-center gap-2">
                           <Switch
                             checked={variation.is_active}

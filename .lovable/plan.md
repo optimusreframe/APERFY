@@ -1,121 +1,93 @@
-## Goal
-Restructure the **layout** (not just styling) of the Product Detail and Checkout pages so they feel architecturally Apple + Palantir: instrument-panel grids, left-side meta rails, floating sticky chrome, command-bar interactions, dense data zones balanced with cinematic whitespace. Pure UI/layout work — no logic, validation, RLS, pricing, shipping, email, or payment changes.
+# Plan — Admin & Product Upgrades
 
----
+## 1. Precios manuales (producto + variaciones)
 
-## 1. Product Detail (`src/pages/ProductDetail.tsx`)
+Hoy `price_modifier` se sobreescribe siempre con `(peso/1000) * costo_material`. Vamos a permitir override manual sin perder el cálculo como sugerencia.
 
-### New layout grid (desktop ≥ lg)
-```text
-┌──────────────────────────────────────────────────────────────────────┐
-│  TOP COMMAND BAR  (sticky, hairline)                                 │
-│  ‹ Back   ·   crumbs   ·   PRD-XXXX (mono id)   ·   share · heart    │
-├──────────┬───────────────────────────────────────┬───────────────────┤
-│ LEFT     │                                       │ RIGHT             │
-│ THUMB    │            HERO IMAGE                 │ INFO RAIL         │
-│ RAIL     │            (large, square)            │ (sticky)          │
-│ (sticky) │                                       │                   │
-│  60px    │            image counter chip         │  category mono    │
-│  col     │            (mono "01 / 04")           │  title (display)  │
-│          │                                       │  price (huge)     │
-│          │                                       │  segmented vars   │
-│          │                                       │  qty stepper      │
-│          │                                       │  ─ hairline ─     │
-│          │                                       │  ADD TO CART CTA  │
-│          │                                       │  secure note      │
-├──────────┴───────────────────────────────────────┴───────────────────┤
-│  TECH SPECS STRIP  (full-width Palantir data row, 4 cells)           │
-│  WEIGHT  │  DIMENSIONS  │  MATERIAL  │  PRINT TIME                   │
-├──────────────────────────────────────────────────────────────────────┤
-│  OVERVIEW (left col)    │    DETAILS LIST (right col, key/value)     │
-├──────────────────────────────────────────────────────────────────────┤
-│  REVIEWS                                                              │
-├──────────────────────────────────────────────────────────────────────┤
-│  RELATED (horizontal scroll-snap row, not 4-grid)                    │
-└──────────────────────────────────────────────────────────────────────┘
-```
+- Migración DB: agregar a `product_variations`:
+  - `price_override numeric NULL` (precio manual; si está, se usa este)
+  - `use_manual_price boolean DEFAULT false`
+  - El precio efectivo = `use_manual_price ? price_override : calculated`.
+- En el form de variación (AdminProducts wizard):
+  - Toggle "Precio manual" junto a "Precio Calc.".
+  - Si OFF: muestra precio calculado (como hoy).
+  - Si ON: input editable + chip "Sugerido: $X.XX" del cálculo automático.
+- `base_price` del producto ya es manual; solo añadir un chip "Sugerido por IA: $X" cuando venga del flujo AI, sin forzar.
+- Front (ProductDetail / Cart / Checkout): leer el precio efectivo desde la variación. Si no hay override, se mantiene el comportamiento actual.
 
-Key layout moves:
-- **3-column hero**: vertical thumbnail rail (60px) on the far left, large hero in center, sticky info rail on right. Replaces current 2-col layout.
-- **Sticky top command bar** below the navbar with back/crumbs, mono product code, share/favorite — gives the page a "workstation" feel.
-- **Tech specs strip**: full-width 4-cell data row directly under the fold, hairline-divided, mono labels/values (Palantir signature).
-- **Two-column overview/details** below specs: prose on the left, structured key/value table on the right (material composition, recommended use, care, dimensions detail).
-- **Related products** become a horizontal scroll-snap row (Apple PDP style), not a static 4-up grid.
-- **Mobile**: collapses to single column; thumbnail rail becomes horizontal scroll under hero; sticky info collapses; floating CTA bar stays.
+## 2. Renombrar "Configurar" (estilo Amazon)
 
-### Hero gallery interactions
-- Click hero → lightbox (existing).
-- Hover → subtle parallax tilt (framer-motion).
-- Image counter chip overlaid bottom-left of hero ("01 / 04" mono).
-- Thumbnail rail items animate selection with `layoutId` outline.
+Amazon usa el **nombre del atributo** como título (ej: "Size:", "Color:", "Style:") con el valor seleccionado al lado.
 
-### Info rail (right column, sticky)
-Compressed to essentials only — meta tag, title, price, variations, quantity, CTA. Description/specs/reviews live outside the fold so the buying decision area stays clean.
+- Reemplazar el bloque `CONFIGURAR / TAMAÑO / SELECCIONADO` en `ProductDetail.tsx` por encabezados tipo Amazon:
+  - `Tamaño: 20 cm` / `Size: 20 cm` (label = `variation.type`, valor = opción activa).
+  - Si no hay variaciones: `Edición: Estándar`.
+- Aplica el mismo patrón si hay más de un tipo (size + color → dos filas).
 
-### Tech spec strip
-A new full-width band, 4 equal cells divided by hairlines. Replaces the inline `<TechSpecStrip>` currently buried in the info column. Pulls weight, dimensions, material, print_time (already in product schema if available; otherwise fall back to "—").
+## 3. AI Image Studio (rework)
 
-### Details key/value list
-New section below overview — renders a Palantir-style left-aligned dl: `MATERIAL · PLA Premium`, `LAYER HEIGHT · 0.2mm`, etc. Sourced from existing product fields; cells default to "—" when unset. No new DB columns.
+Problemas actuales: la IA mete imágenes ajenas/duplicadas; al cambiar de imagen se pierden las ya editadas; no se pueden añadir fotos propias como adicionales.
 
----
+Nuevo flujo en el paso "Media" del wizard:
 
-## 2. Checkout (`src/pages/Checkout.tsx`)
+- **Imagen primaria única**: el edge function genera **una sola** versión limpia del producto (no extrae galería del sitio externo, solo usa la URL como referencia visual).
+- **"Generar más ángulos"**: botón con selector (2 / 4 / 6) que llama al edge function con prompts tipo `front / 3-4 view / side / top / detail / lifestyle`, manteniendo identidad (color/textura/diseño) — solo cambia ángulo/iluminación/fondo.
+- **Galería persistente**: estado `productImages: Array<{ id, url, source: 'ai' | 'upload', isPrimary, angle? }>` guardado en memoria del wizard + en `localStorage` por draft id para sobrevivir refrescos.
+- **Subir desde galería**: drag-and-drop / file picker → se añaden como `source: 'upload'`, nunca reemplazan las AI.
+- **Bug fix**: seleccionar una miniatura solo cambia `primaryImageId`; no re-dispara generación ni borra ediciones. Las ediciones AI se guardan inmutables por imagen.
+- Acciones por imagen: marcar como primaria, regenerar (solo esa), editar con AI (mantener identidad), eliminar.
 
-### New layout grid (desktop ≥ lg)
-```text
-┌──────────────────────────────────────────────────────────────────────┐
-│  CHECKOUT COMMAND BAR (sticky top, hairline)                         │
-│  ‹ Back to cart   ·   CHECKOUT · 01/03 SHIPPING   ·   ORD-XXXX       │
-├────────────────┬─────────────────────────────────┬───────────────────┤
-│ LEFT NAV RAIL  │   MAIN STAGE (active section)   │ RIGHT SUMMARY     │
-│ (sticky)       │                                 │ (sticky)          │
-│                │                                 │                   │
-│ ▸ 01 CONTACT   │   Active section card,          │  Order line items │
-│ ● 02 ADDRESS   │   expanded with form fields     │  ─ hairline ─     │
-│ ○ 03 SHIPPING  │                                 │  Subtotal         │
-│ ○ 04 PAYMENT   │   Floating-label inputs         │  Shipping         │
-│                │   Continue → CTA                │  ─ hairline ─     │
-│                │                                 │  TOTAL (huge)     │
-│ ─ status ─     │                                 │                   │
-│ secure · 256   │                                 │  Trust badges     │
-│ items 03       │                                 │                   │
-└────────────────┴─────────────────────────────────┴───────────────────┘
-```
+## 4. Wizard "Apple + Palantir" + preview en vivo + AI por variación
 
-Key layout moves:
-- **Sticky command bar** at the top showing back-to-cart, current step indicator ("01 / 03 — SHIPPING"), and mono order draft id.
-- **Left nav rail**: vertical step list (4 steps now including Payment) with mono numbers, active/done/upcoming states. Click a completed step to jump back. Replaces the horizontal `StepRail` for desktop; horizontal version remains on mobile.
-- **Center stage**: shows only the active section at a time (not stacked collapsibles). Cleaner focus, Apple-style "one decision per screen." Sections fade/slide between each other with `AnimatePresence mode="wait"`.
-- **Right summary**: sticky, with a more structured Palantir data block — items list, subtotal, shipping (animates when changed), large total, trust row.
-- **Mobile**: rail collapses into existing horizontal step indicator; main stage flows full-width; summary becomes the existing collapsible drawer at the top.
+- **Panel derecho interactivo** (`lg:col-span-1` del wizard): convertirlo en **Live Preview Card** que refleja en tiempo real:
+  - Imagen primaria seleccionada (con fade entre cambios).
+  - Nombre, categoría, precio efectivo (incluye override).
+  - Variación seleccionada con su peso/dimensiones.
+  - Tarjeta de specs estilo Palantir (mono, `tabular-nums`, hairlines).
+  - Mini-progreso del wizard (Media → Identidad → Precio → Variaciones → Publicar) con paso activo destacado.
+- **Imagen opcional por variación**:
+  - Migración: `product_variations.image_url text NULL`.
+  - En cada card de variación: slot "Imagen de variación" con dos botones — "Subir" y "Generar con IA" (prompt = imagen primaria + descripción de la variación, manteniendo identidad).
+  - En `ProductDetail`: al cambiar de variación, si tiene `image_url`, el hero hace crossfade a esa imagen (vuelve a la primaria si la variación no tiene).
+- **Estética general del wizard**: command bar sticky con breadcrumbs y `DRAFT-XXXX`, glass cards (`bg-card/40 backdrop-blur-xl`), separadores hairline, tipografía mono para labels técnicos, micro-animaciones con framer-motion en transiciones de paso.
 
-### Payment step
-Becomes its own dedicated stage instead of a separate `step === 'method'` screen. Same options (WhatsApp + online methods), but now part of the same 4-step rail so the user always sees their position.
+## 5. Admin panel — refresco Apple + Palantir
 
-### Confirmation screens
-- Payment-instructions and WhatsApp-sent stay as dedicated full-page success states.
-- Layout polished: centered hero check, mono order id chip, primary/ghost button pair, transition out of the main grid for cinematic effect.
+Mantener paleta (negro + oro). Tocar `AdminLayout`, `AdminSidebar`, `AdminDashboard`, headers de cada página admin.
 
-### Left rail status footer
-Below the steps, a small Palantir-style status block: lock icon + "SECURE · TLS 1.3", item count in mono, ETA range pulled from selected shipping provider.
+- **Sidebar**: glass, iconos finos, secciones agrupadas (Catálogo / Ventas / Sistema), indicador activo de barra vertical dorada, badge mono con conteos (ej. pedidos pendientes).
+- **Top bar**: command bar con breadcrumbs + buscador global (⌘K) + indicador de entorno (`LIVE`/`TEST`).
+- **Dashboard**: bento grid de KPIs (revenue, pedidos hoy, conversión, stock bajo), sparklines, tabla de actividad reciente estilo Palantir (mono, hairlines, hover row highlight).
+- **Tablas (Products/Orders/etc.)**: density toggle, columnas mono para IDs/SKUs, status pills consistentes, row hover con acento dorado sutil.
 
----
+## 6. Ideas adicionales (no se implementan ahora, listadas para que elijas)
 
-## 3. Shared layout polish
-- Introduce a thin `<TopCommandBar>` pattern on both pages (sticky, `h-12`, hairline border, mono crumbs/id, optional right actions). Co-located in each file — no new shared component yet, to keep scope tight.
-- Consistent grid widths: hero/checkout containers cap at `max-w-7xl`, rails are fixed-width (`w-[88px]` left nav, `w-[360px]` right summary).
-- Use existing semantic tokens only; no new colors.
+Venta / conversión:
+- Checkout express con resumen sticky y "buy again" desde Profile.
+- Upsell de variación mayor en cart ("+$X y obtén 20cm").
+- Wishlist → email automático cuando baja de stock o vuelve.
+- Reviews con foto verificada del comprador en homepage trending.
+- Códigos de descuento + countdown banner.
 
-## Out of scope
-- No changes to: cart logic, pricing math, shipping calculation, validation schemas, rate limiting, WhatsApp message body, transactional emails, edge functions, DB, RLS, admin pages, navbar, footer, other routes.
-- No new dependencies.
-- No new DB columns (details list uses what already exists, falls back to "—").
+Admin:
+- Vista Kanban de pedidos (pendiente → impresión → enviado → entregado) con drag.
+- Calculadora de margen en línea (precio − costo material × peso − envío).
+- Bulk AI: regenerar imágenes faltantes de varios productos.
+- Logs filtrables por tipo + export CSV.
+- Notificaciones in-app (campana) para pedidos nuevos y requests.
 
-## Files
-- Modify: `src/pages/ProductDetail.tsx`, `src/pages/Checkout.tsx`
-- No new files.
+Producto / marketing:
+- 3D viewer (model-viewer) opcional por producto.
+- Comparador de variaciones lado a lado.
+- Generador de OG images por producto con la imagen primaria.
+- Programa de referidos.
 
-## Verification
-- Visual review at 1112px (current) and mobile breakpoint via preview.
-- Confirm: add-to-cart still triggers floating toast; checkout still creates order + sends email; WhatsApp flow opens with correct message; variation/material price recalculation correct; jumping back via left rail does not reset form state.
+## Detalles técnicos
+
+- Migraciones SQL en una sola call (variaciones: `price_override`, `use_manual_price`, `image_url`).
+- Edge function `ai-product-import`: nuevo modo `mode: 'angles'` que recibe imagen base + lista de ángulos y devuelve N imágenes manteniendo identidad. Eliminar el scraping masivo de imágenes del sitio externo (solo usa 1 como referencia).
+- Storage: bucket `product-images` (ya existente o nuevo) para guardar uploads y AI persistidos.
+- Tipos: extender `ProductVariation` y `Product` interfaces en `AdminProducts.tsx` y `ProductDetail.tsx`.
+- Sin cambios en lógica de carrito/orden más allá de leer `price_override` cuando aplique.
+
+¿Procedo así, o querés que ajuste algo (por ejemplo: hacer items 1–4 ahora y dejar el refresh del admin (#5) para otra ronda)?
