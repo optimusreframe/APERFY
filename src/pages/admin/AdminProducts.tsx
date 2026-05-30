@@ -423,7 +423,7 @@ export default function AdminProducts() {
       }
       setFieldErrors({});
 
-      const payload = { ...f, category_id: f.category_id || null, base_price: Number(f.base_price) };
+      const payload = { ...f, category_id: f.category_id || null, base_price: Number(f.base_price), model_3d_url: f.model_3d_url?.trim() || null };
       let productId = editId;
 
       if (editId) {
