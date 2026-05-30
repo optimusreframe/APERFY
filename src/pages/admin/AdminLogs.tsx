@@ -57,20 +57,59 @@ export default function AdminLogs() {
   const totalCount = data?.count || 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
+  const exportCsv = () => {
+    const headers = ['fecha', 'categoria', 'accion', 'titulo', 'detalles', 'entity_type', 'entity_id'];
+    const escape = (v: any) => {
+      const s = v == null ? '' : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = logs.map((l: any) =>
+      [
+        new Date(l.created_at).toISOString(),
+        l.category,
+        l.action,
+        l.title,
+        l.details || '',
+        l.entity_type || '',
+        l.entity_id || '',
+      ].map(escape).join(','),
+    );
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `activity-logs-${tab}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="max-w-[1400px] mx-auto">
       <AdminPageHeader eyebrow="system · activity" title="Activity Logs" meta={`${totalCount} registros`} />
 
-
       <Tabs value={tab} onValueChange={(v) => { setTab(v); setPage(0); }}>
-        <TabsList className="mb-4 flex-wrap h-auto gap-1">
-          {TABS.map(t => (
-            <TabsTrigger key={t.value} value={t.value} className="gap-1.5 text-xs">
-              <t.icon className="w-3.5 h-3.5" />
-              {t.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <TabsList className="flex-wrap h-auto gap-1">
+            {TABS.map(t => (
+              <TabsTrigger key={t.value} value={t.value} className="gap-1.5 text-xs">
+                <t.icon className="w-3.5 h-3.5" />
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportCsv}
+            disabled={logs.length === 0}
+            className="gap-2 font-mono text-[10px] uppercase tracking-[0.2em] h-8"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
+          </Button>
+        </div>
+
 
         {TABS.map(t => (
           <TabsContent key={t.value} value={t.value}>
