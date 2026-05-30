@@ -318,7 +318,8 @@ export default function Checkout() {
   , [items]);
   const shippingCost = selectedProvider ? Number(selectedProvider.base_rate) + (totalWeight * Number(selectedProvider.per_kg_rate)) : 0;
   const subtotal = getTotal();
-  const orderTotal = subtotal + shippingCost;
+  const discountAmount = getDiscountAmount();
+  const orderTotal = Math.max(0, getFinalTotal() + shippingCost);
 
   const setF = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
 
