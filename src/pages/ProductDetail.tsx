@@ -18,6 +18,7 @@ import LikeButton from '@/components/LikeButton';
 import ShareMenu from '@/components/ShareMenu';
 import ProductReviews from '@/components/ProductReviews';
 import { Badge } from '@/components/ui/badge';
+import Model3DViewer from '@/components/Model3DViewer';
 
 // ─── Lightbox Component ───
 function ImageLightbox({
@@ -210,6 +211,7 @@ export default function ProductDetail() {
   const [notes, setNotes] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [view3D, setView3D] = useState(false);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', slug],
