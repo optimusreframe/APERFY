@@ -19,6 +19,7 @@ import ShareMenu from '@/components/ShareMenu';
 import ProductReviews from '@/components/ProductReviews';
 import { Badge } from '@/components/ui/badge';
 import Model3DViewer from '@/components/Model3DViewer';
+import VariationComparator from '@/components/VariationComparator';
 
 // ─── Lightbox Component ───
 function ImageLightbox({
@@ -466,6 +467,13 @@ export default function ProductDetail() {
             </span>
             <div className="h-4 w-px bg-white/[0.06] hidden md:block" />
             <ShareMenu slug={product.slug} productName={language === 'es' ? product.name_es : product.name_en} size="md" />
+            {variations.length >= 2 && (
+              <VariationComparator
+                variations={variations as any}
+                basePrice={Number(product.base_price || 0)}
+                productImages={baseImages}
+              />
+            )}
             <button onClick={toggleFavorite} className="p-2 rounded-lg hover:bg-white/[0.04] transition-colors">
               <Heart className={`w-4 h-4 ${isFav ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
             </button>
