@@ -215,6 +215,7 @@ export default function ProductDetail() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [view3D, setView3D] = useState(false);
+  const inlineCtaRef = useRef<HTMLDivElement>(null);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', slug],
