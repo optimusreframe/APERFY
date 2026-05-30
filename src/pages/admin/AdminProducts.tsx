@@ -559,9 +559,13 @@ export default function AdminProducts() {
         material_id: v.material_id || '',
         dimensions: v.dimensions || '',
         is_active: v.is_active,
+        price_override: v.price_override !== null && v.price_override !== undefined ? Number(v.price_override) : null,
+        use_manual_price: !!v.use_manual_price,
+        image_url: v.image_url || null,
       })));
       setLoadingVariations(false);
     });
+
     setOpen(true);
   };
 
