@@ -571,10 +571,13 @@ export default function Checkout() {
         {step !== 'whatsapp-sent' && step !== 'payment-instructions' && (
           <>
             <div className="text-center mb-10">
+              <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-3">
+                {String(currentStepNum + 1).padStart(2, '0')} / {String(stepLabels.length).padStart(2, '0')} — {stepLabels[currentStepNum]}
+              </div>
               <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-foreground">
                 {language === 'es' ? 'Finalizar compra' : 'Checkout'}
               </h1>
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-sm text-muted-foreground mt-3">
                 {language === 'es' ? 'Revisa tu pedido y completa el envío' : 'Review your order and complete shipping'}
               </p>
             </div>
