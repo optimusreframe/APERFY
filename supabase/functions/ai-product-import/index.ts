@@ -718,7 +718,85 @@ If the input name/description is already good, polish it slightly. If it's empty
       });
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action. Use 'scrape', 'generate_image', 'translate', or 'enhance_product'." }), {
+    // ── ACTION: generate_angle ──
+    // Generates ONE additional camera angle from a reference image, preserving the object identically.
+    if (action === "generate_angle") {
+      const { sourceImage, angle } = body as { sourceImage?: string; angle?: string };
+      if (!sourceImage || !angle) {
+        return new Response(JSON.stringify({ success: false, error: "sourceImage and angle are required" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const fidelityRule = "CRITICAL FIDELITY RULE: The 3D printed object MUST be reproduced with ABSOLUTE fidelity to the reference image. Do NOT modify, alter, or reinterpret the object's design, colors, shape, size, proportions, textures, surface details, or any visual characteristic. It must be the EXACT same object — same colors, same geometry, same paint job, same level of detail.";
+
+      const anglePrompts: Record<string, string> = {
+        side: "Render the EXACT same object from a perfect side / profile view (90° rotation). Keep the same studio background, same lighting style, same surface, same composition framing as a professional product photo.",
+        back: "Render the EXACT same object from the back (180° rotation). Keep the same studio background, same lighting style, same surface, same composition framing as a professional product photo.",
+        three_quarter: "Render the EXACT same object from a 3/4 hero angle (roughly 45° rotation, slight high angle). Keep the same studio background, same lighting style, same surface, same framing as a professional product photo.",
+        top: "Render the EXACT same object from a top-down / overhead angle. Keep the same studio background, same lighting style, same surface, framed as a professional product photo.",
+        macro: "Render an ultra close-up macro shot of the EXACT same object focusing on its surface details and texture. Keep the same studio background, same lighting style, shallow depth of field, professional product macro photography.",
+        lifestyle: "Render the EXACT same object in a tasteful lifestyle scene (on a stylish desk, shelf, or in a hand) without modifying the object itself. Soft realistic lighting. Cinematic product photography.",
+      };
+
+      const anglePrompt = anglePrompts[angle] || anglePrompts.three_quarter;
+      const promptText = `${fidelityRule} ${anglePrompt} The output MUST be a single photorealistic image of the identical object — never reinterpret or restyle it.`;
+
+      const imgResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-3.1-flash-image-preview",
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: promptText },
+              { type: "image_url", image_url: { url: sourceImage } },
+            ],
+          }],
+          modalities: ["image", "text"],
+        }),
+      });
+
+      if (!imgResp.ok) {
+        const status = imgResp.status;
+        let errorMsg = `Error del servicio de IA (código ${status}).`;
+        if (status === 429) errorMsg = 'Demasiadas solicitudes. Intenta de nuevo en unos minutos.';
+        else if (status === 402) errorMsg = 'Créditos de IA agotados.';
+        return new Response(JSON.stringify({ success: false, error: errorMsg }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const imgResult = await imgResp.json();
+      const message = imgResult.choices?.[0]?.message;
+      let generatedImage: string | undefined;
+      if (message?.images?.[0]?.image_url?.url) {
+        generatedImage = message.images[0].image_url.url;
+      } else if (Array.isArray(message?.content)) {
+        const imgPart = message.content.find((p: any) => p.type === "image_url" || p.type === "image");
+        if (imgPart?.image_url?.url) generatedImage = imgPart.image_url.url;
+        else if (imgPart?.url) generatedImage = imgPart.url;
+      } else if (typeof message?.content === "string" && message.content.startsWith("data:image")) {
+        generatedImage = message.content;
+      }
+
+      if (!generatedImage) {
+        const finishReason = imgResult.choices?.[0]?.finish_reason || 'unknown';
+        const nativeReason = imgResult.choices?.[0]?.native_finish_reason || '';
+        return new Response(JSON.stringify({
+          success: false,
+          error: `La IA no devolvió una imagen (razón: ${nativeReason || finishReason}).`,
+          error_code: nativeReason || finishReason,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      return new Response(JSON.stringify({ success: true, data: { generated_image: generatedImage, angle } }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Invalid action. Use 'scrape', 'generate_image', 'generate_angle', 'translate', or 'enhance_product'." }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
