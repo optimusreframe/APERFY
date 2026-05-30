@@ -19,8 +19,10 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
+import DiscountCodeInput from '@/components/DiscountCodeInput';
+
 export default function Cart() {
-  const { items, removeFromCart, updateQuantity, getTotal, clearCart, itemCount } = useCart();
+  const { items, removeFromCart, updateQuantity, getTotal, clearCart, itemCount, discount, getDiscountAmount, getFinalTotal } = useCart();
   const { user } = useAuth();
   const { language, t } = useLanguage();
   const navigate = useNavigate();
@@ -34,6 +36,8 @@ export default function Cart() {
   };
 
   const subtotal = getTotal();
+  const discountAmount = getDiscountAmount();
+  const finalTotal = getFinalTotal();
 
   return (
     <div className="min-h-screen bg-background">
