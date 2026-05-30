@@ -215,7 +215,7 @@ export default function ProductDetail() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [view3D, setView3D] = useState(false);
-  const inlineCtaRef = useRef<HTMLDivElement>(null);
+  
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', slug],
@@ -788,7 +788,7 @@ export default function ProductDetail() {
             </motion.div>
 
             {/* CTA */}
-            <motion.div ref={inlineCtaRef} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="hidden lg:block">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="hidden lg:block">
               <motion.div whileTap={{ scale: 0.99 }}>
                 <Button
                   onClick={handleAddToCart}
@@ -914,7 +914,8 @@ export default function ProductDetail() {
           Object.keys(variationsByType).some((type) => !selectedVariations[type])
         }
         onAdd={handleAddToCart}
-        inlineCtaRef={inlineCtaRef}
+        productName={language === 'es' ? product.name_es : product.name_en}
+        inStock={product.stock_status !== 'out_of_stock'}
       />
 
 
