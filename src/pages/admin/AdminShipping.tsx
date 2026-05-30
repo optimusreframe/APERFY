@@ -13,6 +13,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { AdminPageHeader } from './_shared';
 
 interface ShippingProvider {
   id: string;
@@ -105,12 +106,12 @@ export default function AdminShipping() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display font-bold text-2xl">Shipping Providers</h1>
-          <p className="text-sm text-muted-foreground">Manage shipping options and rates</p>
-        </div>
+    <div className="space-y-6 max-w-[1400px] mx-auto">
+      <AdminPageHeader
+        eyebrow="operations · shipping"
+        title="Shipping Providers"
+        meta="Manage shipping options and rates"
+        actions={
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="gap-2"><Plus className="w-4 h-4" /> Add Provider</Button>
