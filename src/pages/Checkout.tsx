@@ -494,50 +494,69 @@ export default function Checkout() {
 
   // ─── Order summary panel (sticky right + mobile collapsible) ───
   const SummaryPanel = (
-    <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold tracking-tight">{language === 'es' ? 'Resumen' : 'Order summary'}</h3>
-        <span className="text-xs text-muted-foreground">{items.length} {items.length === 1 ? 'item' : 'items'}</span>
+    <div className="rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-xl p-6 space-y-5">
+      <div className="flex items-center justify-between pb-4 border-b border-white/[0.05]">
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Summary</span>
+        </div>
+        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          {String(items.length).padStart(2, '0')} {items.length === 1 ? 'ITEM' : 'ITEMS'}
+        </span>
       </div>
 
-      <div className="space-y-3 max-h-72 overflow-y-auto pr-1 -mr-1">
+      <div className="space-y-4 max-h-72 overflow-y-auto pr-1 -mr-1">
         {items.map(item => {
           const varMod = item.selectedVariations.reduce((s, v) => s + v.priceModifier, 0);
           const itemTotal = (item.unitPrice + varMod) * item.quantity;
           return (
-            <div key={item.productId + JSON.stringify(item.selectedVariations)} className="flex gap-3">
-              <div className="w-14 h-14 rounded-xl bg-secondary overflow-hidden shrink-0 border border-border/40">
+            <div key={item.productId + JSON.stringify(item.selectedVariations)} className="flex gap-3 group">
+              <div className="relative w-14 h-14 rounded-xl bg-secondary overflow-hidden shrink-0 border border-white/[0.06]">
                 {item.productImage && <img src={item.productImage} alt="" className="w-full h-full object-cover" />}
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-mono font-bold tabular-nums flex items-center justify-center">
+                  {item.quantity}
+                </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium text-foreground tracking-tight">{item.productName}</p>
+                <p className="truncate text-[13px] font-medium text-foreground tracking-tight">{item.productName}</p>
                 {item.selectedVariations.length > 0 && (
-                  <p className="text-[11px] text-muted-foreground truncate">{item.selectedVariations.map(v => v.name).filter(Boolean).join(' · ')}</p>
+                  <p className="text-[10px] text-muted-foreground truncate font-mono uppercase tracking-wider mt-0.5">{item.selectedVariations.map(v => v.name).filter(Boolean).join(' · ')}</p>
                 )}
-                <p className="text-[11px] text-muted-foreground mt-0.5">Qty {item.quantity}</p>
               </div>
-              <span className="text-sm font-medium shrink-0">${itemTotal.toFixed(2)}</span>
+              <span className="text-[13px] font-medium shrink-0 tabular-nums">${itemTotal.toFixed(2)}</span>
             </div>
           );
         })}
       </div>
 
-      <div className="border-t border-border/60 pt-4 space-y-2 text-sm">
+      <div className="border-t border-white/[0.05] pt-4 space-y-2.5 text-[13px]">
         <div className="flex justify-between text-muted-foreground">
-          <span>{language === 'es' ? 'Subtotal' : 'Subtotal'}</span>
-          <span className="text-foreground">${subtotal.toFixed(2)}</span>
+          <span className="font-mono uppercase tracking-wider text-[10px]">{language === 'es' ? 'Subtotal' : 'Subtotal'}</span>
+          <span className="text-foreground tabular-nums">${subtotal.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-muted-foreground">
-          <span>{language === 'es' ? 'Envío' : 'Shipping'}</span>
-          <span className="text-foreground">{selectedProvider ? `$${shippingCost.toFixed(2)}` : '—'}</span>
+          <span className="font-mono uppercase tracking-wider text-[10px]">{language === 'es' ? 'Envío' : 'Shipping'}</span>
+          <motion.span
+            key={shippingCost}
+            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+            className="text-foreground tabular-nums"
+          >
+            {selectedProvider ? `$${shippingCost.toFixed(2)}` : '—'}
+          </motion.span>
         </div>
-        <div className="border-t border-border/60 pt-3 flex justify-between items-baseline">
-          <span className="text-sm font-medium">{language === 'es' ? 'Total' : 'Total'}</span>
-          <span className="text-2xl font-semibold tracking-tight">${orderTotal.toFixed(2)}</span>
+        <div className="border-t border-white/[0.05] pt-3 mt-2 flex justify-between items-baseline">
+          <span className="font-mono uppercase tracking-[0.2em] text-[10px] text-muted-foreground">{language === 'es' ? 'Total' : 'Total'}</span>
+          <motion.span
+            key={orderTotal}
+            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+            className="text-2xl font-semibold tracking-tight tabular-nums text-gradient-gold"
+          >
+            ${orderTotal.toFixed(2)}
+          </motion.span>
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground pt-1">
+      <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground pt-2 font-mono uppercase tracking-wider">
         <Lock className="w-3 h-3" />
         {language === 'es' ? 'Transacción segura' : 'Secure checkout'}
       </div>
