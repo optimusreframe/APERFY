@@ -21,6 +21,7 @@ import { productSchema, validateMediaFile, sanitizeFileName } from '@/lib/valida
 import { sanitizeUrl } from '@/lib/sanitize';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AdminPageHeader } from './_shared';
+import MarginCalculator from '@/components/admin/MarginCalculator';
 
 // ── Types ──
 interface ProductForm {
@@ -2053,6 +2054,9 @@ export default function AdminProducts() {
                     <Label>Precio Base ($)</Label>
                     <Input type="number" step="0.01" min="0" max="999999" value={form.base_price} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} className="bg-secondary" required />
                     {fieldErrors.base_price && <p className="text-xs text-destructive">{fieldErrors.base_price}</p>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <MarginCalculator defaultPrice={form.base_price} />
                   </div>
                   <div className="space-y-2">
                     <Label>Categoría</Label>
