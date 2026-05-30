@@ -244,7 +244,7 @@ function SectionCard({
 }
 
 export default function Checkout() {
-  const { items, getTotal, clearCart } = useCart();
+  const { items, getTotal, clearCart, discount, getDiscountAmount, getFinalTotal } = useCart();
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const navigate = useNavigate();
