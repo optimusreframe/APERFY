@@ -9,6 +9,7 @@ import { ChevronDown, ChevronUp, Package, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
 import { sendTransactionalEmail } from '@/lib/send-email';
+import { AdminPageHeader } from './_shared';
 
 const statuses = ['pending', 'confirmed', 'printing', 'shipped', 'delivered', 'cancelled'] as const;
 
@@ -115,8 +116,9 @@ export default function AdminOrders() {
   };
 
   return (
-    <div>
-      <h1 className="text-2xl font-display font-bold mb-6">Orders</h1>
+    <div className="max-w-[1400px] mx-auto">
+      <AdminPageHeader eyebrow="operations · orders" title="Orders" meta={`${orders.length} total`} />
+
 
       {isLoading ? (
         <div className="flex justify-center py-12">

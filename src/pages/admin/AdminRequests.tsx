@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ExternalLink, Eye, Mail, Phone, User } from 'lucide-react';
 import { format } from 'date-fns';
+import { AdminPageHeader } from './_shared';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -68,8 +69,8 @@ export default function AdminRequests() {
   const statusLabels = t.admin.requests.statuses;
 
   return (
-    <div className="space-y-6">
-      <h1 className="font-display font-bold text-2xl">{t.admin.requests.title}</h1>
+    <div className="space-y-6 max-w-[1400px] mx-auto">
+      <AdminPageHeader eyebrow="operations · requests" title={t.admin.requests.title} meta={`${requests.length} total`} />
 
       {isLoading ? (
         <p className="text-muted-foreground">Loading...</p>

@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
+import { AdminPageHeader, AdminSurface } from './_shared';
 
 interface MaterialForm {
   name_en: string;
@@ -100,9 +101,12 @@ export default function AdminMaterials() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display text-2xl font-bold text-foreground">Materials</h1>
+    <div className="max-w-[1400px] mx-auto">
+      <AdminPageHeader
+        eyebrow="catalog · materials"
+        title="Materials"
+        meta={`${materials.length} total · used in pricing`}
+        actions={
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); } }}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="w-4 h-4" />Add Material</Button>
@@ -143,9 +147,10 @@ export default function AdminMaterials() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+        }
+      />
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <AdminSurface>
         <Table>
           <TableHeader>
             <TableRow className="border-border">
@@ -178,7 +183,7 @@ export default function AdminMaterials() {
             )}
           </TableBody>
         </Table>
-      </div>
+      </AdminSurface>
     </div>
   );
 }

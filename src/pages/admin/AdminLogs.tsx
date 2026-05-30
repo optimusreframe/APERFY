@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollText, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, ShoppingCart, Download, Pencil, Info } from 'lucide-react';
+import { AdminPageHeader } from './_shared';
 
 const TABS = [
   { value: 'all', label: 'Todos', icon: ScrollText },
@@ -57,12 +58,9 @@ export default function AdminLogs() {
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   return (
-    <div>
-      <div className="flex items-center gap-3 mb-6">
-        <ScrollText className="w-6 h-6 text-primary" />
-        <h1 className="font-display text-2xl font-bold text-foreground">Activity Logs</h1>
-        <Badge variant="outline" className="ml-2">{totalCount} registros</Badge>
-      </div>
+    <div className="max-w-[1400px] mx-auto">
+      <AdminPageHeader eyebrow="system · activity" title="Activity Logs" meta={`${totalCount} registros`} />
+
 
       <Tabs value={tab} onValueChange={(v) => { setTab(v); setPage(0); }}>
         <TabsList className="mb-4 flex-wrap h-auto gap-1">

@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
+import { AdminPageHeader, AdminSurface } from './_shared';
 
 interface CategoryForm {
   name_en: string;
@@ -90,9 +91,12 @@ export default function AdminCategories() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display text-2xl font-bold text-foreground">Categories</h1>
+    <div className="max-w-[1400px] mx-auto">
+      <AdminPageHeader
+        eyebrow="catalog · categories"
+        title="Categories"
+        meta={`${categories.length} total`}
+        actions={
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); } }}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="w-4 h-4" />Add Category</Button>
@@ -118,9 +122,10 @@ export default function AdminCategories() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+        }
+      />
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <AdminSurface>
         <Table>
           <TableHeader>
             <TableRow className="border-border">
@@ -153,7 +158,7 @@ export default function AdminCategories() {
             )}
           </TableBody>
         </Table>
-      </div>
+      </AdminSurface>
     </div>
   );
 }

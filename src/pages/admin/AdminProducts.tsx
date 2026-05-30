@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { productSchema, validateMediaFile, sanitizeFileName } from '@/lib/validation';
 import { sanitizeUrl } from '@/lib/sanitize';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AdminPageHeader } from './_shared';
 
 // ── Types ──
 interface ProductForm {
@@ -1058,9 +1059,11 @@ export default function AdminProducts() {
   // ══════════════════════════════════════════════════════════
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display text-2xl font-bold text-foreground">Productos</h1>
+    <div className="max-w-[1400px] mx-auto">
+      <AdminPageHeader
+        eyebrow="catalog · products"
+        title="Productos"
+        actions={
         <div className="flex gap-2">
           {/* AI Import Studio Button */}
           <Dialog open={aiOpen} onOpenChange={(o) => { setAiOpen(o); if (!o) resetAi(); }}>
@@ -2274,7 +2277,8 @@ export default function AdminProducts() {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
+        }
+      />
 
       {/* Bulk Edit Toggle */}
       <div className="flex items-center justify-between mb-4">
