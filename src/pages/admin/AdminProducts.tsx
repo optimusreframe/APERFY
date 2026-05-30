@@ -194,6 +194,11 @@ export default function AdminProducts() {
   const aiOriginalInputRef = useRef<HTMLInputElement>(null);
   const aiBgInputRef = useRef<HTMLInputElement>(null);
 
+  // AI angle gallery (extra renders generated from primary AI image)
+  type AiAngle = { url: string; path: string; angle: string; loading?: boolean; error?: string };
+  const [aiAngles, setAiAngles] = useState<AiAngle[]>([]);
+  const [aiAnglesGenerating, setAiAnglesGenerating] = useState(false);
+
   // Variations state for product modal
   interface VariationRow {
     id?: string;
@@ -603,6 +608,13 @@ export default function AdminProducts() {
     setCreatingCategory(false);
     setBulkMode(false);
     setBulkUrls('');
+    // Clean up angle images from storage
+    if (aiAngles.length > 0) {
+      const paths = aiAngles.map(a => a.path).filter(Boolean);
+      if (paths.length) supabase.storage.from('product-images').remove(paths).catch(() => {});
+    }
+    setAiAngles([]);
+    setAiAnglesGenerating(false);
   };
 
   // Helper: persist an AI image (data URI or remote URL) to storage immediately
@@ -700,6 +712,62 @@ export default function AdminProducts() {
       setAiPersistingImage(false);
     }
   };
+
+  const ANGLE_LABELS: Record<string, string> = {
+    three_quarter: '3/4 hero',
+    side: 'Lateral',
+    back: 'Trasera',
+    top: 'Cenital',
+    macro: 'Macro',
+    lifestyle: 'Lifestyle',
+  };
+
+  const handleGenerateAngles = async (selected: string[]) => {
+    if (!aiStoredImageUrl) {
+      toast({ title: 'Genera primero la imagen principal', variant: 'destructive' });
+      return;
+    }
+    if (selected.length === 0) return;
+    setAiAnglesGenerating(true);
+
+    // Seed placeholders so the user sees them appear
+    const seeds: AiAngle[] = selected.map(a => ({ url: '', path: '', angle: a, loading: true }));
+    setAiAngles(prev => [...prev, ...seeds]);
+
+    await Promise.all(selected.map(async (angle) => {
+      try {
+        const { data, error } = await supabase.functions.invoke('ai-product-import', {
+          body: { action: 'generate_angle', sourceImage: aiStoredImageUrl, angle },
+        });
+        if (error || !data?.success) {
+          throw new Error(data?.error || error?.message || 'Error al generar ángulo');
+        }
+        const generated = data.data.generated_image;
+        const { url, path } = await persistAiImage(generated);
+        setAiAngles(prev => prev.map(a =>
+          a.angle === angle && a.loading ? { ...a, url, path, loading: false } : a
+        ));
+      } catch (e: any) {
+        setAiAngles(prev => prev.map(a =>
+          a.angle === angle && a.loading ? { ...a, loading: false, error: e.message } : a
+        ));
+        toast({ title: `Error en ángulo ${ANGLE_LABELS[angle] || angle}`, description: e.message, variant: 'destructive' });
+      }
+    }));
+
+    setAiAnglesGenerating(false);
+  };
+
+  const removeAiAngle = (angleKey: string, url: string) => {
+    setAiAngles(prev => {
+      const target = prev.find(a => a.angle === angleKey && a.url === url);
+      if (target?.path) {
+        supabase.storage.from('product-images').remove([target.path]).catch(() => {});
+      }
+      return prev.filter(a => !(a.angle === angleKey && a.url === url));
+    });
+  };
+
 
   const handleAiScrape = async () => {
     if (!aiUrl) {
@@ -1000,19 +1068,31 @@ export default function AdminProducts() {
       is_featured: false,
     });
 
-    // Use the already-persisted storage URL instead of fetching the temporary one
-    if (aiStoredImageUrl) {
-      setMediaFiles([{
-        id: `ai-${Date.now()}`,
-        preview: aiStoredImageUrl,
-        type: 'image',
+    // Build media list: primary AI image + generated angles (cap respect handled downstream)
+    const angleItems: MediaItem[] = aiAngles
+      .filter(a => a.url && !a.loading && !a.error)
+      .slice(0, Math.max(0, MAX_MEDIA - 1))
+      .map((a, idx) => ({
+        id: `ai-angle-${idx}-${Date.now()}`,
+        preview: a.url,
+        type: 'image' as const,
         isExisting: true,
-      }]);
+      }));
+
+    if (aiStoredImageUrl) {
+      setMediaFiles([
+        { id: `ai-${Date.now()}`, preview: aiStoredImageUrl, type: 'image', isExisting: true },
+        ...angleItems,
+      ]);
+    } else if (angleItems.length > 0) {
+      setMediaFiles(angleItems);
     } else {
       setMediaFiles([]);
     }
 
     setAiOpen(false);
+    // Clear angle list BEFORE reset so the cleanup loop doesn't remove the storage objects we just attached.
+    setAiAngles([]);
     resetAi();
     setOpen(true);
     toast({ title: '✓', description: 'Datos AI cargados. Revisa y guarda.' });
@@ -1369,7 +1449,82 @@ export default function AdminProducts() {
                             <Upload className="w-3 h-3" /> Subir Foto
                           </Button>
                         </div>
+
+                        {/* ── AI Angle Studio ── */}
+                        {aiStoredImageUrl && (
+                          <div className="rounded-xl border border-border/60 bg-card/40 backdrop-blur-xl p-3 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <ImagePlus className="w-3.5 h-3.5 text-primary" strokeWidth={1.5} />
+                                <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-foreground/90">
+                                  Ángulos AI
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-mono text-muted-foreground">
+                                {aiAngles.filter(a => a.url).length}/{MAX_MEDIA - 1}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1.5">
+                              {Object.entries(ANGLE_LABELS).map(([key, label]) => {
+                                const remaining = MAX_MEDIA - 1 - aiAngles.filter(a => a.url || a.loading).length;
+                                const disabled = aiAnglesGenerating || remaining <= 0;
+                                return (
+                                  <Button
+                                    key={key}
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={disabled}
+                                    onClick={() => handleGenerateAngles([key])}
+                                    className="h-7 text-[10px] gap-1 border-border/60 hover:border-primary/40 hover:bg-primary/5"
+                                  >
+                                    <Wand2 className="w-3 h-3" /> {label}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+
+                            {aiAngles.length > 0 && (
+                              <div className="grid grid-cols-3 gap-1.5">
+                                {aiAngles.map((a, i) => (
+                                  <div key={`${a.angle}-${i}`} className="relative aspect-square rounded-lg overflow-hidden border border-border/60 bg-secondary/50 group">
+                                    {a.loading ? (
+                                      <div className="absolute inset-0 flex items-center justify-center">
+                                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                      </div>
+                                    ) : a.error ? (
+                                      <div className="absolute inset-0 flex items-center justify-center p-1">
+                                        <AlertCircle className="w-4 h-4 text-destructive" />
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <img src={a.url} alt={a.angle} className="w-full h-full object-cover" />
+                                        <div className="absolute bottom-0 inset-x-0 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-white bg-gradient-to-t from-black/80 to-transparent">
+                                          {ANGLE_LABELS[a.angle] || a.angle}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => removeAiAngle(a.angle, a.url)}
+                                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 hover:bg-destructive flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                          aria-label="Remove"
+                                        >
+                                          <X className="w-3 h-3 text-white" />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                              Genera vistas extra preservando el objeto idéntico. Se añaden a la galería al guardar.
+                            </p>
+                          </div>
+                        )}
                       </div>
+
 
                       {/* Right: Editable fields (Spanish-first) */}
                       <div className="space-y-4">
