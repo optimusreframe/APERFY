@@ -1559,15 +1559,101 @@ export default function AdminProducts() {
           </Dialog>
 
           {/* ── ADD/EDIT PRODUCT DIALOG ── */}
-          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); setEditAiImageOpen(false); setEditAiSourceImage(null); setEditAiCustomBg(null); } }}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); setEditAiImageOpen(false); setEditAiSourceImage(null); setEditAiCustomBg(null); setWizardStep(0); } else { setWizardStep(0); } }}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2"><Plus className="w-4 h-4" />Agregar Producto</Button>
             </DialogTrigger>
-            <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle className="font-display">{editId ? 'Editar' : 'Agregar'} Producto</DialogTitle></DialogHeader>
-              <form onSubmit={(e) => { e.preventDefault(); save.mutate(form); }} className="space-y-5">
+            <DialogContent className="bg-card border-border max-w-6xl w-[95vw] h-[92vh] p-0 overflow-hidden gap-0 flex flex-col">
+              <DialogHeader className="sr-only"><DialogTitle>{editId ? 'Editar' : 'Agregar'} Producto</DialogTitle></DialogHeader>
+              {(() => {
+                const WIZARD_STEPS = [
+                  { id: 0, label: 'Media', icon: ImagePlus, desc: 'Imágenes y AI' },
+                  { id: 1, label: 'Identidad', icon: Languages, desc: 'Nombre y descripción' },
+                  { id: 2, label: 'Precio', icon: Sparkles, desc: 'Precio y categoría' },
+                  { id: 3, label: 'Variaciones', icon: Ruler, desc: 'Tamaños y materiales' },
+                  { id: 4, label: 'Publicar', icon: CheckCircle2, desc: 'Revisar y guardar' },
+                ];
+                const liveTitle = (form.name_es || form.name_en || (editId ? 'Editar producto' : 'Nuevo producto'));
+                const stepProgress = ((wizardStep + 1) / WIZARD_STEPS.length) * 100;
+                return (
+              <form onSubmit={(e) => { e.preventDefault(); save.mutate(form); }} className="flex flex-col flex-1 min-h-0">
+                {/* Sticky header */}
+                <div className="border-b border-border bg-card/80 backdrop-blur-sm px-6 py-4 flex items-center justify-between gap-4 shrink-0">
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{editId ? 'Editar producto' : 'Nuevo producto'}</p>
+                    <h2 className="text-lg font-semibold tracking-tight truncate">{liveTitle}</h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)} className="text-muted-foreground">Cancelar</Button>
+                    <Button type="submit" disabled={save.isPending} size="sm" className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-1.5">
+                      {save.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      {editId ? 'Guardar' : 'Publicar'}
+                    </Button>
+                  </div>
+                </div>
+                <div className="h-1 bg-border/40 shrink-0">
+                  <div className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-300" style={{ width: `${stepProgress}%` }} />
+                </div>
 
-                {/* ── AI ENHANCE BUTTON ── */}
+                <div className="flex flex-1 min-h-0">
+                  {/* Sidebar */}
+                  <aside className="hidden md:flex flex-col w-60 border-r border-border bg-background/40 p-3 shrink-0 overflow-y-auto">
+                    {WIZARD_STEPS.map((s) => {
+                      const Icon = s.icon;
+                      const active = wizardStep === s.id;
+                      const done = wizardStep > s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => setWizardStep(s.id)}
+                          className={`group flex items-start gap-3 px-3 py-3 rounded-xl text-left transition-all mb-1 ${
+                            active ? 'bg-primary/10 border border-primary/30' : 'hover:bg-background/60 border border-transparent'
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-semibold ${
+                            done ? 'bg-primary text-primary-foreground' :
+                            active ? 'bg-primary/20 text-primary border border-primary/40' :
+                            'bg-secondary text-muted-foreground'
+                          }`}>
+                            {done ? <CheckCircle2 className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm font-medium tracking-tight ${active ? 'text-primary' : 'text-foreground'}`}>{s.label}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{s.desc}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                    <div className="mt-auto pt-4 border-t border-border/60 px-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} />
+                        <Label className="text-xs">Activo</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} />
+                        <Label className="text-xs">Destacado</Label>
+                      </div>
+                    </div>
+                  </aside>
+
+                  {/* Mobile step pills */}
+                  <div className="md:hidden absolute top-[88px] left-0 right-0 flex gap-1 overflow-x-auto px-3 pb-2 bg-card/95 backdrop-blur z-10 border-b border-border">
+                    {WIZARD_STEPS.map(s => (
+                      <button key={s.id} type="button" onClick={() => setWizardStep(s.id)}
+                        className={`px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 ${
+                          wizardStep === s.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
+                        }`}>
+                        {s.id + 1}. {s.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 overflow-y-auto p-6 md:p-8">
+                    <div className="max-w-3xl mx-auto space-y-6">
+
+                {wizardStep <= 2 && (
                 <Button
                   type="button"
                   variant="outline"
@@ -1578,14 +1664,20 @@ export default function AdminProducts() {
                   {editEnhancing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   {editEnhancing ? 'Generando con AI...' : '✨ Generar todo con AI'}
                 </Button>
-                {editEnhancing && (
+                )}
+                {editEnhancing && wizardStep <= 2 && (
                   <p className="text-xs text-muted-foreground text-center">
                     La AI generará nombre, descripción, traducción, categoría y slug automáticamente
                   </p>
                 )}
 
-                {/* ── MEDIA UPLOAD ZONE (TOP) ── */}
+                {/* ── STEP 0: MEDIA ── */}
+                {wizardStep === 0 && (
                 <div className="space-y-3">
+                  <div>
+                    <h3 className="text-2xl font-semibold tracking-tight">Media del producto</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Sube hasta {MAX_MEDIA} imágenes o videos. La primera es la portada.</p>
+                  </div>
                   <Label className="flex items-center gap-2 font-semibold">
                     <Film className="w-4 h-4 text-primary" />
                     Media ({mediaFiles.length}/{MAX_MEDIA})
