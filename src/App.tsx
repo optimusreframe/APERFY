@@ -37,6 +37,7 @@ import RequestModel from "./pages/RequestModel";
 import OurProcess from "./pages/OurProcess";
 import Materials from "./pages/Materials";
 import EmailUnsubscribe from "./pages/EmailUnsubscribe";
+import CartAddedToast from "./components/CartAddedToast";
 
 const SplashLoader3D = lazy(() => import("@/components/SplashLoader3D"));
 
@@ -88,6 +89,7 @@ const AppContent = () => {
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
+      {!isAdmin && <CartAddedToast />}
     </>
   );
 };
