@@ -62,6 +62,7 @@ const AppContent = () => {
         </Suspense>
       )}
       {!isAdmin && <PrintingBackground />}
+      {!isAdmin && <DiscountBanner />}
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
