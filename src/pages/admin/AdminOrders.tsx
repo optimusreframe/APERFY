@@ -36,11 +36,13 @@ export default function AdminOrders() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orders')
-        .select('*, profiles(full_name, phone)')
-        .order('created_at', { ascending: false });
+        .select('id, total, status, created_at, payment_method, shipping_address, user_id, profiles(full_name, phone)')
+        .order('created_at', { ascending: false })
+        .limit(500);
       if (error) throw error;
       return data;
     },
+    staleTime: 30_000,
   });
 
   const { data: orderItems = [] } = useQuery({
