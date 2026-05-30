@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, ReactNode, InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
@@ -9,17 +9,15 @@ import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageCircle, CreditCard, ArrowLeft, CheckCircle2, ExternalLink, MapPin, User, Phone, Mail, Truck, Package, Shield, Clock, Weight, Ruler } from 'lucide-react';
+import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
 
 const WHATSAPP_NUMBER = '16893324656';
 
 type Step = 'shipping' | 'method' | 'payment-instructions' | 'whatsapp-sent';
+type Section = 'contact' | 'address' | 'shipping';
 
 interface PaymentConfig {
   active: boolean;
@@ -39,33 +37,157 @@ interface ShippingProvider {
   estimated_days_max: number;
 }
 
-const STEP_LABELS_EN = ['Shipping', 'Payment', 'Confirmation'];
-const STEP_LABELS_ES = ['Envío', 'Pago', 'Confirmación'];
-
-function StepIndicator({ current, labels }: { current: number; labels: string[] }) {
+// ─── Apple-style floating-label input ───
+interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+}
+function Field({ label, value, onChange, error, ...rest }: FieldProps) {
+  const [focused, setFocused] = useState(false);
+  const float = focused || !!value;
   return (
-    <div className="flex items-center justify-center gap-2 mb-10">
+    <div className="relative">
+      <div className={`relative rounded-xl bg-background border transition-all ${
+        error ? 'border-destructive/60' : focused ? 'border-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.12)]' : 'border-border'
+      }`}>
+        <label className={`pointer-events-none absolute left-4 transition-all ${
+          float ? 'top-1.5 text-[10px] uppercase tracking-wider text-muted-foreground' : 'top-1/2 -translate-y-1/2 text-sm text-muted-foreground'
+        }`}>
+          {label}
+        </label>
+        <input
+          {...rest}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          className="w-full bg-transparent px-4 pt-5 pb-2 text-[15px] text-foreground outline-none placeholder:text-muted-foreground/40"
+        />
+      </div>
+      {error && <p className="text-xs text-destructive mt-1.5 ml-1">{error}</p>}
+    </div>
+  );
+}
+
+interface TAFieldProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'onChange'> {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}
+function TAField({ label, value, onChange, ...rest }: TAFieldProps) {
+  const [focused, setFocused] = useState(false);
+  const float = focused || !!value;
+  return (
+    <div className={`relative rounded-xl bg-background border transition-all ${
+      focused ? 'border-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.12)]' : 'border-border'
+    }`}>
+      <label className={`pointer-events-none absolute left-4 transition-all ${
+        float ? 'top-1.5 text-[10px] uppercase tracking-wider text-muted-foreground' : 'top-4 text-sm text-muted-foreground'
+      }`}>
+        {label}
+      </label>
+      <textarea
+        {...rest}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        className="w-full bg-transparent px-4 pt-6 pb-2 text-[15px] text-foreground outline-none resize-none placeholder:text-muted-foreground/40"
+      />
+    </div>
+  );
+}
+
+// ─── Minimal step indicator ───
+function StepRail({ current, labels }: { current: number; labels: string[] }) {
+  return (
+    <div className="flex items-center justify-center gap-3 mb-12">
       {labels.map((label, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-            i < current ? 'bg-primary/20 text-primary' :
-            i === current ? 'bg-gradient-gold text-primary-foreground shadow-lg' :
-            'bg-muted text-muted-foreground'
-          }`}>
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+        <div key={i} className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold transition-all ${
               i < current ? 'bg-primary text-primary-foreground' :
-              i === current ? 'bg-primary-foreground/20 text-primary-foreground' :
-              'bg-muted-foreground/20 text-muted-foreground'
+              i === current ? 'bg-primary text-primary-foreground ring-4 ring-primary/15' :
+              'bg-muted text-muted-foreground'
             }`}>
-              {i < current ? '✓' : i + 1}
+              {i < current ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : i + 1}
+            </div>
+            <span className={`text-[13px] tracking-tight ${i === current ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+              {label}
             </span>
-            <span className="hidden sm:inline">{label}</span>
           </div>
-          {i < labels.length - 1 && (
-            <div className={`w-8 h-0.5 ${i < current ? 'bg-primary' : 'bg-border'}`} />
-          )}
+          {i < labels.length - 1 && <div className={`w-10 h-px ${i < current ? 'bg-primary' : 'bg-border'}`} />}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Collapsible section card ───
+function SectionCard({
+  index, title, subtitle, isActive, isComplete, summary, onEdit, children, ctaLabel, onContinue, disabled,
+}: {
+  index: number;
+  title: string;
+  subtitle?: string;
+  isActive: boolean;
+  isComplete: boolean;
+  summary?: ReactNode;
+  onEdit: () => void;
+  children: ReactNode;
+  ctaLabel: string;
+  onContinue: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className={`rounded-2xl border bg-card/60 backdrop-blur-sm transition-all ${
+      isActive ? 'border-primary/40 shadow-xl shadow-primary/5' : 'border-border'
+    }`}>
+      <div className="flex items-center justify-between p-6">
+        <div className="flex items-center gap-4">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+            isComplete ? 'bg-primary text-primary-foreground' :
+            isActive ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'
+          }`}>
+            {isComplete ? <Check className="w-4 h-4" strokeWidth={3} /> : index}
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+            {subtitle && !isActive && !isComplete && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+            {isComplete && summary && <div className="text-xs text-muted-foreground mt-1">{summary}</div>}
+          </div>
+        </div>
+        {isComplete && (
+          <button onClick={onEdit} className="text-sm text-primary hover:underline font-medium">
+            Edit
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence initial={false}>
+        {isActive && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="px-6 pb-6 space-y-4">
+              {children}
+              <Button
+                onClick={onContinue}
+                disabled={disabled}
+                className="w-full h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 font-semibold text-[15px] tracking-tight"
+              >
+                {ctaLabel}
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -82,36 +204,32 @@ export default function Checkout() {
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [step, setStep] = useState<Step>('shipping');
+  const [section, setSection] = useState<Section>('contact');
+  const [completed, setCompleted] = useState<Record<Section, boolean>>({ contact: false, address: false, shipping: false });
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<string | null>(null);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [paymentConfigs, setPaymentConfigs] = useState<Record<string, PaymentConfig>>({});
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
-  const stepLabels = language === 'es' ? STEP_LABELS_ES : STEP_LABELS_EN;
+  const stepLabels = language === 'es' ? ['Envío', 'Pago', 'Confirmación'] : ['Shipping', 'Payment', 'Confirmation'];
   const currentStepNum = step === 'shipping' ? 0 : step === 'method' ? 1 : 2;
 
-  // Load shipping providers
   const { data: shippingProviders = [] } = useQuery({
     queryKey: ['checkout-shipping-providers'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('shipping_providers')
-        .select('*')
-        .eq('is_active', true)
-        .order('base_rate', { ascending: true });
+        .from('shipping_providers').select('*').eq('is_active', true).order('base_rate', { ascending: true });
       if (error) throw error;
       return data as ShippingProvider[];
     },
   });
 
-  // Load payment methods
   const { data: paymentSettings } = useQuery({
     queryKey: ['payment-settings'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('admin_settings')
-        .select('*')
-        .in('setting_key', ['payment_zelle', 'payment_binance', 'payment_cashapp']);
+        .from('admin_settings').select('*').in('setting_key', ['payment_zelle', 'payment_binance', 'payment_cashapp']);
       if (error) throw error;
       return data;
     },
@@ -124,52 +242,51 @@ export default function Checkout() {
     for (const s of paymentSettings) {
       try {
         const parsed = JSON.parse(s.setting_value || '{}');
-        if (parsed.active) {
-          map[s.setting_key.replace('payment_', '')] = parsed;
-        }
+        if (parsed.active) map[s.setting_key.replace('payment_', '')] = parsed;
       } catch { /* skip */ }
     }
     setPaymentConfigs(map);
   }, [paymentSettings]);
 
-  // Pre-fill from profile
   useEffect(() => {
     if (!user) return;
     setForm(prev => ({ ...prev, email: prev.email || user.email || '' }));
-    supabase
-      .from('profiles')
-      .select('full_name, phone')
-      .eq('id', user.id)
-      .single()
+    supabase.from('profiles').select('full_name, phone').eq('id', user.id).single()
       .then(({ data }) => {
-        if (data) {
-          setForm(prev => ({
-            ...prev,
-            fullName: prev.fullName || data.full_name || '',
-            phone: prev.phone || data.phone || '',
-          }));
-        }
+        if (data) setForm(prev => ({
+          ...prev,
+          fullName: prev.fullName || data.full_name || '',
+          phone: prev.phone || data.phone || '',
+        }));
       });
   }, [user]);
 
-  // Calculate shipping cost
   const selectedProvider = shippingProviders.find(p => p.id === selectedShipping);
-  const totalWeight = useMemo(() => {
-    return items.reduce((sum, item) => {
-      const w = item.weightGrams && item.weightGrams > 0 ? item.weightGrams : 100;
-      return sum + (item.quantity * w) / 1000;
-    }, 0);
-  }, [items]);
-
-  const shippingCost = selectedProvider
-    ? Number(selectedProvider.base_rate) + (totalWeight * Number(selectedProvider.per_kg_rate))
-    : 0;
+  const totalWeight = useMemo(() =>
+    items.reduce((sum, item) => sum + (item.quantity * (item.weightGrams && item.weightGrams > 0 ? item.weightGrams : 100)) / 1000, 0)
+  , [items]);
+  const shippingCost = selectedProvider ? Number(selectedProvider.base_rate) + (totalWeight * Number(selectedProvider.per_kg_rate)) : 0;
   const subtotal = getTotal();
   const orderTotal = subtotal + shippingCost;
 
-  const handleChange = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+  const setF = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
 
-  const validateAndProceed = () => {
+  const validateContact = () => {
+    const errs: Record<string, string> = {};
+    if (!form.fullName.trim() || form.fullName.length < 2) errs.fullName = language === 'es' ? 'Nombre requerido' : 'Name is required';
+    if (!/^\S+@\S+\.\S+$/.test(form.email)) errs.email = language === 'es' ? 'Email inválido' : 'Invalid email';
+    if (!form.phone.trim() || form.phone.length < 7) errs.phone = language === 'es' ? 'Teléfono inválido' : 'Invalid phone';
+    setFieldErrors(prev => ({ ...prev, ...errs }));
+    return Object.keys(errs).length === 0;
+  };
+
+  const continueContact = () => {
+    if (!validateContact()) return;
+    setCompleted(c => ({ ...c, contact: true }));
+    setSection('address');
+  };
+
+  const continueAddress = () => {
     setFieldErrors({});
     const result = checkoutSchema.safeParse(form);
     if (!result.success) {
@@ -178,16 +295,27 @@ export default function Checkout() {
       setFieldErrors(errs);
       return;
     }
+    setCompleted(c => ({ ...c, address: true }));
+    if (shippingProviders.length > 0) setSection('shipping');
+    else { setCompleted(c => ({ ...c, address: true, shipping: true })); proceedToPayment(); }
+  };
+
+  const continueShipping = () => {
+    if (shippingProviders.length > 0 && !selectedShipping) {
+      toast({ title: language === 'es' ? 'Selecciona envío' : 'Select shipping', variant: 'destructive' });
+      return;
+    }
+    setCompleted(c => ({ ...c, shipping: true }));
+    proceedToPayment();
+  };
+
+  const proceedToPayment = () => {
     if (items.length > MAX_ORDER_ITEMS) {
       toast({ title: 'Error', description: `Maximum ${MAX_ORDER_ITEMS} items per order`, variant: 'destructive' });
       return;
     }
     if (items.some(i => i.quantity > MAX_ITEM_QUANTITY)) {
       toast({ title: 'Error', description: `Maximum ${MAX_ITEM_QUANTITY} per item`, variant: 'destructive' });
-      return;
-    }
-    if (shippingProviders.length > 0 && !selectedShipping) {
-      toast({ title: language === 'es' ? 'Selecciona envío' : 'Select shipping', description: language === 'es' ? 'Elige un método de envío' : 'Please choose a shipping method', variant: 'destructive' });
       return;
     }
     setStep('method');
@@ -205,56 +333,36 @@ export default function Checkout() {
       toast({ title: t.checkout.error, description: `Try again in ${formatRetryTime(retryAfterMs)}`, variant: 'destructive' });
       return null;
     }
-
-    // Re-fetch prices
     const productIds = items.map(i => i.productId);
     const { data: currentProducts, error: priceError } = await supabase
       .from('products').select('id, base_price, is_active').in('id', productIds);
     if (priceError) throw priceError;
-
     const productMap = new Map(currentProducts?.map(p => [p.id, p]) || []);
     for (const item of items) {
       const dbProduct = productMap.get(item.productId);
       if (!dbProduct) throw new Error('Product not found');
       if (!dbProduct.is_active) throw new Error('Product is no longer available');
     }
-
     const formResult = checkoutSchema.safeParse(form);
     if (!formResult.success) return null;
     const vf = formResult.data;
-
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
-        user_id: user.id,
-        total: orderTotal,
-        notes: vf.notes || null,
-        payment_method: paymentMethod,
+        user_id: user.id, total: orderTotal, notes: vf.notes || null, payment_method: paymentMethod,
         shipping_address: {
-          full_name: vf.fullName,
-          email: vf.email,
-          phone: vf.phone,
-          address: vf.address,
-          address2: vf.address2 || '',
-          city: vf.city,
-          state: vf.state,
-          zip_code: vf.zipCode,
-          country: vf.country,
+          full_name: vf.fullName, email: vf.email, phone: vf.phone,
+          address: vf.address, address2: vf.address2 || '', city: vf.city,
+          state: vf.state, zip_code: vf.zipCode, country: vf.country,
         },
-        shipping_provider_id: selectedShipping || null,
-        shipping_cost: shippingCost,
+        shipping_provider_id: selectedShipping || null, shipping_cost: shippingCost,
       } as any)
-      .select()
-      .single();
+      .select().single();
     if (orderError) throw orderError;
-
     const orderItems = items.map(item => ({
-      order_id: order.id,
-      product_id: item.productId,
-      quantity: item.quantity,
+      order_id: order.id, product_id: item.productId, quantity: item.quantity,
       unit_price: item.unitPrice + item.selectedVariations.reduce((s, v) => s + v.priceModifier, 0),
-      selected_variations: item.selectedVariations,
-      notes: item.notes || null,
+      selected_variations: item.selectedVariations, notes: item.notes || null,
     }));
     const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
     if (itemsError) throw itemsError;
@@ -270,16 +378,11 @@ export default function Checkout() {
     try {
       await supabase.functions.invoke('send-transactional-email', {
         body: {
-          templateName: 'order-confirmation',
-          recipientEmail: form.email,
+          templateName: 'order-confirmation', recipientEmail: form.email,
           idempotencyKey: `order-confirm-${orderId}`,
           templateData: {
-            customerName: form.fullName,
-            orderId,
-            total: orderTotal.toFixed(2),
-            paymentMethod,
-            itemsSummary,
-            shippingAddress: shippingAddr,
+            customerName: form.fullName, orderId, total: orderTotal.toFixed(2),
+            paymentMethod, itemsSummary, shippingAddress: shippingAddr,
           },
         },
       });
@@ -300,14 +403,13 @@ export default function Checkout() {
         const price = (item.unitPrice * item.quantity).toFixed(2);
         return `• ${item.productName}${varInfo ? ` (${varInfo})` : ''} x${item.quantity} — $${price}\n  ${origin}/3dmodels/${item.slug}`;
       }).join('\n');
-      const shippingLine = selectedProvider ? `\n📦 Envío: ${selectedProvider.name} — $${shippingCost.toFixed(2)}` : '';
+      const shippingLine = selectedProvider ? `\n📦 ${language === 'es' ? 'Envío' : 'Shipping'}: ${selectedProvider.name} — $${shippingCost.toFixed(2)}` : '';
       const message = [
-        `🛒 *Nueva Orden #${orderCode}*`, '', itemLines, shippingLine,
-        '', `*Total: $${orderTotal.toFixed(2)}*`, '',
-        `📍 Dirección:`, `${form.fullName}`, `${form.phone} | ${form.email}`,
+        `🛒 *Order #${orderCode}*`, '', itemLines, shippingLine, '', `*Total: $${orderTotal.toFixed(2)}*`, '',
+        `📍 ${form.fullName}`, `${form.phone} | ${form.email}`,
         `${form.address}${form.address2 ? ', ' + form.address2 : ''}`,
         `${form.city}, ${form.state} ${form.zipCode}`, form.country,
-        form.notes ? `\n📝 Notas: ${form.notes}` : '',
+        form.notes ? `\n📝 ${form.notes}` : '',
       ].filter(Boolean).join('\n');
       clearCart();
       setStep('whatsapp-sent');
@@ -319,12 +421,12 @@ export default function Checkout() {
 
   const handleOnlinePayment = async (method: string) => {
     setLoading(true);
+    setSelectedPayment(method);
     try {
       const orderId = await createOrder(method);
       if (!orderId) { setLoading(false); return; }
       setCreatedOrderId(orderId);
       await sendOrderEmail(orderId, method);
-      setSelectedPayment(method);
       clearCart();
       setStep('payment-instructions');
     } catch (err: any) {
@@ -339,114 +441,164 @@ export default function Checkout() {
 
   const paymentIcons: Record<string, string> = { zelle: '💵', binance: '🪙', cashapp: '💰' };
 
-  const FieldError = ({ field }: { field: string }) => fieldErrors[field] ? <p className="text-xs text-destructive mt-1">{fieldErrors[field]}</p> : null;
+  // ─── Order summary panel (sticky right + mobile collapsible) ───
+  const SummaryPanel = (
+    <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-6 space-y-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-semibold tracking-tight">{language === 'es' ? 'Resumen' : 'Order summary'}</h3>
+        <span className="text-xs text-muted-foreground">{items.length} {items.length === 1 ? 'item' : 'items'}</span>
+      </div>
+
+      <div className="space-y-3 max-h-72 overflow-y-auto pr-1 -mr-1">
+        {items.map(item => {
+          const varMod = item.selectedVariations.reduce((s, v) => s + v.priceModifier, 0);
+          const itemTotal = (item.unitPrice + varMod) * item.quantity;
+          return (
+            <div key={item.productId + JSON.stringify(item.selectedVariations)} className="flex gap-3">
+              <div className="w-14 h-14 rounded-xl bg-secondary overflow-hidden shrink-0 border border-border/40">
+                {item.productImage && <img src={item.productImage} alt="" className="w-full h-full object-cover" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-sm font-medium text-foreground tracking-tight">{item.productName}</p>
+                {item.selectedVariations.length > 0 && (
+                  <p className="text-[11px] text-muted-foreground truncate">{item.selectedVariations.map(v => v.name).filter(Boolean).join(' · ')}</p>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-0.5">Qty {item.quantity}</p>
+              </div>
+              <span className="text-sm font-medium shrink-0">${itemTotal.toFixed(2)}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="border-t border-border/60 pt-4 space-y-2 text-sm">
+        <div className="flex justify-between text-muted-foreground">
+          <span>{language === 'es' ? 'Subtotal' : 'Subtotal'}</span>
+          <span className="text-foreground">${subtotal.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between text-muted-foreground">
+          <span>{language === 'es' ? 'Envío' : 'Shipping'}</span>
+          <span className="text-foreground">{selectedProvider ? `$${shippingCost.toFixed(2)}` : '—'}</span>
+        </div>
+        <div className="border-t border-border/60 pt-3 flex justify-between items-baseline">
+          <span className="text-sm font-medium">{language === 'es' ? 'Total' : 'Total'}</span>
+          <span className="text-2xl font-semibold tracking-tight">${orderTotal.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground pt-1">
+        <Lock className="w-3 h-3" />
+        {language === 'es' ? 'Transacción segura' : 'Secure checkout'}
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-16 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-24 pb-20 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
-        <StepIndicator current={currentStepNum} labels={stepLabels} />
+        {step !== 'whatsapp-sent' && step !== 'payment-instructions' && (
+          <>
+            <div className="text-center mb-10">
+              <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-foreground">
+                {language === 'es' ? 'Finalizar compra' : 'Checkout'}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-2">
+                {language === 'es' ? 'Revisa tu pedido y completa el envío' : 'Review your order and complete shipping'}
+              </p>
+            </div>
+            <StepRail current={currentStepNum} labels={stepLabels} />
+          </>
+        )}
 
         <AnimatePresence mode="wait">
-          {/* ── STEP 1: SHIPPING ── */}
+          {/* ── STEP 1: SHIPPING (3 collapsible sub-sections) ── */}
           {step === 'shipping' && (
-            <motion.div key="shipping" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+            <motion.div key="shipping" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              {/* Mobile collapsible summary */}
+              <div className="lg:hidden mb-6">
+                <button
+                  onClick={() => setSummaryOpen(o => !o)}
+                  className="w-full flex items-center justify-between p-4 rounded-2xl border border-border bg-card/60 backdrop-blur-sm"
+                >
+                  <span className="text-sm font-medium">{language === 'es' ? 'Resumen del pedido' : 'Order summary'}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-base font-semibold">${orderTotal.toFixed(2)}</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${summaryOpen ? 'rotate-180' : ''}`} />
+                  </span>
+                </button>
+                <AnimatePresence>
+                  {summaryOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden mt-3"
+                    >
+                      {SummaryPanel}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
               <div className="grid lg:grid-cols-5 gap-8">
-                <div className="lg:col-span-3 space-y-6">
-                  {/* Contact Info */}
-                  <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
-                    <div className="flex items-center gap-3 mb-1">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <User className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <h2 className="font-display font-bold text-lg">{language === 'es' ? 'Información de Contacto' : 'Contact Information'}</h2>
-                        <p className="text-xs text-muted-foreground">{language === 'es' ? 'Para confirmación y seguimiento del pedido' : 'For order confirmation and tracking'}</p>
-                      </div>
-                    </div>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div>
-                        <Label className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-muted-foreground" />{t.checkout.fullName} *</Label>
-                        <Input value={form.fullName} onChange={e => handleChange('fullName', e.target.value)} className="mt-1.5 bg-background" maxLength={100} placeholder="John Doe" />
-                        <FieldError field="fullName" />
-                      </div>
-                      <div>
-                        <Label className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-muted-foreground" />{language === 'es' ? 'Email' : 'Email'} *</Label>
-                        <Input type="email" value={form.email} onChange={e => handleChange('email', e.target.value)} className="mt-1.5 bg-background" maxLength={255} placeholder="you@email.com" />
-                        <FieldError field="email" />
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-muted-foreground" />{t.checkout.phone} *</Label>
-                      <Input value={form.phone} onChange={e => handleChange('phone', e.target.value)} className="mt-1.5 bg-background" maxLength={20} placeholder="+1 (555) 123-4567" />
-                      <FieldError field="phone" />
-                    </div>
-                  </div>
+                <div className="lg:col-span-3 space-y-4">
+                  {/* Section 1: Contact */}
+                  <SectionCard
+                    index={1}
+                    title={language === 'es' ? 'Contacto' : 'Contact'}
+                    subtitle={language === 'es' ? 'Para confirmación y seguimiento' : 'For order updates'}
+                    isActive={section === 'contact'}
+                    isComplete={completed.contact && section !== 'contact'}
+                    summary={<>{form.fullName} · {form.email}</>}
+                    onEdit={() => setSection('contact')}
+                    ctaLabel={language === 'es' ? 'Continuar a dirección' : 'Continue to address'}
+                    onContinue={continueContact}
+                  >
+                    <Field label={language === 'es' ? 'Nombre completo' : 'Full name'} value={form.fullName} onChange={v => setF('fullName', v)} error={fieldErrors.fullName} maxLength={100} autoComplete="name" />
+                    <Field label="Email" type="email" value={form.email} onChange={v => setF('email', v)} error={fieldErrors.email} maxLength={255} autoComplete="email" />
+                    <Field label={language === 'es' ? 'Teléfono' : 'Phone'} type="tel" value={form.phone} onChange={v => setF('phone', v)} error={fieldErrors.phone} maxLength={20} autoComplete="tel" />
+                  </SectionCard>
 
-                  {/* Address */}
-                  <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
-                    <div className="flex items-center gap-3 mb-1">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <MapPin className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <h2 className="font-display font-bold text-lg">{t.checkout.shippingInfo}</h2>
-                        <p className="text-xs text-muted-foreground">{language === 'es' ? 'Dirección completa para la entrega' : 'Full delivery address'}</p>
-                      </div>
+                  {/* Section 2: Address */}
+                  <SectionCard
+                    index={2}
+                    title={language === 'es' ? 'Dirección de envío' : 'Shipping address'}
+                    subtitle={language === 'es' ? 'Dirección completa para la entrega' : 'Full delivery address'}
+                    isActive={section === 'address'}
+                    isComplete={completed.address && section !== 'address'}
+                    summary={<>{form.address}, {form.city}, {form.state} {form.zipCode}</>}
+                    onEdit={() => setSection('address')}
+                    ctaLabel={shippingProviders.length > 0 ? (language === 'es' ? 'Continuar a envío' : 'Continue to shipping') : (language === 'es' ? 'Continuar a pago' : 'Continue to payment')}
+                    onContinue={continueAddress}
+                  >
+                    <Field label={language === 'es' ? 'Dirección' : 'Address'} value={form.address} onChange={v => setF('address', v)} error={fieldErrors.address} maxLength={255} autoComplete="street-address" />
+                    <Field label={language === 'es' ? 'Apto, suite (opcional)' : 'Apt, suite (optional)'} value={form.address2} onChange={v => setF('address2', v)} maxLength={255} />
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <Field label={language === 'es' ? 'Ciudad' : 'City'} value={form.city} onChange={v => setF('city', v)} error={fieldErrors.city} maxLength={100} autoComplete="address-level2" />
+                      <Field label={language === 'es' ? 'Estado / Provincia' : 'State / Province'} value={form.state} onChange={v => setF('state', v)} error={fieldErrors.state} maxLength={100} autoComplete="address-level1" />
                     </div>
-                    <div>
-                      <Label>{t.checkout.address} *</Label>
-                      <Input value={form.address} onChange={e => handleChange('address', e.target.value)} className="mt-1.5 bg-background" maxLength={255} placeholder={language === 'es' ? 'Calle, número, casa/apto' : 'Street address, house/apt number'} />
-                      <FieldError field="address" />
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <Field label={language === 'es' ? 'Código Postal' : 'ZIP / Postal'} value={form.zipCode} onChange={v => setF('zipCode', v)} error={fieldErrors.zipCode} maxLength={20} autoComplete="postal-code" />
+                      <Field label={language === 'es' ? 'País' : 'Country'} value={form.country} onChange={v => setF('country', v)} error={fieldErrors.country} maxLength={100} autoComplete="country-name" />
                     </div>
-                    <div>
-                      <Label>{language === 'es' ? 'Dirección Línea 2' : 'Address Line 2'}</Label>
-                      <Input value={form.address2} onChange={e => handleChange('address2', e.target.value)} className="mt-1.5 bg-background" maxLength={255} placeholder={language === 'es' ? 'Suite, edificio, piso (opcional)' : 'Suite, building, floor (optional)'} />
-                    </div>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div>
-                        <Label>{t.checkout.city} *</Label>
-                        <Input value={form.city} onChange={e => handleChange('city', e.target.value)} className="mt-1.5 bg-background" maxLength={100} />
-                        <FieldError field="city" />
-                      </div>
-                      <div>
-                        <Label>{language === 'es' ? 'Estado / Provincia' : 'State / Province'} *</Label>
-                        <Input value={form.state} onChange={e => handleChange('state', e.target.value)} className="mt-1.5 bg-background" maxLength={100} />
-                        <FieldError field="state" />
-                      </div>
-                    </div>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div>
-                        <Label>{language === 'es' ? 'Código Postal' : 'ZIP / Postal Code'} *</Label>
-                        <Input value={form.zipCode} onChange={e => handleChange('zipCode', e.target.value)} className="mt-1.5 bg-background" maxLength={20} />
-                        <FieldError field="zipCode" />
-                      </div>
-                      <div>
-                        <Label>{language === 'es' ? 'País' : 'Country'} *</Label>
-                        <Input value={form.country} onChange={e => handleChange('country', e.target.value)} className="mt-1.5 bg-background" maxLength={100} />
-                        <FieldError field="country" />
-                      </div>
-                    </div>
-                    <div>
-                      <Label>{t.checkout.orderNotes}</Label>
-                      <Textarea value={form.notes} onChange={e => handleChange('notes', e.target.value)} className="mt-1.5 bg-background" rows={2} maxLength={500} placeholder={language === 'es' ? 'Instrucciones especiales de entrega...' : 'Special delivery instructions...'} />
-                    </div>
-                  </div>
+                    <TAField label={language === 'es' ? 'Notas (opcional)' : 'Notes (optional)'} value={form.notes} onChange={v => setF('notes', v)} rows={2} maxLength={500} />
+                  </SectionCard>
 
-                  {/* Shipping Method */}
+                  {/* Section 3: Shipping method */}
                   {shippingProviders.length > 0 && (
-                    <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-                      <div className="flex items-center gap-3 mb-1">
-                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                          <Truck className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <h2 className="font-display font-bold text-lg">{language === 'es' ? 'Método de Envío' : 'Shipping Method'}</h2>
-                          <p className="text-xs text-muted-foreground">{language === 'es' ? 'Selecciona cómo quieres recibir tu pedido' : 'Choose how you want to receive your order'}</p>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
+                    <SectionCard
+                      index={3}
+                      title={language === 'es' ? 'Método de envío' : 'Shipping method'}
+                      subtitle={language === 'es' ? 'Selecciona cómo recibir tu pedido' : 'Choose how to receive your order'}
+                      isActive={section === 'shipping'}
+                      isComplete={completed.shipping && section !== 'shipping'}
+                      summary={selectedProvider && <>{selectedProvider.name} · ${shippingCost.toFixed(2)}</>}
+                      onEdit={() => setSection('shipping')}
+                      ctaLabel={language === 'es' ? 'Continuar a pago' : 'Continue to payment'}
+                      onContinue={continueShipping}
+                      disabled={!selectedShipping}
+                    >
+                      <div className="space-y-2.5">
                         {shippingProviders.map(sp => {
                           const cost = Number(sp.base_rate) + (totalWeight * Number(sp.per_kg_rate));
                           const isSelected = selectedShipping === sp.id;
@@ -454,249 +606,178 @@ export default function Checkout() {
                             <button
                               key={sp.id}
                               onClick={() => setSelectedShipping(sp.id)}
-                              className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
-                                isSelected
-                                  ? 'border-primary bg-primary/5 shadow-lg'
-                                  : 'border-border hover:border-primary/30 bg-background'
+                              className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${
+                                isSelected ? 'border-primary bg-primary/5 shadow-[0_0_0_4px_hsl(var(--primary)/0.1)]' : 'border-border hover:border-primary/30 bg-background'
                               }`}
                             >
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                isSelected ? 'border-primary' : 'border-muted-foreground/30'
-                              }`}>
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-primary' : 'border-muted-foreground/30'}`}>
                                 {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
                               </div>
                               <div className="flex-1">
-                                <div className="font-medium text-foreground">{sp.name}</div>
-                                <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                                <div className="font-medium text-foreground text-[15px] tracking-tight">{sp.name}</div>
+                                <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
                                   <Clock className="w-3 h-3" />
                                   {sp.estimated_days_min}-{sp.estimated_days_max} {language === 'es' ? 'días' : 'days'}
-                                  {(language === 'es' ? sp.description_es : sp.description_en) && (
-                                    <span>· {language === 'es' ? sp.description_es : sp.description_en}</span>
-                                  )}
                                 </div>
                               </div>
-                              <span className="font-bold text-primary shrink-0">${cost.toFixed(2)}</span>
+                              <span className="font-semibold text-foreground shrink-0">${cost.toFixed(2)}</span>
                             </button>
                           );
                         })}
                       </div>
-                    </div>
+                    </SectionCard>
                   )}
                 </div>
 
-                {/* Order Summary */}
-                <div className="lg:col-span-2">
-                  <div className="bg-card border border-border rounded-2xl p-6 sticky top-24 space-y-5">
-                    <div className="flex items-center gap-3">
-                      <Package className="w-5 h-5 text-primary" />
-                      <h2 className="font-display font-bold text-lg">{t.checkout.orderSummary}</h2>
-                    </div>
-
-                    <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                      {items.map(item => {
-                        const varMod = item.selectedVariations.reduce((s, v) => s + v.priceModifier, 0);
-                        const itemTotal = (item.unitPrice + varMod) * item.quantity;
-                        return (
-                          <div key={item.productId + JSON.stringify(item.selectedVariations)} className="flex gap-3">
-                            <div className="w-14 h-14 rounded-xl bg-secondary overflow-hidden shrink-0 border border-border/50">
-                              {item.productImage && <img src={item.productImage} alt="" className="w-full h-full object-cover" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="truncate font-medium text-foreground text-sm">{item.productName}</p>
-                              {item.selectedVariations.length > 0 && (
-                                <p className="text-[11px] text-muted-foreground">{item.selectedVariations.map(v => v.name).filter(Boolean).join(', ')}</p>
-                              )}
-                              <div className="flex flex-wrap gap-x-2 gap-y-0 mt-0.5">
-                                {item.weightGrams && item.weightGrams > 0 && (
-                                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><Weight className="w-2.5 h-2.5" />{item.weightGrams}g</span>
-                                )}
-                                {item.dimensions && (
-                                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><Ruler className="w-2.5 h-2.5" />{item.dimensions}mm</span>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground">${item.unitPrice.toFixed(2)} × {item.quantity}</p>
-                            </div>
-                            <span className="font-semibold text-sm shrink-0">${itemTotal.toFixed(2)}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="border-t border-border pt-4 space-y-2 text-sm">
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>{t.cart.subtotal}</span>
-                        <span>${subtotal.toFixed(2)}</span>
-                      </div>
-                      {selectedProvider && (
-                        <div className="flex justify-between text-muted-foreground">
-                          <span className="flex items-center gap-1.5"><Truck className="w-3.5 h-3.5" /> {selectedProvider.name}</span>
-                          <span>${shippingCost.toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div className="border-t border-border pt-3 flex justify-between font-bold text-base">
-                        <span>{t.cart.total}</span>
-                        <span className="text-gradient-gold text-lg">${orderTotal.toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    <Button
-                      onClick={validateAndProceed}
-                      className="w-full bg-gradient-gold text-primary-foreground font-semibold h-12 text-base"
-                    >
-                      {t.checkout.continueToPayment}
-                    </Button>
-
-                    <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
-                      <Shield className="w-3.5 h-3.5" />
-                      {language === 'es' ? 'Transacción segura y encriptada' : 'Secure & encrypted transaction'}
-                    </div>
-                  </div>
-                </div>
+                {/* Sticky summary */}
+                <aside className="hidden lg:block lg:col-span-2">
+                  <div className="sticky top-24">{SummaryPanel}</div>
+                </aside>
               </div>
             </motion.div>
           )}
 
           {/* ── STEP 2: PAYMENT METHOD ── */}
           {step === 'method' && (
-            <motion.div key="method" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <Button variant="ghost" onClick={() => setStep('shipping')} className="mb-6 gap-2 text-muted-foreground">
-                <ArrowLeft className="w-4 h-4" /> {t.checkout.backToShipping}
-              </Button>
+            <motion.div key="method" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <div className="grid lg:grid-cols-5 gap-8">
+                <div className="lg:col-span-3 space-y-4">
+                  <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-6">
+                    <h2 className="text-xl font-semibold tracking-tight mb-1">{language === 'es' ? 'Método de pago' : 'Payment method'}</h2>
+                    <p className="text-sm text-muted-foreground mb-6">{language === 'es' ? 'Elige cómo quieres pagar' : 'Choose how you want to pay'}</p>
 
-              <div className="max-w-2xl mx-auto space-y-6">
-                <div className="text-center mb-8">
-                  <h2 className="font-display font-bold text-2xl">{t.checkout.choosePayment}</h2>
-                  <p className="text-sm text-muted-foreground mt-2">{t.checkout.choosePaymentDesc}</p>
-                </div>
+                    {/* WhatsApp */}
+                    <button
+                      onClick={handleWhatsApp}
+                      disabled={loading}
+                      className="w-full p-5 rounded-2xl border border-border hover:border-green-500/40 bg-background text-left transition-all hover:shadow-lg group disabled:opacity-50 mb-3"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center shrink-0">
+                          <MessageCircle className="w-6 h-6 text-green-500" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-[15px] tracking-tight">WhatsApp</h3>
+                          <p className="text-xs text-muted-foreground mt-0.5">{language === 'es' ? 'Confirma y paga por mensaje' : 'Confirm and pay via message'}</p>
+                        </div>
+                        {loading && selectedPayment === null && <Loader2 className="w-5 h-5 animate-spin text-primary" />}
+                      </div>
+                    </button>
 
-                {/* WhatsApp Option */}
-                <button
-                  onClick={handleWhatsApp}
-                  disabled={loading}
-                  className="w-full p-6 rounded-2xl border-2 border-border hover:border-green-500/50 bg-card text-left transition-all hover:shadow-xl group disabled:opacity-50"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-green-500/10 flex items-center justify-center shrink-0 group-hover:bg-green-500/20 transition-colors">
-                      <MessageCircle className="w-7 h-7 text-green-500" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-display font-bold text-lg">{t.checkout.whatsappTitle}</h3>
-                      <p className="text-sm text-muted-foreground mt-0.5">{t.checkout.whatsappDesc}</p>
-                    </div>
-                    {loading && <Loader2 className="w-5 h-5 animate-spin text-primary" />}
-                  </div>
-                </button>
-
-                {/* Online Payments */}
-                <div className="p-6 rounded-2xl border-2 border-border bg-card space-y-5">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                      <CreditCard className="w-7 h-7 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-display font-bold text-lg">{t.checkout.onlineTitle}</h3>
-                      <p className="text-sm text-muted-foreground mt-0.5">{t.checkout.onlineDesc}</p>
-                    </div>
-                  </div>
-                  <div className="grid gap-3">
-                    {Object.entries(paymentConfigs).map(([key, cfg]) => (
-                      <button
-                        key={key}
-                        onClick={() => handleOnlinePayment(key)}
-                        disabled={loading}
-                        className="flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary/50 bg-background transition-all hover:shadow-lg disabled:opacity-50 text-left"
-                      >
-                        <span className="text-3xl">{paymentIcons[key] || '💳'}</span>
-                        <span className="font-medium text-base">{cfg.label}</span>
-                        {loading && selectedPayment === key && <Loader2 className="w-4 h-4 animate-spin text-primary ml-auto" />}
-                      </button>
-                    ))}
-                    {Object.keys(paymentConfigs).length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">{t.checkout.noPaymentMethods}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Summary mini */}
-                <div className="bg-card/50 backdrop-blur-sm rounded-2xl p-5 border border-border">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>{t.cart.subtotal}</span>
-                      <span>${subtotal.toFixed(2)}</span>
-                    </div>
-                    {selectedProvider && (
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>{language === 'es' ? 'Envío' : 'Shipping'}</span>
-                        <span>${shippingCost.toFixed(2)}</span>
+                    {/* Online payments header */}
+                    {Object.keys(paymentConfigs).length > 0 && (
+                      <div className="flex items-center gap-3 my-5">
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          <CreditCard className="w-3 h-3" /> {language === 'es' ? 'Pago directo' : 'Direct payment'}
+                        </span>
+                        <div className="flex-1 h-px bg-border" />
                       </div>
                     )}
-                    <div className="border-t border-border pt-2 flex justify-between font-bold text-base">
-                      <span>{t.cart.total}</span>
-                      <span className="text-gradient-gold">${orderTotal.toFixed(2)}</span>
+
+                    <div className="grid gap-2.5">
+                      {Object.entries(paymentConfigs).map(([key, cfg]) => (
+                        <button
+                          key={key}
+                          onClick={() => handleOnlinePayment(key)}
+                          disabled={loading}
+                          className="flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/40 bg-background transition-all hover:shadow-lg disabled:opacity-50 text-left"
+                        >
+                          <span className="text-2xl">{paymentIcons[key] || '💳'}</span>
+                          <span className="font-medium text-[15px] flex-1">{cfg.label}</span>
+                          {loading && selectedPayment === key && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+                        </button>
+                      ))}
+                      {Object.keys(paymentConfigs).length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-2">{t.checkout.noPaymentMethods}</p>
+                      )}
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">{items.length} {items.length === 1 ? 'item' : 'items'}</p>
+
+                  <button onClick={() => setStep('shipping')} className="text-sm text-muted-foreground hover:text-foreground transition-colors px-2">
+                    ← {language === 'es' ? 'Volver a envío' : 'Back to shipping'}
+                  </button>
                 </div>
+
+                <aside className="hidden lg:block lg:col-span-2">
+                  <div className="sticky top-24">{SummaryPanel}</div>
+                </aside>
               </div>
             </motion.div>
           )}
 
           {/* ── STEP 3: PAYMENT INSTRUCTIONS ── */}
           {step === 'payment-instructions' && selectedPayment && (
-            <motion.div key="instructions" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto">
-              <div className="text-center mb-8">
-                <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
-                  <CheckCircle2 className="w-10 h-10 text-primary" />
-                </div>
-                <h2 className="font-display font-bold text-2xl">{t.checkout.orderCreated}</h2>
-                <p className="text-sm text-muted-foreground mt-2">
-                  {t.checkout.orderCode}: <span className="font-mono font-bold text-foreground text-base">#{createdOrderId?.slice(0, 8).toUpperCase()}</span>
-                </p>
-              </div>
+            <motion.div key="instructions" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto py-8">
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+                className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6"
+              >
+                <CheckCircle2 className="w-12 h-12 text-primary" strokeWidth={1.5} />
+              </motion.div>
 
-              <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
+              <h2 className="text-4xl font-semibold tracking-tight text-center text-foreground">
+                {language === 'es' ? '¡Pedido creado!' : 'Order placed'}
+              </h2>
+              <p className="text-sm text-muted-foreground text-center mt-3 mb-10">
+                {language === 'es' ? 'Pedido' : 'Order'} <span className="font-mono font-semibold text-foreground">#{createdOrderId?.slice(0, 8).toUpperCase()}</span>
+              </p>
+
+              <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-6 space-y-5">
                 <div className="flex items-center gap-3">
                   <span className="text-3xl">{paymentIcons[selectedPayment] || '💳'}</span>
-                  <h3 className="font-display font-bold text-xl">{paymentConfigs[selectedPayment]?.label}</h3>
+                  <h3 className="font-semibold text-xl tracking-tight">{paymentConfigs[selectedPayment]?.label}</h3>
                 </div>
                 {paymentConfigs[selectedPayment]?.info && (
-                  <div className="bg-secondary rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-1">{t.checkout.paymentDetails}</p>
+                  <div className="bg-background rounded-xl p-4 border border-border/60">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t.checkout.paymentDetails}</p>
                     <p className="font-mono font-medium text-foreground select-all text-lg">{paymentConfigs[selectedPayment].info}</p>
                   </div>
                 )}
-                <div className="border-t border-border pt-4">
-                  <p className="text-xs text-muted-foreground mb-2">{t.checkout.paymentInstructions}</p>
-                  <p className="text-sm whitespace-pre-wrap">{paymentConfigs[selectedPayment]?.instructions || t.checkout.defaultInstructions}</p>
+                <div className="border-t border-border/60 pt-4">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t.checkout.paymentInstructions}</p>
+                  <p className="text-sm whitespace-pre-wrap text-foreground/90">{paymentConfigs[selectedPayment]?.instructions || t.checkout.defaultInstructions}</p>
                 </div>
-                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-                  <p className="font-bold text-primary text-lg">{t.checkout.totalToPay}: ${orderTotal.toFixed(2)}</p>
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-baseline justify-between">
+                  <span className="text-sm font-medium">{language === 'es' ? 'Total' : 'Total'}</span>
+                  <span className="text-2xl font-semibold text-primary tracking-tight">${orderTotal.toFixed(2)}</span>
                 </div>
               </div>
-              <Button onClick={() => navigate('/orders')} className="w-full mt-6 bg-gradient-gold text-primary-foreground font-semibold h-12 gap-2 text-base">
-                {t.checkout.viewOrders}
-              </Button>
+
+              <div className="grid grid-cols-2 gap-3 mt-6">
+                <Button variant="outline" onClick={() => navigate('/')} className="h-12 rounded-full">
+                  {language === 'es' ? 'Seguir comprando' : 'Continue shopping'}
+                </Button>
+                <Button onClick={() => navigate('/orders')} className="h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 font-semibold">
+                  {t.checkout.viewOrders}
+                </Button>
+              </div>
             </motion.div>
           )}
 
           {/* ── STEP 4: WHATSAPP SENT ── */}
           {step === 'whatsapp-sent' && (
-            <motion.div key="whatsapp-done" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto text-center">
-              <div className="w-20 h-20 rounded-3xl bg-green-500/10 flex items-center justify-center mx-auto mb-5">
-                <MessageCircle className="w-10 h-10 text-green-500" />
-              </div>
-              <h2 className="font-display font-bold text-2xl mb-3">{t.checkout.whatsappSent}</h2>
-              <p className="text-sm text-muted-foreground mb-1">
-                {t.checkout.orderCode}: <span className="font-mono font-bold text-foreground">#{createdOrderId?.slice(0, 8).toUpperCase()}</span>
+            <motion.div key="whatsapp-done" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto py-8 text-center">
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+                className="w-24 h-24 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-6"
+              >
+                <MessageCircle className="w-12 h-12 text-green-500" strokeWidth={1.5} />
+              </motion.div>
+              <h2 className="text-4xl font-semibold tracking-tight">{t.checkout.whatsappSent}</h2>
+              <p className="text-sm text-muted-foreground mt-3">
+                {language === 'es' ? 'Pedido' : 'Order'} <span className="font-mono font-semibold text-foreground">#{createdOrderId?.slice(0, 8).toUpperCase()}</span>
               </p>
-              <p className="text-sm text-muted-foreground mb-8">{t.checkout.whatsappSentDesc}</p>
-              <div className="flex gap-3 justify-center">
-                <Button onClick={() => navigate('/orders')} className="bg-gradient-gold text-primary-foreground gap-2 h-12 px-6">
-                  {t.checkout.viewOrders}
-                </Button>
-                <Button variant="outline" onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER}`, '_blank')} className="gap-2 h-12 px-6">
+              <p className="text-sm text-muted-foreground mt-2 mb-8">{t.checkout.whatsappSentDesc}</p>
+              <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
+                <Button variant="outline" onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER}`, '_blank')} className="h-12 rounded-full gap-2">
                   <ExternalLink className="w-4 h-4" />
                   {t.checkout.openWhatsApp}
+                </Button>
+                <Button onClick={() => navigate('/orders')} className="h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 font-semibold">
+                  {t.checkout.viewOrders}
                 </Button>
               </div>
             </motion.div>
