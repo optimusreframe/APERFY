@@ -19,6 +19,8 @@ import ShareMenu from '@/components/ShareMenu';
 import ProductReviews from '@/components/ProductReviews';
 import { Badge } from '@/components/ui/badge';
 import Model3DViewer from '@/components/Model3DViewer';
+import MobileStickyAddToCart from '@/components/mobile/MobileStickyAddToCart';
+
 
 
 // ─── Lightbox Component ───
