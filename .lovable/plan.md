@@ -1,40 +1,121 @@
 ## Goal
-Lift the Product Detail and Checkout pages to the same Apple + Palantir tech-premium feel using framer-motion — refined typography, dense-but-airy layout, monospace numerics, micro-interactions, smooth section transitions. UI-only; no business logic, validation, RLS, emails, payment flow, or shipping math changes.
+Restructure the **layout** (not just styling) of the Product Detail and Checkout pages so they feel architecturally Apple + Palantir: instrument-panel grids, left-side meta rails, floating sticky chrome, command-bar interactions, dense data zones balanced with cinematic whitespace. Pure UI/layout work — no logic, validation, RLS, pricing, shipping, email, or payment changes.
 
-## Scope
+---
 
-### 1. Product Detail (`src/pages/ProductDetail.tsx`)
-- **Hero refresh**: switch to a tighter 2-column grid (gallery left sticky / info right), generous negative space, hairline dividers (`border-white/5`), gold accent rules.
-- **Gallery**: Apple-style. Large main image with subtle `layoutId` shared element when changing thumbnails (framer-motion `AnimatePresence` + `motion.img`), thumbnails as 64px squares with a 1px gold ring on active, smooth crossfade, zoom hint cursor, keyboard arrows. Full-screen lightbox keeps existing logic but gets spring transitions and a Palantir-style top bar (index counter in mono, close icon).
-- **Identity block**: name in display serif (existing), category as small uppercase mono tag, price as large tabular-nums with subtle weight contrast (`$` smaller, integer large, decimals smaller).
-- **Tech spec strip (Palantir)**: dense horizontal row of stats — Weight, Dimensions, Material, Print time — each cell uppercase mono label + bold mono value, separated by hairlines. Replaces the current scattered spec display.
-- **Variation & material selectors**: segmented control (pill row) with animated `layoutId` highlight that slides between options; price recalculates with a brief `motion` number flip.
-- **Sticky action bar**: on scroll past the fold, a bottom translucent bar (backdrop-blur) slides up with product thumb + price + Add to Cart, mirroring Apple PDP behavior. Mobile only on small screens; desktop keeps the inline CTA.
-- **Sections below**: description, reviews, related — wrapped in `motion.section` with `whileInView` stagger.
+## 1. Product Detail (`src/pages/ProductDetail.tsx`)
 
-### 2. Checkout (`src/pages/Checkout.tsx`)
-- **Step rail**: replace current indicator with a Palantir-style horizontal progress: numbered nodes connected by a thin line, active node filled gold, completed nodes show a checkmark, animated line fill with `motion`.
-- **Section cards**: tighten to translucent panels (`bg-white/[0.02] border border-white/5 rounded-2xl`), hairline section headers with monospace step number ("01 / CONTACT"), spring expand/collapse via `AnimatePresence` + `height: auto`.
-- **Floating-label inputs**: keep current `Field` helper; refine focus ring to a 1px gold underline that animates in (`motion.div` underline with `scaleX`), error state shakes once.
-- **Payment method cards**: large radio cards with `layoutId` selection ring that slides between options, icon + name + short caption, subtle hover lift.
-- **Order summary (right column)**: sticky panel with Apple-style line items (image, name, qty mono, price tabular), animated total that flips digits when shipping/items change, hairline dividers, "Order total" in larger weight at bottom.
-- **Confirmation screens** (online & WhatsApp): keep existing spring scale checkmark, refine layout to centered Apple-style — large checkmark, headline, mono order number chip, primary/ghost button pair.
-- **Page transitions**: wrap each step in `AnimatePresence mode="wait"` with a consistent fade+8px-y spring for cohesion.
+### New layout grid (desktop ≥ lg)
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│  TOP COMMAND BAR  (sticky, hairline)                                 │
+│  ‹ Back   ·   crumbs   ·   PRD-XXXX (mono id)   ·   share · heart    │
+├──────────┬───────────────────────────────────────┬───────────────────┤
+│ LEFT     │                                       │ RIGHT             │
+│ THUMB    │            HERO IMAGE                 │ INFO RAIL         │
+│ RAIL     │            (large, square)            │ (sticky)          │
+│ (sticky) │                                       │                   │
+│  60px    │            image counter chip         │  category mono    │
+│  col     │            (mono "01 / 04")           │  title (display)  │
+│          │                                       │  price (huge)     │
+│          │                                       │  segmented vars   │
+│          │                                       │  qty stepper      │
+│          │                                       │  ─ hairline ─     │
+│          │                                       │  ADD TO CART CTA  │
+│          │                                       │  secure note      │
+├──────────┴───────────────────────────────────────┴───────────────────┤
+│  TECH SPECS STRIP  (full-width Palantir data row, 4 cells)           │
+│  WEIGHT  │  DIMENSIONS  │  MATERIAL  │  PRINT TIME                   │
+├──────────────────────────────────────────────────────────────────────┤
+│  OVERVIEW (left col)    │    DETAILS LIST (right col, key/value)     │
+├──────────────────────────────────────────────────────────────────────┤
+│  REVIEWS                                                              │
+├──────────────────────────────────────────────────────────────────────┤
+│  RELATED (horizontal scroll-snap row, not 4-grid)                    │
+└──────────────────────────────────────────────────────────────────────┘
+```
 
-### 3. Shared polish
-- Tabular-nums utility class for all prices and numeric stats.
-- Standardize on `transition={{ type: 'spring', stiffness: 260, damping: 28 }}` for the new motion interactions.
-- All colors via existing semantic tokens (`--background`, `--foreground`, `--primary` gold, `--muted-foreground`). No hex literals in components.
+Key layout moves:
+- **3-column hero**: vertical thumbnail rail (60px) on the far left, large hero in center, sticky info rail on right. Replaces current 2-col layout.
+- **Sticky top command bar** below the navbar with back/crumbs, mono product code, share/favorite — gives the page a "workstation" feel.
+- **Tech specs strip**: full-width 4-cell data row directly under the fold, hairline-divided, mono labels/values (Palantir signature).
+- **Two-column overview/details** below specs: prose on the left, structured key/value table on the right (material composition, recommended use, care, dimensions detail).
+- **Related products** become a horizontal scroll-snap row (Apple PDP style), not a static 4-up grid.
+- **Mobile**: collapses to single column; thumbnail rail becomes horizontal scroll under hero; sticky info collapses; floating CTA bar stays.
+
+### Hero gallery interactions
+- Click hero → lightbox (existing).
+- Hover → subtle parallax tilt (framer-motion).
+- Image counter chip overlaid bottom-left of hero ("01 / 04" mono).
+- Thumbnail rail items animate selection with `layoutId` outline.
+
+### Info rail (right column, sticky)
+Compressed to essentials only — meta tag, title, price, variations, quantity, CTA. Description/specs/reviews live outside the fold so the buying decision area stays clean.
+
+### Tech spec strip
+A new full-width band, 4 equal cells divided by hairlines. Replaces the inline `<TechSpecStrip>` currently buried in the info column. Pulls weight, dimensions, material, print_time (already in product schema if available; otherwise fall back to "—").
+
+### Details key/value list
+New section below overview — renders a Palantir-style left-aligned dl: `MATERIAL · PLA Premium`, `LAYER HEIGHT · 0.2mm`, etc. Sourced from existing product fields; cells default to "—" when unset. No new DB columns.
+
+---
+
+## 2. Checkout (`src/pages/Checkout.tsx`)
+
+### New layout grid (desktop ≥ lg)
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│  CHECKOUT COMMAND BAR (sticky top, hairline)                         │
+│  ‹ Back to cart   ·   CHECKOUT · 01/03 SHIPPING   ·   ORD-XXXX       │
+├────────────────┬─────────────────────────────────┬───────────────────┤
+│ LEFT NAV RAIL  │   MAIN STAGE (active section)   │ RIGHT SUMMARY     │
+│ (sticky)       │                                 │ (sticky)          │
+│                │                                 │                   │
+│ ▸ 01 CONTACT   │   Active section card,          │  Order line items │
+│ ● 02 ADDRESS   │   expanded with form fields     │  ─ hairline ─     │
+│ ○ 03 SHIPPING  │                                 │  Subtotal         │
+│ ○ 04 PAYMENT   │   Floating-label inputs         │  Shipping         │
+│                │   Continue → CTA                │  ─ hairline ─     │
+│                │                                 │  TOTAL (huge)     │
+│ ─ status ─     │                                 │                   │
+│ secure · 256   │                                 │  Trust badges     │
+│ items 03       │                                 │                   │
+└────────────────┴─────────────────────────────────┴───────────────────┘
+```
+
+Key layout moves:
+- **Sticky command bar** at the top showing back-to-cart, current step indicator ("01 / 03 — SHIPPING"), and mono order draft id.
+- **Left nav rail**: vertical step list (4 steps now including Payment) with mono numbers, active/done/upcoming states. Click a completed step to jump back. Replaces the horizontal `StepRail` for desktop; horizontal version remains on mobile.
+- **Center stage**: shows only the active section at a time (not stacked collapsibles). Cleaner focus, Apple-style "one decision per screen." Sections fade/slide between each other with `AnimatePresence mode="wait"`.
+- **Right summary**: sticky, with a more structured Palantir data block — items list, subtotal, shipping (animates when changed), large total, trust row.
+- **Mobile**: rail collapses into existing horizontal step indicator; main stage flows full-width; summary becomes the existing collapsible drawer at the top.
+
+### Payment step
+Becomes its own dedicated stage instead of a separate `step === 'method'` screen. Same options (WhatsApp + online methods), but now part of the same 4-step rail so the user always sees their position.
+
+### Confirmation screens
+- Payment-instructions and WhatsApp-sent stay as dedicated full-page success states.
+- Layout polished: centered hero check, mono order id chip, primary/ghost button pair, transition out of the main grid for cinematic effect.
+
+### Left rail status footer
+Below the steps, a small Palantir-style status block: lock icon + "SECURE · TLS 1.3", item count in mono, ETA range pulled from selected shipping provider.
+
+---
+
+## 3. Shared layout polish
+- Introduce a thin `<TopCommandBar>` pattern on both pages (sticky, `h-12`, hairline border, mono crumbs/id, optional right actions). Co-located in each file — no new shared component yet, to keep scope tight.
+- Consistent grid widths: hero/checkout containers cap at `max-w-7xl`, rails are fixed-width (`w-[88px]` left nav, `w-[360px]` right summary).
+- Use existing semantic tokens only; no new colors.
 
 ## Out of scope
-- No changes to cart logic, pricing formula, shipping calculation, validation schemas, rate limiting, WhatsApp message, emails, edge functions, DB, or RLS.
-- No new dependencies (framer-motion already used).
-- No changes to admin panel, navbar, footer, or other pages.
+- No changes to: cart logic, pricing math, shipping calculation, validation schemas, rate limiting, WhatsApp message body, transactional emails, edge functions, DB, RLS, admin pages, navbar, footer, other routes.
+- No new dependencies.
+- No new DB columns (details list uses what already exists, falls back to "—").
 
 ## Files
 - Modify: `src/pages/ProductDetail.tsx`, `src/pages/Checkout.tsx`
-- No new files unless a small `StickyAddBar` helper proves cleaner (kept colocated otherwise).
+- No new files.
 
 ## Verification
-- Visual pass at 1112px (current viewport) and mobile breakpoint via preview.
-- Confirm: add-to-cart still triggers floating toast, checkout still creates order + sends email, WhatsApp flow still opens with correct message, variation/material price recalculation still correct.
+- Visual review at 1112px (current) and mobile breakpoint via preview.
+- Confirm: add-to-cart still triggers floating toast; checkout still creates order + sends email; WhatsApp flow opens with correct message; variation/material price recalculation correct; jumping back via left rail does not reset form state.
