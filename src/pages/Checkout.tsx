@@ -100,32 +100,61 @@ function TAField({ label, value, onChange, ...rest }: TAFieldProps) {
   );
 }
 
-// ─── Minimal step indicator ───
+// ─── Palantir-style step rail with animated fill ───
 function StepRail({ current, labels }: { current: number; labels: string[] }) {
   return (
-    <div className="flex items-center justify-center gap-3 mb-12">
-      {labels.map((label, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold transition-all ${
-              i < current ? 'bg-primary text-primary-foreground' :
-              i === current ? 'bg-primary text-primary-foreground ring-4 ring-primary/15' :
-              'bg-muted text-muted-foreground'
-            }`}>
-              {i < current ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : i + 1}
+    <div className="flex items-center justify-center mb-12">
+      <div className="flex items-center gap-0">
+        {labels.map((label, i) => {
+          const done = i < current;
+          const active = i === current;
+          return (
+            <div key={i} className="flex items-center">
+              <div className="flex flex-col items-center gap-2 min-w-[110px]">
+                <motion.div
+                  initial={false}
+                  animate={{
+                    backgroundColor: done || active ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+                    scale: active ? 1.05 : 1,
+                  }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                  className={`relative w-8 h-8 rounded-full flex items-center justify-center font-mono text-[11px] font-semibold tabular-nums ${
+                    done || active ? 'text-primary-foreground' : 'text-muted-foreground'
+                  }`}
+                >
+                  {done ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : String(i + 1).padStart(2, '0')}
+                  {active && (
+                    <motion.span
+                      layoutId="step-rail-halo"
+                      className="absolute inset-0 rounded-full ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
+                      transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                    />
+                  )}
+                </motion.div>
+                <span className={`font-mono text-[10px] uppercase tracking-[0.18em] ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {label}
+                </span>
+              </div>
+              {i < labels.length - 1 && (
+                <div className="relative w-16 h-px bg-border -mt-5">
+                  <motion.div
+                    initial={false}
+                    animate={{ scaleX: done ? 1 : 0 }}
+                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ originX: 0 }}
+                    className="absolute inset-0 bg-primary"
+                  />
+                </div>
+              )}
             </div>
-            <span className={`text-[13px] tracking-tight ${i === current ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-              {label}
-            </span>
-          </div>
-          {i < labels.length - 1 && <div className={`w-10 h-px ${i < current ? 'bg-primary' : 'bg-border'}`} />}
-        </div>
-      ))}
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-// ─── Collapsible section card ───
+// ─── Apple/Palantir collapsible section ───
 function SectionCard({
   index, title, subtitle, isActive, isComplete, summary, onEdit, children, ctaLabel, onContinue, disabled,
 }: {
@@ -142,25 +171,42 @@ function SectionCard({
   disabled?: boolean;
 }) {
   return (
-    <div className={`rounded-2xl border bg-card/60 backdrop-blur-sm transition-all ${
-      isActive ? 'border-primary/40 shadow-xl shadow-primary/5' : 'border-border'
-    }`}>
-      <div className="flex items-center justify-between p-6">
-        <div className="flex items-center gap-4">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-            isComplete ? 'bg-primary text-primary-foreground' :
-            isActive ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'
+    <motion.div
+      layout
+      transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+      className={`relative rounded-2xl border bg-card/40 backdrop-blur-xl transition-colors overflow-hidden ${
+        isActive ? 'border-primary/30' : 'border-white/[0.06]'
+      }`}
+    >
+      {isActive && (
+        <motion.span
+          layoutId="section-active-rail"
+          className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary"
+          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+        />
+      )}
+      <div className="flex items-center justify-between px-6 py-5">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-mono text-[11px] font-semibold tabular-nums shrink-0 ${
+            isComplete ? 'bg-primary/15 text-primary border border-primary/30' :
+            isActive ? 'bg-foreground text-background' :
+            'bg-muted/40 text-muted-foreground border border-white/5'
           }`}>
-            {isComplete ? <Check className="w-4 h-4" strokeWidth={3} /> : index}
+            {isComplete ? <Check className="w-4 h-4" strokeWidth={3} /> : String(index).padStart(2, '0')}
           </div>
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                {String(index).padStart(2, '0')} /
+              </span>
+              <h2 className="text-[15px] font-semibold tracking-tight text-foreground">{title}</h2>
+            </div>
             {subtitle && !isActive && !isComplete && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
-            {isComplete && summary && <div className="text-xs text-muted-foreground mt-1">{summary}</div>}
+            {isComplete && summary && <div className="text-xs text-muted-foreground/80 mt-1 truncate">{summary}</div>}
           </div>
         </div>
         {isComplete && (
-          <button onClick={onEdit} className="text-sm text-primary hover:underline font-medium">
+          <button onClick={onEdit} className="text-xs font-mono uppercase tracking-wider text-primary hover:text-primary/80 transition-colors shrink-0">
             Edit
           </button>
         )}
@@ -172,23 +218,28 @@ function SectionCard({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="overflow-hidden"
           >
-            <div className="px-6 pb-6 space-y-4">
-              {children}
+            <div className="px-6 pb-6 pt-1 space-y-4 border-t border-white/[0.04]">
+              <div className="pt-4 space-y-3">{children}</div>
               <Button
                 onClick={onContinue}
                 disabled={disabled}
-                className="w-full h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 font-semibold text-[15px] tracking-tight"
+                className="w-full h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 font-semibold text-[14px] tracking-tight group"
               >
-                {ctaLabel}
+                <span>{ctaLabel}</span>
+                <motion.span
+                  className="ml-1 inline-block"
+                  initial={false}
+                  whileHover={{ x: 4 }}
+                >→</motion.span>
               </Button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
 
