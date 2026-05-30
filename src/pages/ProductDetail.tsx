@@ -374,61 +374,141 @@ export default function ProductDetail() {
         )}
       </AnimatePresence>
 
-      <div className="pt-24 pb-24 lg:pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 text-sm text-muted-foreground mb-8">
-          <Link to="/" className="hover:text-primary transition-colors">{t.store.title}</Link>
-          <span className="text-border">/</span>
-          {product.categories && (
-            <>
-              <span>{language === 'es' ? product.categories.name_es : product.categories.name_en}</span>
-              <span className="text-border">/</span>
-            </>
-          )}
-          <span className="text-foreground truncate">{language === 'es' ? product.name_es : product.name_en}</span>
-        </motion.div>
+      {/* ═══ Top Command Bar (sticky) ═══ */}
+      <div className="sticky top-16 z-30 border-b border-white/[0.05] bg-background/80 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0 text-[12px] text-muted-foreground">
+            <Link to="/" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors shrink-0">
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t.store.title}</span>
+            </Link>
+            <span className="text-border">/</span>
+            {product.categories && (
+              <>
+                <span className="hidden md:inline truncate">{language === 'es' ? product.categories.name_es : product.categories.name_en}</span>
+                <span className="hidden md:inline text-border">/</span>
+              </>
+            )}
+            <span className="text-foreground truncate">{language === 'es' ? product.name_es : product.name_en}</span>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="hidden md:inline font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70">
+              PRD-{product.id.slice(0, 6).toUpperCase()}
+            </span>
+            <div className="h-4 w-px bg-white/[0.06] hidden md:block" />
+            <ShareMenu slug={product.slug} productName={language === 'es' ? product.name_es : product.name_en} size="md" />
+            <button onClick={toggleFavorite} className="p-2 rounded-lg hover:bg-white/[0.04] transition-colors">
+              <Heart className={`w-4 h-4 ${isFav ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
+            </button>
+          </div>
+        </div>
+      </div>
 
-        <div className="grid lg:grid-cols-[1fr_1fr] gap-8 lg:gap-12">
-          {/* ═══ Image Gallery ═══ */}
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="lg:sticky lg:top-24 lg:self-start">
+      <div className="pt-8 pb-24 lg:pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {/* ═══ HERO GRID: thumb rail | hero | info rail ═══ */}
+        <div className="grid lg:grid-cols-[72px_minmax(0,1fr)_360px] gap-6 lg:gap-8">
+
+          {/* ─── Vertical Thumbnail Rail (desktop) ─── */}
+          {images.length > 1 && (
+            <motion.div
+              initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+              className="hidden lg:flex flex-col gap-2 sticky top-32 self-start max-h-[calc(100vh-10rem)] overflow-y-auto scrollbar-hide"
+            >
+              <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground/60 px-1 mb-1">
+                {String(selectedImage + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
+              </div>
+              {images.map((img, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedImage(i)}
+                  className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/[0.06] hover:border-primary/40 transition-colors group"
+                >
+                  <img src={img} alt="" className={`w-full h-full object-cover transition-opacity ${i === selectedImage ? 'opacity-100' : 'opacity-50 group-hover:opacity-80'}`} />
+                  {i === selectedImage && (
+                    <motion.span
+                      layoutId="pdp-thumb-active"
+                      className="absolute inset-0 rounded-lg ring-2 ring-primary pointer-events-none"
+                      transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                    />
+                  )}
+                </button>
+              ))}
+            </motion.div>
+          )}
+          {/* Spacer when no thumbnails for grid alignment */}
+          {images.length <= 1 && <div className="hidden lg:block" />}
+
+          {/* ─── Hero Image ─── */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            className="lg:sticky lg:top-32 lg:self-start"
+          >
             <div
-              className="aspect-square rounded-2xl overflow-hidden relative cursor-pointer group border border-border/20 bg-card/30 backdrop-blur-sm"
-              style={{ boxShadow: '0 0 40px hsl(var(--primary) / 0.08), 0 20px 60px hsl(var(--background) / 0.5)' }}
+              className="aspect-square rounded-2xl overflow-hidden relative cursor-zoom-in group border border-white/[0.06] bg-card/30 backdrop-blur-sm"
+              style={{ boxShadow: '0 0 60px hsl(var(--primary) / 0.06), 0 30px 80px hsl(var(--background) / 0.5)' }}
               onClick={() => setLightboxOpen(true)}
             >
-              {images.length > 0 ? (
-                <img
-                  src={images[selectedImage]}
-                  alt={language === 'es' ? product.name_es : product.name_en}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Box className="w-24 h-24 text-muted-foreground/20" />
+              <AnimatePresence mode="wait">
+                {images.length > 0 ? (
+                  <motion.img
+                    key={selectedImage}
+                    src={images[selectedImage]}
+                    alt={language === 'es' ? product.name_es : product.name_en}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Box className="w-24 h-24 text-muted-foreground/20" />
+                  </div>
+                )}
+              </AnimatePresence>
+
+              {/* Counter chip */}
+              {images.length > 1 && (
+                <div className="absolute bottom-4 left-4 px-2.5 py-1 rounded-md bg-background/70 backdrop-blur-md border border-white/[0.06] font-mono text-[10px] tabular-nums uppercase tracking-[0.15em] text-foreground/80">
+                  {String(selectedImage + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
                 </div>
               )}
-              {/* Hover overlay */}
+
+              {/* Zoom hint */}
               {images.length > 0 && (
-                <div className="absolute inset-0 bg-background/0 group-hover:bg-background/20 transition-all duration-300 flex items-center justify-center">
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-card/80 backdrop-blur-lg border border-border/30 rounded-xl px-4 py-2.5 flex items-center gap-2 text-sm text-foreground shadow-xl">
-                    <Maximize2 className="w-4 h-4 text-primary" />
-                    {language === 'es' ? 'Clic para ampliar' : 'Click to enlarge'}
-                  </div>
+                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background/70 backdrop-blur-md border border-white/[0.06] rounded-md px-2.5 py-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-foreground/80">
+                  <Maximize2 className="w-3 h-3 text-primary" />
+                  Zoom
                 </div>
+              )}
+
+              {/* Arrow nav */}
+              {images.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setSelectedImage((selectedImage - 1 + images.length) % images.length); }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-background/60 backdrop-blur-md border border-white/[0.06] flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-background/80 transition-all"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setSelectedImage((selectedImage + 1) % images.length); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-background/60 backdrop-blur-md border border-white/[0.06] flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-background/80 transition-all"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </>
               )}
             </div>
 
-            {/* Thumbnails */}
+            {/* Mobile horizontal thumbnails */}
             {images.length > 1 && (
-              <div className="flex gap-2.5 mt-4 overflow-x-auto scrollbar-hide pb-1">
+              <div className="flex lg:hidden gap-2 mt-3 overflow-x-auto scrollbar-hide pb-1">
                 {images.map((img, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedImage(i)}
-                    className={`w-20 h-20 rounded-xl overflow-hidden border-2 shrink-0 transition-all duration-300 ${
-                      i === selectedImage
-                        ? 'border-primary shadow-[0_0_16px_hsl(var(--primary)/0.35)] scale-105'
-                        : 'border-border/30 hover:border-primary/40 opacity-70 hover:opacity-100'
+                    className={`relative w-16 h-16 rounded-lg overflow-hidden border shrink-0 transition-all ${
+                      i === selectedImage ? 'border-primary' : 'border-white/[0.06] opacity-60'
                     }`}
                   >
                     <img src={img} alt="" className="w-full h-full object-cover" />
@@ -438,45 +518,33 @@ export default function ProductDetail() {
             )}
           </motion.div>
 
-          {/* ═══ Product Info ═══ */}
-          <div className="space-y-6">
-            {/* ─── Identity ─── */}
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <div className="min-w-0">
-                  {product.categories && (
-                    <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-2">
-                      {language === 'es' ? product.categories.name_es : product.categories.name_en}
-                    </div>
-                  )}
-                  <h1 className="font-display font-black text-3xl sm:text-4xl lg:text-5xl text-foreground leading-[1.05] tracking-tight">
-                    {language === 'es' ? product.name_es : product.name_en}
-                  </h1>
+          {/* ─── Right Info Rail (sticky, compact: decision-only) ─── */}
+          <div className="lg:sticky lg:top-32 lg:self-start space-y-6">
+            {/* Identity */}
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              {product.categories && (
+                <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-2">
+                  {language === 'es' ? product.categories.name_es : product.categories.name_en}
                 </div>
-                <div className="flex items-center gap-1 shrink-0 pt-1">
-                  <ShareMenu slug={product.slug} productName={language === 'es' ? product.name_es : product.name_en} size="md" />
-                  <button onClick={toggleFavorite} className="p-2.5 rounded-xl hover:bg-primary/10 transition-all border border-transparent hover:border-primary/20">
-                    <Heart className={`w-5 h-5 ${isFav ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
-                  </button>
-                </div>
-              </div>
+              )}
+              <h1 className="font-display font-black text-3xl lg:text-[2.25rem] text-foreground leading-[1.05] tracking-tight">
+                {language === 'es' ? product.name_es : product.name_en}
+              </h1>
 
               {/* Price */}
-              <div className="flex items-baseline gap-4 mt-6">
+              <div className="flex items-baseline gap-3 mt-5">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={totalPrice.toFixed(2)}
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 6 }}
+                    initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
                     transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                    className="flex items-baseline gap-1"
+                    className="flex items-baseline gap-0.5"
                   >
-                    <span className="text-2xl font-semibold text-gradient-gold tabular-nums">$</span>
-                    <span className="text-5xl sm:text-6xl font-black text-gradient-gold tabular-nums tracking-tight leading-none">
+                    <span className="text-xl font-semibold text-gradient-gold tabular-nums">$</span>
+                    <span className="text-5xl font-black text-gradient-gold tabular-nums tracking-tight leading-none">
                       {Math.floor(totalPrice)}
                     </span>
-                    <span className="text-2xl font-semibold text-gradient-gold tabular-nums">
+                    <span className="text-xl font-semibold text-gradient-gold tabular-nums">
                       .{totalPrice.toFixed(2).split('.')[1]}
                     </span>
                   </motion.div>
@@ -484,7 +552,6 @@ export default function ProductDetail() {
                 <LikeButton productId={product.id} size="md" />
               </div>
 
-              {/* Status badge */}
               <div className="flex items-center gap-2 mt-3">
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-primary">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
@@ -493,62 +560,15 @@ export default function ProductDetail() {
               </div>
             </motion.div>
 
-            {/* ─── Palantir tech spec strip ─── */}
-            {(selectedWeight || selectedDimensions || productMaterialsList.length > 0) && (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-                className="grid grid-cols-3 rounded-2xl border border-white/[0.06] bg-card/30 backdrop-blur-xl divide-x divide-white/[0.05] overflow-hidden"
-              >
-                <div className="px-4 py-3.5">
-                  <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Weight</div>
-                  <div className="font-mono text-sm font-semibold tabular-nums text-foreground">
-                    {selectedWeight ? `${selectedWeight}g` : '—'}
-                  </div>
-                </div>
-                <div className="px-4 py-3.5">
-                  <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Size</div>
-                  <div className="font-mono text-sm font-semibold tabular-nums text-foreground truncate">
-                    {selectedDimensions ? `${selectedDimensions}mm` : '—'}
-                  </div>
-                </div>
-                <div className="px-4 py-3.5">
-                  <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Material</div>
-                  <div className="font-mono text-sm font-semibold text-foreground truncate">
-                    {productMaterialsList.length > 0 ? (language === 'es' ? productMaterialsList[0].materials.name_es : productMaterialsList[0].materials.name_en) : '—'}
-                  </div>
-                </div>
-              </motion.div>
-            )}
+            <div className="h-px bg-white/[0.05]" />
 
-            {/* ─── Description ─── */}
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">Overview</div>
-              <p className="text-muted-foreground leading-relaxed text-[15px]">
-                {language === 'es' ? product.description_es : product.description_en}
-              </p>
-            </motion.div>
-
-            {/* ─── Materials (multi) ─── */}
-            {productMaterialsList.length > 1 && (
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">{t.product.material}</div>
-                <div className="flex flex-wrap gap-2">
-                  {productMaterialsList.map((pm: any) => (
-                    <span key={pm.id} className="px-3 py-1.5 rounded-lg bg-white/[0.03] text-[13px] text-foreground border border-white/[0.06] font-mono">
-                      {language === 'es' ? pm.materials.name_es : pm.materials.name_en}
-                    </span>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-
-            {/* ─── Variations (Apple segmented controls) ─── */}
+            {/* Variations (segmented controls) */}
             {Object.entries(variationsByType).map(([type, vars], idx) => (
               <motion.div
                 key={type}
-                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + idx * 0.05 }}
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + idx * 0.04 }}
               >
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2.5">
                   <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                     {type === 'color' ? t.product.color : type === 'size' ? t.product.size : type}
                   </div>
@@ -556,7 +576,7 @@ export default function ProductDetail() {
                     <span className="font-mono text-[10px] text-primary uppercase tracking-wider">Selected</span>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {(vars as any[]).map((v: any) => {
                     const isSize = type === 'size';
                     const vPrice = isSize && Number(v.price_modifier) > 0 ? Number(v.price_modifier) : null;
@@ -568,36 +588,29 @@ export default function ProductDetail() {
                         onClick={() => setSelectedVariations(prev => ({ ...prev, [type]: v.id }))}
                         whileTap={{ scale: 0.97 }}
                         transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                        className={`relative flex flex-col items-start gap-1 px-4 py-2.5 rounded-xl border text-sm transition-colors ${
+                        className={`relative flex flex-col items-start gap-0.5 px-3 py-2 rounded-lg border text-[13px] transition-colors ${
                           isSelected
                             ? 'border-primary/60 bg-primary/[0.08] text-foreground'
-                            : 'border-white/[0.06] bg-white/[0.02] text-foreground/80 hover:border-primary/30 hover:bg-white/[0.04]'
+                            : 'border-white/[0.06] bg-white/[0.02] text-foreground/80 hover:border-primary/30'
                         }`}
                       >
                         {isSelected && (
                           <motion.span
                             layoutId={`var-${type}-ring`}
-                            className="absolute inset-0 rounded-xl ring-1 ring-primary pointer-events-none"
+                            className="absolute inset-0 rounded-lg ring-1 ring-primary pointer-events-none"
                             transition={{ type: 'spring', stiffness: 500, damping: 32 }}
                           />
                         )}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           {type === 'color' && (
-                            <span className="w-4 h-4 rounded-full border border-white/20 shadow-inner" style={{ backgroundColor: v.value }} />
+                            <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: v.value }} />
                           )}
                           <span className="font-medium">{language === 'es' ? v.name_es : v.name_en}</span>
                         </div>
-                        {isSize && (vWeight || vPrice || v.dimensions) && (
-                          <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
-                            {vWeight ? `${vWeight}g` : ''}
-                            {vWeight && v.dimensions ? ' · ' : ''}
-                            {v.dimensions ? `${v.dimensions}mm` : ''}
-                            {(vWeight || v.dimensions) && vPrice ? ' · ' : ''}
-                            {vPrice ? `$${vPrice.toFixed(2)}` : ''}
+                        {isSize && (vWeight || v.dimensions || vPrice) && (
+                          <span className="text-[9px] text-muted-foreground font-mono tabular-nums">
+                            {[vWeight && `${vWeight}g`, v.dimensions && `${v.dimensions}mm`, vPrice && `$${vPrice.toFixed(2)}`].filter(Boolean).join(' · ')}
                           </span>
-                        )}
-                        {!isSize && Number(v.price_modifier) > 0 && (
-                          <span className="text-[10px] text-muted-foreground font-mono tabular-nums">+${Number(v.price_modifier).toFixed(2)}</span>
                         )}
                       </motion.button>
                     );
@@ -606,39 +619,91 @@ export default function ProductDetail() {
               </motion.div>
             ))}
 
-            {/* ─── Quantity (Apple stepper) ─── */}
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">{t.product.quantity}</div>
+            {/* Quantity */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2.5">{t.product.quantity}</div>
               <div className="inline-flex items-center gap-1 rounded-full bg-white/[0.03] border border-white/[0.06] p-1">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-9 h-9 rounded-full hover:bg-white/[0.05] flex items-center justify-center transition-colors"
+                  className="w-8 h-8 rounded-full hover:bg-white/[0.05] flex items-center justify-center transition-colors"
                 >
-                  <Minus className="w-3.5 h-3.5" />
+                  <Minus className="w-3 h-3" />
                 </button>
                 <AnimatePresence mode="wait">
                   <motion.span
                     key={quantity}
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 4 }}
+                    initial={{ opacity: 0, y: -3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 3 }}
                     transition={{ duration: 0.15 }}
-                    className="font-mono font-semibold text-base w-10 text-center tabular-nums"
+                    className="font-mono font-semibold text-sm w-9 text-center tabular-nums"
                   >
                     {String(quantity).padStart(2, '0')}
                   </motion.span>
                 </AnimatePresence>
                 <button
                   onClick={() => setQuantity(quantity + 1)}
-                  className="w-9 h-9 rounded-full hover:bg-white/[0.05] flex items-center justify-center transition-colors"
+                  className="w-8 h-8 rounded-full hover:bg-white/[0.05] flex items-center justify-center transition-colors"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3 h-3" />
                 </button>
               </div>
             </motion.div>
 
-            {/* ─── Notes ─── */}
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+            <div className="h-px bg-white/[0.05]" />
+
+            {/* CTA */}
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="hidden lg:block">
+              <motion.div whileTap={{ scale: 0.99 }}>
+                <Button
+                  onClick={handleAddToCart}
+                  className="w-full bg-gradient-gold text-primary-foreground font-bold gap-2 h-12 text-[14px] shadow-[0_0_30px_hsl(var(--primary)/0.25)] hover:shadow-[0_0_50px_hsl(var(--primary)/0.5)] transition-all rounded-full tracking-tight"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>{t.product.addToCart}</span>
+                  <span className="opacity-60">·</span>
+                  <span className="tabular-nums">${totalPrice.toFixed(2)}</span>
+                </Button>
+              </motion.div>
+              <p className="text-center text-[10px] text-muted-foreground mt-2.5 font-mono uppercase tracking-wider">
+                <Lock className="inline w-2.5 h-2.5 mr-1 -mt-0.5" /> Secure checkout
+              </p>
+            </motion.div>
+          </div>
+        </div>
+
+        {/* ═══ Full-Width Tech Spec Strip (Palantir) ═══ */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+          className="mt-12 lg:mt-16 grid grid-cols-2 lg:grid-cols-4 rounded-2xl border border-white/[0.06] bg-card/30 backdrop-blur-xl divide-y lg:divide-y-0 lg:divide-x divide-white/[0.05] overflow-hidden"
+        >
+          {[
+            { label: 'Weight', value: selectedWeight ? `${selectedWeight}g` : '—' },
+            { label: 'Dimensions', value: selectedDimensions ? `${selectedDimensions}mm` : '—' },
+            { label: 'Material', value: productMaterialsList.length > 0 ? (language === 'es' ? productMaterialsList[0].materials.name_es : productMaterialsList[0].materials.name_en) : '—' },
+            { label: 'Stock', value: t.product.inStock.toUpperCase() },
+          ].map((s, i) => (
+            <div key={i} className="px-5 py-4">
+              <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/70 mb-1.5">{s.label}</div>
+              <div className="font-mono text-base font-semibold tabular-nums text-foreground truncate">{s.value}</div>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* ═══ Overview + Details ═══ */}
+        <div className="mt-12 lg:mt-16 grid lg:grid-cols-[1fr_400px] gap-10 lg:gap-16">
+          {/* Overview */}
+          <motion.section
+            initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+          >
+            <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-4">Overview</div>
+            <h2 className="font-display text-2xl lg:text-3xl font-bold tracking-tight text-foreground mb-5">
+              {language === 'es' ? 'Acerca de este modelo' : 'About this model'}
+            </h2>
+            <p className="text-muted-foreground leading-relaxed text-[15px] whitespace-pre-wrap">
+              {language === 'es' ? product.description_es : product.description_en}
+            </p>
+
+            {/* Notes input */}
+            <div className="mt-8">
               <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">{t.product.specialNotes}</div>
               <Textarea
                 value={notes}
@@ -647,47 +712,65 @@ export default function ProductDetail() {
                 className="bg-white/[0.02] border-white/[0.06] rounded-xl focus-visible:ring-primary/30"
                 rows={3}
               />
-            </motion.div>
+            </div>
+          </motion.section>
 
-            {/* ─── Desktop Add to Cart ─── */}
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="hidden lg:block pt-2">
-              <motion.div whileTap={{ scale: 0.99 }}>
-                <Button
-                  onClick={handleAddToCart}
-                  className="w-full bg-gradient-gold text-primary-foreground font-bold gap-3 h-14 text-[15px] shadow-[0_0_30px_hsl(var(--primary)/0.25)] hover:shadow-[0_0_50px_hsl(var(--primary)/0.5)] transition-all duration-300 rounded-full tracking-tight"
-                >
-                  <ShoppingCart className="w-5 h-5" />
-                  <span>{t.product.addToCart}</span>
-                  <span className="font-mono tabular-nums opacity-80">·</span>
-                  <span className="tabular-nums">${totalPrice.toFixed(2)}</span>
-                </Button>
-              </motion.div>
-              <p className="text-center text-[11px] text-muted-foreground mt-3 font-mono uppercase tracking-wider">
-                <Lock className="inline w-3 h-3 mr-1 -mt-0.5" /> Secure checkout · Free shipping over $50
-              </p>
-            </motion.div>
-          </div>
-
+          {/* Key/Value details */}
+          <motion.aside
+            initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className="rounded-2xl border border-white/[0.06] bg-card/30 backdrop-blur-xl p-6 h-fit"
+          >
+            <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-5">Specifications</div>
+            <dl className="divide-y divide-white/[0.05]">
+              {[
+                { k: 'Category', v: product.categories ? (language === 'es' ? product.categories.name_es : product.categories.name_en) : '—' },
+                { k: 'Weight', v: selectedWeight ? `${selectedWeight}${t.product.grams}` : '—' },
+                { k: 'Dimensions', v: selectedDimensions ? `${selectedDimensions}mm` : '—' },
+                { k: 'Materials', v: productMaterialsList.length > 0 ? productMaterialsList.map((pm: any) => language === 'es' ? pm.materials.name_es : pm.materials.name_en).join(' · ') : '—' },
+                { k: 'Variations', v: variations.length > 0 ? `${variations.length} ${language === 'es' ? 'opciones' : 'options'}` : '—' },
+                { k: 'SKU', v: `PRD-${product.id.slice(0, 8).toUpperCase()}` },
+              ].map((row, i) => (
+                <div key={i} className="flex items-baseline justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                  <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground shrink-0">{row.k}</dt>
+                  <dd className="font-mono text-[12px] text-foreground text-right truncate">{row.v}</dd>
+                </div>
+              ))}
+            </dl>
+          </motion.aside>
         </div>
 
         {/* Divider */}
-        <div className="mt-16 mb-12 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
+        <div className="mt-16 mb-12 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
 
-        {/* Reviews Section */}
+        {/* Reviews */}
         <ProductReviews productId={product.id} />
 
-        {/* Related Products */}
+        {/* Related Products (horizontal scroll-snap) */}
         {relatedProducts.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mt-16">
-            <h2 className="font-display font-bold text-xl sm:text-2xl mb-6">{t.product.relatedModels}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className="mt-20"
+          >
+            <div className="flex items-baseline justify-between mb-6">
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-1">Related</div>
+                <h2 className="font-display font-bold text-2xl tracking-tight">{t.product.relatedModels}</h2>
+              </div>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground tabular-nums">
+                {String(relatedProducts.length).padStart(2, '0')} {language === 'es' ? 'modelos' : 'models'}
+              </span>
+            </div>
+            <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 scrollbar-hide -mx-4 px-4 lg:-mx-0 lg:px-0">
               {relatedProducts.map((rp: any, i: number) => (
-                <ProductCard key={rp.id} product={rp} index={i} showBadges={false} />
+                <div key={rp.id} className="snap-start shrink-0 w-[260px] lg:w-[280px]">
+                  <ProductCard product={rp} index={i} showBadges={false} />
+                </div>
               ))}
             </div>
           </motion.div>
         )}
       </div>
+
 
       {/* ═══ Mobile Floating Action Bar ═══ */}
       <motion.div
