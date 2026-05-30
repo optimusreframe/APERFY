@@ -540,6 +540,12 @@ export default function Checkout() {
           <span className="font-mono uppercase tracking-wider text-[10px]">{language === 'es' ? 'Subtotal' : 'Subtotal'}</span>
           <span className="text-foreground tabular-nums">${subtotal.toFixed(2)}</span>
         </div>
+        {discount && discountAmount > 0 && (
+          <div className="flex justify-between">
+            <span className="font-mono uppercase tracking-wider text-[10px] text-primary">{discount.code}</span>
+            <span className="text-primary tabular-nums">−${discountAmount.toFixed(2)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-muted-foreground">
           <span className="font-mono uppercase tracking-wider text-[10px]">{language === 'es' ? 'Envío' : 'Shipping'}</span>
           <motion.span
