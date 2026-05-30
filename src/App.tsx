@@ -33,11 +33,13 @@ import AdminRequests from "./pages/admin/AdminRequests";
 import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
 import AdminShipping from "./pages/admin/AdminShipping";
 import AdminLogs from "./pages/admin/AdminLogs";
+import AdminDiscounts from "./pages/admin/AdminDiscounts";
 import RequestModel from "./pages/RequestModel";
 import OurProcess from "./pages/OurProcess";
 import Materials from "./pages/Materials";
 import EmailUnsubscribe from "./pages/EmailUnsubscribe";
 import CartAddedToast from "./components/CartAddedToast";
+import DiscountBanner from "./components/DiscountBanner";
 
 const SplashLoader3D = lazy(() => import("@/components/SplashLoader3D"));
 
