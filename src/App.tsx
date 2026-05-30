@@ -39,6 +39,7 @@ import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
 import AdminShipping from "./pages/admin/AdminShipping";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminDiscounts from "./pages/admin/AdminDiscounts";
+import AdminAI3DSettings from "./pages/admin/AdminAI3DSettings";
 import RequestModel from "./pages/RequestModel";
 import OurProcess from "./pages/OurProcess";
 import Materials from "./pages/Materials";
@@ -98,6 +99,7 @@ const AppContent = () => {
             <Route path="shipping" element={<AdminShipping />} />
             <Route path="discounts" element={<AdminDiscounts />} />
             <Route path="logs" element={<AdminLogs />} />
+            <Route path="ai-3d" element={<AdminAI3DSettings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

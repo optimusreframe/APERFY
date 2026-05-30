@@ -22,6 +22,7 @@ import { sanitizeUrl } from '@/lib/sanitize';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AdminPageHeader } from './_shared';
 import MarginCalculator from '@/components/admin/MarginCalculator';
+import Product3DField from '@/components/admin/Product3DField';
 
 // ── Types ──
 interface ProductForm {
@@ -1818,15 +1819,17 @@ export default function AdminProducts() {
                         <Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} />
                         <Label className="text-xs">Destacado</Label>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">3D Model URL (.glb)</Label>
-                        <Input
-                          value={form.model_3d_url || ''}
-                          onChange={(e) => setForm({ ...form, model_3d_url: e.target.value })}
-                          placeholder="https://…/model.glb"
-                          className="bg-secondary text-xs h-8"
-                        />
-                      </div>
+                      <Product3DField
+                        value={form.model_3d_url || ''}
+                        onChange={(v) => setForm({ ...form, model_3d_url: v })}
+                        productName={form.name_es || form.name_en}
+                        onImageGenerated={(url) => {
+                          setMediaFiles(prev => [
+                            ...prev,
+                            { id: `ai-${Date.now()}`, preview: url, type: 'image', isExisting: true },
+                          ]);
+                        }}
+                      />
                     </div>
                   </aside>
 
