@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent } from 'lucide-react';
+import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, Sparkles } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +27,7 @@ const groups = [
       { title: 'Products', url: '/admin/products', icon: Package },
       { title: 'Categories', url: '/admin/categories', icon: Tags },
       { title: 'Materials', url: '/admin/materials', icon: Layers },
+      { title: 'AI 3D', url: '/admin/ai-3d', icon: Sparkles },
     ],
   },
   {
