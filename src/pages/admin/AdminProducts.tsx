@@ -1068,14 +1068,24 @@ export default function AdminProducts() {
       is_featured: false,
     });
 
-    // Use the already-persisted storage URL instead of fetching the temporary one
-    if (aiStoredImageUrl) {
-      setMediaFiles([{
-        id: `ai-${Date.now()}`,
-        preview: aiStoredImageUrl,
-        type: 'image',
+    // Build media list: primary AI image + generated angles (cap respect handled downstream)
+    const angleItems: MediaItem[] = aiAngles
+      .filter(a => a.url && !a.loading && !a.error)
+      .slice(0, Math.max(0, MAX_MEDIA - 1))
+      .map((a, idx) => ({
+        id: `ai-angle-${idx}-${Date.now()}`,
+        preview: a.url,
+        type: 'image' as const,
         isExisting: true,
-      }]);
+      }));
+
+    if (aiStoredImageUrl) {
+      setMediaFiles([
+        { id: `ai-${Date.now()}`, preview: aiStoredImageUrl, type: 'image', isExisting: true },
+        ...angleItems,
+      ]);
+    } else if (angleItems.length > 0) {
+      setMediaFiles(angleItems);
     } else {
       setMediaFiles([]);
     }
