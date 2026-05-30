@@ -311,10 +311,15 @@ export default function AdminProducts() {
   const { data: products = [] } = useQuery({
     queryKey: ['admin-products'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('products').select('*, categories(name_en, name_es)').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name_en, name_es, slug, base_price, is_active, is_featured, category_id, images, created_at, model_3d_url, description_en, description_es, categories(name_en, name_es)')
+        .order('created_at', { ascending: false })
+        .limit(500);
       if (error) throw error;
       return data;
     },
+    staleTime: 30_000,
   });
 
   const { data: categories = [] } = useQuery({

@@ -177,29 +177,40 @@ export default function Navbar() {
                 )}
               </div>
 
-              {/* Mobile Menu Button */}
-              <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="md:hidden text-foreground p-2 rounded-xl hover:bg-secondary/50 transition-all relative z-50"
-              >
-                <div className="w-5 h-5 relative">
-                  <motion.span
-                    animate={isOpen ? { rotate: 45, y: 0 } : { rotate: 0, y: -4 }}
-                    className="absolute left-0 top-1/2 w-full h-0.5 bg-current rounded-full origin-center"
-                    transition={{ duration: 0.3 }}
-                  />
-                  <motion.span
-                    animate={isOpen ? { opacity: 0, x: 10 } : { opacity: 1, x: 0 }}
-                    className="absolute left-0 top-1/2 w-full h-0.5 bg-current rounded-full -translate-y-0.5"
-                    transition={{ duration: 0.2 }}
-                  />
-                  <motion.span
-                    animate={isOpen ? { rotate: -45, y: 0 } : { rotate: 0, y: 4 }}
-                    className="absolute left-0 top-1/2 w-full h-0.5 bg-current rounded-full origin-center"
-                    transition={{ duration: 0.3 }}
-                  />
-                </div>
-              </button>
+              {/* Mobile right actions */}
+              <div className="md:hidden flex items-center gap-1">
+                <button
+                  onClick={() => setLanguage(language === 'en' ? 'es' : 'en')}
+                  aria-label="Toggle language"
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all"
+                >
+                  <Globe className="w-4 h-4" />
+                  <span className="font-mono text-[10px] uppercase tracking-wider">{language}</span>
+                </button>
+                <button
+                  onClick={() => setIsOpen(!isOpen)}
+                  aria-label="Menu"
+                  className="text-foreground p-2 rounded-xl hover:bg-secondary/50 transition-all relative z-50"
+                >
+                  <div className="w-5 h-5 relative">
+                    <motion.span
+                      animate={isOpen ? { rotate: 45, y: 0 } : { rotate: 0, y: -4 }}
+                      className="absolute left-0 top-1/2 w-full h-0.5 bg-current rounded-full origin-center"
+                      transition={{ duration: 0.3 }}
+                    />
+                    <motion.span
+                      animate={isOpen ? { opacity: 0, x: 10 } : { opacity: 1, x: 0 }}
+                      className="absolute left-0 top-1/2 w-full h-0.5 bg-current rounded-full -translate-y-0.5"
+                      transition={{ duration: 0.2 }}
+                    />
+                    <motion.span
+                      animate={isOpen ? { rotate: -45, y: 0 } : { rotate: 0, y: 4 }}
+                      className="absolute left-0 top-1/2 w-full h-0.5 bg-current rounded-full origin-center"
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </div>

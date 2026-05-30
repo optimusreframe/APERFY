@@ -55,34 +55,47 @@ function StatCard({
 export default function AdminDashboard() {
   const { t } = useLanguage();
 
-  const { data: productCount, isLoading: loadingProducts } = useQuery({
-    queryKey: ['admin-product-count'],
-    queryFn: async () => (await supabase.from('products').select('*', { count: 'exact', head: true })).count ?? 0,
+  // Combined counts query — single round trip with parallel HEAD count calls
+  const { data: counts, isLoading: loadingCounts } = useQuery({
+    queryKey: ['admin-counts'],
+    queryFn: async () => {
+      const [p, c, m] = await Promise.all([
+        supabase.from('products').select('*', { count: 'exact', head: true }),
+        supabase.from('categories').select('*', { count: 'exact', head: true }),
+        supabase.from('materials').select('*', { count: 'exact', head: true }),
+      ]);
+      return { products: p.count ?? 0, categories: c.count ?? 0, materials: m.count ?? 0 };
+    },
+    staleTime: 60_000,
   });
-  const { data: categoryCount, isLoading: loadingCategories } = useQuery({
-    queryKey: ['admin-category-count'],
-    queryFn: async () => (await supabase.from('categories').select('*', { count: 'exact', head: true })).count ?? 0,
-  });
-  const { data: materialCount, isLoading: loadingMaterials } = useQuery({
-    queryKey: ['admin-material-count'],
-    queryFn: async () => (await supabase.from('materials').select('*', { count: 'exact', head: true })).count ?? 0,
-  });
+  const productCount = counts?.products;
+  const categoryCount = counts?.categories;
+  const materialCount = counts?.materials;
+  const loadingProducts = loadingCounts;
+  const loadingCategories = loadingCounts;
+  const loadingMaterials = loadingCounts;
+
   const { data: orders = [], isLoading: loadingOrders } = useQuery({
     queryKey: ['admin-dashboard-orders'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orders')
-        .select('*, profiles(full_name)')
+        .select('id, total, status, created_at, profiles(full_name)')
         .order('created_at', { ascending: false })
         .limit(6);
       if (error) throw error;
       return data;
     },
+    staleTime: 30_000,
   });
   const { data: orderStats, isLoading: loadingStats } = useQuery({
     queryKey: ['admin-order-stats'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('orders').select('total, status, created_at');
+      const { data, error } = await supabase
+        .from('orders')
+        .select('total, status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(1000);
       if (error) throw error;
       const totalRevenue = data.reduce((s: number, o: any) => s + Number(o.total), 0);
       const totalOrders = data.length;
@@ -92,6 +105,7 @@ export default function AdminDashboard() {
       ).length;
       return { totalRevenue, totalOrders, pending, last7 };
     },
+    staleTime: 30_000,
   });
 
   const now = new Date();
