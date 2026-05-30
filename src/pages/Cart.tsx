@@ -63,18 +63,20 @@ export default function Cart() {
       </div>
 
       <div className="pt-10 pb-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Title block */}
+        {/* Eyebrow + subtitle only — the breadcrumb above already names the page,
+            so we don't duplicate the "Carrito" H1. */}
         <motion.div
           initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
           className="mb-10"
         >
           <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-2">
-            {language === 'es' ? 'Pedido' : 'Order'}
+            {language === 'es' ? 'Pedido' : 'Order'} · {String(itemCount).padStart(2, '0')} {language === 'es' ? 'items' : 'items'}
           </div>
-          <h1 className="font-display font-bold text-4xl lg:text-5xl tracking-[-0.02em] text-foreground">
-            {t.cart.title}
-          </h1>
+          <p className="font-display text-2xl lg:text-3xl tracking-[-0.02em] text-foreground/80 max-w-2xl">
+            {language === 'es' ? 'Revisa tu selección antes de iniciar la impresión.' : 'Review your selection before kicking off the print.'}
+          </p>
         </motion.div>
+
 
         {items.length === 0 ? (
           <motion.div

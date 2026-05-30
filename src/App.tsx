@@ -11,6 +11,9 @@ import { BulkImportProvider } from "@/contexts/BulkImportContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BulkImportBanner from "@/components/BulkImportBanner";
 import PrintingBackground from "@/components/PrintingBackground";
+import PageTransition from "@/components/motion/PageTransition";
+import PrintProgressBar from "@/components/motion/PrintProgressBar";
+import BottomTabBar from "@/components/mobile/BottomTabBar";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
@@ -63,37 +66,41 @@ const AppContent = () => {
       )}
       {!isAdmin && <PrintingBackground />}
       {!isAdmin && <DiscountBanner />}
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/3dmodels" element={<Navigate to="/" replace />} />
-                <Route path="/3dmodels/:slug" element={<ProductDetail />} />
-                <Route path="/catalog" element={<Catalog />} />
-                <Route path="/request-model" element={<RequestModel />} />
-                <Route path="/our-process" element={<OurProcess />} />
-                <Route path="/materials" element={<Materials />} />
-                <Route path="/unsubscribe" element={<EmailUnsubscribe />} />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-                <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
-                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
-                <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminLayout /></ProtectedRoute>}>
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="products" element={<AdminProducts />} />
-                  <Route path="categories" element={<AdminCategories />} />
-                  <Route path="materials" element={<AdminMaterials />} />
-                  <Route path="orders" element={<AdminOrders />} />
-                  <Route path="requests" element={<AdminRequests />} />
-                  <Route path="payments" element={<AdminPaymentSettings />} />
-                  <Route path="shipping" element={<AdminShipping />} />
-                  <Route path="discounts" element={<AdminDiscounts />} />
-                  <Route path="logs" element={<AdminLogs />} />
-                </Route>
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+      <PrintProgressBar />
+      <PageTransition>
+        <Routes location={location}>
+          <Route path="/" element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/3dmodels" element={<Navigate to="/" replace />} />
+          <Route path="/3dmodels/:slug" element={<ProductDetail />} />
+          <Route path="/catalog" element={<Catalog />} />
+          <Route path="/request-model" element={<RequestModel />} />
+          <Route path="/our-process" element={<OurProcess />} />
+          <Route path="/materials" element={<Materials />} />
+          <Route path="/unsubscribe" element={<EmailUnsubscribe />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+          <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminLayout /></ProtectedRoute>}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="products" element={<AdminProducts />} />
+            <Route path="categories" element={<AdminCategories />} />
+            <Route path="materials" element={<AdminMaterials />} />
+            <Route path="orders" element={<AdminOrders />} />
+            <Route path="requests" element={<AdminRequests />} />
+            <Route path="payments" element={<AdminPaymentSettings />} />
+            <Route path="shipping" element={<AdminShipping />} />
+            <Route path="discounts" element={<AdminDiscounts />} />
+            <Route path="logs" element={<AdminLogs />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </PageTransition>
       {!isAdmin && <CartAddedToast />}
+      <BottomTabBar />
     </>
   );
 };

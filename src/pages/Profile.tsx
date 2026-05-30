@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, User, Package, Heart, LogOut, Camera, Save, Box, ShoppingBag, ChevronDown, ChevronUp, TrendingUp, ThumbsUp } from 'lucide-react';
+import { LayoutDashboard, User, Package, Heart, LogOut, Camera, Save, Box, ShoppingBag, ChevronDown, ChevronUp, TrendingUp, ThumbsUp, Gift } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,12 +19,14 @@ import { useToast } from '@/hooks/use-toast';
 import { profileSchema, validateImageFile, sanitizeFileName } from '@/lib/validation';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { useIsMobile } from '@/hooks/use-mobile';
+import ReferralsTab from '@/components/profile/ReferralsTab';
 
 const tabs = [
   { id: 'overview', icon: LayoutDashboard },
   { id: 'profile', icon: User },
   { id: 'orders', icon: Package },
   { id: 'favorites', icon: Heart },
+  { id: 'referrals', icon: Gift },
 ] as const;
 
 type TabId = typeof tabs[number]['id'];
@@ -469,6 +471,7 @@ export default function Profile() {
     profile: t.profile.title,
     orders: t.orders.title,
     favorites: t.favorites.title,
+    referrals: (t.profile as any).referrals || 'Referidos',
   };
 
   return (
@@ -553,6 +556,7 @@ export default function Profile() {
                   {activeTab === 'profile' && <ProfileTab />}
                   {activeTab === 'orders' && <OrdersTab />}
                   {activeTab === 'favorites' && <FavoritesTab />}
+                  {activeTab === 'referrals' && <ReferralsTab />}
                 </motion.div>
               </AnimatePresence>
             </div>

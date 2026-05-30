@@ -740,6 +740,69 @@ export type Database = {
         }
         Relationships: []
       }
+      referral_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          total_orders: number
+          total_rewards: number
+          total_signups: number
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          total_orders?: number
+          total_rewards?: number
+          total_signups?: number
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          total_orders?: number
+          total_rewards?: number
+          total_signups?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      referrals: {
+        Row: {
+          code: string
+          created_at: string
+          first_order_id: string | null
+          id: string
+          referred_user_id: string
+          referrer_user_id: string
+          reward_amount: number
+          status: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          first_order_id?: string | null
+          id?: string
+          referred_user_id: string
+          referrer_user_id: string
+          reward_amount?: number
+          status?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          first_order_id?: string | null
+          id?: string
+          referred_user_id?: string
+          referrer_user_id?: string
+          reward_amount?: number
+          status?: string
+        }
+        Relationships: []
+      }
       shipping_providers: {
         Row: {
           base_rate: number
