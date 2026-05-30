@@ -331,6 +331,12 @@ export default function ProductDetail() {
     .find((v: any) => v?.image_url)?.image_url || null;
   const images = variationImage ? [variationImage, ...baseImages.filter(i => i !== variationImage)] : baseImages;
 
+  // When the user picks a variation that has its own image, jump to it.
+  useEffect(() => {
+    if (variationImage) setSelectedImage(0);
+  }, [variationImage]);
+
+
 
   const handleAddToCart = useCallback(() => {
     if (!product) return;
