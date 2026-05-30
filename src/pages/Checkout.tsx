@@ -10,7 +10,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft } from 'lucide-react';
+import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Printer, Cog, Package } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
 
@@ -100,52 +100,92 @@ function TAField({ label, value, onChange, ...rest }: TAFieldProps) {
   );
 }
 
-// ─── Palantir-style step rail with animated fill ───
+// ─── Checkout-as-3D-print stepper: filament extrusion + layer percentage ───
 function StepRail({ current, labels }: { current: number; labels: string[] }) {
+  const total = labels.length;
+  const pct = Math.round(((current + 0.0001) / total) * 100);
+  const stepIcons = [Cog, Printer, Package, Truck];
+
   return (
-    <div className="flex items-center justify-center mb-12">
-      <div className="flex items-center gap-0">
+    <div className="mb-12">
+      {/* Layer / percentage header */}
+      <div className="flex items-end justify-between mb-3 px-1">
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            Layer {String(current + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
+          </div>
+          <div className="font-display text-sm font-semibold text-foreground mt-0.5 tracking-tight">
+            {labels[current]}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            Printed
+          </div>
+          <div className="font-display text-sm font-semibold tabular-nums text-gradient-gold mt-0.5">
+            {pct}%
+          </div>
+        </div>
+      </div>
+
+      {/* Filament extrusion bar */}
+      <div className="relative h-[6px] w-full rounded-full bg-white/[0.05] overflow-hidden">
+        <motion.div
+          initial={false}
+          animate={{ width: `${pct}%` }}
+          transition={{ type: 'spring', stiffness: 120, damping: 22 }}
+          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary/60 via-primary to-primary/80"
+        />
+        {/* nozzle head */}
+        <motion.div
+          initial={false}
+          animate={{ left: `${pct}%` }}
+          transition={{ type: 'spring', stiffness: 120, damping: 22 }}
+          className="absolute top-1/2 -translate-y-1/2 -ml-1.5 w-3 h-3 rounded-full bg-primary shadow-[0_0_14px_3px_hsl(var(--primary)/0.7)]"
+        />
+        {/* shimmer */}
+        <motion.div
+          aria-hidden
+          className="absolute inset-y-0 w-12 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+          animate={{ x: ['-10%', '110%'] }}
+          transition={{ repeat: Infinity, duration: 2.4, ease: 'linear' }}
+          style={{ mixBlendMode: 'overlay' }}
+        />
+      </div>
+
+      {/* Step nodes (printer / extruder / package / truck) */}
+      <div className="grid grid-cols-3 gap-2 mt-5" style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }}>
         {labels.map((label, i) => {
+          const Icon = stepIcons[i] ?? Printer;
           const done = i < current;
           const active = i === current;
           return (
-            <div key={i} className="flex items-center">
-              <div className="flex flex-col items-center gap-2 min-w-[110px]">
-                <motion.div
-                  initial={false}
-                  animate={{
-                    backgroundColor: done || active ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
-                    scale: active ? 1.05 : 1,
-                  }}
-                  transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                  className={`relative w-8 h-8 rounded-full flex items-center justify-center font-mono text-[11px] font-semibold tabular-nums ${
-                    done || active ? 'text-primary-foreground' : 'text-muted-foreground'
-                  }`}
-                >
-                  {done ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : String(i + 1).padStart(2, '0')}
-                  {active && (
-                    <motion.span
-                      layoutId="step-rail-halo"
-                      className="absolute inset-0 rounded-full ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
-                      transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                    />
-                  )}
-                </motion.div>
-                <span className={`font-mono text-[10px] uppercase tracking-[0.18em] ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {label}
-                </span>
-              </div>
-              {i < labels.length - 1 && (
-                <div className="relative w-16 h-px bg-border -mt-5">
-                  <motion.div
-                    initial={false}
-                    animate={{ scaleX: done ? 1 : 0 }}
-                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                    style={{ originX: 0 }}
-                    className="absolute inset-0 bg-primary"
+            <div key={i} className="flex flex-col items-center gap-1.5">
+              <motion.div
+                initial={false}
+                animate={{
+                  scale: active ? 1.06 : 1,
+                  backgroundColor: done || active ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+                  clipPath: done || active ? 'inset(0% 0 0 0)' : 'inset(0% 0 0 0)',
+                }}
+                transition={{ type: 'spring', stiffness: 280, damping: 26 }}
+                className={`relative w-9 h-9 rounded-xl flex items-center justify-center ${
+                  done || active ? 'text-primary-foreground' : 'text-muted-foreground'
+                }`}
+                aria-label={`Paso ${i + 1} de ${total}: ${label}`}
+              >
+                {done ? <Check className="w-4 h-4" strokeWidth={3} /> : <Icon className="w-4 h-4" strokeWidth={2.2} />}
+                {active && (
+                  <motion.span
+                    layoutId="step-rail-halo"
+                    className="absolute inset-0 rounded-xl ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
+                    transition={{ type: 'spring', stiffness: 260, damping: 28 }}
                   />
-                </div>
-              )}
+                )}
+              </motion.div>
+              <span className={`font-mono text-[9px] uppercase tracking-[0.18em] ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                {label}
+              </span>
             </div>
           );
         })}

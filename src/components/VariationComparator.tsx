@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Columns3, Check, Weight, Ruler } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
+import IOSSheet from '@/components/mobile/IOSSheet';
 
 interface Variation {
   id: string;
@@ -42,9 +42,15 @@ export default function VariationComparator({ variations, basePrice, productImag
 
   const best = list.reduce((min, v) => (effective(v, basePrice) < effective(min, basePrice) ? v : min), list[0]);
 
+  const title = language === 'es' ? 'Comparar variaciones' : 'Compare variations';
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <IOSSheet
+      open={open}
+      onOpenChange={setOpen}
+      title={title}
+      desktopClassName="max-w-3xl bg-card/95 backdrop-blur-2xl border-white/10"
+      trigger={
         <Button
           variant="outline"
           size="sm"
@@ -53,72 +59,67 @@ export default function VariationComparator({ variations, basePrice, productImag
           <Columns3 className="w-3.5 h-3.5" />
           {language === 'es' ? 'Comparar' : 'Compare'}
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl bg-card/95 backdrop-blur-2xl border-white/10">
-        <DialogHeader>
-          <DialogTitle className="font-display text-2xl tracking-tight">
-            {language === 'es' ? 'Comparar variaciones' : 'Compare variations'}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="overflow-x-auto -mx-6 px-6 pb-2">
-          <div
-            className="grid gap-3 min-w-fit"
-            style={{ gridTemplateColumns: `repeat(${list.length}, minmax(180px, 1fr))` }}
-          >
-            {list.map((v, i) => {
-              const price = effective(v, basePrice);
-              const img = v.image_url || productImages[0];
-              const isBest = v.id === best.id;
-              return (
-                <motion.div
-                  key={v.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.06 }}
-                  className={`relative rounded-2xl border p-4 bg-background/60 ${
-                    isBest ? 'border-primary/40 shadow-[0_0_24px_-8px_hsl(var(--primary)/0.4)]' : 'border-white/10'
-                  }`}
-                >
-                  {isBest && (
-                    <span className="absolute -top-2 left-3 font-mono text-[9px] uppercase tracking-[0.2em] px-2 py-0.5 rounded-full bg-gradient-gold text-primary-foreground">
-                      {language === 'es' ? 'Mejor precio' : 'Best price'}
-                    </span>
-                  )}
-                  {img && (
-                    <div className="aspect-square rounded-xl overflow-hidden bg-secondary/50 mb-3">
-                      <img src={img} alt="" className="w-full h-full object-cover" />
-                    </div>
-                  )}
-                  <div className="font-display font-semibold text-sm truncate">
-                    {language === 'es' ? v.name_es || v.name_en : v.name_en}
+      }
+    >
+      <h2 className="hidden md:block font-display text-2xl tracking-tight mb-4">{title}</h2>
+      <div className="overflow-x-auto -mx-2 px-2 pb-2">
+        <div
+          className="grid gap-3 min-w-fit"
+          style={{ gridTemplateColumns: `repeat(${list.length}, minmax(180px, 1fr))` }}
+        >
+          {list.map((v, i) => {
+            const price = effective(v, basePrice);
+            const img = v.image_url || productImages[0];
+            const isBest = v.id === best.id;
+            return (
+              <motion.div
+                key={v.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06 }}
+                className={`relative rounded-2xl border p-4 bg-background/60 ${
+                  isBest ? 'border-primary/40 shadow-[0_0_24px_-8px_hsl(var(--primary)/0.4)]' : 'border-white/10'
+                }`}
+              >
+                {isBest && (
+                  <span className="absolute -top-2 left-3 font-mono text-[9px] uppercase tracking-[0.2em] px-2 py-0.5 rounded-full bg-gradient-gold text-primary-foreground">
+                    {language === 'es' ? 'Mejor precio' : 'Best price'}
+                  </span>
+                )}
+                {img && (
+                  <div className="aspect-square rounded-xl overflow-hidden bg-secondary/50 mb-3">
+                    <img src={img} alt="" className="w-full h-full object-cover" />
                   </div>
-                  <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">
-                    {v.type} · {v.value}
-                  </div>
-                  <div className="mt-3 font-display font-bold text-2xl tabular-nums text-gradient-gold">
-                    ${price.toFixed(2)}
-                  </div>
-                  <ul className="mt-3 space-y-1.5 text-[11px] font-mono uppercase tracking-wider text-muted-foreground/80">
-                    {v.weight_grams ? (
-                      <li className="flex items-center gap-1.5">
-                        <Weight className="w-3 h-3" /> {v.weight_grams}g
-                      </li>
-                    ) : null}
-                    {v.dimensions ? (
-                      <li className="flex items-center gap-1.5">
-                        <Ruler className="w-3 h-3" /> {v.dimensions}mm
-                      </li>
-                    ) : null}
-                    <li className="flex items-center gap-1.5 text-primary/80">
-                      <Check className="w-3 h-3" /> {language === 'es' ? 'Disponible' : 'Available'}
+                )}
+                <div className="font-display font-semibold text-sm truncate">
+                  {language === 'es' ? v.name_es || v.name_en : v.name_en}
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">
+                  {v.type} · {v.value}
+                </div>
+                <div className="mt-3 font-display font-bold text-2xl tabular-nums text-gradient-gold">
+                  ${price.toFixed(2)}
+                </div>
+                <ul className="mt-3 space-y-1.5 text-[11px] font-mono uppercase tracking-wider text-muted-foreground/80">
+                  {v.weight_grams ? (
+                    <li className="flex items-center gap-1.5">
+                      <Weight className="w-3 h-3" /> {v.weight_grams}g
                     </li>
-                  </ul>
-                </motion.div>
-              );
-            })}
-          </div>
+                  ) : null}
+                  {v.dimensions ? (
+                    <li className="flex items-center gap-1.5">
+                      <Ruler className="w-3 h-3" /> {v.dimensions}mm
+                    </li>
+                  ) : null}
+                  <li className="flex items-center gap-1.5 text-primary/80">
+                    <Check className="w-3 h-3" /> {language === 'es' ? 'Disponible' : 'Available'}
+                  </li>
+                </ul>
+              </motion.div>
+            );
+          })}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </IOSSheet>
   );
 }

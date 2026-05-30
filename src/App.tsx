@@ -14,6 +14,8 @@ import PrintingBackground from "@/components/PrintingBackground";
 import PageTransition from "@/components/motion/PageTransition";
 import PrintProgressBar from "@/components/motion/PrintProgressBar";
 import BottomTabBar from "@/components/mobile/BottomTabBar";
+import PrintHeadScroll from "@/components/motion/PrintHeadScroll";
+import InstallPWAPopup from "@/components/InstallPWAPopup";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
@@ -67,6 +69,7 @@ const AppContent = () => {
       {!isAdmin && <PrintingBackground />}
       {!isAdmin && <DiscountBanner />}
       <PrintProgressBar />
+      {!isAdmin && <PrintHeadScroll />}
       <PageTransition>
         <Routes location={location}>
           <Route path="/" element={<Index />} />
@@ -101,6 +104,7 @@ const AppContent = () => {
       </PageTransition>
       {!isAdmin && <CartAddedToast />}
       <BottomTabBar />
+      {!isAdmin && <InstallPWAPopup />}
     </>
   );
 };

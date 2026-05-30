@@ -1,93 +1,73 @@
-# Plan — Admin & Product Upgrades
+# Plan final: pendientes motion + IOSSheet + checkout-as-print + PWA completa
 
-## 1. Precios manuales (producto + variaciones)
+## 1) IOSSheet (`src/components/mobile/IOSSheet.tsx`)
+Wrapper adaptativo: en desktop usa `Dialog` de shadcn; en móvil renderiza un bottom sheet con grabber, drag-to-dismiss (>120px o velocity>500), bordes redondeados arriba, backdrop blur, `safe-area-inset-bottom`. Aplicado a `VariationComparator`, `ShareMenu` y zoom de imagen en `ProductDetail`. Diálogos admin no cambian.
 
-Hoy `price_modifier` se sobreescribe siempre con `(peso/1000) * costo_material`. Vamos a permitir override manual sin perder el cálculo como sugerencia.
+## 2) Scroll-linked print head (`src/components/motion/PrintHeadScroll.tsx`)
+Barra fina top con cabezal dorado (punto + glow) que avanza según `useScroll` dejando línea de filamento atrás. Solo en `/catalog`, `/3dmodels/*`, `/checkout`, `/our-process`, `/materials`. Respeta `prefers-reduced-motion`. Montado en `App.tsx`.
 
-- Migración DB: agregar a `product_variations`:
-  - `price_override numeric NULL` (precio manual; si está, se usa este)
-  - `use_manual_price boolean DEFAULT false`
-  - El precio efectivo = `use_manual_price ? price_override : calculated`.
-- En el form de variación (AdminProducts wizard):
-  - Toggle "Precio manual" junto a "Precio Calc.".
-  - Si OFF: muestra precio calculado (como hoy).
-  - Si ON: input editable + chip "Sugerido: $X.XX" del cálculo automático.
-- `base_price` del producto ya es manual; solo añadir un chip "Sugerido por IA: $X" cuando venga del flujo AI, sin forzar.
-- Front (ProductDetail / Cart / Checkout): leer el precio efectivo desde la variación. Si no hay override, se mantiene el comportamiento actual.
+## 3) Checkout-as-3D-print
+Reemplazo de `StepRail` en `Checkout.tsx` por un visualizador de impresión:
+- Header: "Capa N de M · X% impreso" en vez de "Paso N".
+- Barra de progreso = filamento dorado extruyéndose (mismo lenguaje que `PrintProgressBar`).
+- Cada paso completado se "solidifica" (clip-path desde arriba).
+- Iconos: `Printer` / `Cog` / `Package` / `Truck`.
+- Sin cambios de lógica.
 
-## 2. Renombrar "Configurar" (estilo Amazon)
+## 4) PWA completa (instalable + offline + popup ocasional)
 
-Amazon usa el **nombre del atributo** como título (ej: "Size:", "Color:", "Style:") con el valor seleccionado al lado.
+### a) Dependencias (ya instaladas)
+`vite-plugin-pwa` y `workbox-window` añadidas. Falta cablearlas.
 
-- Reemplazar el bloque `CONFIGURAR / TAMAÑO / SELECCIONADO` en `ProductDetail.tsx` por encabezados tipo Amazon:
-  - `Tamaño: 20 cm` / `Size: 20 cm` (label = `variation.type`, valor = opción activa).
-  - Si no hay variaciones: `Edición: Estándar`.
-- Aplica el mismo patrón si hay más de un tipo (size + color → dos filas).
+### b) `vite.config.ts`
+Agregar `VitePWA({...})`:
+- `registerType: "autoUpdate"`, `injectRegister: null` (registro manual con guard).
+- `devOptions.enabled: false` (nunca SW en preview).
+- Manifest: nombre, iconos 192/512 (`/logo.png`), `display: standalone`, `theme_color #09090F`, `lang: "es"`, `categories`, `id: "/"`.
+- Workbox:
+  - `navigateFallbackDenylist`: `/~oauth`, `/admin`, `/auth`, `/api`.
+  - `NetworkFirst` para HTML (3s timeout) → evita stale shells.
+  - `StaleWhileRevalidate` para JS/CSS.
+  - `CacheFirst` para imágenes (30d) y fuentes Google (1y).
+  - `cleanupOutdatedCaches: true`, `clientsClaim`, `skipWaiting`.
 
-## 3. AI Image Studio (rework)
+### c) `src/main.tsx`
+Registro manual del SW con **guard estricto**:
+- Detecta iframe (`window.self !== window.top`) → unregister cualquier SW.
+- Detecta hosts de preview (`id-preview--`, `preview--`, `*.lovableproject.com`, `*.lovableproject-dev.com`, localhost) → unregister.
+- Solo registra (`registerSW({ immediate: true })`) en producción real (HTTPS, top-level).
 
-Problemas actuales: la IA mete imágenes ajenas/duplicadas; al cambiar de imagen se pierden las ya editadas; no se pueden añadir fotos propias como adicionales.
+### d) `src/vite-env.d.ts`
+Añadir `/// <reference types="vite-plugin-pwa/client" />` para tipos del módulo virtual.
 
-Nuevo flujo en el paso "Media" del wizard:
+### e) Hook `src/hooks/use-install-prompt.ts`
+- Escucha `beforeinstallprompt` (Android/Chrome) y `appinstalled`.
+- Detecta iOS Safari (UA sin CriOS/FxiOS) y standalone (`display-mode` o `navigator.standalone`).
+- Dismiss persistente 14 días en localStorage.
+- API: `{ canPrompt, isIOS, installed, shouldShow, promptInstall(), dismiss() }`.
 
-- **Imagen primaria única**: el edge function genera **una sola** versión limpia del producto (no extrae galería del sitio externo, solo usa la URL como referencia visual).
-- **"Generar más ángulos"**: botón con selector (2 / 4 / 6) que llama al edge function con prompts tipo `front / 3-4 view / side / top / detail / lifestyle`, manteniendo identidad (color/textura/diseño) — solo cambia ángulo/iluminación/fondo.
-- **Galería persistente**: estado `productImages: Array<{ id, url, source: 'ai' | 'upload', isPrimary, angle? }>` guardado en memoria del wizard + en `localStorage` por draft id para sobrevivir refrescos.
-- **Subir desde galería**: drag-and-drop / file picker → se añaden como `source: 'upload'`, nunca reemplazan las AI.
-- **Bug fix**: seleccionar una miniatura solo cambia `primaryImageId`; no re-dispara generación ni borra ediciones. Las ediciones AI se guardan inmutables por imagen.
-- Acciones por imagen: marcar como primaria, regenerar (solo esa), editar con AI (mantener identidad), eliminar.
+### f) Componente `src/components/InstallPWAPopup.tsx` (popup ocasional, **NO banner permanente**)
+- Aparece como toast/card flotante (esquina inferior derecha en desktop; arriba del BottomTabBar en móvil).
+- Reglas de aparición:
+  - Solo después de **≥2 visitas** (contador en localStorage, una por sesión).
+  - Cooldown **3 días** entre apariciones.
+  - Delay 8s tras carga para no interrumpir.
+  - Oculto en `/admin/*` y `/auth`.
+  - Oculto si ya instalado o dismissed en últimos 14 días.
+- Botones: "Instalar" → `promptInstall()` nativo en Android/Chrome; en iOS abre `IOSSheet` con instrucciones (Share → Añadir a inicio). "Ahora no" → dismiss 14d.
 
-## 4. Wizard "Apple + Palantir" + preview en vivo + AI por variación
+### g) `src/App.tsx`
+Montar `<InstallPWAPopup />` y `<PrintHeadScroll />` junto a los demás providers de motion.
 
-- **Panel derecho interactivo** (`lg:col-span-1` del wizard): convertirlo en **Live Preview Card** que refleja en tiempo real:
-  - Imagen primaria seleccionada (con fade entre cambios).
-  - Nombre, categoría, precio efectivo (incluye override).
-  - Variación seleccionada con su peso/dimensiones.
-  - Tarjeta de specs estilo Palantir (mono, `tabular-nums`, hairlines).
-  - Mini-progreso del wizard (Media → Identidad → Precio → Variaciones → Publicar) con paso activo destacado.
-- **Imagen opcional por variación**:
-  - Migración: `product_variations.image_url text NULL`.
-  - En cada card de variación: slot "Imagen de variación" con dos botones — "Subir" y "Generar con IA" (prompt = imagen primaria + descripción de la variación, manteniendo identidad).
-  - En `ProductDetail`: al cambiar de variación, si tiene `image_url`, el hero hace crossfade a esa imagen (vuelve a la primaria si la variación no tiene).
-- **Estética general del wizard**: command bar sticky con breadcrumbs y `DRAFT-XXXX`, glass cards (`bg-card/40 backdrop-blur-xl`), separadores hairline, tipografía mono para labels técnicos, micro-animaciones con framer-motion en transiciones de paso.
+## Archivos
 
-## 5. Admin panel — refresco Apple + Palantir
+**Nuevos:** `src/components/mobile/IOSSheet.tsx`, `src/components/motion/PrintHeadScroll.tsx`, `src/components/InstallPWAPopup.tsx`, `src/hooks/use-install-prompt.ts`.
 
-Mantener paleta (negro + oro). Tocar `AdminLayout`, `AdminSidebar`, `AdminDashboard`, headers de cada página admin.
+**Editados:** `vite.config.ts`, `src/main.tsx`, `src/vite-env.d.ts`, `src/App.tsx`, `src/pages/Checkout.tsx` (StepRail), `src/pages/ProductDetail.tsx` (IOSSheet para comparator/zoom), `src/components/VariationComparator.tsx`, `src/components/ShareMenu.tsx`, `public/manifest.webmanifest` (refinos opcionales — el manifest principal lo genera vite-plugin-pwa).
 
-- **Sidebar**: glass, iconos finos, secciones agrupadas (Catálogo / Ventas / Sistema), indicador activo de barra vertical dorada, badge mono con conteos (ej. pedidos pendientes).
-- **Top bar**: command bar con breadcrumbs + buscador global (⌘K) + indicador de entorno (`LIVE`/`TEST`).
-- **Dashboard**: bento grid de KPIs (revenue, pedidos hoy, conversión, stock bajo), sparklines, tabla de actividad reciente estilo Palantir (mono, hairlines, hover row highlight).
-- **Tablas (Products/Orders/etc.)**: density toggle, columnas mono para IDs/SKUs, status pills consistentes, row hover con acento dorado sutil.
+## Sin página `/install`
+Descartada. La conversión vendrá del popup ocasional + manifest nativo del navegador.
 
-## 6. Ideas adicionales (no se implementan ahora, listadas para que elijas)
-
-Venta / conversión:
-- Checkout express con resumen sticky y "buy again" desde Profile.
-- Upsell de variación mayor en cart ("+$X y obtén 20cm").
-- Wishlist → email automático cuando baja de stock o vuelve.
-- Reviews con foto verificada del comprador en homepage trending.
-- Códigos de descuento + countdown banner.
-
-Admin:
-- Vista Kanban de pedidos (pendiente → impresión → enviado → entregado) con drag.
-- Calculadora de margen en línea (precio − costo material × peso − envío).
-- Bulk AI: regenerar imágenes faltantes de varios productos.
-- Logs filtrables por tipo + export CSV.
-- Notificaciones in-app (campana) para pedidos nuevos y requests.
-
-Producto / marketing:
-- 3D viewer (model-viewer) opcional por producto.
-- Comparador de variaciones lado a lado.
-- Generador de OG images por producto con la imagen primaria.
-- Programa de referidos.
-
-## Detalles técnicos
-
-- Migraciones SQL en una sola call (variaciones: `price_override`, `use_manual_price`, `image_url`).
-- Edge function `ai-product-import`: nuevo modo `mode: 'angles'` que recibe imagen base + lista de ángulos y devuelve N imágenes manteniendo identidad. Eliminar el scraping masivo de imágenes del sitio externo (solo usa 1 como referencia).
-- Storage: bucket `product-images` (ya existente o nuevo) para guardar uploads y AI persistidos.
-- Tipos: extender `ProductVariation` y `Product` interfaces en `AdminProducts.tsx` y `ProductDetail.tsx`.
-- Sin cambios en lógica de carrito/orden más allá de leer `price_override` cuando aplique.
-
-¿Procedo así, o querés que ajuste algo (por ejemplo: hacer items 1–4 ahora y dejar el refresh del admin (#5) para otra ronda)?
+## Notas
+- PWA con SW solo funciona en el dominio publicado (HTTPS top-level). En el preview de Lovable el SW se desregistra automáticamente.
+- Todo respeta `prefers-reduced-motion`.
