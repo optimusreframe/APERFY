@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Search, ShoppingBag, Heart, User as UserIcon } from 'lucide-react';
+import { Home, Sparkles, ShoppingBag, Heart, User as UserIcon } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,7 +23,7 @@ export default function BottomTabBar() {
 
   const tabs = [
     { to: '/', icon: Home, label: 'Inicio' },
-    { to: '/catalog', icon: Search, label: 'Catálogo' },
+    { to: '/request-model', icon: Sparkles, label: 'Ask\n3D', multiline: true },
     { to: '/cart', icon: ShoppingBag, label: 'Carrito', badge: itemCount },
     { to: '/profile?tab=favorites', icon: Heart, label: 'Favoritos', match: '/profile' },
     { to: user ? '/profile' : '/auth', icon: UserIcon, label: user ? 'Yo' : 'Entrar' },
@@ -33,7 +33,6 @@ export default function BottomTabBar() {
 
   return (
     <>
-      {/* spacer so content isn't hidden behind the bar */}
       <div aria-hidden className="md:hidden h-[calc(64px+env(safe-area-inset-bottom))]" />
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-50"
@@ -82,13 +81,23 @@ export default function BottomTabBar() {
                         </span>
                       ) : null}
                     </div>
-                    <span
-                      className={`text-[10px] font-medium tracking-tight ${
-                        active ? 'text-primary' : 'text-muted-foreground/80'
-                      }`}
-                    >
-                      {tab.label}
-                    </span>
+                    {tab.multiline ? (
+                      <span
+                        className={`text-[9px] font-semibold tracking-tight leading-[1] text-center whitespace-pre ${
+                          active ? 'text-primary' : 'text-muted-foreground/80'
+                        }`}
+                      >
+                        {tab.label}
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-[10px] font-medium tracking-tight ${
+                          active ? 'text-primary' : 'text-muted-foreground/80'
+                        }`}
+                      >
+                        {tab.label}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );
