@@ -532,14 +532,62 @@ export default function SplashLoader3D({ onComplete }: { onComplete: () => void 
         <Scene phase={phase} mode={mode} scale={scale} particleSize={particleSize} />
       </Canvas>
 
-      <div
-        className="absolute bottom-12 left-1/2 -translate-x-1/2 text-primary/60 text-sm tracking-[0.3em] uppercase font-light"
-        style={{
-          opacity: phase >= 2 ? 1 : 0,
-          transition: "opacity 0.5s ease-in",
-        }}
-      >
-        3D Printing
+      {/* ─── Premium Palantir-style HUD ─── */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-10 sm:bottom-14 flex flex-col items-center text-center px-6">
+        <AnimatePresence>
+          {phase >= 1 && (
+            <motion.div
+              key="kicker"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.5em] text-primary/70 mb-3"
+            >
+              INITIALIZING
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {phase >= 1 && (
+            <motion.div
+              key="bar"
+              initial={{ opacity: 0, scaleX: 0 }}
+              animate={{ opacity: 1, scaleX: 1 }}
+              transition={{ duration: 2.0, delay: 0.1, ease: "easeInOut" }}
+              className="h-px w-44 sm:w-56 origin-left bg-gradient-to-r from-transparent via-primary to-transparent"
+              style={{ filter: "drop-shadow(0 0 4px hsl(var(--primary) / 0.6))" }}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {phase >= 2 && (
+            <motion.div
+              key="layer"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="mt-3 font-mono text-[9px] sm:text-[10px] tracking-[0.3em] uppercase text-primary/50 tabular-nums"
+            >
+              LAYER 100 / 100 · COMPLETE
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {phase >= 2 && (
+            <motion.div
+              key="label"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="mt-2 text-primary/80 text-xs sm:text-sm tracking-[0.35em] uppercase font-light"
+            >
+              3D · PRINT
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
