@@ -43,10 +43,11 @@ export default function AdminLayout() {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">live</span>
               </div>
-              <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              <div className="hidden lg:flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                 <Activity className="w-3 h-3 text-primary/70" />
                 <span>{sessionId}</span>
               </div>
+              <NotificationBell />
             </div>
           </header>
           <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
