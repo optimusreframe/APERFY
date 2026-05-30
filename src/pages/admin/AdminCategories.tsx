@@ -90,9 +90,12 @@ export default function AdminCategories() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display text-2xl font-bold text-foreground">Categories</h1>
+    <div className="max-w-[1400px] mx-auto">
+      <AdminPageHeader
+        eyebrow="catalog · categories"
+        title="Categories"
+        meta={`${categories.length} total`}
+        actions={
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); } }}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="w-4 h-4" />Add Category</Button>
