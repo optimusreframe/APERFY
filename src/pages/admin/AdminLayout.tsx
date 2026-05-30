@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import AdminSidebar from './AdminSidebar';
 import { Activity } from 'lucide-react';
+import NotificationBell from '@/components/admin/NotificationBell';
 
 const routeLabels: Record<string, string> = {
   '/admin': 'Dashboard',
@@ -12,6 +13,7 @@ const routeLabels: Record<string, string> = {
   '/admin/requests': 'Requests',
   '/admin/payments': 'Payments',
   '/admin/shipping': 'Shipping',
+  '/admin/discounts': 'Discounts',
   '/admin/logs': 'Logs',
 };
 
