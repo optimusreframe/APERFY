@@ -366,21 +366,38 @@ function BgItem({ data }: { data: BgParticle }) {
 function Scene({ phase, mode, scale, particleSize }: { phase: number; mode: "desktop" | "tablet" | "mobile"; scale: number; particleSize: number }) {
   const targets = useMemo(() => buildTargets(mode, scale), [mode, scale]);
 
-  const particles = useMemo(() => {
-    return targets.map((t, i) => ({
-      ...t,
-      initialPos: [
-        (Math.random() - 0.5) * 16,
-        (Math.random() - 0.5) * 12,
-        (Math.random() - 0.5) * 10,
-      ] as [number, number, number],
-      initialRot: [
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2,
-      ] as [number, number, number],
-      key: i,
-    }));
+  const { particles, layerYs } = useMemo(() => {
+    if (targets.length === 0) return { particles: [], layerYs: [] as number[] };
+    // Find min/max Y to build layer-line stagger (bottom prints first)
+    let minY = Infinity, maxY = -Infinity;
+    for (const t of targets) {
+      if (t.pos[1] < minY) minY = t.pos[1];
+      if (t.pos[1] > maxY) maxY = t.pos[1];
+    }
+    const range = Math.max(0.001, maxY - minY);
+    const PRINT_DURATION = 0.55; // seconds across all layers
+    const parts = targets.map((t, i) => {
+      const normalized = (t.pos[1] - minY) / range; // 0 (bottom) → 1 (top)
+      const printDelay = normalized * PRINT_DURATION;
+      return {
+        ...t,
+        initialPos: [
+          (Math.random() - 0.5) * 16,
+          (Math.random() - 0.5) * 12,
+          (Math.random() - 0.5) * 10,
+        ] as [number, number, number],
+        initialRot: [
+          Math.random() * Math.PI * 2,
+          Math.random() * Math.PI * 2,
+          Math.random() * Math.PI * 2,
+        ] as [number, number, number],
+        key: i,
+        printDelay,
+      };
+    });
+    // Distinct Y layers, ascending
+    const ys = Array.from(new Set(targets.map((t) => Number(t.pos[1].toFixed(2))))).sort((a, b) => a - b);
+    return { particles: parts, layerYs: ys };
   }, [targets]);
 
   return (
@@ -389,6 +406,8 @@ function Scene({ phase, mode, scale, particleSize }: { phase: number; mode: "des
       <pointLight position={[0, 5, 3]} intensity={1.5} color="#D4A017" />
       <spotLight position={[0, 0, 8]} intensity={1} angle={0.5} penumbra={0.5} color="#ffffff" />
       <BackgroundParticles />
+      <BuildPlate phase={phase} scale={scale} />
+      <PrintHead phase={phase} ys={layerYs} scale={scale} />
       {particles.map((p) => (
         <Particle
           key={p.key}
@@ -398,6 +417,7 @@ function Scene({ phase, mode, scale, particleSize }: { phase: number; mode: "des
           initialRot={p.initialRot}
           phase={phase}
           size={particleSize}
+          printDelay={p.printDelay}
         />
       ))}
     </>
