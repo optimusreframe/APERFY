@@ -19,8 +19,10 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
+import DiscountCodeInput from '@/components/DiscountCodeInput';
+
 export default function Cart() {
-  const { items, removeFromCart, updateQuantity, getTotal, clearCart, itemCount } = useCart();
+  const { items, removeFromCart, updateQuantity, getTotal, clearCart, itemCount, discount, getDiscountAmount, getFinalTotal } = useCart();
   const { user } = useAuth();
   const { language, t } = useLanguage();
   const navigate = useNavigate();
@@ -34,6 +36,8 @@ export default function Cart() {
   };
 
   const subtotal = getTotal();
+  const discountAmount = getDiscountAmount();
+  const finalTotal = getFinalTotal();
 
   return (
     <div className="min-h-screen bg-background">
@@ -255,6 +259,12 @@ export default function Cart() {
                     <dt className="text-muted-foreground">{t.cart.subtotal}</dt>
                     <dd className="font-mono tabular-nums text-foreground">${subtotal.toFixed(2)}</dd>
                   </div>
+                  {discount && discountAmount > 0 && (
+                    <div className="flex justify-between items-baseline">
+                      <dt className="text-primary font-mono text-[11px] uppercase tracking-wider">{discount.code}</dt>
+                      <dd className="font-mono tabular-nums text-primary">−${discountAmount.toFixed(2)}</dd>
+                    </div>
+                  )}
                   <div className="flex justify-between items-baseline">
                     <dt className="text-muted-foreground">{language === 'es' ? 'Envío' : 'Shipping'}</dt>
                     <dd className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground/70">
@@ -263,18 +273,22 @@ export default function Cart() {
                   </div>
                 </dl>
 
+                <div className="pt-3 mt-3 border-t border-white/[0.06]">
+                  <DiscountCodeInput />
+                </div>
+
                 <div className="h-px bg-white/[0.06] my-4" />
 
                 <div className="flex items-baseline justify-between">
                   <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">{t.cart.total}</span>
                   <AnimatePresence mode="wait">
                     <motion.span
-                      key={subtotal.toFixed(2)}
+                      key={finalTotal.toFixed(2)}
                       initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
                       transition={{ type: 'spring', stiffness: 280, damping: 30 }}
                       className="font-display font-bold text-2xl text-foreground tabular-nums tracking-tight"
                     >
-                      ${subtotal.toFixed(2)}
+                      ${finalTotal.toFixed(2)}
                     </motion.span>
                   </AnimatePresence>
                 </div>

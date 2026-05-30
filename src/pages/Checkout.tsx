@@ -244,7 +244,7 @@ function SectionCard({
 }
 
 export default function Checkout() {
-  const { items, getTotal, clearCart } = useCart();
+  const { items, getTotal, clearCart, discount, getDiscountAmount, getFinalTotal } = useCart();
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const navigate = useNavigate();
@@ -318,7 +318,8 @@ export default function Checkout() {
   , [items]);
   const shippingCost = selectedProvider ? Number(selectedProvider.base_rate) + (totalWeight * Number(selectedProvider.per_kg_rate)) : 0;
   const subtotal = getTotal();
-  const orderTotal = subtotal + shippingCost;
+  const discountAmount = getDiscountAmount();
+  const orderTotal = Math.max(0, getFinalTotal() + shippingCost);
 
   const setF = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
 
@@ -407,9 +408,15 @@ export default function Checkout() {
           state: vf.state, zip_code: vf.zipCode, country: vf.country,
         },
         shipping_provider_id: selectedShipping || null, shipping_cost: shippingCost,
+        discount_code_id: discount?.id || null,
+        discount_amount: discountAmount,
       } as any)
       .select().single();
     if (orderError) throw orderError;
+    if (discount?.id) {
+      // best-effort increment usage counter
+      await supabase.rpc('increment_discount_usage' as any, { _id: discount.id }).then(() => {}, () => {});
+    }
     const orderItems = items.map(item => ({
       order_id: order.id, product_id: item.productId, quantity: item.quantity,
       unit_price: item.unitPrice + item.selectedVariations.reduce((s, v) => s + v.priceModifier, 0),
@@ -533,6 +540,12 @@ export default function Checkout() {
           <span className="font-mono uppercase tracking-wider text-[10px]">{language === 'es' ? 'Subtotal' : 'Subtotal'}</span>
           <span className="text-foreground tabular-nums">${subtotal.toFixed(2)}</span>
         </div>
+        {discount && discountAmount > 0 && (
+          <div className="flex justify-between">
+            <span className="font-mono uppercase tracking-wider text-[10px] text-primary">{discount.code}</span>
+            <span className="text-primary tabular-nums">−${discountAmount.toFixed(2)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-muted-foreground">
           <span className="font-mono uppercase tracking-wider text-[10px]">{language === 'es' ? 'Envío' : 'Shipping'}</span>
           <motion.span

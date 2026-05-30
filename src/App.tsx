@@ -33,11 +33,13 @@ import AdminRequests from "./pages/admin/AdminRequests";
 import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
 import AdminShipping from "./pages/admin/AdminShipping";
 import AdminLogs from "./pages/admin/AdminLogs";
+import AdminDiscounts from "./pages/admin/AdminDiscounts";
 import RequestModel from "./pages/RequestModel";
 import OurProcess from "./pages/OurProcess";
 import Materials from "./pages/Materials";
 import EmailUnsubscribe from "./pages/EmailUnsubscribe";
 import CartAddedToast from "./components/CartAddedToast";
+import DiscountBanner from "./components/DiscountBanner";
 
 const SplashLoader3D = lazy(() => import("@/components/SplashLoader3D"));
 
@@ -60,6 +62,7 @@ const AppContent = () => {
         </Suspense>
       )}
       {!isAdmin && <PrintingBackground />}
+      {!isAdmin && <DiscountBanner />}
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
@@ -85,6 +88,7 @@ const AppContent = () => {
                   <Route path="requests" element={<AdminRequests />} />
                   <Route path="payments" element={<AdminPaymentSettings />} />
                   <Route path="shipping" element={<AdminShipping />} />
+                  <Route path="discounts" element={<AdminDiscounts />} />
                   <Route path="logs" element={<AdminLogs />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />

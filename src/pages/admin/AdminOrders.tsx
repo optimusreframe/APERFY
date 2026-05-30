@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, Package, DollarSign } from 'lucide-react';
+import { ChevronDown, ChevronUp, Package, DollarSign, List, LayoutGrid } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
 import { sendTransactionalEmail } from '@/lib/send-email';
@@ -26,6 +26,10 @@ export default function AdminOrders() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [view, setView] = useState<'list' | 'kanban'>(() => (localStorage.getItem('admin-orders-view') as 'list' | 'kanban') || 'list');
+  const [dragId, setDragId] = useState<string | null>(null);
+
+  const switchView = (v: 'list' | 'kanban') => { setView(v); localStorage.setItem('admin-orders-view', v); };
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['admin-orders'],
@@ -117,7 +121,21 @@ export default function AdminOrders() {
 
   return (
     <div className="max-w-[1400px] mx-auto">
-      <AdminPageHeader eyebrow="operations · orders" title="Orders" meta={`${orders.length} total`} />
+      <AdminPageHeader
+        eyebrow="operations · orders"
+        title="Orders"
+        meta={`${orders.length} total`}
+        actions={
+          <div className="inline-flex rounded-lg border border-border/60 bg-card/40 p-0.5">
+            <button onClick={() => switchView('list')} className={`px-3 h-8 rounded-md text-[11px] font-mono uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors ${view === 'list' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}>
+              <List className="w-3.5 h-3.5" /> List
+            </button>
+            <button onClick={() => switchView('kanban')} className={`px-3 h-8 rounded-md text-[11px] font-mono uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors ${view === 'kanban' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}>
+              <LayoutGrid className="w-3.5 h-3.5" /> Kanban
+            </button>
+          </div>
+        }
+      />
 
 
       {isLoading ? (
@@ -128,6 +146,65 @@ export default function AdminOrders() {
         <div className="text-center py-12 text-muted-foreground">
           <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p>No orders yet</p>
+        </div>
+      ) : view === 'kanban' ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {statuses.map(status => {
+            const colOrders = orders.filter((o: any) => o.status === status);
+            const colTotal = colOrders.reduce((s: number, o: any) => s + Number(o.total), 0);
+            return (
+              <div
+                key={status}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => {
+                  if (dragId) {
+                    const o = orders.find((x: any) => x.id === dragId);
+                    if (o && o.status !== status) updateStatus.mutate({ id: dragId, status });
+                  }
+                  setDragId(null);
+                }}
+                className="min-h-[400px] rounded-xl border border-border/60 bg-card/30 backdrop-blur-xl p-2 flex flex-col"
+              >
+                <div className="px-2 py-2 mb-1 border-b border-border/40 flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{status}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground/60 tabular-nums">${colTotal.toFixed(2)}</div>
+                  </div>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono tabular-nums border ${statusColors[status]}`}>{colOrders.length}</span>
+                </div>
+                <div className="space-y-2 flex-1 overflow-y-auto">
+                  {colOrders.map((order: any) => (
+                    <div
+                      key={order.id}
+                      draggable
+                      onDragStart={() => setDragId(order.id)}
+                      onDragEnd={() => setDragId(null)}
+                      className={`rounded-lg border border-border/60 bg-background/50 p-2.5 cursor-grab active:cursor-grabbing hover:border-primary/40 transition-all ${dragId === order.id ? 'opacity-50' : ''}`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <span className="font-mono text-[10px] text-muted-foreground">#{order.id.slice(0, 8).toUpperCase()}</span>
+                        <span className="font-mono text-[11px] font-semibold tabular-nums">${Number(order.total).toFixed(2)}</span>
+                      </div>
+                      <div className="text-[12px] text-foreground truncate font-medium">
+                        {(order as any).profiles?.full_name || (order.shipping_address as any)?.full_name || '—'}
+                      </div>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span className="text-[10px] text-muted-foreground/70 font-mono">
+                          {new Date(order.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        </span>
+                        {order.payment_method && (
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">{order.payment_method}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {colOrders.length === 0 && (
+                    <div className="text-center text-[10px] text-muted-foreground/40 py-6 font-mono uppercase tracking-wider">empty</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
