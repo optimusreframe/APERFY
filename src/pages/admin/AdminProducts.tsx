@@ -1671,9 +1671,12 @@ export default function AdminProducts() {
                   </p>
                 )}
 
-                {/* ── STEP 0: MEDIA ── */}
-                {wizardStep === 0 && (
+                {/* ── PRODUCT FORM CONTENT (all sections visible; sidebar steps are navigational anchors) ── */}
                 <div className="space-y-3">
+                  <div>
+                    <h3 className="text-2xl font-semibold tracking-tight">{['Media del producto','Identidad','Precio y categoría','Variaciones','Revisar y publicar'][wizardStep]}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Todos los campos visibles. Usa la barra lateral para navegar.</p>
+                  </div>
                   <div>
                     <h3 className="text-2xl font-semibold tracking-tight">Media del producto</h3>
                     <p className="text-sm text-muted-foreground mt-1">Sube hasta {MAX_MEDIA} imágenes o videos. La primera es la portada.</p>
