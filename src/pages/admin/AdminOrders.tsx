@@ -26,6 +26,10 @@ export default function AdminOrders() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [view, setView] = useState<'list' | 'kanban'>(() => (localStorage.getItem('admin-orders-view') as 'list' | 'kanban') || 'list');
+  const [dragId, setDragId] = useState<string | null>(null);
+
+  const switchView = (v: 'list' | 'kanban') => { setView(v); localStorage.setItem('admin-orders-view', v); };
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['admin-orders'],
