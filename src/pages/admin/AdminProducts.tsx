@@ -203,11 +203,17 @@ export default function AdminProducts() {
     material_id: string;
     dimensions: string;
     is_active: boolean;
+    price_override: number | null;
+    use_manual_price: boolean;
+    image_url: string | null;
     _isNew?: boolean;
     _deleted?: boolean;
+    _uploadingImage?: boolean;
+    _generatingImage?: boolean;
   }
   const [productVariations, setProductVariations] = useState<VariationRow[]>([]);
   const [loadingVariations, setLoadingVariations] = useState(false);
+
 
   // Edit dialog AI state
   const [editAiImageOpen, setEditAiImageOpen] = useState(false);
