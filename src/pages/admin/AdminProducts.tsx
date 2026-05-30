@@ -713,6 +713,62 @@ export default function AdminProducts() {
     }
   };
 
+  const ANGLE_LABELS: Record<string, string> = {
+    three_quarter: '3/4 hero',
+    side: 'Lateral',
+    back: 'Trasera',
+    top: 'Cenital',
+    macro: 'Macro',
+    lifestyle: 'Lifestyle',
+  };
+
+  const handleGenerateAngles = async (selected: string[]) => {
+    if (!aiStoredImageUrl) {
+      toast({ title: 'Genera primero la imagen principal', variant: 'destructive' });
+      return;
+    }
+    if (selected.length === 0) return;
+    setAiAnglesGenerating(true);
+
+    // Seed placeholders so the user sees them appear
+    const seeds: AiAngle[] = selected.map(a => ({ url: '', path: '', angle: a, loading: true }));
+    setAiAngles(prev => [...prev, ...seeds]);
+
+    await Promise.all(selected.map(async (angle) => {
+      try {
+        const { data, error } = await supabase.functions.invoke('ai-product-import', {
+          body: { action: 'generate_angle', sourceImage: aiStoredImageUrl, angle },
+        });
+        if (error || !data?.success) {
+          throw new Error(data?.error || error?.message || 'Error al generar ángulo');
+        }
+        const generated = data.data.generated_image;
+        const { url, path } = await persistAiImage(generated);
+        setAiAngles(prev => prev.map(a =>
+          a.angle === angle && a.loading ? { ...a, url, path, loading: false } : a
+        ));
+      } catch (e: any) {
+        setAiAngles(prev => prev.map(a =>
+          a.angle === angle && a.loading ? { ...a, loading: false, error: e.message } : a
+        ));
+        toast({ title: `Error en ángulo ${ANGLE_LABELS[angle] || angle}`, description: e.message, variant: 'destructive' });
+      }
+    }));
+
+    setAiAnglesGenerating(false);
+  };
+
+  const removeAiAngle = (angleKey: string, url: string) => {
+    setAiAngles(prev => {
+      const target = prev.find(a => a.angle === angleKey && a.url === url);
+      if (target?.path) {
+        supabase.storage.from('product-images').remove([target.path]).catch(() => {});
+      }
+      return prev.filter(a => !(a.angle === angleKey && a.url === url));
+    });
+  };
+
+
   const handleAiScrape = async () => {
     if (!aiUrl) {
       toast({ title: 'Ingresa una URL', variant: 'destructive' });
