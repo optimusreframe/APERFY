@@ -893,29 +893,29 @@ export default function ProductDetail() {
       </div>
 
 
-      {/* ═══ Mobile Floating Action Bar ═══ */}
-      <motion.div
-        initial={{ y: 100 }} animate={{ y: 0 }}
-        transition={{ type: 'spring', stiffness: 260, damping: 30, delay: 0.3 }}
-        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
-      >
-        <div className="bg-card/85 backdrop-blur-2xl border-t border-white/[0.08] px-4 py-3 flex items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">Total</div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-xl font-black text-gradient-gold tabular-nums">${totalPrice.toFixed(2)}</span>
-              <span className="font-mono text-[10px] text-muted-foreground tabular-nums">×{String(quantity).padStart(2, '0')}</span>
-            </div>
-          </div>
-          <Button
-            onClick={handleAddToCart}
-            className="bg-gradient-gold text-primary-foreground font-bold gap-2 h-12 px-6 shadow-[0_0_20px_hsl(var(--primary)/0.3)] rounded-full tracking-tight"
-          >
-            <ShoppingCart className="w-5 h-5" />
-            {t.product.addToCart}
-          </Button>
-        </div>
-      </motion.div>
+      {/* ═══ Mobile premium sticky Add-to-Cart dock ═══ */}
+      <MobileStickyAddToCart
+        image={images[selectedImage] || images[0] || null}
+        variationLabel={
+          Object.entries(selectedVariations)
+            .map(([, varId]) => {
+              const v = variations.find((vr: any) => vr.id === varId);
+              return v ? (language === 'es' ? v.name_es : v.name_en) : null;
+            })
+            .filter(Boolean)
+            .join(' · ') || null
+        }
+        unitPrice={unitPrice}
+        totalPrice={totalPrice}
+        quantity={quantity}
+        setQuantity={setQuantity}
+        needsVariation={
+          Object.keys(variationsByType).length > 0 &&
+          Object.keys(variationsByType).some((type) => !selectedVariations[type])
+        }
+        onAdd={handleAddToCart}
+        inlineCtaRef={inlineCtaRef}
+      />
 
 
       <Footer />
