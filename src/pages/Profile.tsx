@@ -471,7 +471,7 @@ export default function Profile() {
     profile: t.profile.title,
     orders: t.orders.title,
     favorites: t.favorites.title,
-    referrals: t.profile.referrals || 'Referidos',
+    referrals: (t.profile as any).referrals || 'Referidos',
   };
 
   return (
