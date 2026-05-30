@@ -136,14 +136,16 @@ interface ParticleProps {
   initialRot: [number, number, number];
   phase: number;
   size: number;
+  printDelay: number; // seconds, layer-line stagger
 }
 
-function Particle({ target, geo, initialPos, initialRot, phase, size }: ParticleProps) {
+function Particle({ target, geo, initialPos, initialRot, phase, size, printDelay }: ParticleProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const matRef = useRef<THREE.MeshStandardMaterial>(null);
   const currentPos = useRef(new THREE.Vector3(...initialPos));
   const currentRot = useRef(new THREE.Euler(...initialRot));
   const targetVec = useMemo(() => new THREE.Vector3(...target), [target]);
+  const elapsed = useRef(0);
 
   useFrame((_, delta) => {
     if (!meshRef.current || !matRef.current) return;
@@ -153,16 +155,24 @@ function Particle({ target, geo, initialPos, initialRot, phase, size }: Particle
       currentRot.current.y += delta * 0.3;
       meshRef.current.rotation.copy(currentRot.current);
       meshRef.current.position.copy(currentPos.current);
+      elapsed.current = 0;
     } else if (phase >= 1) {
-      const speed = phase === 2 ? 0.18 : 0.10;
+      elapsed.current += delta;
+      if (elapsed.current < printDelay) {
+        // wait for our layer turn
+        meshRef.current.position.copy(currentPos.current);
+        meshRef.current.rotation.copy(currentRot.current);
+        return;
+      }
+      const speed = phase === 2 ? 0.20 : 0.13;
       currentPos.current.lerp(targetVec, speed);
       meshRef.current.position.copy(currentPos.current);
-      currentRot.current.x *= 0.96;
-      currentRot.current.y *= 0.96;
+      currentRot.current.x *= 0.94;
+      currentRot.current.y *= 0.94;
       meshRef.current.rotation.set(currentRot.current.x, currentRot.current.y, 0);
     }
 
-    if (phase === 2) {
+    if (phase === 2 && elapsed.current >= printDelay) {
       matRef.current.emissiveIntensity = THREE.MathUtils.lerp(
         matRef.current.emissiveIntensity, 1.5, 0.05
       );
@@ -181,6 +191,71 @@ function Particle({ target, geo, initialPos, initialRot, phase, size }: Particle
         roughness={0.15}
         emissive="#D4A017"
         emissiveIntensity={0.15}
+      />
+    </mesh>
+  );
+}
+
+// ─── Print head (extruder) sliding across letters ───
+function PrintHead({ phase, ys, scale }: { phase: number; ys: number[]; scale: number }) {
+  const ref = useRef<THREE.Group>(null);
+  const xRange = 4 * scale;
+  useFrame((state) => {
+    if (!ref.current) return;
+    if (phase < 1) {
+      ref.current.visible = false;
+      return;
+    }
+    if (phase >= 2 && state.clock.elapsedTime > 2.3) {
+      // retract upward
+      ref.current.visible = true;
+      ref.current.position.y += 0.05;
+      return;
+    }
+    ref.current.visible = true;
+    const t = state.clock.elapsedTime;
+    ref.current.position.x = Math.sin(t * 2.4) * xRange;
+    // hover above current "printing" layer
+    const layerIdx = Math.min(ys.length - 1, Math.floor((t - 0.5) * 1.5));
+    const targetY = ys[Math.max(0, layerIdx)] + 0.6 * scale;
+    ref.current.position.y += (targetY - ref.current.position.y) * 0.15;
+  });
+  return (
+    <group ref={ref} position={[0, 3, 0.4]}>
+      {/* body */}
+      <mesh>
+        <boxGeometry args={[0.5 * scale, 0.35 * scale, 0.35 * scale]} />
+        <meshStandardMaterial color="#1a1a1a" metalness={0.9} roughness={0.3} />
+      </mesh>
+      {/* nozzle cone */}
+      <mesh position={[0, -0.3 * scale, 0]} rotation={[Math.PI, 0, 0]}>
+        <coneGeometry args={[0.1 * scale, 0.25 * scale, 12]} />
+        <meshStandardMaterial color="#D4A017" metalness={0.9} roughness={0.2} emissive="#D4A017" emissiveIntensity={0.5} />
+      </mesh>
+      {/* extrusion glow */}
+      <pointLight position={[0, -0.45 * scale, 0]} intensity={0.8} color="#D4A017" distance={2} />
+    </group>
+  );
+}
+
+// ─── Build plate beneath the text ───
+function BuildPlate({ phase, scale }: { phase: number; scale: number }) {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame(() => {
+    if (!ref.current) return;
+    const targetY = phase >= 2 ? -3.2 * scale - (phase === 2 ? 0 : 1) : -1.8 * scale;
+    ref.current.position.y += (targetY - ref.current.position.y) * 0.06;
+  });
+  return (
+    <mesh ref={ref} position={[0, -1.8 * scale, -0.1]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[12 * scale, 6 * scale, 24, 12]} />
+      <meshStandardMaterial
+        color="#D4A017"
+        transparent
+        opacity={0.12}
+        metalness={0.6}
+        roughness={0.4}
+        wireframe
       />
     </mesh>
   );
