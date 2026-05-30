@@ -53,6 +53,42 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          is_read: boolean
+          link: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       admin_settings: {
         Row: {
           created_at: string
@@ -104,6 +140,60 @@ export type Database = {
           name_en?: string
           name_es?: string
           slug?: string
+        }
+        Relationships: []
+      }
+      discount_codes: {
+        Row: {
+          banner_text_en: string | null
+          banner_text_es: string | null
+          code: string
+          created_at: string
+          current_uses: number
+          discount_type: string
+          discount_value: number
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_uses: number | null
+          min_purchase: number
+          show_banner: boolean
+          starts_at: string
+          updated_at: string
+        }
+        Insert: {
+          banner_text_en?: string | null
+          banner_text_es?: string | null
+          code: string
+          created_at?: string
+          current_uses?: number
+          discount_type?: string
+          discount_value?: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          min_purchase?: number
+          show_banner?: boolean
+          starts_at?: string
+          updated_at?: string
+        }
+        Update: {
+          banner_text_en?: string | null
+          banner_text_es?: string | null
+          code?: string
+          created_at?: string
+          current_uses?: number
+          discount_type?: string
+          discount_value?: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          min_purchase?: number
+          show_banner?: boolean
+          starts_at?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -357,6 +447,8 @@ export type Database = {
       orders: {
         Row: {
           created_at: string
+          discount_amount: number
+          discount_code_id: string | null
           id: string
           notes: string | null
           payment_method: string | null
@@ -370,6 +462,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          discount_amount?: number
+          discount_code_id?: string | null
           id?: string
           notes?: string | null
           payment_method?: string | null
@@ -383,6 +477,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          discount_amount?: number
+          discount_code_id?: string | null
           id?: string
           notes?: string | null
           payment_method?: string | null
@@ -572,6 +668,7 @@ export type Database = {
           images: Json | null
           is_active: boolean
           is_featured: boolean
+          model_3d_url: string | null
           name_en: string
           name_es: string
           slug: string
@@ -587,6 +684,7 @@ export type Database = {
           images?: Json | null
           is_active?: boolean
           is_featured?: boolean
+          model_3d_url?: string | null
           name_en: string
           name_es: string
           slug: string
@@ -602,6 +700,7 @@ export type Database = {
           images?: Json | null
           is_active?: boolean
           is_featured?: boolean
+          model_3d_url?: string | null
           name_en?: string
           name_es?: string
           slug?: string
