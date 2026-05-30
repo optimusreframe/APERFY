@@ -408,9 +408,15 @@ export default function Checkout() {
           state: vf.state, zip_code: vf.zipCode, country: vf.country,
         },
         shipping_provider_id: selectedShipping || null, shipping_cost: shippingCost,
+        discount_code_id: discount?.id || null,
+        discount_amount: discountAmount,
       } as any)
       .select().single();
     if (orderError) throw orderError;
+    if (discount?.id) {
+      // best-effort increment usage counter
+      await supabase.rpc('increment_discount_usage' as any, { _id: discount.id }).then(() => {}, () => {});
+    }
     const orderItems = items.map(item => ({
       order_id: order.id, product_id: item.productId, quantity: item.quantity,
       unit_price: item.unitPrice + item.selectedVariations.reduce((s, v) => s + v.priceModifier, 0),
