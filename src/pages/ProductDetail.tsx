@@ -707,23 +707,7 @@ export default function ProductDetail() {
           </div>
         </div>
 
-        {/* ═══ Full-Width Tech Spec Strip (Palantir) ═══ */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-          className="mt-12 lg:mt-16 grid grid-cols-2 lg:grid-cols-4 rounded-2xl border border-white/[0.06] bg-card/30 backdrop-blur-xl divide-y lg:divide-y-0 lg:divide-x divide-white/[0.05] overflow-hidden"
-        >
-          {[
-            { label: 'Weight', value: selectedWeight ? `${selectedWeight}g` : '—' },
-            { label: 'Dimensions', value: selectedDimensions ? `${selectedDimensions}mm` : '—' },
-            { label: 'Material', value: productMaterialsList.length > 0 ? (language === 'es' ? productMaterialsList[0].materials.name_es : productMaterialsList[0].materials.name_en) : '—' },
-            { label: 'Stock', value: t.product.inStock.toUpperCase() },
-          ].map((s, i) => (
-            <div key={i} className="px-5 py-4">
-              <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/70 mb-1.5">{s.label}</div>
-              <div className="font-mono text-base font-semibold tabular-nums text-foreground truncate">{s.value}</div>
-            </div>
-          ))}
-        </motion.div>
+        {/* (Top spec strip removed — specs live in the lower Specifications panel) */}
 
         {/* ═══ Overview + Details ═══ */}
         <div className="mt-12 lg:mt-16 grid lg:grid-cols-[1fr_400px] gap-10 lg:gap-16">
