@@ -338,6 +338,47 @@ export default function ProductDetail() {
     if (variationImage) setSelectedImage(0);
   }, [variationImage]);
 
+  // ─── Dynamic SEO + OG meta ───
+  useEffect(() => {
+    if (!product) return;
+    const name = language === 'es' ? product.name_es : product.name_en;
+    const desc = (language === 'es' ? product.description_es : product.description_en) || `${name} · 3DtoPrint`;
+    const img = baseImages[0] || '';
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+
+    document.title = `${name} · 3DtoPrint`;
+
+    const setMeta = (selector: string, attr: string, key: string, val: string) => {
+      if (!val) return;
+      let el = document.head.querySelector(selector) as HTMLMetaElement | null;
+      if (!el) { el = document.createElement('meta'); el.setAttribute(attr, key); document.head.appendChild(el); }
+      el.setAttribute('content', val);
+    };
+    setMeta(`meta[name="description"]`, 'name', 'description', desc.slice(0, 158));
+    setMeta(`meta[property="og:title"]`, 'property', 'og:title', name);
+    setMeta(`meta[property="og:description"]`, 'property', 'og:description', desc.slice(0, 158));
+    setMeta(`meta[property="og:type"]`, 'property', 'og:type', 'product');
+    setMeta(`meta[property="og:url"]`, 'property', 'og:url', url);
+    setMeta(`meta[property="og:image"]`, 'property', 'og:image', img);
+    setMeta(`meta[name="twitter:card"]`, 'name', 'twitter:card', 'summary_large_image');
+    setMeta(`meta[name="twitter:title"]`, 'name', 'twitter:title', name);
+    setMeta(`meta[name="twitter:description"]`, 'name', 'twitter:description', desc.slice(0, 158));
+    setMeta(`meta[name="twitter:image"]`, 'name', 'twitter:image', img);
+
+    // JSON-LD Product
+    const ldId = 'product-jsonld';
+    let ld = document.getElementById(ldId) as HTMLScriptElement | null;
+    if (!ld) { ld = document.createElement('script'); ld.id = ldId; ld.type = 'application/ld+json'; document.head.appendChild(ld); }
+    ld.text = JSON.stringify({
+      '@context': 'https://schema.org', '@type': 'Product',
+      name, description: desc, image: baseImages, sku: product.slug, url,
+      offers: { '@type': 'Offer', price: Number(product.base_price || 0), priceCurrency: 'USD', availability: 'https://schema.org/InStock' },
+    });
+
+    return () => { document.title = '3DtoPrint'; };
+  }, [product, language, baseImages]);
+
+
 
 
   const handleAddToCart = useCallback(() => {
