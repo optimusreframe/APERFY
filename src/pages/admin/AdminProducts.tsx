@@ -2157,8 +2157,9 @@ export default function AdminProducts() {
                                 onChange={async (e) => {
                                   const file = e.target.files?.[0];
                                   if (!file) return;
-                                  const v = validateMediaFile(file);
+                                  const v = await validateMediaFile(file);
                                   if (!v.valid) { toast({ title: v.error || 'Archivo inválido', variant: 'destructive' }); return; }
+
                                   setProductVariations(prev => {
                                     const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _uploadingImage: true }; return u;
                                   });
