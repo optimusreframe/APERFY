@@ -518,8 +518,8 @@ export default function ProductDetail() {
             )}
           </motion.div>
 
-          {/* ─── Right Info Rail (sticky, compact: decision-only) ─── */}
-          <div className="lg:sticky lg:top-32 lg:self-start space-y-6">
+          {/* ─── Right Info Rail (sticky, decision-only) ─── */}
+          <div className="lg:sticky lg:top-32 lg:self-start space-y-5">
             {/* Identity */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               {product.categories && (
@@ -527,128 +527,165 @@ export default function ProductDetail() {
                   {language === 'es' ? product.categories.name_es : product.categories.name_en}
                 </div>
               )}
-              <h1 className="font-display font-black text-3xl lg:text-[2.25rem] text-foreground leading-[1.05] tracking-tight">
+              <h1 className="font-display font-bold text-[2rem] lg:text-[2.25rem] text-foreground leading-[1.05] tracking-[-0.02em]">
                 {language === 'es' ? product.name_es : product.name_en}
               </h1>
 
-              {/* Price */}
-              <div className="flex items-baseline gap-3 mt-5">
+              {/* Price + status row, Apple-clean */}
+              <div className="flex items-center justify-between mt-4">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={totalPrice.toFixed(2)}
-                    initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
-                    transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                    className="flex items-baseline gap-0.5"
+                    initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
+                    transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+                    className="flex items-baseline gap-1"
                   >
-                    <span className="text-xl font-semibold text-gradient-gold tabular-nums">$</span>
-                    <span className="text-5xl font-black text-gradient-gold tabular-nums tracking-tight leading-none">
-                      {Math.floor(totalPrice)}
+                    <span className="text-[28px] font-semibold text-foreground tabular-nums tracking-tight">
+                      ${totalPrice.toFixed(2)}
                     </span>
-                    <span className="text-xl font-semibold text-gradient-gold tabular-nums">
-                      .{totalPrice.toFixed(2).split('.')[1]}
-                    </span>
+                    {quantity > 1 && (
+                      <span className="font-mono text-[11px] text-muted-foreground tabular-nums ml-1">
+                        ×{String(quantity).padStart(2, '0')}
+                      </span>
+                    )}
                   </motion.div>
                 </AnimatePresence>
-                <LikeButton productId={product.id} size="md" />
+                <div className="flex items-center gap-2">
+                  <LikeButton productId={product.id} size="md" />
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 mt-3">
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-primary">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <div className="flex items-center gap-2 mt-2">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-400/90">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   {t.product.inStock}
+                </span>
+                <span className="text-border">·</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  {language === 'es' ? 'Envío 3–7 días' : 'Ships in 3–7 days'}
                 </span>
               </div>
             </motion.div>
 
-            <div className="h-px bg-white/[0.05]" />
-
-            {/* Variations (segmented controls) */}
-            {Object.entries(variationsByType).map(([type, vars], idx) => (
-              <motion.div
-                key={type}
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + idx * 0.04 }}
-              >
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                    {type === 'color' ? t.product.color : type === 'size' ? t.product.size : type}
-                  </div>
-                  {selectedVariations[type] && (
-                    <span className="font-mono text-[10px] text-primary uppercase tracking-wider">Selected</span>
-                  )}
+            {/* Configurator card */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+              className="rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-xl p-5 space-y-5"
+            >
+              <div className="flex items-center justify-between">
+                <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80">
+                  {language === 'es' ? 'Configurar' : 'Configure'}
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {(vars as any[]).map((v: any) => {
-                    const isSize = type === 'size';
-                    const vPrice = isSize && Number(v.price_modifier) > 0 ? Number(v.price_modifier) : null;
-                    const vWeight = isSize && v.weight_grams ? Number(v.weight_grams) : null;
-                    const isSelected = selectedVariations[type] === v.id;
-                    return (
-                      <motion.button
-                        key={v.id}
-                        onClick={() => setSelectedVariations(prev => ({ ...prev, [type]: v.id }))}
-                        whileTap={{ scale: 0.97 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                        className={`relative flex flex-col items-start gap-0.5 px-3 py-2 rounded-lg border text-[13px] transition-colors ${
-                          isSelected
-                            ? 'border-primary/60 bg-primary/[0.08] text-foreground'
-                            : 'border-white/[0.06] bg-white/[0.02] text-foreground/80 hover:border-primary/30'
-                        }`}
-                      >
-                        {isSelected && (
-                          <motion.span
-                            layoutId={`var-${type}-ring`}
-                            className="absolute inset-0 rounded-lg ring-1 ring-primary pointer-events-none"
-                            transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-                          />
-                        )}
-                        <div className="flex items-center gap-1.5">
-                          {type === 'color' && (
-                            <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: v.value }} />
-                          )}
-                          <span className="font-medium">{language === 'es' ? v.name_es : v.name_en}</span>
-                        </div>
-                        {isSize && (vWeight || v.dimensions || vPrice) && (
-                          <span className="text-[9px] text-muted-foreground font-mono tabular-nums">
-                            {[vWeight && `${vWeight}g`, v.dimensions && `${v.dimensions}mm`, vPrice && `$${vPrice.toFixed(2)}`].filter(Boolean).join(' · ')}
-                          </span>
-                        )}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            ))}
+                {Object.keys(variationsByType).length === 0 && (
+                  <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
+                    {language === 'es' ? 'Edición única' : 'Single edition'}
+                  </span>
+                )}
+              </div>
 
-            {/* Quantity */}
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2.5">{t.product.quantity}</div>
-              <div className="inline-flex items-center gap-1 rounded-full bg-white/[0.03] border border-white/[0.06] p-1">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-8 h-8 rounded-full hover:bg-white/[0.05] flex items-center justify-center transition-colors"
-                >
-                  <Minus className="w-3 h-3" />
-                </button>
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={quantity}
-                    initial={{ opacity: 0, y: -3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 3 }}
-                    transition={{ duration: 0.15 }}
-                    className="font-mono font-semibold text-sm w-9 text-center tabular-nums"
+              {/* Variations OR Standard fallback */}
+              {Object.entries(variationsByType).length > 0 ? (
+                Object.entries(variationsByType).map(([type, vars], idx) => (
+                  <motion.div
+                    key={type}
+                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 + idx * 0.04 }}
                   >
-                    {String(quantity).padStart(2, '0')}
-                  </motion.span>
-                </AnimatePresence>
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-8 h-8 rounded-full hover:bg-white/[0.05] flex items-center justify-center transition-colors"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
+                    <div className="flex items-center justify-between mb-2.5">
+                      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                        {type === 'color' ? t.product.color : type === 'size' ? t.product.size : type}
+                      </div>
+                      {selectedVariations[type] && (
+                        <span className="font-mono text-[10px] text-primary uppercase tracking-wider">
+                          {language === 'es' ? 'Seleccionado' : 'Selected'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(vars as any[]).map((v: any) => {
+                        const isSize = type === 'size';
+                        const vPrice = isSize && Number(v.price_modifier) > 0 ? Number(v.price_modifier) : null;
+                        const vWeight = isSize && v.weight_grams ? Number(v.weight_grams) : null;
+                        const isSelected = selectedVariations[type] === v.id;
+                        return (
+                          <motion.button
+                            key={v.id}
+                            onClick={() => setSelectedVariations(prev => ({ ...prev, [type]: v.id }))}
+                            whileTap={{ scale: 0.97 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                            className={`relative flex flex-col items-start gap-0.5 px-3 py-2 rounded-lg border text-[13px] transition-colors ${
+                              isSelected
+                                ? 'border-primary/60 bg-primary/[0.08] text-foreground'
+                                : 'border-white/[0.06] bg-white/[0.02] text-foreground/80 hover:border-primary/30'
+                            }`}
+                          >
+                            {isSelected && (
+                              <motion.span
+                                layoutId={`var-${type}-ring`}
+                                className="absolute inset-0 rounded-lg ring-1 ring-primary pointer-events-none"
+                                transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                              />
+                            )}
+                            <div className="flex items-center gap-1.5">
+                              {type === 'color' && (
+                                <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: v.value }} />
+                              )}
+                              <span className="font-medium">{language === 'es' ? v.name_es : v.name_en}</span>
+                            </div>
+                            {isSize && (vWeight || v.dimensions || vPrice) && (
+                              <span className="text-[9px] text-muted-foreground font-mono tabular-nums">
+                                {[vWeight && `${vWeight}g`, v.dimensions && `${v.dimensions}mm`, vPrice && `$${vPrice.toFixed(2)}`].filter(Boolean).join(' · ')}
+                              </span>
+                            )}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div>
+                  <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2.5">
+                    {language === 'es' ? 'Versión' : 'Edition'}
+                  </div>
+                  <div className="relative inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-primary/60 bg-primary/[0.08] text-foreground text-[13px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    <span className="font-medium">{language === 'es' ? 'Estándar' : 'Standard'}</span>
+                    <span className="font-mono text-[9px] text-muted-foreground uppercase tracking-wider">
+                      {language === 'es' ? 'Única opción' : 'Default'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Quantity */}
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2.5">{t.product.quantity}</div>
+                <div className="inline-flex items-center gap-1 rounded-full bg-white/[0.03] border border-white/[0.06] p-1">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="w-8 h-8 rounded-full hover:bg-white/[0.05] flex items-center justify-center transition-colors"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key={quantity}
+                      initial={{ opacity: 0, y: -3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 3 }}
+                      transition={{ duration: 0.15 }}
+                      className="font-mono font-semibold text-sm w-9 text-center tabular-nums"
+                    >
+                      {String(quantity).padStart(2, '0')}
+                    </motion.span>
+                  </AnimatePresence>
+                  <button
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="w-8 h-8 rounded-full hover:bg-white/[0.05] flex items-center justify-center transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
             </motion.div>
-
-            <div className="h-px bg-white/[0.05]" />
 
             {/* CTA */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="hidden lg:block">
