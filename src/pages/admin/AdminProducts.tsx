@@ -554,6 +554,7 @@ export default function AdminProducts() {
       description_en: p.description_en || '', description_es: p.description_es || '',
       slug: p.slug, base_price: p.base_price,
       category_id: p.category_id || '', is_active: p.is_active, is_featured: p.is_featured,
+      model_3d_url: p.model_3d_url || '',
     });
     const existingImages = (p.images as string[]) || [];
     setMediaFiles(existingImages.map((url, i) => ({
