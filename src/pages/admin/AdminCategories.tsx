@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
+import { AdminPageHeader, AdminSurface } from './_shared';
 
 interface CategoryForm {
   name_en: string;
@@ -157,7 +158,7 @@ export default function AdminCategories() {
             )}
           </TableBody>
         </Table>
-      </div>
+      </AdminSurface>
     </div>
   );
 }
