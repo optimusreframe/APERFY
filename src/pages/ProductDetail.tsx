@@ -301,18 +301,36 @@ export default function ProductDetail() {
   }, {});
 
   const selectedSizeVar = variations.find((v: any) => v.type === 'size' && v.id === selectedVariations['size']);
+
+  // Effective price per variation: if use_manual_price + price_override present, use that.
+  const effectiveVarPrice = (v: any): number => {
+    if (!v) return 0;
+    if (v.use_manual_price && v.price_override !== null && v.price_override !== undefined) {
+      return Number(v.price_override);
+    }
+    return Number(v.price_modifier) || 0;
+  };
+
   const priceModifier = Object.values(selectedVariations).reduce((sum, varId) => {
     const v = variations.find((vr: any) => vr.id === varId);
-    return sum + (v ? Number(v.price_modifier) : 0);
+    return sum + effectiveVarPrice(v);
   }, 0);
 
-  const unitPrice = selectedSizeVar && Number(selectedSizeVar.price_modifier) > 0
-    ? Number(selectedSizeVar.price_modifier)
+  const selectedSizeEffective = effectiveVarPrice(selectedSizeVar);
+  const unitPrice = selectedSizeVar && selectedSizeEffective > 0
+    ? selectedSizeEffective
     : Number(product?.base_price || 0) + priceModifier;
   const totalPrice = product ? unitPrice * quantity : 0;
   const selectedWeight = selectedSizeVar ? Number(selectedSizeVar.weight_grams || 0) : null;
   const selectedDimensions = selectedSizeVar ? (selectedSizeVar as any).dimensions : null;
-  const images = product ? (product.images as string[]) || [] : [];
+  const baseImages = product ? (product.images as string[]) || [] : [];
+
+  // If any selected variation has an image_url, show it as the hero image (override)
+  const variationImage = Object.values(selectedVariations)
+    .map(varId => variations.find((vr: any) => vr.id === varId))
+    .find((v: any) => v?.image_url)?.image_url || null;
+  const images = variationImage ? [variationImage, ...baseImages.filter(i => i !== variationImage)] : baseImages;
+
 
   const handleAddToCart = useCallback(() => {
     if (!product) return;
