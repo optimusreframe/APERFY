@@ -72,52 +72,57 @@ function buildTargets(mode: "desktop" | "tablet" | "mobile", scale: number) {
   const targets: { pos: [number, number, number]; geo: "box" | "sphere" | "cylinder" }[] = [];
   const geos: ("box" | "sphere" | "cylinder")[] = ["box", "sphere", "cylinder"];
 
-  // "3D to Print" — 9 characters
-  const word1 = ["3", "D"]; // "3D"
-  const word2 = ["t", "o"]; // "to"
-  const word3 = ["P", "r", "i", "n", "t"]; // "Print"
+  const word1 = ["3", "D"];
+  const word2 = ["t", "o"];
+  const word3 = ["P", "r", "i", "n", "t"];
 
   const spacing = 1.15 * scale;
+  const wordGap = 0.55 * scale;
   let globalIdx = 0;
 
-  const addLetter = (char: string, ox: number, oy: number) => {
-    const pts = LETTERS[char];
-    if (!pts) return;
-    pts.forEach((p, i) => {
-      targets.push({
-        pos: [(p[0] + ox) * scale, (p[1] + oy) * scale, 0],
-        geo: geos[globalIdx % 3],
+  // Place a line of words around startX (unscaled? no — in scaled world coords).
+  // We collect placements first to compute true geometric centre, then centre them.
+  const placeLine = (words: string[][], y: number) => {
+    type Pt = { x: number; y: number; geo: "box" | "sphere" | "cylinder" };
+    const pts: Pt[] = [];
+    let cursor = 0;
+    words.forEach((word, wi) => {
+      word.forEach((char) => {
+        const def = LETTERS[char];
+        if (def) {
+          def.forEach((p) => {
+            pts.push({
+              x: (p[0] * scale) + cursor,
+              y: p[1] * scale + y,
+              geo: geos[globalIdx % 3],
+            });
+            globalIdx++;
+          });
+        }
+        cursor += spacing;
       });
-      globalIdx++;
+      if (wi < words.length - 1) cursor += wordGap;
     });
+    // True centre: average of min and max x (covers all letter widths)
+    if (pts.length > 0) {
+      let minX = Infinity, maxX = -Infinity;
+      for (const p of pts) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+      }
+      const shift = -(minX + maxX) / 2;
+      pts.forEach((p) => {
+        targets.push({ pos: [p.x + shift, p.y, 0], geo: p.geo });
+      });
+    }
   };
 
   if (mode === "desktop") {
-    // Single line: "3D to Print"
-    // Calculate total width: 2 + gap + 2 + gap + 5 = 9 letters + 2 word gaps
-    const wordGap = 0.6;
-    let x = -5.5;
-    word1.forEach(c => { addLetter(c, x, 0); x += spacing; });
-    x += wordGap;
-    word2.forEach(c => { addLetter(c, x, 0); x += spacing; });
-    x += wordGap;
-    word3.forEach(c => { addLetter(c, x, 0); x += spacing; });
+    placeLine([word1, word2, word3], 0);
   } else {
-    // Two lines: "3D to" on top, "Print" on bottom
-    const wordGap = 0.5;
     const lineGap = 2.2 * scale;
-
-    // Line 1: "3D to"
-    let x1 = -2.5 * scale;
-    const y1 = lineGap / 2;
-    word1.forEach(c => { addLetter(c, x1 / scale, y1 / scale); x1 += spacing; });
-    x1 += wordGap * scale;
-    word2.forEach(c => { addLetter(c, x1 / scale, y1 / scale); x1 += spacing; });
-
-    // Line 2: "Print"
-    let x2 = -2.8 * scale;
-    const y2 = -lineGap / 2;
-    word3.forEach(c => { addLetter(c, x2 / scale, y2 / scale); x2 += spacing; });
+    placeLine([word1, word2], lineGap / 2);
+    placeLine([word3], -lineGap / 2);
   }
 
   return targets;
