@@ -504,13 +504,16 @@ export type Database = {
           created_at: string
           dimensions: string | null
           id: string
+          image_url: string | null
           is_active: boolean
           material_id: string | null
           name_en: string
           name_es: string
           price_modifier: number
+          price_override: number | null
           product_id: string
           type: string
+          use_manual_price: boolean
           value: string
           weight_grams: number | null
         }
@@ -518,13 +521,16 @@ export type Database = {
           created_at?: string
           dimensions?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean
           material_id?: string | null
           name_en: string
           name_es?: string
           price_modifier?: number
+          price_override?: number | null
           product_id: string
           type?: string
+          use_manual_price?: boolean
           value?: string
           weight_grams?: number | null
         }
@@ -532,13 +538,16 @@ export type Database = {
           created_at?: string
           dimensions?: string | null
           id?: string
+          image_url?: string | null
           is_active?: boolean
           material_id?: string | null
           name_en?: string
           name_es?: string
           price_modifier?: number
+          price_override?: number | null
           product_id?: string
           type?: string
+          use_manual_price?: boolean
           value?: string
           weight_grams?: number | null
         }
