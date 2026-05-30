@@ -2069,10 +2069,27 @@ export default function AdminProducts() {
                   })}
                 </div>
 
-                <Button type="submit" disabled={save.isPending} className="w-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-                  {save.isPending ? '...' : 'Guardar Producto'}
-                </Button>
+                <div className="flex items-center justify-between pt-6 border-t border-border/40 mt-6">
+                  <Button type="button" variant="ghost" onClick={() => setWizardStep(s => Math.max(0, s - 1))} disabled={wizardStep === 0}>
+                    ← Anterior
+                  </Button>
+                  {wizardStep < 4 ? (
+                    <Button type="button" onClick={() => setWizardStep(s => Math.min(4, s + 1))} className="bg-foreground text-background hover:bg-foreground/90">
+                      Siguiente →
+                    </Button>
+                  ) : (
+                    <Button type="submit" disabled={save.isPending} className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-1.5">
+                      {save.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      {editId ? 'Guardar cambios' : 'Publicar producto'}
+                    </Button>
+                  )}
+                </div>
+                    </div>
+                  </div>
+                </div>
               </form>
+                );
+              })()}
             </DialogContent>
           </Dialog>
         </div>
