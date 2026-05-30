@@ -915,7 +915,7 @@ export default function ProductDetail() {
         }
         onAdd={handleAddToCart}
         productName={language === 'es' ? product.name_es : product.name_en}
-        inStock={product.stock_status !== 'out_of_stock'}
+        inStock={true}
       />
 
 
