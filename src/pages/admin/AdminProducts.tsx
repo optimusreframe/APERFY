@@ -459,7 +459,10 @@ export default function AdminProducts() {
           const calculatedPrice = v.weight_grams > 0 && costPerKg > 0
             ? (v.weight_grams / 1000) * costPerKg
             : 0;
-          
+          const effectivePrice = v.use_manual_price && v.price_override !== null && v.price_override >= 0
+            ? Number(v.price_override)
+            : calculatedPrice;
+
           const varPayload = {
             product_id: productId,
             name_en: v.name_en,
@@ -468,7 +471,10 @@ export default function AdminProducts() {
             weight_grams: v.weight_grams || null,
             dimensions: v.dimensions || null,
             material_id: v.material_id || null,
-            price_modifier: calculatedPrice,
+            price_modifier: effectivePrice,
+            price_override: v.use_manual_price && v.price_override !== null ? Number(v.price_override) : null,
+            use_manual_price: !!v.use_manual_price,
+            image_url: v.image_url || null,
             value: `${v.weight_grams}g`,
             is_active: v.is_active,
           };
@@ -479,6 +485,7 @@ export default function AdminProducts() {
             await supabase.from('product_variations').insert(varPayload);
           }
         }
+
       }
     },
     onSuccess: (_data, variables) => {
