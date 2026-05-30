@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       injectRegister: null,
       devOptions: { enabled: false },
-      includeAssets: ["logo.png", "favicon.ico", "robots.txt"],
+      includeAssets: ["favicon.ico", "favicon-32.png", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "robots.txt"],
       manifest: {
         name: "3DtoPrint",
         short_name: "3DtoPrint",
@@ -35,8 +35,10 @@ export default defineConfig(({ mode }) => ({
         orientation: "portrait",
         categories: ["shopping", "lifestyle"],
         icons: [
-          { src: "/logo.png", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "/logo.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+          { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: "/apple-touch-icon.png", sizes: "180x180", type: "image/png", purpose: "any" },
         ],
       },
       workbox: {
