@@ -1,83 +1,40 @@
-# Checkout Apple-style + Floating Cart + Visual Admin Product Creator
+## Goal
+Lift the Product Detail and Checkout pages to the same Apple + Palantir tech-premium feel using framer-motion — refined typography, dense-but-airy layout, monospace numerics, micro-interactions, smooth section transitions. UI-only; no business logic, validation, RLS, emails, payment flow, or shipping math changes.
 
-Tres mejoras independientes, todas frontend (sin cambios de schema ni de lógica de negocio).
+## Scope
 
----
+### 1. Product Detail (`src/pages/ProductDetail.tsx`)
+- **Hero refresh**: switch to a tighter 2-column grid (gallery left sticky / info right), generous negative space, hairline dividers (`border-white/5`), gold accent rules.
+- **Gallery**: Apple-style. Large main image with subtle `layoutId` shared element when changing thumbnails (framer-motion `AnimatePresence` + `motion.img`), thumbnails as 64px squares with a 1px gold ring on active, smooth crossfade, zoom hint cursor, keyboard arrows. Full-screen lightbox keeps existing logic but gets spring transitions and a Palantir-style top bar (index counter in mono, close icon).
+- **Identity block**: name in display serif (existing), category as small uppercase mono tag, price as large tabular-nums with subtle weight contrast (`$` smaller, integer large, decimals smaller).
+- **Tech spec strip (Palantir)**: dense horizontal row of stats — Weight, Dimensions, Material, Print time — each cell uppercase mono label + bold mono value, separated by hairlines. Replaces the current scattered spec display.
+- **Variation & material selectors**: segmented control (pill row) with animated `layoutId` highlight that slides between options; price recalculates with a brief `motion` number flip.
+- **Sticky action bar**: on scroll past the fold, a bottom translucent bar (backdrop-blur) slides up with product thumb + price + Add to Cart, mirroring Apple PDP behavior. Mobile only on small screens; desktop keeps the inline CTA.
+- **Sections below**: description, reviews, related — wrapped in `motion.section` with `whileInView` stagger.
 
-## 1. Checkout estilo Apple
+### 2. Checkout (`src/pages/Checkout.tsx`)
+- **Step rail**: replace current indicator with a Palantir-style horizontal progress: numbered nodes connected by a thin line, active node filled gold, completed nodes show a checkmark, animated line fill with `motion`.
+- **Section cards**: tighten to translucent panels (`bg-white/[0.02] border border-white/5 rounded-2xl`), hairline section headers with monospace step number ("01 / CONTACT"), spring expand/collapse via `AnimatePresence` + `height: auto`.
+- **Floating-label inputs**: keep current `Field` helper; refine focus ring to a 1px gold underline that animates in (`motion.div` underline with `scaleX`), error state shakes once.
+- **Payment method cards**: large radio cards with `layoutId` selection ring that slides between options, icon + name + short caption, subtle hover lift.
+- **Order summary (right column)**: sticky panel with Apple-style line items (image, name, qty mono, price tabular), animated total that flips digits when shipping/items change, hairline dividers, "Order total" in larger weight at bottom.
+- **Confirmation screens** (online & WhatsApp): keep existing spring scale checkmark, refine layout to centered Apple-style — large checkmark, headline, mono order number chip, primary/ghost button pair.
+- **Page transitions**: wrap each step in `AnimatePresence mode="wait"` with a consistent fade+8px-y spring for cohesion.
 
-Rediseño visual y de flujo de `src/pages/Checkout.tsx` inspirado en `apple.com/shop/bag` → checkout.
+### 3. Shared polish
+- Tabular-nums utility class for all prices and numeric stats.
+- Standardize on `transition={{ type: 'spring', stiffness: 260, damping: 28 }}` for the new motion interactions.
+- All colors via existing semantic tokens (`--background`, `--foreground`, `--primary` gold, `--muted-foreground`). No hex literals in components.
 
-**Cambios de UX:**
-- Layout de **dos columnas** en desktop (form a la izquierda, resumen sticky a la derecha con miniaturas de productos, envío, total). En móvil, resumen colapsable arriba.
-- Tipografía SF-like (mantener fuentes actuales, pero pesos y tracking más Apple: títulos grandes `text-4xl font-semibold tracking-tight`, mucho whitespace, líneas divisorias finas `border-border/40`).
-- **Step indicator minimalista**: barra de progreso fina arriba con 3 puntos numerados conectados, no las pills doradas actuales.
-- **Inputs flotantes** (floating label) en lugar de label-sobre-input — patrón Apple Pay sheet. Bordes redondeados `rounded-xl`, foco con anillo dorado sutil.
-- Cada sección como una **"card" blanca/oscura** apilada (Contact → Shipping Address → Shipping Method → Payment), con botón "Continue" grande al final de cada sección que colapsa la anterior y muestra check ✓ con datos resumidos editables.
-- Botones de método de pago como **tarjetas seleccionables** grandes (radio cards) con iconos.
-- Pantalla de confirmación con animación de check grande, número de pedido tipo "Order #XXXX", y CTA "View order" / "Continue shopping".
+## Out of scope
+- No changes to cart logic, pricing formula, shipping calculation, validation schemas, rate limiting, WhatsApp message, emails, edge functions, DB, or RLS.
+- No new dependencies (framer-motion already used).
+- No changes to admin panel, navbar, footer, or other pages.
 
-**Sin cambios** en: validación, RLS, envío de emails, integración WhatsApp/pagos, cálculo de shipping. Solo presentación y orquestación de pasos.
+## Files
+- Modify: `src/pages/ProductDetail.tsx`, `src/pages/Checkout.tsx`
+- No new files unless a small `StickyAddBar` helper proves cleaner (kept colocated otherwise).
 
----
-
-## 2. Carrito flotante al agregar producto
-
-Cuando el usuario hace "Add to cart" (desde `ProductDetail.tsx` o cualquier lugar):
-
-- Mostrar un **mini-toast/sheet flotante** en la esquina inferior derecha (desktop) o bottom sheet (móvil) durante ~5 segundos.
-- Contenido: miniatura del producto añadido, nombre, "Added to cart", y dos botones:
-  - **"Continue shopping"** (secundario, cierra el toast)
-  - **"View cart"** (primario dorado, navega a `/cart`)
-- Animación slide-in desde abajo/derecha con framer-motion, auto-dismiss con barra de progreso fina.
-- Implementación: nuevo componente `src/components/CartAddedToast.tsx` + estado en `CartContext` (`lastAddedItem` + timestamp) o un evento simple. Renderizado global en `App.tsx` para que aparezca desde cualquier página.
-
----
-
-## 3. Admin: creación de productos visual (Apple × Palantir)
-
-Refactor del formulario de creación/edición en `src/pages/admin/AdminProducts.tsx` (sin tocar la lógica de guardado, mutaciones, ni schema). Solo la UI del Dialog/modal.
-
-**Nuevo flujo guiado por pasos (wizard), full-screen sheet:**
-
-1. **Media** — Drag & drop grande tipo Apple: zona central con preview en grid, reordenable, primera imagen marcada como "Cover". Botón "Generate with AI" prominente.
-2. **Identity** — Nombre EN/ES lado a lado con toggle de idioma estilo segmented control, slug auto-generado con campo editable bajo el nombre, descripción en editor amplio.
-3. **Pricing & Category** — Precio base con input grande tipo Apple Pay (símbolo $ flotante), selector de categoría como pills/chips visuales con icono.
-4. **Variations & Materials** — Tabla densa estilo Palantir: filas con inputs inline, columnas para tamaño/peso/dimensiones/material/modificador de precio. Acentos monoespaciados para números, líneas de grid finas, hover highlight.
-5. **Review & Publish** — Preview del ProductCard real + toggles `is_active` / `is_featured` como switches grandes con descripción.
-
-**Estética:**
-- Sidebar izquierda con los 5 pasos (numerados, check verde al completar, paso activo en dorado).
-- Header sticky con nombre del producto en vivo + botones "Cancel" / "Save draft" / "Publish".
-- Transiciones suaves entre pasos con framer-motion.
-- Densidad Palantir en la tabla de variaciones: fuente más pequeña, monospace para números, sin padding excesivo.
-
-**Lógica preservada:** todas las mutaciones, validaciones Zod, subida de media, integración AI, bulk import — sin cambios.
-
----
-
-## 4. Verificación del sistema
-
-Después de los cambios:
-- Recorrer manualmente: añadir producto al carrito → ver toast → ir a checkout → completar los 4 sub-pasos → confirmar email enviado en logs.
-- Verificar que el admin puede crear un producto nuevo con el wizard, subir media, añadir 2 variaciones, y que aparece correctamente en el catálogo.
-- Revisar console + network para errores.
-- Sin cambios de DB ni edge functions, así que no hay migraciones que correr.
-
----
-
-## Archivos
-
-**Modificar:**
-- `src/pages/Checkout.tsx` — rediseño visual completo, misma lógica.
-- `src/pages/admin/AdminProducts.tsx` — wizard UI para el dialog de crear/editar.
-- `src/contexts/CartContext.tsx` — exponer `lastAdded` para el toast.
-- `src/App.tsx` — montar `<CartAddedToast />` global.
-
-**Crear:**
-- `src/components/CartAddedToast.tsx`
-- `src/components/checkout/CheckoutSection.tsx` (card colapsable reutilizable)
-- `src/components/checkout/OrderSummary.tsx` (panel sticky derecha)
-- `src/components/admin/ProductWizard.tsx` (contenedor del wizard + sub-componentes por paso si conviene)
-
-Sin cambios en backend, schema, RLS, edge functions, ni emails.
+## Verification
+- Visual pass at 1112px (current viewport) and mobile breakpoint via preview.
+- Confirm: add-to-cart still triggers floating toast, checkout still creates order + sends email, WhatsApp flow still opens with correct message, variation/material price recalculation still correct.

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ShoppingCart, Box, ArrowLeft, Minus, Plus, ZoomIn, ZoomOut, X, Weight, Ruler, ChevronLeft, ChevronRight, RotateCcw, Maximize2 } from 'lucide-react';
+import { Heart, ShoppingCart, Box, ArrowLeft, Minus, Plus, ZoomIn, ZoomOut, X, Weight, Ruler, ChevronLeft, ChevronRight, RotateCcw, Maximize2, Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -439,21 +439,21 @@ export default function ProductDetail() {
           </motion.div>
 
           {/* ═══ Product Info ═══ */}
-          <div className="space-y-5">
-            {/* Title + Actions */}
+          <div className="space-y-6">
+            {/* ─── Identity ─── */}
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div>
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="min-w-0">
                   {product.categories && (
-                    <span className="text-xs uppercase tracking-[0.2em] text-primary/70 font-medium">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-2">
                       {language === 'es' ? product.categories.name_es : product.categories.name_en}
-                    </span>
+                    </div>
                   )}
-                  <h1 className="font-display font-black text-2xl sm:text-3xl lg:text-4xl text-foreground leading-tight mt-1">
+                  <h1 className="font-display font-black text-3xl sm:text-4xl lg:text-5xl text-foreground leading-[1.05] tracking-tight">
                     {language === 'es' ? product.name_es : product.name_en}
                   </h1>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0 pt-1">
+                <div className="flex items-center gap-1 shrink-0 pt-1">
                   <ShareMenu slug={product.slug} productName={language === 'es' ? product.name_es : product.name_en} size="md" />
                   <button onClick={toggleFavorite} className="p-2.5 rounded-xl hover:bg-primary/10 transition-all border border-transparent hover:border-primary/20">
                     <Heart className={`w-5 h-5 ${isFav ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
@@ -461,63 +461,101 @@ export default function ProductDetail() {
                 </div>
               </div>
 
-              {/* Price row */}
-              <div className="flex items-center gap-4 mb-3">
-                <span className="text-4xl font-black text-gradient-gold tracking-tight">${totalPrice.toFixed(2)}</span>
+              {/* Price */}
+              <div className="flex items-baseline gap-4 mt-6">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={totalPrice.toFixed(2)}
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                    className="flex items-baseline gap-1"
+                  >
+                    <span className="text-2xl font-semibold text-gradient-gold tabular-nums">$</span>
+                    <span className="text-5xl sm:text-6xl font-black text-gradient-gold tabular-nums tracking-tight leading-none">
+                      {Math.floor(totalPrice)}
+                    </span>
+                    <span className="text-2xl font-semibold text-gradient-gold tabular-nums">
+                      .{totalPrice.toFixed(2).split('.')[1]}
+                    </span>
+                  </motion.div>
+                </AnimatePresence>
                 <LikeButton productId={product.id} size="md" />
               </div>
 
-              {/* Badges */}
-              <div className="flex flex-wrap gap-2">
-                <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/15 shadow-[0_0_12px_hsl(var(--primary)/0.15)]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse mr-1.5" />
+              {/* Status badge */}
+              <div className="flex items-center gap-2 mt-3">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-primary">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                   {t.product.inStock}
-                </Badge>
-                {selectedWeight != null && selectedWeight > 0 && (
-                  <Badge variant="outline" className="gap-1 border-border/40 bg-card/40 backdrop-blur">
-                    <Weight className="w-3 h-3 text-primary" />
-                    {selectedWeight}{t.product.grams}
-                  </Badge>
-                )}
-                {selectedDimensions && (
-                  <Badge variant="outline" className="gap-1 border-border/40 bg-card/40 backdrop-blur">
-                    <Ruler className="w-3 h-3 text-primary" />
-                    {selectedDimensions}mm
-                  </Badge>
-                )}
+                </span>
               </div>
             </motion.div>
 
-            {/* Divider */}
-            <div className="h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+            {/* ─── Palantir tech spec strip ─── */}
+            {(selectedWeight || selectedDimensions || productMaterialsList.length > 0) && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                className="grid grid-cols-3 rounded-2xl border border-white/[0.06] bg-card/30 backdrop-blur-xl divide-x divide-white/[0.05] overflow-hidden"
+              >
+                <div className="px-4 py-3.5">
+                  <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Weight</div>
+                  <div className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                    {selectedWeight ? `${selectedWeight}g` : '—'}
+                  </div>
+                </div>
+                <div className="px-4 py-3.5">
+                  <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Size</div>
+                  <div className="font-mono text-sm font-semibold tabular-nums text-foreground truncate">
+                    {selectedDimensions ? `${selectedDimensions}mm` : '—'}
+                  </div>
+                </div>
+                <div className="px-4 py-3.5">
+                  <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Material</div>
+                  <div className="font-mono text-sm font-semibold text-foreground truncate">
+                    {productMaterialsList.length > 0 ? (language === 'es' ? productMaterialsList[0].materials.name_es : productMaterialsList[0].materials.name_en) : '—'}
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
-            {/* Description */}
-            <GlassSection delay={0.15}>
-              <p className="text-muted-foreground leading-relaxed text-sm sm:text-base">
+            {/* ─── Description ─── */}
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">Overview</div>
+              <p className="text-muted-foreground leading-relaxed text-[15px]">
                 {language === 'es' ? product.description_es : product.description_en}
               </p>
-            </GlassSection>
+            </motion.div>
 
-            {/* Materials */}
-            {productMaterialsList.length > 0 && (
-              <GlassSection delay={0.2}>
-                <h3 className="font-display font-semibold text-xs uppercase tracking-[0.2em] text-primary/80 mb-3">{t.product.material}</h3>
+            {/* ─── Materials (multi) ─── */}
+            {productMaterialsList.length > 1 && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">{t.product.material}</div>
                 <div className="flex flex-wrap gap-2">
                   {productMaterialsList.map((pm: any) => (
-                    <span key={pm.id} className="px-3.5 py-2 rounded-xl bg-secondary/60 text-sm text-foreground border border-border/30 backdrop-blur">
+                    <span key={pm.id} className="px-3 py-1.5 rounded-lg bg-white/[0.03] text-[13px] text-foreground border border-white/[0.06] font-mono">
                       {language === 'es' ? pm.materials.name_es : pm.materials.name_en}
                     </span>
                   ))}
                 </div>
-              </GlassSection>
+              </motion.div>
             )}
 
-            {/* Variations */}
+            {/* ─── Variations (Apple segmented controls) ─── */}
             {Object.entries(variationsByType).map(([type, vars], idx) => (
-              <GlassSection key={type} delay={0.25 + idx * 0.05}>
-                <h3 className="font-display font-semibold text-xs uppercase tracking-[0.2em] text-primary/80 mb-3">
-                  {type === 'color' ? t.product.color : type === 'size' ? t.product.size : type}
-                </h3>
+              <motion.div
+                key={type}
+                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + idx * 0.05 }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                    {type === 'color' ? t.product.color : type === 'size' ? t.product.size : type}
+                  </div>
+                  {selectedVariations[type] && (
+                    <span className="font-mono text-[10px] text-primary uppercase tracking-wider">Selected</span>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {(vars as any[]).map((v: any) => {
                     const isSize = type === 'size';
@@ -525,24 +563,33 @@ export default function ProductDetail() {
                     const vWeight = isSize && v.weight_grams ? Number(v.weight_grams) : null;
                     const isSelected = selectedVariations[type] === v.id;
                     return (
-                      <button
+                      <motion.button
                         key={v.id}
                         onClick={() => setSelectedVariations(prev => ({ ...prev, [type]: v.id }))}
-                        className={`flex flex-col items-start gap-0.5 px-4 py-2.5 rounded-xl border text-sm transition-all duration-300 ${
+                        whileTap={{ scale: 0.97 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                        className={`relative flex flex-col items-start gap-1 px-4 py-2.5 rounded-xl border text-sm transition-colors ${
                           isSelected
-                            ? 'border-primary bg-primary/10 text-primary shadow-[0_0_20px_hsl(var(--primary)/0.2)]'
-                            : 'border-border/30 bg-secondary/40 text-foreground hover:border-primary/30 hover:bg-secondary/60'
+                            ? 'border-primary/60 bg-primary/[0.08] text-foreground'
+                            : 'border-white/[0.06] bg-white/[0.02] text-foreground/80 hover:border-primary/30 hover:bg-white/[0.04]'
                         }`}
                       >
+                        {isSelected && (
+                          <motion.span
+                            layoutId={`var-${type}-ring`}
+                            className="absolute inset-0 rounded-xl ring-1 ring-primary pointer-events-none"
+                            transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                          />
+                        )}
                         <div className="flex items-center gap-2">
                           {type === 'color' && (
-                            <span className="w-5 h-5 rounded-full border-2 border-border/50 shadow-sm" style={{ backgroundColor: v.value }} />
+                            <span className="w-4 h-4 rounded-full border border-white/20 shadow-inner" style={{ backgroundColor: v.value }} />
                           )}
                           <span className="font-medium">{language === 'es' ? v.name_es : v.name_en}</span>
                         </div>
                         {isSize && (vWeight || vPrice || v.dimensions) && (
-                          <span className="text-[10px] text-muted-foreground">
-                            {vWeight ? `${vWeight}${t.product.grams}` : ''}
+                          <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+                            {vWeight ? `${vWeight}g` : ''}
                             {vWeight && v.dimensions ? ' · ' : ''}
                             {v.dimensions ? `${v.dimensions}mm` : ''}
                             {(vWeight || v.dimensions) && vPrice ? ' · ' : ''}
@@ -550,52 +597,77 @@ export default function ProductDetail() {
                           </span>
                         )}
                         {!isSize && Number(v.price_modifier) > 0 && (
-                          <span className="text-xs text-muted-foreground">+${Number(v.price_modifier).toFixed(2)}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono tabular-nums">+${Number(v.price_modifier).toFixed(2)}</span>
                         )}
-                      </button>
+                      </motion.button>
                     );
                   })}
                 </div>
-              </GlassSection>
+              </motion.div>
             ))}
 
-            {/* Quantity */}
-            <GlassSection delay={0.35}>
-              <h3 className="font-display font-semibold text-xs uppercase tracking-[0.2em] text-primary/80 mb-3">{t.product.quantity}</h3>
-              <div className="flex items-center gap-3">
-                <Button variant="outline" size="icon" onClick={() => setQuantity(Math.max(1, quantity - 1))} className="border-border/30 h-10 w-10 rounded-xl bg-secondary/40 hover:bg-secondary/60">
-                  <Minus className="w-4 h-4" />
-                </Button>
-                <span className="font-display font-bold text-xl w-10 text-center">{quantity}</span>
-                <Button variant="outline" size="icon" onClick={() => setQuantity(quantity + 1)} className="border-border/30 h-10 w-10 rounded-xl bg-secondary/40 hover:bg-secondary/60">
-                  <Plus className="w-4 h-4" />
-                </Button>
+            {/* ─── Quantity (Apple stepper) ─── */}
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">{t.product.quantity}</div>
+              <div className="inline-flex items-center gap-1 rounded-full bg-white/[0.03] border border-white/[0.06] p-1">
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="w-9 h-9 rounded-full hover:bg-white/[0.05] flex items-center justify-center transition-colors"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={quantity}
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    transition={{ duration: 0.15 }}
+                    className="font-mono font-semibold text-base w-10 text-center tabular-nums"
+                  >
+                    {String(quantity).padStart(2, '0')}
+                  </motion.span>
+                </AnimatePresence>
+                <button
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="w-9 h-9 rounded-full hover:bg-white/[0.05] flex items-center justify-center transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
               </div>
-            </GlassSection>
+            </motion.div>
 
-            {/* Notes */}
-            <GlassSection delay={0.4}>
-              <h3 className="font-display font-semibold text-xs uppercase tracking-[0.2em] text-primary/80 mb-3">{t.product.specialNotes}</h3>
+            {/* ─── Notes ─── */}
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">{t.product.specialNotes}</div>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={t.product.specialNotesPlaceholder}
-                className="bg-secondary/30 border-border/30 rounded-xl"
+                className="bg-white/[0.02] border-white/[0.06] rounded-xl focus-visible:ring-primary/30"
                 rows={3}
               />
-            </GlassSection>
+            </motion.div>
 
-            {/* Desktop Add to Cart */}
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="hidden lg:block">
-              <Button
-                onClick={handleAddToCart}
-                className="w-full bg-gradient-gold text-primary-foreground font-bold gap-3 h-14 text-base shadow-[0_0_30px_hsl(var(--primary)/0.25)] hover:shadow-[0_0_40px_hsl(var(--primary)/0.4)] transition-all duration-300 rounded-xl"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {t.product.addToCart} — ${totalPrice.toFixed(2)}
-              </Button>
+            {/* ─── Desktop Add to Cart ─── */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="hidden lg:block pt-2">
+              <motion.div whileTap={{ scale: 0.99 }}>
+                <Button
+                  onClick={handleAddToCart}
+                  className="w-full bg-gradient-gold text-primary-foreground font-bold gap-3 h-14 text-[15px] shadow-[0_0_30px_hsl(var(--primary)/0.25)] hover:shadow-[0_0_50px_hsl(var(--primary)/0.5)] transition-all duration-300 rounded-full tracking-tight"
+                >
+                  <ShoppingCart className="w-5 h-5" />
+                  <span>{t.product.addToCart}</span>
+                  <span className="font-mono tabular-nums opacity-80">·</span>
+                  <span className="tabular-nums">${totalPrice.toFixed(2)}</span>
+                </Button>
+              </motion.div>
+              <p className="text-center text-[11px] text-muted-foreground mt-3 font-mono uppercase tracking-wider">
+                <Lock className="inline w-3 h-3 mr-1 -mt-0.5" /> Secure checkout · Free shipping over $50
+              </p>
             </motion.div>
           </div>
+
         </div>
 
         {/* Divider */}
@@ -618,21 +690,29 @@ export default function ProductDetail() {
       </div>
 
       {/* ═══ Mobile Floating Action Bar ═══ */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
-        <div className="bg-card/80 backdrop-blur-xl border-t border-border/30 px-4 py-3 flex items-center gap-4">
-          <div className="flex-1">
-            <span className="text-2xl font-black text-gradient-gold">${totalPrice.toFixed(2)}</span>
-            <span className="text-xs text-muted-foreground ml-2">x{quantity}</span>
+      <motion.div
+        initial={{ y: 100 }} animate={{ y: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 30, delay: 0.3 }}
+        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
+      >
+        <div className="bg-card/85 backdrop-blur-2xl border-t border-white/[0.08] px-4 py-3 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">Total</div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl font-black text-gradient-gold tabular-nums">${totalPrice.toFixed(2)}</span>
+              <span className="font-mono text-[10px] text-muted-foreground tabular-nums">×{String(quantity).padStart(2, '0')}</span>
+            </div>
           </div>
           <Button
             onClick={handleAddToCart}
-            className="bg-gradient-gold text-primary-foreground font-bold gap-2 h-12 px-6 shadow-[0_0_20px_hsl(var(--primary)/0.3)] rounded-xl"
+            className="bg-gradient-gold text-primary-foreground font-bold gap-2 h-12 px-6 shadow-[0_0_20px_hsl(var(--primary)/0.3)] rounded-full tracking-tight"
           >
             <ShoppingCart className="w-5 h-5" />
             {t.product.addToCart}
           </Button>
         </div>
-      </div>
+      </motion.div>
+
 
       <Footer />
     </div>

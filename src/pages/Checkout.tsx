@@ -100,32 +100,61 @@ function TAField({ label, value, onChange, ...rest }: TAFieldProps) {
   );
 }
 
-// ─── Minimal step indicator ───
+// ─── Palantir-style step rail with animated fill ───
 function StepRail({ current, labels }: { current: number; labels: string[] }) {
   return (
-    <div className="flex items-center justify-center gap-3 mb-12">
-      {labels.map((label, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold transition-all ${
-              i < current ? 'bg-primary text-primary-foreground' :
-              i === current ? 'bg-primary text-primary-foreground ring-4 ring-primary/15' :
-              'bg-muted text-muted-foreground'
-            }`}>
-              {i < current ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : i + 1}
+    <div className="flex items-center justify-center mb-12">
+      <div className="flex items-center gap-0">
+        {labels.map((label, i) => {
+          const done = i < current;
+          const active = i === current;
+          return (
+            <div key={i} className="flex items-center">
+              <div className="flex flex-col items-center gap-2 min-w-[110px]">
+                <motion.div
+                  initial={false}
+                  animate={{
+                    backgroundColor: done || active ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+                    scale: active ? 1.05 : 1,
+                  }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                  className={`relative w-8 h-8 rounded-full flex items-center justify-center font-mono text-[11px] font-semibold tabular-nums ${
+                    done || active ? 'text-primary-foreground' : 'text-muted-foreground'
+                  }`}
+                >
+                  {done ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : String(i + 1).padStart(2, '0')}
+                  {active && (
+                    <motion.span
+                      layoutId="step-rail-halo"
+                      className="absolute inset-0 rounded-full ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
+                      transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                    />
+                  )}
+                </motion.div>
+                <span className={`font-mono text-[10px] uppercase tracking-[0.18em] ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {label}
+                </span>
+              </div>
+              {i < labels.length - 1 && (
+                <div className="relative w-16 h-px bg-border -mt-5">
+                  <motion.div
+                    initial={false}
+                    animate={{ scaleX: done ? 1 : 0 }}
+                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ originX: 0 }}
+                    className="absolute inset-0 bg-primary"
+                  />
+                </div>
+              )}
             </div>
-            <span className={`text-[13px] tracking-tight ${i === current ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-              {label}
-            </span>
-          </div>
-          {i < labels.length - 1 && <div className={`w-10 h-px ${i < current ? 'bg-primary' : 'bg-border'}`} />}
-        </div>
-      ))}
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-// ─── Collapsible section card ───
+// ─── Apple/Palantir collapsible section ───
 function SectionCard({
   index, title, subtitle, isActive, isComplete, summary, onEdit, children, ctaLabel, onContinue, disabled,
 }: {
@@ -142,25 +171,42 @@ function SectionCard({
   disabled?: boolean;
 }) {
   return (
-    <div className={`rounded-2xl border bg-card/60 backdrop-blur-sm transition-all ${
-      isActive ? 'border-primary/40 shadow-xl shadow-primary/5' : 'border-border'
-    }`}>
-      <div className="flex items-center justify-between p-6">
-        <div className="flex items-center gap-4">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-            isComplete ? 'bg-primary text-primary-foreground' :
-            isActive ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'
+    <motion.div
+      layout
+      transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+      className={`relative rounded-2xl border bg-card/40 backdrop-blur-xl transition-colors overflow-hidden ${
+        isActive ? 'border-primary/30' : 'border-white/[0.06]'
+      }`}
+    >
+      {isActive && (
+        <motion.span
+          layoutId="section-active-rail"
+          className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary"
+          transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+        />
+      )}
+      <div className="flex items-center justify-between px-6 py-5">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-mono text-[11px] font-semibold tabular-nums shrink-0 ${
+            isComplete ? 'bg-primary/15 text-primary border border-primary/30' :
+            isActive ? 'bg-foreground text-background' :
+            'bg-muted/40 text-muted-foreground border border-white/5'
           }`}>
-            {isComplete ? <Check className="w-4 h-4" strokeWidth={3} /> : index}
+            {isComplete ? <Check className="w-4 h-4" strokeWidth={3} /> : String(index).padStart(2, '0')}
           </div>
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                {String(index).padStart(2, '0')} /
+              </span>
+              <h2 className="text-[15px] font-semibold tracking-tight text-foreground">{title}</h2>
+            </div>
             {subtitle && !isActive && !isComplete && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
-            {isComplete && summary && <div className="text-xs text-muted-foreground mt-1">{summary}</div>}
+            {isComplete && summary && <div className="text-xs text-muted-foreground/80 mt-1 truncate">{summary}</div>}
           </div>
         </div>
         {isComplete && (
-          <button onClick={onEdit} className="text-sm text-primary hover:underline font-medium">
+          <button onClick={onEdit} className="text-xs font-mono uppercase tracking-wider text-primary hover:text-primary/80 transition-colors shrink-0">
             Edit
           </button>
         )}
@@ -172,23 +218,28 @@ function SectionCard({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="overflow-hidden"
           >
-            <div className="px-6 pb-6 space-y-4">
-              {children}
+            <div className="px-6 pb-6 pt-1 space-y-4 border-t border-white/[0.04]">
+              <div className="pt-4 space-y-3">{children}</div>
               <Button
                 onClick={onContinue}
                 disabled={disabled}
-                className="w-full h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 font-semibold text-[15px] tracking-tight"
+                className="w-full h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 font-semibold text-[14px] tracking-tight group"
               >
-                {ctaLabel}
+                <span>{ctaLabel}</span>
+                <motion.span
+                  className="ml-1 inline-block"
+                  initial={false}
+                  whileHover={{ x: 4 }}
+                >→</motion.span>
               </Button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
 
@@ -443,50 +494,69 @@ export default function Checkout() {
 
   // ─── Order summary panel (sticky right + mobile collapsible) ───
   const SummaryPanel = (
-    <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold tracking-tight">{language === 'es' ? 'Resumen' : 'Order summary'}</h3>
-        <span className="text-xs text-muted-foreground">{items.length} {items.length === 1 ? 'item' : 'items'}</span>
+    <div className="rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-xl p-6 space-y-5">
+      <div className="flex items-center justify-between pb-4 border-b border-white/[0.05]">
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Summary</span>
+        </div>
+        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          {String(items.length).padStart(2, '0')} {items.length === 1 ? 'ITEM' : 'ITEMS'}
+        </span>
       </div>
 
-      <div className="space-y-3 max-h-72 overflow-y-auto pr-1 -mr-1">
+      <div className="space-y-4 max-h-72 overflow-y-auto pr-1 -mr-1">
         {items.map(item => {
           const varMod = item.selectedVariations.reduce((s, v) => s + v.priceModifier, 0);
           const itemTotal = (item.unitPrice + varMod) * item.quantity;
           return (
-            <div key={item.productId + JSON.stringify(item.selectedVariations)} className="flex gap-3">
-              <div className="w-14 h-14 rounded-xl bg-secondary overflow-hidden shrink-0 border border-border/40">
+            <div key={item.productId + JSON.stringify(item.selectedVariations)} className="flex gap-3 group">
+              <div className="relative w-14 h-14 rounded-xl bg-secondary overflow-hidden shrink-0 border border-white/[0.06]">
                 {item.productImage && <img src={item.productImage} alt="" className="w-full h-full object-cover" />}
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-mono font-bold tabular-nums flex items-center justify-center">
+                  {item.quantity}
+                </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium text-foreground tracking-tight">{item.productName}</p>
+                <p className="truncate text-[13px] font-medium text-foreground tracking-tight">{item.productName}</p>
                 {item.selectedVariations.length > 0 && (
-                  <p className="text-[11px] text-muted-foreground truncate">{item.selectedVariations.map(v => v.name).filter(Boolean).join(' · ')}</p>
+                  <p className="text-[10px] text-muted-foreground truncate font-mono uppercase tracking-wider mt-0.5">{item.selectedVariations.map(v => v.name).filter(Boolean).join(' · ')}</p>
                 )}
-                <p className="text-[11px] text-muted-foreground mt-0.5">Qty {item.quantity}</p>
               </div>
-              <span className="text-sm font-medium shrink-0">${itemTotal.toFixed(2)}</span>
+              <span className="text-[13px] font-medium shrink-0 tabular-nums">${itemTotal.toFixed(2)}</span>
             </div>
           );
         })}
       </div>
 
-      <div className="border-t border-border/60 pt-4 space-y-2 text-sm">
+      <div className="border-t border-white/[0.05] pt-4 space-y-2.5 text-[13px]">
         <div className="flex justify-between text-muted-foreground">
-          <span>{language === 'es' ? 'Subtotal' : 'Subtotal'}</span>
-          <span className="text-foreground">${subtotal.toFixed(2)}</span>
+          <span className="font-mono uppercase tracking-wider text-[10px]">{language === 'es' ? 'Subtotal' : 'Subtotal'}</span>
+          <span className="text-foreground tabular-nums">${subtotal.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-muted-foreground">
-          <span>{language === 'es' ? 'Envío' : 'Shipping'}</span>
-          <span className="text-foreground">{selectedProvider ? `$${shippingCost.toFixed(2)}` : '—'}</span>
+          <span className="font-mono uppercase tracking-wider text-[10px]">{language === 'es' ? 'Envío' : 'Shipping'}</span>
+          <motion.span
+            key={shippingCost}
+            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+            className="text-foreground tabular-nums"
+          >
+            {selectedProvider ? `$${shippingCost.toFixed(2)}` : '—'}
+          </motion.span>
         </div>
-        <div className="border-t border-border/60 pt-3 flex justify-between items-baseline">
-          <span className="text-sm font-medium">{language === 'es' ? 'Total' : 'Total'}</span>
-          <span className="text-2xl font-semibold tracking-tight">${orderTotal.toFixed(2)}</span>
+        <div className="border-t border-white/[0.05] pt-3 mt-2 flex justify-between items-baseline">
+          <span className="font-mono uppercase tracking-[0.2em] text-[10px] text-muted-foreground">{language === 'es' ? 'Total' : 'Total'}</span>
+          <motion.span
+            key={orderTotal}
+            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+            className="text-2xl font-semibold tracking-tight tabular-nums text-gradient-gold"
+          >
+            ${orderTotal.toFixed(2)}
+          </motion.span>
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground pt-1">
+      <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground pt-2 font-mono uppercase tracking-wider">
         <Lock className="w-3 h-3" />
         {language === 'es' ? 'Transacción segura' : 'Secure checkout'}
       </div>
@@ -501,10 +571,13 @@ export default function Checkout() {
         {step !== 'whatsapp-sent' && step !== 'payment-instructions' && (
           <>
             <div className="text-center mb-10">
+              <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-3">
+                {String(currentStepNum + 1).padStart(2, '0')} / {String(stepLabels.length).padStart(2, '0')} — {stepLabels[currentStepNum]}
+              </div>
               <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-foreground">
                 {language === 'es' ? 'Finalizar compra' : 'Checkout'}
               </h1>
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-sm text-muted-foreground mt-3">
                 {language === 'es' ? 'Revisa tu pedido y completa el envío' : 'Review your order and complete shipping'}
               </p>
             </div>
@@ -642,57 +715,80 @@ export default function Checkout() {
             <motion.div key="method" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <div className="grid lg:grid-cols-5 gap-8">
                 <div className="lg:col-span-3 space-y-4">
-                  <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-6">
-                    <h2 className="text-xl font-semibold tracking-tight mb-1">{language === 'es' ? 'Método de pago' : 'Payment method'}</h2>
+                  <div className="rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-xl p-6">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2">02 / Payment</div>
+                    <h2 className="text-2xl font-semibold tracking-tight mb-1">{language === 'es' ? 'Método de pago' : 'Payment method'}</h2>
                     <p className="text-sm text-muted-foreground mb-6">{language === 'es' ? 'Elige cómo quieres pagar' : 'Choose how you want to pay'}</p>
 
                     {/* WhatsApp */}
-                    <button
+                    <motion.button
                       onClick={handleWhatsApp}
                       disabled={loading}
-                      className="w-full p-5 rounded-2xl border border-border hover:border-green-500/40 bg-background text-left transition-all hover:shadow-lg group disabled:opacity-50 mb-3"
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.99 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                      className="relative w-full p-5 rounded-2xl border border-white/[0.06] hover:border-green-500/40 bg-background/40 text-left transition-colors group disabled:opacity-50 mb-3 overflow-hidden"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center shrink-0">
+                        <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0 border border-green-500/20">
                           <MessageCircle className="w-6 h-6 text-green-500" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-[15px] tracking-tight">WhatsApp</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-[15px] tracking-tight">WhatsApp</h3>
+                            <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 border border-green-500/20">Instant</span>
+                          </div>
                           <p className="text-xs text-muted-foreground mt-0.5">{language === 'es' ? 'Confirma y paga por mensaje' : 'Confirm and pay via message'}</p>
                         </div>
-                        {loading && selectedPayment === null && <Loader2 className="w-5 h-5 animate-spin text-primary" />}
+                        {loading && selectedPayment === null
+                          ? <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                          : <span className="text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all">→</span>}
                       </div>
-                    </button>
+                    </motion.button>
 
                     {/* Online payments header */}
                     {Object.keys(paymentConfigs).length > 0 && (
-                      <div className="flex items-center gap-3 my-5">
-                        <div className="flex-1 h-px bg-border" />
-                        <span className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <div className="flex items-center gap-3 my-6">
+                        <div className="flex-1 h-px bg-white/[0.06]" />
+                        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
                           <CreditCard className="w-3 h-3" /> {language === 'es' ? 'Pago directo' : 'Direct payment'}
                         </span>
-                        <div className="flex-1 h-px bg-border" />
+                        <div className="flex-1 h-px bg-white/[0.06]" />
                       </div>
                     )}
 
                     <div className="grid gap-2.5">
-                      {Object.entries(paymentConfigs).map(([key, cfg]) => (
-                        <button
-                          key={key}
-                          onClick={() => handleOnlinePayment(key)}
-                          disabled={loading}
-                          className="flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/40 bg-background transition-all hover:shadow-lg disabled:opacity-50 text-left"
-                        >
-                          <span className="text-2xl">{paymentIcons[key] || '💳'}</span>
-                          <span className="font-medium text-[15px] flex-1">{cfg.label}</span>
-                          {loading && selectedPayment === key && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
-                        </button>
-                      ))}
+                      {Object.entries(paymentConfigs).map(([key, cfg]) => {
+                        const isLoadingThis = loading && selectedPayment === key;
+                        return (
+                          <motion.button
+                            key={key}
+                            onClick={() => handleOnlinePayment(key)}
+                            disabled={loading}
+                            whileHover={{ y: -2 }}
+                            whileTap={{ scale: 0.99 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                            className="relative flex items-center gap-4 p-4 rounded-xl border border-white/[0.06] hover:border-primary/40 bg-background/40 transition-colors disabled:opacity-50 text-left group"
+                          >
+                            <div className="w-11 h-11 rounded-xl bg-primary/5 border border-primary/15 flex items-center justify-center text-xl shrink-0">
+                              {paymentIcons[key] || '💳'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium text-[15px] tracking-tight block">{cfg.label}</span>
+                              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Manual transfer</span>
+                            </div>
+                            {isLoadingThis
+                              ? <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                              : <span className="text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all">→</span>}
+                          </motion.button>
+                        );
+                      })}
                       {Object.keys(paymentConfigs).length === 0 && (
                         <p className="text-sm text-muted-foreground text-center py-2">{t.checkout.noPaymentMethods}</p>
                       )}
                     </div>
                   </div>
+
 
                   <button onClick={() => setStep('shipping')} className="text-sm text-muted-foreground hover:text-foreground transition-colors px-2">
                     ← {language === 'es' ? 'Volver a envío' : 'Back to shipping'}
