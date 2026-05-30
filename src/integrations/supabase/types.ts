@@ -848,6 +848,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_discount_usage: { Args: { _id: string }; Returns: undefined }
       move_to_dlq: {
         Args: {
           dlq_name: string
