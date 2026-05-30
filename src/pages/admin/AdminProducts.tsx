@@ -33,6 +33,7 @@ interface ProductForm {
   category_id: string;
   is_active: boolean;
   is_featured: boolean;
+  model_3d_url?: string | null;
 }
 
 interface MediaItem {
@@ -46,6 +47,7 @@ interface MediaItem {
 const empty: ProductForm = {
   name_en: '', name_es: '', description_en: '', description_es: '',
   slug: '', base_price: 0, category_id: '', is_active: true, is_featured: false,
+  model_3d_url: '',
 };
 
 const MAX_MEDIA = 5;
