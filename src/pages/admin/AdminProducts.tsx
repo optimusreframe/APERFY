@@ -194,6 +194,11 @@ export default function AdminProducts() {
   const aiOriginalInputRef = useRef<HTMLInputElement>(null);
   const aiBgInputRef = useRef<HTMLInputElement>(null);
 
+  // AI angle gallery (extra renders generated from primary AI image)
+  type AiAngle = { url: string; path: string; angle: string; loading?: boolean; error?: string };
+  const [aiAngles, setAiAngles] = useState<AiAngle[]>([]);
+  const [aiAnglesGenerating, setAiAnglesGenerating] = useState(false);
+
   // Variations state for product modal
   interface VariationRow {
     id?: string;
@@ -603,6 +608,13 @@ export default function AdminProducts() {
     setCreatingCategory(false);
     setBulkMode(false);
     setBulkUrls('');
+    // Clean up angle images from storage
+    if (aiAngles.length > 0) {
+      const paths = aiAngles.map(a => a.path).filter(Boolean);
+      if (paths.length) supabase.storage.from('product-images').remove(paths).catch(() => {});
+    }
+    setAiAngles([]);
+    setAiAnglesGenerating(false);
   };
 
   // Helper: persist an AI image (data URI or remote URL) to storage immediately
