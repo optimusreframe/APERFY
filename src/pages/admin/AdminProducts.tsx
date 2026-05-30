@@ -33,6 +33,7 @@ interface ProductForm {
   category_id: string;
   is_active: boolean;
   is_featured: boolean;
+  model_3d_url?: string | null;
 }
 
 interface MediaItem {
@@ -46,6 +47,7 @@ interface MediaItem {
 const empty: ProductForm = {
   name_en: '', name_es: '', description_en: '', description_es: '',
   slug: '', base_price: 0, category_id: '', is_active: true, is_featured: false,
+  model_3d_url: '',
 };
 
 const MAX_MEDIA = 5;
@@ -421,7 +423,7 @@ export default function AdminProducts() {
       }
       setFieldErrors({});
 
-      const payload = { ...f, category_id: f.category_id || null, base_price: Number(f.base_price) };
+      const payload = { ...f, category_id: f.category_id || null, base_price: Number(f.base_price), model_3d_url: f.model_3d_url?.trim() || null };
       let productId = editId;
 
       if (editId) {
@@ -552,6 +554,7 @@ export default function AdminProducts() {
       description_en: p.description_en || '', description_es: p.description_es || '',
       slug: p.slug, base_price: p.base_price,
       category_id: p.category_id || '', is_active: p.is_active, is_featured: p.is_featured,
+      model_3d_url: p.model_3d_url || '',
     });
     const existingImages = (p.images as string[]) || [];
     setMediaFiles(existingImages.map((url, i) => ({
@@ -1800,7 +1803,7 @@ export default function AdminProducts() {
                         </button>
                       );
                     })}
-                    <div className="mt-auto pt-4 border-t border-border/60 px-3 space-y-2">
+                    <div className="mt-auto pt-4 border-t border-border/60 px-3 space-y-3">
                       <div className="flex items-center gap-2">
                         <Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} />
                         <Label className="text-xs">Activo</Label>
@@ -1808,6 +1811,15 @@ export default function AdminProducts() {
                       <div className="flex items-center gap-2">
                         <Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} />
                         <Label className="text-xs">Destacado</Label>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">3D Model URL (.glb)</Label>
+                        <Input
+                          value={form.model_3d_url || ''}
+                          onChange={(e) => setForm({ ...form, model_3d_url: e.target.value })}
+                          placeholder="https://…/model.glb"
+                          className="bg-secondary text-xs h-8"
+                        />
                       </div>
                     </div>
                   </aside>

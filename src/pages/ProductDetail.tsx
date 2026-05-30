@@ -18,6 +18,7 @@ import LikeButton from '@/components/LikeButton';
 import ShareMenu from '@/components/ShareMenu';
 import ProductReviews from '@/components/ProductReviews';
 import { Badge } from '@/components/ui/badge';
+import Model3DViewer from '@/components/Model3DViewer';
 
 // ─── Lightbox Component ───
 function ImageLightbox({
@@ -210,6 +211,7 @@ export default function ProductDetail() {
   const [notes, setNotes] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [view3D, setView3D] = useState(false);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', slug],
@@ -335,6 +337,47 @@ export default function ProductDetail() {
   useEffect(() => {
     if (variationImage) setSelectedImage(0);
   }, [variationImage]);
+
+  // ─── Dynamic SEO + OG meta ───
+  useEffect(() => {
+    if (!product) return;
+    const name = language === 'es' ? product.name_es : product.name_en;
+    const desc = (language === 'es' ? product.description_es : product.description_en) || `${name} · 3DtoPrint`;
+    const img = baseImages[0] || '';
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+
+    document.title = `${name} · 3DtoPrint`;
+
+    const setMeta = (selector: string, attr: string, key: string, val: string) => {
+      if (!val) return;
+      let el = document.head.querySelector(selector) as HTMLMetaElement | null;
+      if (!el) { el = document.createElement('meta'); el.setAttribute(attr, key); document.head.appendChild(el); }
+      el.setAttribute('content', val);
+    };
+    setMeta(`meta[name="description"]`, 'name', 'description', desc.slice(0, 158));
+    setMeta(`meta[property="og:title"]`, 'property', 'og:title', name);
+    setMeta(`meta[property="og:description"]`, 'property', 'og:description', desc.slice(0, 158));
+    setMeta(`meta[property="og:type"]`, 'property', 'og:type', 'product');
+    setMeta(`meta[property="og:url"]`, 'property', 'og:url', url);
+    setMeta(`meta[property="og:image"]`, 'property', 'og:image', img);
+    setMeta(`meta[name="twitter:card"]`, 'name', 'twitter:card', 'summary_large_image');
+    setMeta(`meta[name="twitter:title"]`, 'name', 'twitter:title', name);
+    setMeta(`meta[name="twitter:description"]`, 'name', 'twitter:description', desc.slice(0, 158));
+    setMeta(`meta[name="twitter:image"]`, 'name', 'twitter:image', img);
+
+    // JSON-LD Product
+    const ldId = 'product-jsonld';
+    let ld = document.getElementById(ldId) as HTMLScriptElement | null;
+    if (!ld) { ld = document.createElement('script'); ld.id = ldId; ld.type = 'application/ld+json'; document.head.appendChild(ld); }
+    ld.text = JSON.stringify({
+      '@context': 'https://schema.org', '@type': 'Product',
+      name, description: desc, image: baseImages, sku: product.slug, url,
+      offers: { '@type': 'Offer', price: Number(product.base_price || 0), priceCurrency: 'USD', availability: 'https://schema.org/InStock' },
+    });
+
+    return () => { document.title = '3DtoPrint'; };
+  }, [product, language, baseImages]);
+
 
 
 
@@ -471,44 +514,69 @@ export default function ProductDetail() {
             className="lg:sticky lg:top-32 lg:self-start"
           >
             <div
-              className="aspect-square rounded-2xl overflow-hidden relative cursor-zoom-in group border border-white/[0.06] bg-card/30 backdrop-blur-sm"
+              className="aspect-square rounded-2xl overflow-hidden relative group border border-white/[0.06] bg-card/30 backdrop-blur-sm"
               style={{ boxShadow: '0 0 60px hsl(var(--primary) / 0.06), 0 30px 80px hsl(var(--background) / 0.5)' }}
-              onClick={() => setLightboxOpen(true)}
             >
-              <AnimatePresence mode="wait">
-                {images.length > 0 ? (
-                  <motion.img
-                    key={selectedImage}
-                    src={images[selectedImage]}
-                    alt={language === 'es' ? product.name_es : product.name_en}
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Box className="w-24 h-24 text-muted-foreground/20" />
-                  </div>
-                )}
-              </AnimatePresence>
+              {view3D && product.model_3d_url ? (
+                <Model3DViewer
+                  src={product.model_3d_url}
+                  poster={images[selectedImage]}
+                  alt={language === 'es' ? product.name_es : product.name_en}
+                  className="absolute inset-0 w-full h-full"
+                />
+              ) : (
+                <div className="absolute inset-0 cursor-zoom-in" onClick={() => setLightboxOpen(true)}>
+                  <AnimatePresence mode="wait">
+                    {images.length > 0 ? (
+                      <motion.img
+                        key={selectedImage}
+                        src={images[selectedImage]}
+                        alt={language === 'es' ? product.name_es : product.name_en}
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Box className="w-24 h-24 text-muted-foreground/20" />
+                      </div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
+              {/* 3D toggle */}
+              {product.model_3d_url && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setView3D(v => !v); }}
+                  className={`absolute top-4 right-4 z-10 px-3 py-1.5 rounded-md backdrop-blur-md border font-mono text-[10px] uppercase tracking-[0.15em] flex items-center gap-1.5 transition-all ${
+                    view3D
+                      ? 'bg-primary/20 border-primary/40 text-primary'
+                      : 'bg-background/70 border-white/[0.06] text-foreground/80 hover:bg-background/90'
+                  }`}
+                >
+                  <Box className="w-3 h-3" />
+                  {view3D ? '2D' : '3D'}
+                </button>
+              )}
 
               {/* Counter chip */}
-              {images.length > 1 && (
+              {!view3D && images.length > 1 && (
                 <div className="absolute bottom-4 left-4 px-2.5 py-1 rounded-md bg-background/70 backdrop-blur-md border border-white/[0.06] font-mono text-[10px] tabular-nums uppercase tracking-[0.15em] text-foreground/80">
                   {String(selectedImage + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
                 </div>
               )}
 
               {/* Zoom hint */}
-              {images.length > 0 && (
-                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background/70 backdrop-blur-md border border-white/[0.06] rounded-md px-2.5 py-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-foreground/80">
+              {!view3D && images.length > 0 && (
+                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background/70 backdrop-blur-md border border-white/[0.06] rounded-md px-2.5 py-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-foreground/80 pointer-events-none">
                   <Maximize2 className="w-3 h-3 text-primary" />
                   Zoom
                 </div>
               )}
 
               {/* Arrow nav */}
-              {images.length > 1 && (
+              {!view3D && images.length > 1 && (
                 <>
                   <button
                     onClick={(e) => { e.stopPropagation(); setSelectedImage((selectedImage - 1 + images.length) % images.length); }}
