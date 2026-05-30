@@ -1906,8 +1906,10 @@ export default function AdminProducts() {
                       variant="outline"
                       size="sm"
                       onClick={() => setProductVariations(prev => [...prev, {
-                        name_en: '', name_es: '', type: 'size', weight_grams: 0, material_id: '', dimensions: '', is_active: true, _isNew: true,
+                        name_en: '', name_es: '', type: 'size', weight_grams: 0, material_id: '', dimensions: '', is_active: true,
+                        price_override: null, use_manual_price: false, image_url: null, _isNew: true,
                       }])}
+
                       className="gap-1 text-xs"
                     >
                       <Plus className="w-3 h-3" /> Agregar Variación
