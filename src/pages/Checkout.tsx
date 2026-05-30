@@ -715,57 +715,80 @@ export default function Checkout() {
             <motion.div key="method" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <div className="grid lg:grid-cols-5 gap-8">
                 <div className="lg:col-span-3 space-y-4">
-                  <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-6">
-                    <h2 className="text-xl font-semibold tracking-tight mb-1">{language === 'es' ? 'Método de pago' : 'Payment method'}</h2>
+                  <div className="rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-xl p-6">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2">02 / Payment</div>
+                    <h2 className="text-2xl font-semibold tracking-tight mb-1">{language === 'es' ? 'Método de pago' : 'Payment method'}</h2>
                     <p className="text-sm text-muted-foreground mb-6">{language === 'es' ? 'Elige cómo quieres pagar' : 'Choose how you want to pay'}</p>
 
                     {/* WhatsApp */}
-                    <button
+                    <motion.button
                       onClick={handleWhatsApp}
                       disabled={loading}
-                      className="w-full p-5 rounded-2xl border border-border hover:border-green-500/40 bg-background text-left transition-all hover:shadow-lg group disabled:opacity-50 mb-3"
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.99 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                      className="relative w-full p-5 rounded-2xl border border-white/[0.06] hover:border-green-500/40 bg-background/40 text-left transition-colors group disabled:opacity-50 mb-3 overflow-hidden"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center shrink-0">
+                        <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0 border border-green-500/20">
                           <MessageCircle className="w-6 h-6 text-green-500" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-[15px] tracking-tight">WhatsApp</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-[15px] tracking-tight">WhatsApp</h3>
+                            <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 border border-green-500/20">Instant</span>
+                          </div>
                           <p className="text-xs text-muted-foreground mt-0.5">{language === 'es' ? 'Confirma y paga por mensaje' : 'Confirm and pay via message'}</p>
                         </div>
-                        {loading && selectedPayment === null && <Loader2 className="w-5 h-5 animate-spin text-primary" />}
+                        {loading && selectedPayment === null
+                          ? <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                          : <span className="text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all">→</span>}
                       </div>
-                    </button>
+                    </motion.button>
 
                     {/* Online payments header */}
                     {Object.keys(paymentConfigs).length > 0 && (
-                      <div className="flex items-center gap-3 my-5">
-                        <div className="flex-1 h-px bg-border" />
-                        <span className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <div className="flex items-center gap-3 my-6">
+                        <div className="flex-1 h-px bg-white/[0.06]" />
+                        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
                           <CreditCard className="w-3 h-3" /> {language === 'es' ? 'Pago directo' : 'Direct payment'}
                         </span>
-                        <div className="flex-1 h-px bg-border" />
+                        <div className="flex-1 h-px bg-white/[0.06]" />
                       </div>
                     )}
 
                     <div className="grid gap-2.5">
-                      {Object.entries(paymentConfigs).map(([key, cfg]) => (
-                        <button
-                          key={key}
-                          onClick={() => handleOnlinePayment(key)}
-                          disabled={loading}
-                          className="flex items-center gap-4 p-4 rounded-xl border border-border hover:border-primary/40 bg-background transition-all hover:shadow-lg disabled:opacity-50 text-left"
-                        >
-                          <span className="text-2xl">{paymentIcons[key] || '💳'}</span>
-                          <span className="font-medium text-[15px] flex-1">{cfg.label}</span>
-                          {loading && selectedPayment === key && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
-                        </button>
-                      ))}
+                      {Object.entries(paymentConfigs).map(([key, cfg]) => {
+                        const isLoadingThis = loading && selectedPayment === key;
+                        return (
+                          <motion.button
+                            key={key}
+                            onClick={() => handleOnlinePayment(key)}
+                            disabled={loading}
+                            whileHover={{ y: -2 }}
+                            whileTap={{ scale: 0.99 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                            className="relative flex items-center gap-4 p-4 rounded-xl border border-white/[0.06] hover:border-primary/40 bg-background/40 transition-colors disabled:opacity-50 text-left group"
+                          >
+                            <div className="w-11 h-11 rounded-xl bg-primary/5 border border-primary/15 flex items-center justify-center text-xl shrink-0">
+                              {paymentIcons[key] || '💳'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium text-[15px] tracking-tight block">{cfg.label}</span>
+                              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Manual transfer</span>
+                            </div>
+                            {isLoadingThis
+                              ? <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                              : <span className="text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all">→</span>}
+                          </motion.button>
+                        );
+                      })}
                       {Object.keys(paymentConfigs).length === 0 && (
                         <p className="text-sm text-muted-foreground text-center py-2">{t.checkout.noPaymentMethods}</p>
                       )}
                     </div>
                   </div>
+
 
                   <button onClick={() => setStep('shipping')} className="text-sm text-muted-foreground hover:text-foreground transition-colors px-2">
                     ← {language === 'es' ? 'Volver a envío' : 'Back to shipping'}
