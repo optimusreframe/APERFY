@@ -1803,7 +1803,7 @@ export default function AdminProducts() {
                         </button>
                       );
                     })}
-                    <div className="mt-auto pt-4 border-t border-border/60 px-3 space-y-2">
+                    <div className="mt-auto pt-4 border-t border-border/60 px-3 space-y-3">
                       <div className="flex items-center gap-2">
                         <Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} />
                         <Label className="text-xs">Activo</Label>
@@ -1811,6 +1811,15 @@ export default function AdminProducts() {
                       <div className="flex items-center gap-2">
                         <Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} />
                         <Label className="text-xs">Destacado</Label>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">3D Model URL (.glb)</Label>
+                        <Input
+                          value={form.model_3d_url || ''}
+                          onChange={(e) => setForm({ ...form, model_3d_url: e.target.value })}
+                          placeholder="https://…/model.glb"
+                          className="bg-secondary text-xs h-8"
+                        />
                       </div>
                     </div>
                   </aside>
