@@ -121,9 +121,10 @@ export default function AdminCategories() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+        }
+      />
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <AdminSurface>
         <Table>
           <TableHeader>
             <TableRow className="border-border">
