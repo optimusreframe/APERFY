@@ -596,80 +596,81 @@ export default function ProductDetail() {
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
               className="rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-xl p-5 space-y-5"
             >
-              <div className="flex items-center justify-between">
-                <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80">
-                  {language === 'es' ? 'Configurar' : 'Configure'}
-                </div>
-                {Object.keys(variationsByType).length === 0 && (
-                  <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
-                    {language === 'es' ? 'Edición única' : 'Single edition'}
-                  </span>
-                )}
-              </div>
-
-              {/* Variations OR Standard fallback */}
+              {/* Variations OR Standard fallback — Amazon-style "Label: Value" header */}
               {Object.entries(variationsByType).length > 0 ? (
-                Object.entries(variationsByType).map(([type, vars], idx) => (
-                  <motion.div
-                    key={type}
-                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 + idx * 0.04 }}
-                  >
-                    <div className="flex items-center justify-between mb-2.5">
-                      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                        {type === 'color' ? t.product.color : type === 'size' ? t.product.size : type}
+                Object.entries(variationsByType).map(([type, vars], idx) => {
+                  const selectedVar = (vars as any[]).find((v: any) => v.id === selectedVariations[type]);
+                  const typeLabel = type === 'color'
+                    ? t.product.color
+                    : type === 'size'
+                      ? t.product.size
+                      : type.charAt(0).toUpperCase() + type.slice(1);
+                  const selectedLabel = selectedVar
+                    ? (language === 'es' ? selectedVar.name_es : selectedVar.name_en)
+                    : (language === 'es' ? 'Elegir' : 'Choose');
+                  return (
+                    <motion.div
+                      key={type}
+                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 + idx * 0.04 }}
+                    >
+                      <div className="mb-2.5 text-[14px]">
+                        <span className="text-muted-foreground">{typeLabel}:</span>{' '}
+                        <span className="text-foreground font-semibold">{selectedLabel}</span>
                       </div>
-                      {selectedVariations[type] && (
-                        <span className="font-mono text-[10px] text-primary uppercase tracking-wider">
-                          {language === 'es' ? 'Seleccionado' : 'Selected'}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {(vars as any[]).map((v: any) => {
-                        const isSize = type === 'size';
-                        const vPrice = isSize && Number(v.price_modifier) > 0 ? Number(v.price_modifier) : null;
-                        const vWeight = isSize && v.weight_grams ? Number(v.weight_grams) : null;
-                        const isSelected = selectedVariations[type] === v.id;
-                        return (
-                          <motion.button
-                            key={v.id}
-                            onClick={() => setSelectedVariations(prev => ({ ...prev, [type]: v.id }))}
-                            whileTap={{ scale: 0.97 }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                            className={`relative flex flex-col items-start gap-0.5 px-3 py-2 rounded-lg border text-[13px] transition-colors ${
-                              isSelected
-                                ? 'border-primary/60 bg-primary/[0.08] text-foreground'
-                                : 'border-white/[0.06] bg-white/[0.02] text-foreground/80 hover:border-primary/30'
-                            }`}
-                          >
-                            {isSelected && (
-                              <motion.span
-                                layoutId={`var-${type}-ring`}
-                                className="absolute inset-0 rounded-lg ring-1 ring-primary pointer-events-none"
-                                transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-                              />
-                            )}
-                            <div className="flex items-center gap-1.5">
-                              {type === 'color' && (
-                                <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: v.value }} />
+                      <div className="flex flex-wrap gap-1.5">
+                        {(vars as any[]).map((v: any) => {
+                          const isSize = type === 'size';
+                          const vEff = effectiveVarPrice(v);
+                          const vPrice = isSize && vEff > 0 ? vEff : null;
+                          const vWeight = isSize && v.weight_grams ? Number(v.weight_grams) : null;
+                          const isSelected = selectedVariations[type] === v.id;
+                          return (
+                            <motion.button
+                              key={v.id}
+                              onClick={() => setSelectedVariations(prev => ({ ...prev, [type]: v.id }))}
+                              whileTap={{ scale: 0.97 }}
+                              transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                              className={`relative flex flex-col items-start gap-0.5 px-3 py-2 rounded-lg border text-[13px] transition-colors ${
+                                isSelected
+                                  ? 'border-primary/60 bg-primary/[0.08] text-foreground'
+                                  : 'border-white/[0.06] bg-white/[0.02] text-foreground/80 hover:border-primary/30'
+                              }`}
+                            >
+                              {isSelected && (
+                                <motion.span
+                                  layoutId={`var-${type}-ring`}
+                                  className="absolute inset-0 rounded-lg ring-1 ring-primary pointer-events-none"
+                                  transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                                />
                               )}
-                              <span className="font-medium">{language === 'es' ? v.name_es : v.name_en}</span>
-                            </div>
-                            {isSize && (vWeight || v.dimensions || vPrice) && (
-                              <span className="text-[9px] text-muted-foreground font-mono tabular-nums">
-                                {[vWeight && `${vWeight}g`, v.dimensions && `${v.dimensions}mm`, vPrice && `$${vPrice.toFixed(2)}`].filter(Boolean).join(' · ')}
-                              </span>
-                            )}
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                ))
+                              <div className="flex items-center gap-1.5">
+                                {type === 'color' && (
+                                  <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: v.value }} />
+                                )}
+                                {v.image_url && (
+                                  <span className="w-5 h-5 rounded overflow-hidden border border-white/10 shrink-0">
+                                    <img src={v.image_url} alt="" className="w-full h-full object-cover" />
+                                  </span>
+                                )}
+                                <span className="font-medium">{language === 'es' ? v.name_es : v.name_en}</span>
+                              </div>
+                              {isSize && (vWeight || v.dimensions || vPrice) && (
+                                <span className="text-[9px] text-muted-foreground font-mono tabular-nums">
+                                  {[vWeight && `${vWeight}g`, v.dimensions && `${v.dimensions}mm`, vPrice && `$${vPrice.toFixed(2)}`].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  );
+                })
               ) : (
                 <div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2.5">
-                    {language === 'es' ? 'Versión' : 'Edition'}
+                  <div className="mb-2.5 text-[14px]">
+                    <span className="text-muted-foreground">{language === 'es' ? 'Edición' : 'Edition'}:</span>{' '}
+                    <span className="text-foreground font-semibold">{language === 'es' ? 'Estándar' : 'Standard'}</span>
                   </div>
                   <div className="relative inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-primary/60 bg-primary/[0.08] text-foreground text-[13px]">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary" />
@@ -678,6 +679,7 @@ export default function ProductDetail() {
                       {language === 'es' ? 'Única opción' : 'Default'}
                     </span>
                   </div>
+
                 </div>
               )}
 
