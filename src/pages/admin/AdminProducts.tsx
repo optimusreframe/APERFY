@@ -1091,6 +1091,8 @@ export default function AdminProducts() {
     }
 
     setAiOpen(false);
+    // Clear angle list BEFORE reset so the cleanup loop doesn't remove the storage objects we just attached.
+    setAiAngles([]);
     resetAi();
     setOpen(true);
     toast({ title: '✓', description: 'Datos AI cargados. Revisa y guarda.' });
