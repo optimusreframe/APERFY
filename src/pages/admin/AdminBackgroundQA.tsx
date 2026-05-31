@@ -151,10 +151,25 @@ export default function AdminBackgroundQA() {
     setLoadingCandidates(false);
   };
 
+  const fetchComposedResults = async () => {
+    setLoadingComposed(true);
+    const { data, error } = await supabase
+      .from('background_composition_results')
+      .select('id, composed_image_url, background_image_url, source_image_url, preset, method, created_at')
+      .order('created_at', { ascending: false })
+      .limit(60);
+    if (error) toast.error(error.message);
+    else setComposedResults((data || []) as ComposedResult[]);
+    setLoadingComposed(false);
+  };
+
   useEffect(() => {
     fetchOfficialBg();
     fetchCandidates();
+    fetchComposedResults();
   }, []);
+
+
 
   const activeCandidate = useMemo(
     () => candidates.find((c) => c.image_url === officialBg) || null,
