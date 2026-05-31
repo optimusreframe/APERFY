@@ -507,15 +507,39 @@ Luxury technology product display of the EXACT same 3D printed object on a dark 
 
       const promptText = `${fidelityRule}\n\n${BACKGROUND_PROMPTS[normalizedBackgroundMode]}`;
 
+      // For system_workshop, resolve the official reference image from admin_settings
+      // if the caller didn't explicitly pass one. This makes the edge function the
+      // single source of truth — admin/bulk callers don't need to pre-fetch the URL.
+      let resolvedReference: string | undefined = customBackground;
+      if (normalizedBackgroundMode === "system_workshop" && !resolvedReference) {
+        try {
+          const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+          const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+          if (SUPABASE_URL && SERVICE_KEY) {
+            const settingResp = await fetch(
+              `${SUPABASE_URL}/rest/v1/admin_settings?setting_key=eq.system_background&select=setting_value`,
+              { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
+            );
+            if (settingResp.ok) {
+              const rows = await settingResp.json();
+              const val = rows?.[0]?.setting_value;
+              if (val && typeof val === "string") resolvedReference = val;
+            }
+          }
+        } catch {
+          // Non-fatal: fall back to text-prompt-only generation.
+        }
+      }
+
       const contentParts: any[] = [];
       contentParts.push({ type: "text", text: promptText });
       contentParts.push({ type: "image_url", image_url: { url: sourceImage } });
 
-      // Send custom background as second image (custom mode), OR system_background reference for system_workshop mode
+      // Attach a second reference image when relevant
       if (normalizedBackgroundMode === "custom" && customBackground) {
         contentParts.push({ type: "image_url", image_url: { url: customBackground } });
-      } else if (normalizedBackgroundMode === "system_workshop" && customBackground) {
-        contentParts.push({ type: "image_url", image_url: { url: customBackground } });
+      } else if (normalizedBackgroundMode === "system_workshop" && resolvedReference) {
+        contentParts.push({ type: "image_url", image_url: { url: resolvedReference } });
       }
 
       const messages = [{ role: "user", content: contentParts }];
