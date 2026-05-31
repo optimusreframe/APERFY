@@ -731,12 +731,39 @@ export default function AdminBackgroundQA() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 text-[10px] text-destructive hover:text-destructive"
+                      className="h-7 text-[10px]"
+                      onClick={() => handleDownloadBackground(c)}
+                    >
+                      <Download className="w-3 h-3 mr-1" /> Download
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px]"
+                      onClick={() => handleCopyBgUrl(c)}
+                    >
+                      <Link2 className="w-3 h-3 mr-1" /> Copy URL
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px]"
+                      asChild
+                    >
+                      <a href={c.image_url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="w-3 h-3 mr-1" /> Open
+                      </a>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px] text-destructive hover:text-destructive col-span-2"
                       onClick={() => deleteCandidate(c)}
                     >
                       <Trash2 className="w-3 h-3 mr-1" /> Delete
                     </Button>
                   </div>
+
                 </Card>
               ))}
             </div>
