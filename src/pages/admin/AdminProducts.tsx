@@ -2555,14 +2555,26 @@ export default function AdminProducts() {
                       checked={getBulkValue(p.id, 'is_active', p.is_active)}
                       onCheckedChange={(c) => setBulkField(p.id, 'is_active', c, p.is_active)}
                     />
-                  ) : (
-                    <div className="flex gap-1">
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${p.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                        {p.is_active ? 'Activo' : 'Inactivo'}
-                      </span>
-                      {p.is_featured && <span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">★</span>}
-                    </div>
-                  )}
+                 ) : (
+                   <div className="flex items-center gap-3">
+                     <div className="flex items-center gap-1.5" title="Activo">
+                       <Switch
+                         checked={p.is_active}
+                         onCheckedChange={(c) => quickToggle.mutate({ id: p.id, field: 'is_active', value: c })}
+                       />
+                       <span className={`text-xs ${p.is_active ? 'text-primary' : 'text-muted-foreground'}`}>
+                         {p.is_active ? 'Activo' : 'Inactivo'}
+                       </span>
+                     </div>
+                     <div className="flex items-center gap-1.5" title="Destacado">
+                       <Switch
+                         checked={p.is_featured}
+                         onCheckedChange={(c) => quickToggle.mutate({ id: p.id, field: 'is_featured', value: c })}
+                       />
+                       <span className={`text-xs ${p.is_featured ? 'text-primary' : 'text-muted-foreground'}`}>★</span>
+                     </div>
+                   </div>
+                 )}
                 </TableCell>
                 <TableCell className="text-right">
                   {!bulkEditMode && (
