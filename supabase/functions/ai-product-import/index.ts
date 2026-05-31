@@ -513,10 +513,13 @@ ${imageListForAI || "No images found."}`
         });
       }
 
+      const FRAMING_RULE = `CRITICAL FRAMING RULE:
+Show the entire 3D printed object fully visible inside the frame. Do not crop any part of the object. Keep clear margins around the object on all sides (at least 10-15% negative space top, bottom, left, and right). Center the object on the workbench. Use a medium product photography framing — not an extreme close-up. The full silhouette, base, top, sides, and details must remain visible. For tall/vertical objects, keep both the base and the top inside the frame. For long/horizontal objects, keep both the left and right ends inside the frame. Macro style is allowed but the object must remain fully visible and not cropped.`;
+
       const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
 Preserve the exact same 3D object from the source image. Do not redesign it, do not change its shape, geometry, proportions, silhouette, color, material, texture, surface details, printed layer lines, logos, holes, edges, or accessories. Do not add or remove any parts. Do not stylize the object. Only change the background, lighting, camera feel, shadows, and environment. The final image must look like the same physical object photographed in a professional 3D printing studio.`;
 
-      const SAFE_RETRY_PROMPT = `Create a clean product photo composition using the provided source object image and the provided background image. Preserve the exact object from the source image. Do not identify, rename, reinterpret, stylize, redesign, or transform the object. Do not add or remove any parts. Only adjust placement, scale, contact shadow, lighting match, and background integration. The output should look like a realistic ecommerce product photo.`;
+      const SAFE_RETRY_PROMPT = `Create a clean product photo composition using the provided source object image and the provided background image. Preserve the exact object from the source image. Do not identify, rename, reinterpret, stylize, redesign, or transform the object. Do not add or remove any parts. Only adjust placement, scale, contact shadow, lighting match, and background integration. Keep the entire object fully visible inside the frame with at least 10-15% margin on all sides — never crop the object. The output should look like a realistic ecommerce product photo.`;
 
       const BACKGROUND_PROMPTS: Record<string, string> = {
         system_workshop: `BACKGROUND AND PHOTOGRAPHY STYLE:
