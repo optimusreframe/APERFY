@@ -109,6 +109,21 @@ export default function AdminBackgroundQA() {
   const [nonAiVPos, setNonAiVPos] = useState<NonAiPlacement['verticalPosition']>('lower');
   const [nonAiShadow, setNonAiShadow] = useState<NonAiPlacement['shadow']>('soft');
 
+  // ── Saved Composed Results ──
+  interface ComposedResult {
+    id: string;
+    composed_image_url: string;
+    background_image_url: string;
+    source_image_url: string;
+    preset: string | null;
+    method: string;
+    created_at: string;
+  }
+  const [composedResults, setComposedResults] = useState<ComposedResult[]>([]);
+  const [loadingComposed, setLoadingComposed] = useState(false);
+  const [composedMethodFilter, setComposedMethodFilter] = useState<'all' | 'ai' | 'safe_retry' | 'non_ai'>('all');
+
+
 
   const fetchOfficialBg = async () => {
     setLoadingBg(true);
@@ -136,10 +151,25 @@ export default function AdminBackgroundQA() {
     setLoadingCandidates(false);
   };
 
+  const fetchComposedResults = async () => {
+    setLoadingComposed(true);
+    const { data, error } = await supabase
+      .from('background_composition_results')
+      .select('id, composed_image_url, background_image_url, source_image_url, preset, method, created_at')
+      .order('created_at', { ascending: false })
+      .limit(60);
+    if (error) toast.error(error.message);
+    else setComposedResults((data || []) as ComposedResult[]);
+    setLoadingComposed(false);
+  };
+
   useEffect(() => {
     fetchOfficialBg();
     fetchCandidates();
+    fetchComposedResults();
   }, []);
+
+
 
   const activeCandidate = useMemo(
     () => candidates.find((c) => c.image_url === officialBg) || null,
@@ -701,12 +731,39 @@ export default function AdminBackgroundQA() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 text-[10px] text-destructive hover:text-destructive"
+                      className="h-7 text-[10px]"
+                      onClick={() => handleDownloadBackground(c)}
+                    >
+                      <Download className="w-3 h-3 mr-1" /> Download
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px]"
+                      onClick={() => handleCopyBgUrl(c)}
+                    >
+                      <Link2 className="w-3 h-3 mr-1" /> Copy URL
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px]"
+                      asChild
+                    >
+                      <a href={c.image_url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="w-3 h-3 mr-1" /> Open
+                      </a>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px] text-destructive hover:text-destructive col-span-2"
                       onClick={() => deleteCandidate(c)}
                     >
                       <Trash2 className="w-3 h-3 mr-1" /> Delete
                     </Button>
                   </div>
+
                 </Card>
               ))}
             </div>
@@ -783,9 +840,93 @@ export default function AdminBackgroundQA() {
           })}
         </div>
 
+        {/* ── Saved Composed Results ── */}
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h2 className="text-lg font-semibold">Saved Composed Results</h2>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Method:</Label>
+              <Select value={composedMethodFilter} onValueChange={(v) => setComposedMethodFilter(v as any)}>
+                <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="ai">AI</SelectItem>
+                  <SelectItem value="safe_retry">Safe Retry</SelectItem>
+                  <SelectItem value="non_ai">Non-AI</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="ghost" size="sm" onClick={fetchComposedResults}>
+                <RefreshCw className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+          {loadingComposed ? (
+            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+          ) : composedResults.filter(r => composedMethodFilter === 'all' || r.method === composedMethodFilter).length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No composed results yet.</p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              {composedResults
+                .filter(r => composedMethodFilter === 'all' || r.method === composedMethodFilter)
+                .map((r) => (
+                  <Card key={r.id} className="p-3 space-y-2">
+                    <div className="aspect-square bg-muted rounded overflow-hidden">
+                      <img src={r.composed_image_url} alt="composed" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex items-center justify-between gap-1">
+                      <Badge
+                        variant={r.method === 'non_ai' ? 'outline' : 'default'}
+                        className="text-[9px]"
+                      >
+                        {r.method === 'ai' ? 'AI' : r.method === 'safe_retry' ? 'Safe Retry' : 'Non-AI'}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(r.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {r.preset && (
+                      <code className="text-[10px] font-mono text-muted-foreground block truncate">{r.preset}</code>
+                    )}
+                    <div className="grid grid-cols-3 gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[10px]"
+                        onClick={() => downloadRemoteImage(r.composed_image_url, `composed-${r.id}.png`).catch(e => toast.error(e.message))}
+                      >
+                        <Download className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[10px]"
+                        onClick={() => copyToClipboard(r.composed_image_url).then(() => toast.success('Copied')).catch(() => toast.error('Copy failed'))}
+                      >
+                        <Link2 className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 text-[10px]" asChild>
+                        <a href={r.composed_image_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+            </div>
+          )}
+        </Card>
+
         {/* ── Preview with product dialog ── */}
-        <Dialog open={!!previewing} onOpenChange={(o) => !o && setPreviewing(null)}>
-          <DialogContent className="max-w-3xl">
+        <Dialog open={!!previewing} onOpenChange={(o) => {
+          if (!o) {
+            setPreviewing(null);
+            setPreviewResult(null);
+            setPreviewError(null);
+            setPreviewBlocked(false);
+            setPreviewMethod(null);
+          }
+        }}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Preview with Product</DialogTitle>
             </DialogHeader>
@@ -798,11 +939,103 @@ export default function AdminBackgroundQA() {
                   if (url) setSourceImage(url);
                 }}
               />
-              <Button onClick={runPreview} disabled={previewLoading || !previewSource} className="w-full">
-                {previewLoading
-                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating product preview…</>
-                  : <>Run Composition</>}
-              </Button>
+
+              {!previewBlocked && (
+                <Button onClick={() => runPreview()} disabled={previewLoading || !previewSource} className="w-full">
+                  {previewLoading
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating product preview…</>
+                    : <>Run AI Composition</>}
+                </Button>
+              )}
+
+              {previewBlocked && (
+                <Card className="p-4 space-y-3 border-amber-500/40 bg-amber-500/5">
+                  <div className="flex items-start gap-2">
+                    <ShieldAlert className="w-5 h-5 text-amber-600 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-semibold">AI composition blocked</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {previewError || 'The AI flagged this source image. Choose how to proceed:'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-3 gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={previewLoading}
+                      onClick={() => runPreview({ safeRetry: true })}
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" /> Safe Retry
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={previewLoading}
+                      onClick={runNonAiComposite}
+                    >
+                      <ImageIcon className="w-3 h-3 mr-1" /> Non-AI Composite
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => { setPreviewBlocked(false); setPreviewError(null); }}
+                    >
+                      Choose Another Image
+                    </Button>
+                  </div>
+                </Card>
+              )}
+
+              {/* Non-AI placement controls */}
+              <details className="text-xs">
+                <summary className="cursor-pointer text-muted-foreground">Non-AI placement options</summary>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <div>
+                    <Label className="text-[10px]">Size</Label>
+                    <Select value={nonAiSize} onValueChange={(v) => setNonAiSize(v as any)}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="small">Small</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="large">Large</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-[10px]">Vertical</Label>
+                    <Select value={nonAiVPos} onValueChange={(v) => setNonAiVPos(v as any)}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="higher">Higher</SelectItem>
+                        <SelectItem value="center">Center</SelectItem>
+                        <SelectItem value="lower">Lower</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-[10px]">Shadow</Label>
+                    <Select value={nonAiShadow} onValueChange={(v) => setNonAiShadow(v as any)}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="off">Off</SelectItem>
+                        <SelectItem value="soft">Soft</SelectItem>
+                        <SelectItem value="strong">Strong</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full mt-2"
+                  disabled={previewLoading || !previewSource || !previewing}
+                  onClick={runNonAiComposite}
+                >
+                  Run Non-AI Composite
+                </Button>
+              </details>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Background candidate</p>
@@ -811,19 +1044,46 @@ export default function AdminBackgroundQA() {
                   )}
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Composed result</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs text-muted-foreground">Composed result</p>
+                    {previewMethod && (
+                      <Badge variant={previewMethod === 'non_ai' ? 'outline' : 'default'} className="text-[9px]">
+                        {previewMethod === 'ai' ? 'AI' : previewMethod === 'safe_retry' ? 'Safe Retry' : 'Non-AI'}
+                      </Badge>
+                    )}
+                  </div>
                   <div className="w-full aspect-square bg-muted rounded border flex items-center justify-center overflow-hidden">
                     {previewLoading && <Loader2 className="w-8 h-8 animate-spin" />}
                     {!previewLoading && previewResult && (
                       <img src={previewResult} alt="result" className="w-full h-full object-cover" />
                     )}
-                    {!previewLoading && !previewResult && previewError && (
+                    {!previewLoading && !previewResult && previewError && !previewBlocked && (
                       <div className="p-2 text-xs text-destructive text-center">{previewError}</div>
                     )}
                     {!previewLoading && !previewResult && !previewError && (
                       <ImageIcon className="w-10 h-10 text-muted-foreground" />
                     )}
                   </div>
+                  {previewResult && (
+                    <div className="grid grid-cols-3 gap-1 mt-2">
+                      <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={handleDownloadResult}>
+                        <Download className="w-3 h-3 mr-1" /> Download
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 text-[10px]" onClick={handleCopyResultUrl}>
+                        <Link2 className="w-3 h-3 mr-1" /> Copy
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 text-[10px]" asChild>
+                        <a href={previewResult} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-3 h-3 mr-1" /> Open
+                        </a>
+                      </Button>
+                    </div>
+                  )}
+                  {previewMethod === 'non_ai' && (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Non-AI preview: positioning only, no AI lighting/shadows blending.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -833,3 +1093,4 @@ export default function AdminBackgroundQA() {
     </TooltipProvider>
   );
 }
+
