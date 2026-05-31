@@ -67,7 +67,13 @@ interface Candidate {
 }
 
 export default function AdminBackgroundQA() {
-  const [sourceImage, setSourceImage] = useState('');
+  const [sourceImage, setSourceImageState] = useState(() => {
+    try { return localStorage.getItem(LAST_SOURCE_KEY) || ''; } catch { return ''; }
+  });
+  const setSourceImage = (url: string) => {
+    setSourceImageState(url);
+    try { if (url) localStorage.setItem(LAST_SOURCE_KEY, url); } catch {/* ignore */}
+  };
   const [customBackground, setCustomBackground] = useState('');
   const [results, setResults] = useState<Record<Preset, Result>>(() =>
     PRESETS.reduce((acc, p) => ({ ...acc, [p.id]: { status: 'idle' } }), {} as Record<Preset, Result>)
