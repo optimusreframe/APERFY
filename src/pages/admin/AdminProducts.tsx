@@ -189,7 +189,7 @@ export default function AdminProducts() {
   const [aiProgressStep, setAiProgressStep] = useState(0);
   const [aiExtractedImages, setAiExtractedImages] = useState<string[]>([]);
   const [aiSelectedSourceImage, setAiSelectedSourceImage] = useState<string | null>(null);
-  const [aiBgMode, setAiBgMode] = useState<'system' | 'ai' | 'custom'>('system');
+  const [aiBgMode, setAiBgMode] = useState<string>('system_workshop');
   const [showEnglish, setShowEnglish] = useState(false);
   const [slugLocked, setSlugLocked] = useState(true);
   const [newCategoryName, setNewCategoryName] = useState('');
