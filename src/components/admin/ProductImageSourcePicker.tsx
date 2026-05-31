@@ -328,13 +328,8 @@ export default function ProductImageSourcePicker({
             )}
           </TabsContent>
         )}
-
-              setUrlInput(e.target.value);
-              onChange(e.target.value);
-            }}
-          />
-        </TabsContent>
       </Tabs>
+
 
       {value && (
         <div className="flex gap-2 items-start mt-2">
