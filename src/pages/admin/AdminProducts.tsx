@@ -660,7 +660,7 @@ export default function AdminProducts() {
 
   const triggerAiGenerateImage = async (sourceImg: string) => {
     let customBackground: string | undefined;
-    if (aiBgMode === 'system' && systemBgSetting) {
+    if (aiBgMode === 'system_workshop' && systemBgSetting) {
       customBackground = systemBgSetting;
     } else if (aiBgMode === 'custom' && aiCustomBg) {
       customBackground = aiCustomBg;
