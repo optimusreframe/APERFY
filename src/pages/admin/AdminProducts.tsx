@@ -1209,60 +1209,34 @@ export default function AdminProducts() {
                         <Image className="w-4 h-4 text-primary" />
                         Fondo para imagen AI
                       </Label>
-                      <RadioGroup value={aiBgMode} onValueChange={(v) => setAiBgMode(v as 'system' | 'ai' | 'custom')} className="space-y-3">
-                        {/* Estudio Maker */}
-                        <div
-                          onClick={() => setAiBgMode('system')}
-                          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:border-primary/50 ${aiBgMode === 'system' ? 'border-primary bg-primary/5 shadow-[0_0_15px_rgba(212,160,23,0.1)]' : 'border-border bg-background'}`}
-                        >
-                          <RadioGroupItem value="system" id="bg-system" className="sr-only" />
-                          <div className="flex items-start gap-3">
-                            <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${aiBgMode === 'system' ? 'border-primary' : 'border-muted-foreground'}`}>
-                              {aiBgMode === 'system' && <div className="w-2 h-2 rounded-full bg-primary" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-sm">Estudio Maker</span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/20 text-primary">Recomendado</span>
+                      <RadioGroup value={aiBgMode} onValueChange={(v) => setAiBgMode(v)} className="space-y-3">
+                        {[
+                          { value: 'system_workshop', label: '3DtoPrint Workshop', desc: 'Workbench metálico con impresora FDM borrosa y filamentos naranja/teal — look oficial 3DtoPrint', badge: 'Recomendado' },
+                          { value: 'system_macro', label: '3DtoPrint Macro', desc: 'Macro close-up con bokeh intenso del taller y enfoque selectivo sobre el producto' },
+                          { value: 'system_dark_premium', label: '3DtoPrint Dark Premium', desc: 'Atmósfera cinematográfica oscura con rim light azul frío y acento naranja cálido' },
+                          { value: 'custom', label: 'Custom Background', desc: 'Sube tu propia imagen de fondo' },
+                          { value: 'premium_tech_plinth', label: 'Premium Tech Plinth', desc: 'Plinto de fibra de carbono con red geométrica oscura y acentos cobre/oro' },
+                        ].map((opt) => (
+                          <div
+                            key={opt.value}
+                            onClick={() => setAiBgMode(opt.value)}
+                            className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:border-primary/50 ${aiBgMode === opt.value ? 'border-primary bg-primary/5 shadow-[0_0_15px_rgba(212,160,23,0.1)]' : 'border-border bg-background'}`}
+                          >
+                            <RadioGroupItem value={opt.value} id={`bg-${opt.value}`} className="sr-only" />
+                            <div className="flex items-start gap-3">
+                              <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${aiBgMode === opt.value ? 'border-primary' : 'border-muted-foreground'}`}>
+                                {aiBgMode === opt.value && <div className="w-2 h-2 rounded-full bg-primary" />}
                               </div>
-                              <p className="text-xs text-muted-foreground mt-1">Fondo hiperrealista de taller con impresora 3D y desenfoque cinematográfico</p>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-sm">{opt.label}</span>
+                                  {opt.badge && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/20 text-primary">{opt.badge}</span>}
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">{opt.desc}</p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-
-                        {/* Exhibición Tech */}
-                        <div
-                          onClick={() => setAiBgMode('ai')}
-                          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:border-primary/50 ${aiBgMode === 'ai' ? 'border-primary bg-primary/5 shadow-[0_0_15px_rgba(212,160,23,0.1)]' : 'border-border bg-background'}`}
-                        >
-                          <RadioGroupItem value="ai" id="bg-ai" className="sr-only" />
-                          <div className="flex items-start gap-3">
-                            <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${aiBgMode === 'ai' ? 'border-primary' : 'border-muted-foreground'}`}>
-                              {aiBgMode === 'ai' && <div className="w-2 h-2 rounded-full bg-primary" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="font-semibold text-sm">Exhibición Tech Abstracta</span>
-                              <p className="text-xs text-muted-foreground mt-1">Estilo geométrico oscuro con nodos de red y marca 3DtoPrint grabada</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Fondo Personalizado */}
-                        <div
-                          onClick={() => setAiBgMode('custom')}
-                          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:border-primary/50 ${aiBgMode === 'custom' ? 'border-primary bg-primary/5 shadow-[0_0_15px_rgba(212,160,23,0.1)]' : 'border-border bg-background'}`}
-                        >
-                          <RadioGroupItem value="custom" id="bg-custom" className="sr-only" />
-                          <div className="flex items-start gap-3">
-                            <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${aiBgMode === 'custom' ? 'border-primary' : 'border-muted-foreground'}`}>
-                              {aiBgMode === 'custom' && <div className="w-2 h-2 rounded-full bg-primary" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="font-semibold text-sm">Fondo Personalizado</span>
-                              <p className="text-xs text-muted-foreground mt-1">Sube tu propia imagen de fondo</p>
-                            </div>
-                          </div>
-                        </div>
+                        ))}
                       </RadioGroup>
 
                       <AnimatePresence>
