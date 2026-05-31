@@ -900,7 +900,7 @@ export default function AdminProducts() {
     }
 
     let customBackground: string | undefined;
-    if (editAiBgMode === 'system' && systemBgSetting) {
+    if (editAiBgMode === 'system_workshop' && systemBgSetting) {
       customBackground = systemBgSetting;
     } else if (editAiBgMode === 'custom' && editAiCustomBg) {
       customBackground = editAiCustomBg;
