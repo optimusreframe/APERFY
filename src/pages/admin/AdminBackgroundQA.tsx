@@ -109,6 +109,21 @@ export default function AdminBackgroundQA() {
   const [nonAiVPos, setNonAiVPos] = useState<NonAiPlacement['verticalPosition']>('lower');
   const [nonAiShadow, setNonAiShadow] = useState<NonAiPlacement['shadow']>('soft');
 
+  // ── Saved Composed Results ──
+  interface ComposedResult {
+    id: string;
+    composed_image_url: string;
+    background_image_url: string;
+    source_image_url: string;
+    preset: string | null;
+    method: string;
+    created_at: string;
+  }
+  const [composedResults, setComposedResults] = useState<ComposedResult[]>([]);
+  const [loadingComposed, setLoadingComposed] = useState(false);
+  const [composedMethodFilter, setComposedMethodFilter] = useState<'all' | 'ai' | 'safe_retry' | 'non_ai'>('all');
+
+
 
   const fetchOfficialBg = async () => {
     setLoadingBg(true);
