@@ -117,14 +117,16 @@ export default function ProductImageSourcePicker({
   };
 
   const handleFile = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('Only image files are allowed');
+    const ALLOWED_EXT = /\.(png|jpe?g|webp)$/i;
+    if (!file.type.startsWith('image/') || !ALLOWED_EXT.test(file.name)) {
+      toast.error('Only PNG, JPG, JPEG, or WEBP images are allowed');
       return;
     }
     if (file.size > MAX_BYTES) {
       toast.error('Image too large (max 10MB)');
       return;
     }
+
     setUploading(true);
     toast.info('Uploading image...');
     try {
