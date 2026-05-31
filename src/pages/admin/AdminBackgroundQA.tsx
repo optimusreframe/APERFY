@@ -14,6 +14,9 @@ import {
   Sparkles, Star, Eye, RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import ProductImageSourcePicker from '@/components/admin/ProductImageSourcePicker';
+
+const LAST_SOURCE_KEY = 'bgqa.lastSourceImage';
 
 type Preset =
   | 'system_workshop'
@@ -64,7 +67,13 @@ interface Candidate {
 }
 
 export default function AdminBackgroundQA() {
-  const [sourceImage, setSourceImage] = useState('');
+  const [sourceImage, setSourceImageState] = useState(() => {
+    try { return localStorage.getItem(LAST_SOURCE_KEY) || ''; } catch { return ''; }
+  });
+  const setSourceImage = (url: string) => {
+    setSourceImageState(url);
+    try { if (url) localStorage.setItem(LAST_SOURCE_KEY, url); } catch {/* ignore */}
+  };
   const [customBackground, setCustomBackground] = useState('');
   const [results, setResults] = useState<Record<Preset, Result>>(() =>
     PRESETS.reduce((acc, p) => ({ ...acc, [p.id]: { status: 'idle' } }), {} as Record<Preset, Result>)
@@ -611,14 +620,18 @@ export default function AdminBackgroundQA() {
         <Card className="p-4 space-y-4">
           <h2 className="text-lg font-semibold">Preset QA Runner</h2>
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Source Image URL (the 3D object)</Label>
-              <Input placeholder="https://..." value={sourceImage} onChange={(e) => setSourceImage(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Custom Background URL (only used by `custom` preset)</Label>
-              <Input placeholder="https://..." value={customBackground} onChange={(e) => setCustomBackground(e.target.value)} />
-            </div>
+            <ProductImageSourcePicker
+              label="Source Image (the 3D object)"
+              value={sourceImage}
+              onChange={setSourceImage}
+            />
+            <ProductImageSourcePicker
+              label="Custom Background (only used by `custom` preset)"
+              value={customBackground}
+              onChange={setCustomBackground}
+              hideLibrary
+              uploadFolder="background-qa-custom"
+            />
           </div>
           <div className="flex gap-2 items-center flex-wrap">
             <Button onClick={runAll} disabled={!sourceImage}>Run all 5 presets</Button>
@@ -680,17 +693,17 @@ export default function AdminBackgroundQA() {
               <DialogTitle>Preview with Product</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Source Image URL (3D object)</Label>
-                <Input
-                  placeholder="https://..."
-                  value={previewSource}
-                  onChange={(e) => setPreviewSource(e.target.value)}
-                />
-              </div>
-              <Button onClick={runPreview} disabled={previewLoading || !previewSource}>
+              <ProductImageSourcePicker
+                label="Source image (3D object)"
+                value={previewSource}
+                onChange={(url) => {
+                  setPreviewSource(url);
+                  if (url) setSourceImage(url);
+                }}
+              />
+              <Button onClick={runPreview} disabled={previewLoading || !previewSource} className="w-full">
                 {previewLoading
-                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Compositing…</>
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating product preview…</>
                   : <>Run Composition</>}
               </Button>
               <div className="grid grid-cols-2 gap-3">
