@@ -40,6 +40,7 @@ import AdminShipping from "./pages/admin/AdminShipping";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminDiscounts from "./pages/admin/AdminDiscounts";
 import AdminAI3DSettings from "./pages/admin/AdminAI3DSettings";
+import AdminBackgroundQA from "./pages/admin/AdminBackgroundQA";
 import RequestModel from "./pages/RequestModel";
 import OurProcess from "./pages/OurProcess";
 import Materials from "./pages/Materials";
@@ -100,6 +101,7 @@ const AppContent = () => {
             <Route path="discounts" element={<AdminDiscounts />} />
             <Route path="logs" element={<AdminLogs />} />
             <Route path="ai-3d" element={<AdminAI3DSettings />} />
+            <Route path="background-qa" element={<AdminBackgroundQA />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
