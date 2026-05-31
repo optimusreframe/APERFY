@@ -85,6 +85,22 @@ export default function ProductImageSourcePicker({
     })();
   }, [tab, hideLibrary, products.length]);
 
+  useEffect(() => {
+    if (!showComposedResults || tab !== 'composed' || composed.length) return;
+    (async () => {
+      setLoadingComposed(true);
+      const { data, error } = await supabase
+        .from('background_composition_results')
+        .select('id, composed_image_url, method, preset, created_at, product_id')
+        .order('created_at', { ascending: false })
+        .limit(120);
+      if (error) toast.error(error.message);
+      else setComposed((data || []) as ComposedRow[]);
+      setLoadingComposed(false);
+    })();
+  }, [tab, showComposedResults, composed.length]);
+
+
   const filteredProducts = products.filter((p) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
