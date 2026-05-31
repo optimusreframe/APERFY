@@ -228,7 +228,7 @@ export default function AdminProducts() {
   // Edit dialog AI state
   const [editAiImageOpen, setEditAiImageOpen] = useState(false);
   const [editAiSourceImage, setEditAiSourceImage] = useState<string | null>(null);
-  const [editAiBgMode, setEditAiBgMode] = useState<'system' | 'ai' | 'custom'>('system');
+  const [editAiBgMode, setEditAiBgMode] = useState<string>('system_workshop');
   const [editAiCustomBg, setEditAiCustomBg] = useState<string | null>(null);
   const [editAiGenerating, setEditAiGenerating] = useState(false);
   const [editEnhancing, setEditEnhancing] = useState(false);
