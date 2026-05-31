@@ -153,12 +153,16 @@ export default function ProductImageSourcePicker({
   return (
     <div className="space-y-2">
       {label && <Label>{label}</Label>}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-        <TabsList className={hideLibrary ? 'grid w-full grid-cols-2' : 'grid w-full grid-cols-3'}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+        <TabsList
+          className={`grid w-full grid-cols-${(hideLibrary ? 0 : 1) + 2 + (showComposedResults ? 1 : 0)}`}
+        >
           {!hideLibrary && <TabsTrigger value="library">Product Library</TabsTrigger>}
           <TabsTrigger value="upload">Upload Image</TabsTrigger>
           <TabsTrigger value="url">Image URL</TabsTrigger>
+          {showComposedResults && <TabsTrigger value="composed">Composed Results</TabsTrigger>}
         </TabsList>
+
 
         {!hideLibrary && (
           <TabsContent value="library" className="space-y-2">
