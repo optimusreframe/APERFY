@@ -112,7 +112,7 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
                 body: {
                   action: 'generate_image',
                   sourceImage: bestSourceImage,
-                  backgroundMode: 'system',
+                  backgroundMode: 'system_workshop',
                   customBackground: systemBgSetting || undefined,
                 },
               });
