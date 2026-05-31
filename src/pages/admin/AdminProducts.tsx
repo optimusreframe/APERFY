@@ -554,6 +554,25 @@ export default function AdminProducts() {
     },
   });
 
+  const quickToggle = useMutation({
+    mutationFn: async ({ id, field, value }: { id: string; field: 'is_active' | 'is_featured'; value: boolean }) => {
+      const { error } = await supabase.from('products').update({ [field]: value }).eq('id', id);
+      if (error) throw error;
+      return { id, field, value };
+    },
+    onSuccess: ({ id, field, value }) => {
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      logActivity({
+        action: field === 'is_active' ? (value ? 'product_activated' : 'product_deactivated') : (value ? 'product_featured' : 'product_unfeatured'),
+        category: 'edit',
+        entity_type: 'product',
+        entity_id: id,
+        title: field === 'is_active' ? (value ? 'Producto activado' : 'Producto desactivado') : (value ? 'Producto destacado' : 'Producto no destacado'),
+      });
+    },
+    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
+
   const openEdit = (p: any) => {
     setEditId(p.id);
     setFieldErrors({});
