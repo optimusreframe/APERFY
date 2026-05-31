@@ -531,6 +531,15 @@ export default function ProductDetail() {
                 />
               ) : (
                 <div className="absolute inset-0 cursor-zoom-in" onClick={() => setLightboxOpen(true)}>
+                  {/* Blurred background fill */}
+                  {images.length > 0 && (
+                    <img
+                      src={images[selectedImage]}
+                      alt=""
+                      aria-hidden
+                      className="absolute inset-0 w-full h-full object-cover opacity-30 blur-2xl scale-110 pointer-events-none"
+                    />
+                  )}
                   <AnimatePresence mode="wait">
                     {images.length > 0 ? (
                       <motion.img
@@ -539,7 +548,7 @@ export default function ProductDetail() {
                         alt={language === 'es' ? product.name_es : product.name_en}
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         transition={{ duration: 0.25 }}
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                        className="absolute inset-0 w-full h-full object-contain object-center p-2 transition-transform duration-500 group-hover:scale-[1.03]"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
