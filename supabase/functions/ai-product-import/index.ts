@@ -760,19 +760,22 @@ If the input name/description is already good, polish it slightly. If it's empty
         });
       }
 
-      const fidelityRule = "CRITICAL FIDELITY RULE: The 3D printed object MUST be reproduced with ABSOLUTE fidelity to the reference image. Do NOT modify, alter, or reinterpret the object's design, colors, shape, size, proportions, textures, surface details, or any visual characteristic. It must be the EXACT same object — same colors, same geometry, same paint job, same level of detail.";
+      const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
+Preserve the exact same 3D object from the source image. Do not redesign it, do not change its shape, geometry, proportions, silhouette, color, material, texture, surface details, printed layer lines, logos, holes, edges, or accessories. Do not add or remove any parts. Do not stylize the object. Only change the camera angle. The final image must look like the same physical object photographed in a professional 3DtoPrint workshop studio.`;
+
+      const sharedBackground = `Generate a new product angle of the exact same object while preserving the same 3DtoPrint workshop background, same brushed grey metallic workbench, same blurred FDM printer, same orange and teal filament bokeh, same lighting direction, same shadows, same camera lens style, and same ecommerce catalog quality. Only change the camera angle. Do not alter the object.`;
 
       const anglePrompts: Record<string, string> = {
-        side: "Render the EXACT same object from a perfect side / profile view (90° rotation). Keep the same studio background, same lighting style, same surface, same composition framing as a professional product photo.",
-        back: "Render the EXACT same object from the back (180° rotation). Keep the same studio background, same lighting style, same surface, same composition framing as a professional product photo.",
-        three_quarter: "Render the EXACT same object from a 3/4 hero angle (roughly 45° rotation, slight high angle). Keep the same studio background, same lighting style, same surface, same framing as a professional product photo.",
-        top: "Render the EXACT same object from a top-down / overhead angle. Keep the same studio background, same lighting style, same surface, framed as a professional product photo.",
-        macro: "Render an ultra close-up macro shot of the EXACT same object focusing on its surface details and texture. Keep the same studio background, same lighting style, shallow depth of field, professional product macro photography.",
-        lifestyle: "Render the EXACT same object in a tasteful lifestyle scene (on a stylish desk, shelf, or in a hand) without modifying the object itself. Soft realistic lighting. Cinematic product photography.",
+        side: `${sharedBackground} Render the EXACT same object from a perfect side / profile view (90° rotation).`,
+        back: `${sharedBackground} Render the EXACT same object from the back (180° rotation).`,
+        three_quarter: `${sharedBackground} Render the EXACT same object from a 3/4 hero angle (roughly 45° rotation, slight high angle).`,
+        top: `${sharedBackground} Render the EXACT same object from a top-down / overhead angle.`,
+        macro: `${sharedBackground} Render an ultra close-up macro shot of the EXACT same object focusing on its surface details and PLA texture, with very shallow depth of field.`,
+        lifestyle: `${sharedBackground} Render the EXACT same object framed as a tasteful lifestyle hero shot within the same 3DtoPrint workshop scene. Do not modify the object.`,
       };
 
       const anglePrompt = anglePrompts[angle] || anglePrompts.three_quarter;
-      const promptText = `${fidelityRule} ${anglePrompt} The output MUST be a single photorealistic image of the identical object — never reinterpret or restyle it.`;
+      const promptText = `${fidelityRule}\n\n${anglePrompt}\n\nThe output MUST be a single photorealistic image of the identical object — never reinterpret or restyle it. No people, no hands, no text, no watermark, no extra logos.`;
 
       const imgResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
