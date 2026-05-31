@@ -1931,17 +1931,19 @@ export default function AdminProducts() {
 
                               <div className="space-y-2">
                                 <Label className="text-xs font-semibold">Fondo</Label>
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap gap-2">
                                   {[
-                                    { value: 'system', label: 'Estudio Maker', badge: '★' },
-                                    { value: 'ai', label: 'Exhibición Tech', badge: null },
-                                    { value: 'custom', label: 'Personalizado', badge: null },
+                                    { value: 'system_workshop', label: 'Workshop', badge: '★' },
+                                    { value: 'system_macro', label: 'Macro', badge: null },
+                                    { value: 'system_dark_premium', label: 'Dark Premium', badge: null },
+                                    { value: 'custom', label: 'Custom', badge: null },
+                                    { value: 'premium_tech_plinth', label: 'Tech Plinth', badge: null },
                                   ].map((opt) => (
                                     <button
                                       key={opt.value}
                                       type="button"
-                                      onClick={() => setEditAiBgMode(opt.value as any)}
-                                      className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${editAiBgMode === opt.value ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-background border border-border hover:border-primary/30'}`}
+                                      onClick={() => setEditAiBgMode(opt.value)}
+                                      className={`flex-1 min-w-[90px] px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${editAiBgMode === opt.value ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-background border border-border hover:border-primary/30'}`}
                                     >
                                       {opt.badge && <span className="mr-1">{opt.badge}</span>}
                                       {opt.label}
