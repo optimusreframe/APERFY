@@ -994,55 +994,42 @@ Preserve the exact same 3D object from the source image. Do not redesign it, do 
           const fileId = crypto.randomUUID();
           const path = `${presetKey}/${fileId}.${ext}`;
 
-          // Upload to storage via REST with service role
-          const uploadResp = await fetch(
-            `${SUPABASE_URL}/storage/v1/object/system-backgrounds/${path}`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${SERVICE_KEY}`,
-                "Content-Type": mime,
-                "x-upsert": "true",
-              },
-              body: bin,
-            }
-          );
-          if (!uploadResp.ok) {
-            const t = await uploadResp.text();
-            errors.push(`Variant ${i + 1}: upload failed (${uploadResp.status} ${t.substring(0, 100)})`);
+          // Upload to storage using the admin client (handles auth correctly for sb_secret_* keys)
+          const blob = new Blob([bin], { type: mime });
+          const { error: uploadErr } = await supabaseAdmin.storage
+            .from("system-backgrounds")
+            .upload(path, blob, { contentType: mime, upsert: true });
+          if (uploadErr) {
+            console.error(`[generate_background_reference] upload failed for variant ${i + 1}:`, uploadErr);
+            errors.push(`Variant ${i + 1}: AI image generated, but storage upload failed. Check service role storage auth. (${uploadErr.message})`);
             continue;
           }
-          const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/system-backgrounds/${path}`;
+          const { data: pub } = supabaseAdmin.storage
+            .from("system-backgrounds")
+            .getPublicUrl(path);
+          const publicUrl = pub.publicUrl;
 
-          // Insert candidate row
-          const insertResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/system_background_candidates`,
-            {
-              method: "POST",
-              headers: {
-                apikey: SERVICE_KEY,
-                Authorization: `Bearer ${SERVICE_KEY}`,
-                "Content-Type": "application/json",
-                Prefer: "return=representation",
-              },
-              body: JSON.stringify({
-                preset: presetKey,
-                image_url: publicUrl,
-                prompt,
-                source: "ai",
-                is_active: false,
-                created_by: authCheck.userId,
-              }),
-            }
-          );
-          if (insertResp.ok) {
-            const rows = await insertResp.json();
-            if (Array.isArray(rows) && rows[0]) candidates.push(rows[0]);
-          } else {
-            const t = await insertResp.text();
-            errors.push(`Variant ${i + 1}: db insert failed (${insertResp.status} ${t.substring(0, 100)})`);
+          // Insert candidate row via admin client
+          const { data: inserted, error: insertErr } = await supabaseAdmin
+            .from("system_background_candidates")
+            .insert({
+              preset: presetKey,
+              image_url: publicUrl,
+              prompt,
+              source: "ai",
+              is_active: false,
+              created_by: authCheck.userId,
+            })
+            .select()
+            .single();
+          if (insertErr) {
+            console.error(`[generate_background_reference] db insert failed for variant ${i + 1}:`, insertErr);
+            errors.push(`Variant ${i + 1}: db insert failed (${insertErr.message})`);
+          } else if (inserted) {
+            candidates.push(inserted);
           }
         } catch (e: any) {
+          console.error(`[generate_background_reference] variant ${i + 1} error:`, e);
           errors.push(`Variant ${i + 1}: ${e?.message || "error"}`);
         }
       }
