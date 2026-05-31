@@ -466,23 +466,55 @@ ${imageListForAI || "No images found."}`
         });
       }
 
-      let promptText: string;
-      const contentParts: any[] = [];
+      const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
+Preserve the exact same 3D object from the source image. Do not redesign it, do not change its shape, geometry, proportions, silhouette, color, material, texture, surface details, printed layer lines, logos, holes, edges, or accessories. Do not add or remove any parts. Do not stylize the object. Only change the background, lighting, camera feel, shadows, and environment. The final image must look like the same physical object photographed in a professional 3D printing studio.`;
 
-      const fidelityRule = "CRITICAL FIDELITY RULE: The 3D printed object MUST be reproduced with ABSOLUTE fidelity to the original image. Do NOT modify, alter, or reinterpret the object's design, colors, shape, size, proportions, textures, surface details, or any visual characteristic. The object must look EXACTLY like the original — same colors, same geometry, same style, same level of detail. The ONLY change is making it hyper-realistic with professional photography quality. You are changing the BACKGROUND and LIGHTING only, never the object itself.";
+      const BACKGROUND_PROMPTS: Record<string, string> = {
+        system_workshop: `BACKGROUND AND PHOTOGRAPHY STYLE:
+Place the EXACT same object on a brushed grey metallic industrial workbench inside a premium FDM 3D printing studio.
 
-      if (backgroundMode === "system") {
-        promptText = `${fidelityRule} Isolate the 3D model object from the reference image. Remove its original background completely. Place the EXACT same object (unchanged in every detail) on a grey industrial workbench. Background: Blurred professional 3D printer and colorful filament spools (orange/teal). Macro lens aesthetic, heavy bokeh, cinematic studio lighting with a cool rim light on the object edges. Hyper-realistic rendering — the object must be a perfect replica of the original.`;
-      } else if (backgroundMode === "custom") {
-        promptText = `${fidelityRule} Isolate the 3D model object from the reference image and remove its original background. The object must remain COMPLETELY unchanged — same design, colors, shape, proportions, textures, and details. Seamlessly composite and place this identical object onto the user-uploaded background image. Apply realistic lighting and soft contact shadows on the surface where the object is placed.`;
-      } else {
-        promptText = `${fidelityRule} Isolate the 3D model object from the reference image and remove its original background. The object must remain COMPLETELY unchanged. Luxury product display. Place the exact same object on a dark carbon-fiber plinth. Background: Intricate 3D geometric network nodes in dark blue/grey. '3DtoPrint' logo subtly engraved in copper/gold on the plinth. Cyberpunk technology aesthetic. The object must cast realistic, soft contact shadows on the plinth to look physically present. Hyper-realistic rendering of the identical original object.`;
+The background must show a softly blurred professional 3D printer, out-of-focus orange and teal filament spools, subtle workshop tools, and a dark cinematic maker-lab environment.
+
+Use realistic premium ecommerce product photography lighting: soft studio light, cool blue rim light on the object edges, warm orange accent glow from the background, natural soft contact shadows, and subtle reflections on the metal tabletop.
+
+Use a macro product photography look with shallow depth of field, heavy background bokeh, 50mm lens aesthetic, realistic scale, centered composition, and high-end catalog quality.
+
+The object must remain the main focus, sharp, clean, physically grounded on the table, and must look like a real 3D printed PLA product.
+
+No people, no hands, no text, no watermark, no extra logos, no extra objects distracting from the product.`,
+        system_macro: `BACKGROUND AND PHOTOGRAPHY STYLE:
+Macro ecommerce product photo of the EXACT same 3D printed object on a brushed grey metallic tabletop. Very shallow depth of field, close-up camera angle, heavily blurred FDM 3D printer and orange/teal filament spools in the background. Premium studio lighting, soft realistic shadows, subtle metal reflections, sharp focus on the object, realistic PLA texture, clean product catalog composition. No people, no hands, no text, no watermark, no extra logos.`,
+        system_dark_premium: `BACKGROUND AND PHOTOGRAPHY STYLE:
+Premium cinematic product photography of the EXACT same 3D printed object displayed on a brushed dark metallic workbench inside a high-end 3D printing studio. Background: dark blurred FDM printer, teal and orange filament bokeh, low-key lighting, dramatic cool blue rim light, warm orange accent glow, soft shadows, realistic reflections, luxury maker-lab atmosphere, centered hero composition, high-end ecommerce catalog image. No people, no hands, no text, no watermark, no extra logos.`,
+        custom: `BACKGROUND AND PHOTOGRAPHY STYLE:
+Seamlessly composite the identical object onto the user-uploaded background image. Match perspective, scale, lighting direction, color temperature, shadows, and surface contact. Add realistic soft contact shadows and subtle ambient reflections so the object looks physically placed in the scene. Do not alter the object. No people, no hands, no text, no watermark unless they already exist in the uploaded background.`,
+        premium_tech_plinth: `BACKGROUND AND PHOTOGRAPHY STYLE:
+Luxury technology product display of the EXACT same 3D printed object on a dark carbon-fiber plinth. Background: dark blue and grey geometric network structure, subtle copper and gold accents, premium cyber-tech aesthetic, soft realistic contact shadows, dramatic studio lighting, high-end product hero shot. Do not change the object. No people, no hands, no watermark.`,
+      };
+
+      const normalizedBackgroundMode =
+        !backgroundMode ? "system_workshop" :
+        backgroundMode === "system" ? "system_workshop" :
+        BACKGROUND_PROMPTS[backgroundMode] ? backgroundMode :
+        "system_workshop";
+
+      if (normalizedBackgroundMode === "custom" && !customBackground) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Se requiere una imagen de fondo personalizada (customBackground) cuando backgroundMode es 'custom'.",
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      const promptText = `${fidelityRule}\n\n${BACKGROUND_PROMPTS[normalizedBackgroundMode]}`;
+
+      const contentParts: any[] = [];
       contentParts.push({ type: "text", text: promptText });
       contentParts.push({ type: "image_url", image_url: { url: sourceImage } });
 
-      if (customBackground && (backgroundMode === "custom" || backgroundMode === "system")) {
+      // Send custom background as second image (custom mode), OR system_background reference for system_workshop mode
+      if (normalizedBackgroundMode === "custom" && customBackground) {
+        contentParts.push({ type: "image_url", image_url: { url: customBackground } });
+      } else if (normalizedBackgroundMode === "system_workshop" && customBackground) {
         contentParts.push({ type: "image_url", image_url: { url: customBackground } });
       }
 
