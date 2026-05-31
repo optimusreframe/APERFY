@@ -14,6 +14,9 @@ import {
   Sparkles, Star, Eye, RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import ProductImageSourcePicker from '@/components/admin/ProductImageSourcePicker';
+
+const LAST_SOURCE_KEY = 'bgqa.lastSourceImage';
 
 type Preset =
   | 'system_workshop'
