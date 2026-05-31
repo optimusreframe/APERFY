@@ -126,7 +126,7 @@ function ImageLightbox({
 
       {/* Image */}
       <div
-        className="flex-1 w-full flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing"
+        className="absolute inset-0 flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing px-4 py-20"
         onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -136,9 +136,10 @@ function ImageLightbox({
         <img
           src={images[index]}
           alt=""
-          className="max-w-[90vw] max-h-[80vh] object-contain select-none"
+          className="max-w-[95vw] max-h-[85vh] w-auto h-auto object-contain object-center select-none"
           style={{
             transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+            transformOrigin: 'center center',
             transition: isDragging ? 'none' : 'transform 0.2s ease-out',
           }}
           draggable={false}
