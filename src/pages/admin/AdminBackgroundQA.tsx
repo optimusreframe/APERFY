@@ -693,17 +693,17 @@ export default function AdminBackgroundQA() {
               <DialogTitle>Preview with Product</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Source Image URL (3D object)</Label>
-                <Input
-                  placeholder="https://..."
-                  value={previewSource}
-                  onChange={(e) => setPreviewSource(e.target.value)}
-                />
-              </div>
-              <Button onClick={runPreview} disabled={previewLoading || !previewSource}>
+              <ProductImageSourcePicker
+                label="Source image (3D object)"
+                value={previewSource}
+                onChange={(url) => {
+                  setPreviewSource(url);
+                  if (url) setSourceImage(url);
+                }}
+              />
+              <Button onClick={runPreview} disabled={previewLoading || !previewSource} className="w-full">
                 {previewLoading
-                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Compositing…</>
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating product preview…</>
                   : <>Run Composition</>}
               </Button>
               <div className="grid grid-cols-2 gap-3">
