@@ -265,6 +265,40 @@ Rules:
   }
 }
 
+async function requireAdmin(req: Request): Promise<{ ok: true; userId: string } | { ok: false; status: number; error: string }> {
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  if (!token) return { ok: false, status: 401, error: "Authentication required" };
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) {
+    return { ok: false, status: 500, error: "Auth not configured" };
+  }
+
+  // Validate user via Auth server
+  const userResp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: ANON_KEY, Authorization: `Bearer ${token}` },
+  });
+  if (!userResp.ok) return { ok: false, status: 401, error: "Invalid or expired session" };
+  const user = await userResp.json();
+  if (!user?.id) return { ok: false, status: 401, error: "Invalid session" };
+
+  // Check admin role via service role over REST
+  const rolesResp = await fetch(
+    `${SUPABASE_URL}/rest/v1/user_roles?user_id=eq.${user.id}&role=eq.admin&select=role`,
+    { headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` } }
+  );
+  if (!rolesResp.ok) return { ok: false, status: 500, error: "Role check failed" };
+  const rows = await rolesResp.json();
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { ok: false, status: 403, error: "Admin access required" };
+  }
+
+  return { ok: true, userId: user.id };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -276,6 +310,17 @@ serve(async (req) => {
       });
     }
 
+    // Admin-only: every action in this function mutates AI-generated content,
+    // burns LOVABLE_API_KEY / Firecrawl quota, or accepts a `customBackground`
+    // override. Block anon and non-admin callers at the door.
+    const authCheck = await requireAdmin(req);
+    if (!authCheck.ok) {
+      return new Response(JSON.stringify({ error: authCheck.error }), {
+        status: authCheck.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
     const { url, action } = body;
 
@@ -283,6 +328,7 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+
 
     // ── ACTION: scrape ──
     if (action === "scrape") {
