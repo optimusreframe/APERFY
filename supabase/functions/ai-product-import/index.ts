@@ -559,8 +559,8 @@ Luxury technology product display of the EXACT same 3D printed object on a dark 
 
       // Safe Retry uses a neutral prompt with no IP/brand references.
       const promptText = safeRetry === true
-        ? SAFE_RETRY_PROMPT
-        : `${fidelityRule}\n\n${BACKGROUND_PROMPTS[normalizedBackgroundMode]}`;
+        ? `${FRAMING_RULE}\n\n${SAFE_RETRY_PROMPT}`
+        : `${FRAMING_RULE}\n\n${fidelityRule}\n\n${BACKGROUND_PROMPTS[normalizedBackgroundMode]}`;
 
       // Resolve official workshop reference image when applicable
       let resolvedReference: string | undefined = customBackground;
