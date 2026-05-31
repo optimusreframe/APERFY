@@ -313,17 +313,20 @@ export default function AdminBackgroundQA() {
     setPreviewSource(sourceImage);
     setPreviewResult(null);
     setPreviewError(null);
+    setPreviewBlocked(false);
+    setPreviewMethod(null);
   };
 
-  const runPreview = async () => {
+  const runPreview = async (opts?: { safeRetry?: boolean }) => {
     if (!previewing) return;
     if (!previewSource) {
-      setPreviewError('Source image URL is required');
+      setPreviewError('Source image is required');
       return;
     }
     setPreviewLoading(true);
     setPreviewError(null);
     setPreviewResult(null);
+    setPreviewBlocked(false);
     try {
       const { data, error } = await supabase.functions.invoke('ai-product-import', {
         body: {
@@ -331,17 +334,103 @@ export default function AdminBackgroundQA() {
           sourceImage: previewSource,
           backgroundMode: 'system_workshop',
           customBackground: previewing.image_url,
+          backgroundCandidateId: previewing.id,
+          preset: previewing.preset,
+          safeRetry: opts?.safeRetry === true,
         },
       });
       if (error) throw new Error(error.message);
-      if (!data?.success) throw new Error(data?.error || 'Unknown error');
-      setPreviewResult(data.data?.generated_image);
+      if (data?.error_code === 'AI_CONTENT_BLOCKED') {
+        setPreviewBlocked(true);
+        setPreviewError(data.message || 'AI composition was blocked.');
+        console.warn('[BackgroundQA] AI_CONTENT_BLOCKED', data);
+        return;
+      }
+      if (!data?.success) {
+        console.error('[BackgroundQA] generate_image failed', data);
+        throw new Error(data?.error || 'Unknown error');
+      }
+      setPreviewResult(data.data?.composed_image_url || data.data?.generated_image);
+      setPreviewMethod(opts?.safeRetry ? 'safe_retry' : 'ai');
     } catch (e: any) {
       setPreviewError(e.message);
     } finally {
       setPreviewLoading(false);
     }
   };
+
+  const runNonAiComposite = async () => {
+    if (!previewing || !previewSource) {
+      setPreviewError('Source image is required');
+      return;
+    }
+    setPreviewLoading(true);
+    setPreviewError(null);
+    setPreviewResult(null);
+    try {
+      const blob = await compositeNonAi(previewing.image_url, previewSource, {
+        productSize: nonAiSize,
+        verticalPosition: nonAiVPos,
+        shadow: nonAiShadow,
+      });
+      const { url } = await saveNonAiComposite({
+        blob,
+        sourceImageUrl: previewSource,
+        backgroundImageUrl: previewing.image_url,
+        backgroundCandidateId: previewing.id,
+        preset: previewing.preset,
+        method: 'non_ai',
+      });
+      setPreviewResult(url);
+      setPreviewMethod('non_ai');
+      setPreviewBlocked(false);
+      toast.success('Non-AI preview generated and saved.');
+    } catch (e: any) {
+      console.error('[BackgroundQA] non-AI composite failed', e);
+      setPreviewError(e.message || 'Non-AI composite failed');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleDownloadResult = async () => {
+    if (!previewResult) return;
+    const ts = Date.now();
+    const ext = previewResult.includes('.jpg') ? 'jpg' : 'png';
+    try {
+      await downloadRemoteImage(previewResult, `3dtoprint-composed-result-${ts}.${ext}`);
+    } catch (e: any) {
+      toast.error(e.message || 'Download failed');
+    }
+  };
+
+  const handleCopyResultUrl = async () => {
+    if (!previewResult) return;
+    try {
+      await copyToClipboard(previewResult);
+      toast.success('Image URL copied.');
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+
+  const handleDownloadBackground = async (c: Candidate) => {
+    try {
+      await downloadRemoteImage(c.image_url, `3dtoprint-background-${c.preset}-${Date.now()}.png`);
+    } catch (e: any) {
+      toast.error(e.message || 'Download failed');
+    }
+  };
+
+  const handleCopyBgUrl = async (c: Candidate) => {
+    try {
+      await copyToClipboard(c.image_url);
+      toast.success('Background URL copied.');
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+
 
   // ── QA runner ──
   const runPreset = async (preset: Preset) => {
