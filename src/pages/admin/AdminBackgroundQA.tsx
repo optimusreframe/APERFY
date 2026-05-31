@@ -620,14 +620,18 @@ export default function AdminBackgroundQA() {
         <Card className="p-4 space-y-4">
           <h2 className="text-lg font-semibold">Preset QA Runner</h2>
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Source Image URL (the 3D object)</Label>
-              <Input placeholder="https://..." value={sourceImage} onChange={(e) => setSourceImage(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Custom Background URL (only used by `custom` preset)</Label>
-              <Input placeholder="https://..." value={customBackground} onChange={(e) => setCustomBackground(e.target.value)} />
-            </div>
+            <ProductImageSourcePicker
+              label="Source Image (the 3D object)"
+              value={sourceImage}
+              onChange={setSourceImage}
+            />
+            <ProductImageSourcePicker
+              label="Custom Background (only used by `custom` preset)"
+              value={customBackground}
+              onChange={setCustomBackground}
+              hideLibrary
+              uploadFolder="background-qa-custom"
+            />
           </div>
           <div className="flex gap-2 items-center flex-wrap">
             <Button onClick={runAll} disabled={!sourceImage}>Run all 5 presets</Button>
