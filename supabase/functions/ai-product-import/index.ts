@@ -901,9 +901,158 @@ Preserve the exact same 3D object from the source image. Do not redesign it, do 
       });
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action. Use 'scrape', 'generate_image', 'generate_angle', 'translate', or 'enhance_product'." }), {
+    // ── ACTION: generate_background_reference ──
+    // Generate empty AI background images (no product) and persist them as candidates.
+    if (action === "generate_background_reference") {
+      const { preset, count, promptOverride } = body as {
+        preset?: string;
+        count?: number;
+        promptOverride?: string;
+      };
+
+      const BACKGROUND_PRESET_PROMPTS: Record<string, string> = {
+        system_workshop: `Empty premium 3D printing workshop product photography background. Brushed grey metallic workbench in the foreground with enough empty space to place a product. Dark cinematic maker studio in the background, softly blurred FDM 3D printer, out-of-focus orange and teal filament spools, subtle industrial tools, shallow depth of field, soft reflections on the metal table, realistic studio lighting, premium ecommerce catalog look, clean composition, no product, no people, no hands, no text, no logos, no watermark.`,
+        system_macro: `Empty macro-style premium 3D printing workshop background. Brushed grey metallic tabletop in the foreground with empty centered placement area for a product. Very shallow depth of field, heavily blurred FDM 3D printer and orange/teal filament spools in the background, premium studio lighting, subtle metal reflections, close-up product photography composition, clean dark maker-lab atmosphere, no product, no people, no hands, no text, no logos, no watermark.`,
+        system_dark_premium: `Empty premium dark cinematic 3D printing studio background. Brushed dark metallic workbench in the foreground with enough empty space for a product. Background shows a blurred FDM 3D printer, teal and orange filament bokeh, low-key luxury lighting, cool rim glow, warm orange accents, soft realistic shadows, subtle reflections, high-end maker-lab atmosphere, no product, no people, no hands, no text, no logos, no watermark.`,
+        premium_tech_plinth: `Empty luxury technology product display background. Dark carbon-fiber plinth centered in the foreground with empty space for a product. Background: dark blue and grey geometric network forms, subtle copper and gold accents, premium cyber-tech aesthetic, soft contact shadows, dramatic studio lighting, clean composition, no product, no people, no hands, no text, no watermark.`,
+      };
+
+      const presetKey = typeof preset === "string" ? preset : "";
+      if (!BACKGROUND_PRESET_PROMPTS[presetKey]) {
+        return new Response(JSON.stringify({ success: false, error: "Invalid preset" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const allowedCounts = [1, 4, 8];
+      const variantCount = allowedCounts.includes(Number(count)) ? Number(count) : 1;
+      const prompt = (typeof promptOverride === "string" && promptOverride.trim().length > 10)
+        ? promptOverride.trim()
+        : BACKGROUND_PRESET_PROMPTS[presetKey];
+
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+      const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (!SUPABASE_URL || !SERVICE_KEY) {
+        return new Response(JSON.stringify({ success: false, error: "Storage not configured" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const candidates: any[] = [];
+      const errors: string[] = [];
+
+      for (let i = 0; i < variantCount; i++) {
+        try {
+          const imgResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "google/gemini-3.1-flash-image-preview",
+              messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+              modalities: ["image", "text"],
+            }),
+          });
+
+          if (!imgResp.ok) {
+            errors.push(`Variant ${i + 1}: AI HTTP ${imgResp.status}`);
+            continue;
+          }
+
+          const imgResult = await imgResp.json();
+          const message = imgResult.choices?.[0]?.message;
+          let generatedDataUrl: string | undefined;
+          if (message?.images?.[0]?.image_url?.url) {
+            generatedDataUrl = message.images[0].image_url.url;
+          } else if (Array.isArray(message?.content)) {
+            const imgPart = message.content.find((p: any) => p.type === "image_url" || p.type === "image");
+            if (imgPart?.image_url?.url) generatedDataUrl = imgPart.image_url.url;
+            else if (imgPart?.url) generatedDataUrl = imgPart.url;
+          } else if (typeof message?.content === "string" && message.content.startsWith("data:image")) {
+            generatedDataUrl = message.content;
+          }
+
+          if (!generatedDataUrl || !generatedDataUrl.startsWith("data:image")) {
+            const reason = imgResult.choices?.[0]?.native_finish_reason || imgResult.choices?.[0]?.finish_reason || "unknown";
+            errors.push(`Variant ${i + 1}: no image (${reason})`);
+            continue;
+          }
+
+          // data:image/<mime>;base64,<data>
+          const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(generatedDataUrl);
+          if (!match) {
+            errors.push(`Variant ${i + 1}: malformed image payload`);
+            continue;
+          }
+          const mime = match[1];
+          const b64 = match[2];
+          const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+          const ext = mime === "image/jpeg" ? "jpg" : (mime.split("/")[1] || "png");
+          const fileId = crypto.randomUUID();
+          const path = `${presetKey}/${fileId}.${ext}`;
+
+          // Upload to storage via REST with service role
+          const uploadResp = await fetch(
+            `${SUPABASE_URL}/storage/v1/object/system-backgrounds/${path}`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${SERVICE_KEY}`,
+                "Content-Type": mime,
+                "x-upsert": "true",
+              },
+              body: bin,
+            }
+          );
+          if (!uploadResp.ok) {
+            const t = await uploadResp.text();
+            errors.push(`Variant ${i + 1}: upload failed (${uploadResp.status} ${t.substring(0, 100)})`);
+            continue;
+          }
+          const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/system-backgrounds/${path}`;
+
+          // Insert candidate row
+          const insertResp = await fetch(
+            `${SUPABASE_URL}/rest/v1/system_background_candidates`,
+            {
+              method: "POST",
+              headers: {
+                apikey: SERVICE_KEY,
+                Authorization: `Bearer ${SERVICE_KEY}`,
+                "Content-Type": "application/json",
+                Prefer: "return=representation",
+              },
+              body: JSON.stringify({
+                preset: presetKey,
+                image_url: publicUrl,
+                prompt,
+                source: "ai",
+                is_active: false,
+                created_by: authCheck.userId,
+              }),
+            }
+          );
+          if (insertResp.ok) {
+            const rows = await insertResp.json();
+            if (Array.isArray(rows) && rows[0]) candidates.push(rows[0]);
+          } else {
+            const t = await insertResp.text();
+            errors.push(`Variant ${i + 1}: db insert failed (${insertResp.status} ${t.substring(0, 100)})`);
+          }
+        } catch (e: any) {
+          errors.push(`Variant ${i + 1}: ${e?.message || "error"}`);
+        }
+      }
+
+      return new Response(JSON.stringify({
+        success: candidates.length > 0,
+        candidates,
+        errors,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    return new Response(JSON.stringify({ error: "Invalid action. Use 'scrape', 'generate_image', 'generate_angle', 'generate_background_reference', 'translate', or 'enhance_product'." }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
 
   } catch (e) {
     console.error("Error:", e);
