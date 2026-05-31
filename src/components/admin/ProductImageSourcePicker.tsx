@@ -44,10 +44,17 @@ export default function ProductImageSourcePicker({
   value,
   onChange,
   hideLibrary = false,
+  showComposedResults = false,
   uploadFolder = 'background-qa-sources',
   label,
 }: Props) {
-  const [tab, setTab] = useState<'library' | 'upload' | 'url'>(hideLibrary ? 'upload' : 'library');
+  type TabKey = 'library' | 'upload' | 'url' | 'composed';
+  const [tab, setTab] = useState<TabKey>(hideLibrary ? 'upload' : 'library');
+  const [urlInput, setUrlInput] = useState(value || '');
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+
   const [urlInput, setUrlInput] = useState(value || '');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
