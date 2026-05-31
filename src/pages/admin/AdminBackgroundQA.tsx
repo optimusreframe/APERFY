@@ -11,10 +11,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Loader2, ImageIcon, AlertTriangle, Upload, Trash2, CheckCircle2,
-  Sparkles, Star, Eye, RefreshCw,
+  Sparkles, Star, Eye, RefreshCw, Download, Link2, Save, ShieldAlert, ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ProductImageSourcePicker from '@/components/admin/ProductImageSourcePicker';
+import { compositeNonAi, saveNonAiComposite, downloadRemoteImage, copyToClipboard, type NonAiPlacement } from '@/lib/non-ai-composite';
+
 
 const LAST_SOURCE_KEY = 'bgqa.lastSourceImage';
 
