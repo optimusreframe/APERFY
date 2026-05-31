@@ -933,10 +933,14 @@ Preserve the exact same 3D object from the source image. Do not redesign it, do 
       const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
       const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       if (!SUPABASE_URL || !SERVICE_KEY) {
-        return new Response(JSON.stringify({ success: false, error: "Storage not configured" }), {
+        return new Response(JSON.stringify({ success: false, error: "Missing SUPABASE_SERVICE_ROLE_KEY" }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
 
       const candidates: any[] = [];
       const errors: string[] = [];
