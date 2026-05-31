@@ -1,51 +1,50 @@
-# Dock flotante "Agregar al carrito" — siempre visible, premium Amazon-style
+# Lock down `ai-product-import` to admin users
 
-## Problema
-El dock actual sólo aparece después de scrollear 320px y, al llegar al final de la página, se ve "pegado" cerca del footer (porque tiene `bottom: safe-area + 76px`, pero a esa altura ya está sobre el footer mientras el viewport llega al fondo). El usuario quiere un dock **siempre visible** sobre el viewport actual, sin importar dónde scrollee, replicando (y mejorando) lo que hace Amazon en sus PDPs móviles.
+## Problem
 
-## Cambios en `src/components/mobile/MobileStickyAddToCart.tsx`
+`supabase/functions/ai-product-import/index.ts` currently has **no auth check at all**. Any caller with the project's anon key can:
 
-### 1) Visibilidad permanente
-- Eliminar el listener de scroll (`y > 320`) y el `IntersectionObserver` que lo ocultaba al ver el CTA inline.
-- El dock se monta **siempre** en mobile (`md:hidden`) mientras estemos en la página de producto.
-- Animación de entrada: fade + slide-up una sola vez al montar (200ms ease-out).
-- Quitar el prop `inlineCtaRef` (ya no se usa). En `ProductDetail.tsx`, eliminar la ref y el paso del prop.
+- Pass `backgroundMode: "system_workshop"` + a `customBackground` URL → bypasses the official workshop reference and forces the model to composite an attacker-chosen image.
+- Use `backgroundMode: "custom"` with any URL.
+- Call `scrape`, `generate_image`, `generate_angle`, `translate`, `enhance_product` freely — burning LOVABLE_API_KEY credits and Firecrawl quota.
 
-### 2) Coexistencia con CTA inline (sin duplicar acción)
-- El CTA grande inline del producto se mantiene como botón secundario visual ("Agregar al carrito" full-width dentro de la card).
-- El dock flotante queda como acción primaria persistente — ambos llaman al mismo `addToCart`. No se ocultan entre sí.
+The function is only ever called from admin UI (`AdminProducts`, `AdminBackgroundQA`) and from `BulkImportContext` (also admin-only). So the right fix is to require an authenticated admin for the whole function, with extra strictness around the `customBackground` override.
 
-### 3) Estilo Amazon mejorado (premium dark/gold)
-Reorganizar el layout del dock en dos filas compactas dentro de un card con glassmorphism más fuerte:
+## Plan
 
-```
-┌──────────────────────────────────────────────┐
-│ [img] World Cup 26 · 3 cm    EN STOCK · 3-7d │  ← fila info
-│       $3.00  →  $9.00 (×3)                   │
-├──────────────────────────────────────────────┤
-│  [− 01 +]   [  🛒 Agregar al carrito  →  ]   │  ← fila acción
-└──────────────────────────────────────────────┘
-```
+### 1. Add admin auth check at the top of every action
 
-- Card: `rounded-2xl`, `bg-background/85`, `backdrop-blur-2xl`, doble borde sutil (`border-primary/25` + ring interno blanco/5), sombra gold ampliada.
-- Mini preview: 44×44, conserva el flip 3D en tap.
-- Info: nombre + variante en una línea con `truncate`; segunda línea con badge "EN STOCK · 3-7 días" en mono small (reutiliza datos del producto si están disponibles, fallback simple).
-- Precio: unitario tachado/pequeño + total grande con `text-gradient-gold`, con cross-fade al cambiar.
-- Stepper: redondeado, ligeramente más grande para tap-target ≥44px.
-- CTA principal: ocupa el resto de la fila acción, full-width, gradient gold, icono carrito + texto + flecha que se desplaza en `whileTap`. Mantiene haptic y fly-to-cart.
-- Estado `needsVariation`: el CTA muestra "Selecciona variante" en lugar del precio/acción y aplica shake al toque.
-- Estado `out-of-stock`: CTA deshabilitado con texto "Agotado".
+At the start of `serve(...)` (after CORS preflight), read the caller's JWT from the `Authorization` header and require:
+- valid Supabase user (via `auth.getUser(token)` against `SUPABASE_URL` + `SUPABASE_ANON_KEY`)
+- `user_roles` row with `role = 'admin'` for that `user_id` (using `SUPABASE_SERVICE_ROLE_KEY` over REST, same pattern already used for `admin_settings`)
 
-### 4) Posicionamiento
-- `position: fixed`, `left-2 right-2`, `z-50`.
-- `bottom: calc(env(safe-area-inset-bottom, 0px) + 72px)` para quedar sobre el `BottomTabBar` (que mide ~64–72px).
-- En vistas donde no hay BottomTabBar (no aplica aquí, pero por robustez): usar `bottom: calc(env(safe-area-inset-bottom, 0px) + 12px)` si `BottomTabBar` no monta — vamos a leerlo vía variable CSS `--mobile-tabbar-h` opcional; si no existe, fallback 72px.
+If either check fails → return `401` (no token) or `403` (not admin) with `corsHeaders`. This blocks unauthenticated callers from every action, not only from the `customBackground` path.
 
-### 5) Limpieza
-- En `ProductDetail.tsx`: remover el `inlineCtaRef` y todo lo relacionado con el observer del CTA inline. Verificar que no quede ningún elemento `sticky/fixed` extra en el footer del producto (revisar la sección "Add to cart" del producto y la zona inferior antes del Footer global) y eliminarlo si existe.
+### 2. Defense-in-depth for the `customBackground` override
 
-## Constraints
-- Sólo cambios de UI/presentación. No tocar `CartContext`, lógica de variantes ni el flujo de cantidad.
-- Mantener i18n ES/EN existente.
-- Mobile-first (`md:hidden`). No afecta a desktop.
-- Conservar tokens semánticos del design system (primary, card, muted-foreground, gradient-gold, shadow-gold).
+Even after the admin gate, keep the existing behavior for `system_workshop`:
+- If the (now-verified admin) caller passes `customBackground`, honor it.
+- Otherwise resolve from `admin_settings.system_background` (already implemented).
+- For `backgroundMode === "custom"`, `customBackground` remains required (existing 200+success:false error).
+
+No prompt changes, no preset changes.
+
+### 3. Keep `verify_jwt` behavior unchanged
+
+Lovable-managed functions deploy with `verify_jwt = false` so we can validate in code (the pattern documented for this project). The new in-code check is what enforces auth — no `supabase/config.toml` change.
+
+### 4. Frontend impact: none expected
+
+`supabase.functions.invoke(...)` from `@/integrations/supabase/client` already attaches the logged-in user's JWT in the `Authorization` header automatically. All three current callers (`AdminProducts`, `AdminBackgroundQA`, `BulkImportContext`) run inside `/admin/*` routes, which are already protected by `ProtectedRoute requireAdmin`. So no client code needs to change — calls will continue to succeed for admins and start failing (correctly) for anon/non-admin callers.
+
+### 5. QA after deploy
+
+- From `/admin/background-qa` while logged in as admin → all 5 presets still work.
+- A `curl` to the function endpoint with only the anon key → expect `401`.
+- A `curl` with a non-admin user's JWT → expect `403`.
+
+## Files touched
+
+- `supabase/functions/ai-product-import/index.ts` — add admin-auth helper + early check in `serve`.
+
+No UI, no DB migration, no prompt or preset changes.
