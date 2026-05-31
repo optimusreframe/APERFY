@@ -1,50 +1,88 @@
-# Lock down `ai-product-import` to admin users
+# Background Studio en /admin/background-qa
 
-## Problem
+Ampliación funcional, sin rediseño. Conserva todo lo actual (upload manual, remove, QA, system_workshop, seguridad admin).
 
-`supabase/functions/ai-product-import/index.ts` currently has **no auth check at all**. Any caller with the project's anon key can:
+## 1. Base de datos
 
-- Pass `backgroundMode: "system_workshop"` + a `customBackground` URL → bypasses the official workshop reference and forces the model to composite an attacker-chosen image.
-- Use `backgroundMode: "custom"` with any URL.
-- Call `scrape`, `generate_image`, `generate_angle`, `translate`, `enhance_product` freely — burning LOVABLE_API_KEY credits and Firecrawl quota.
+Nueva tabla `public.system_background_candidates`:
 
-The function is only ever called from admin UI (`AdminProducts`, `AdminBackgroundQA`) and from `BulkImportContext` (also admin-only). So the right fix is to require an authenticated admin for the whole function, with extra strictness around the `customBackground` override.
+- `id uuid pk`
+- `preset text not null` — system_workshop | system_macro | system_dark_premium | premium_tech_plinth
+- `image_url text not null`
+- `prompt text`
+- `source text not null default 'ai'` — 'ai' | 'manual'
+- `is_active boolean not null default false`
+- `created_by uuid` — auth.uid()
+- `created_at timestamptz default now()`
 
-## Plan
+RLS: solo admins (ALL via `has_role`). GRANT a `authenticated` + `service_role`.
 
-### 1. Add admin auth check at the top of every action
+Nuevo bucket de storage `system-backgrounds` (público) con policies admin-only para escritura, lectura pública.
 
-At the start of `serve(...)` (after CORS preflight), read the caller's JWT from the `Authorization` header and require:
-- valid Supabase user (via `auth.getUser(token)` against `SUPABASE_URL` + `SUPABASE_ANON_KEY`)
-- `user_roles` row with `role = 'admin'` for that `user_id` (using `SUPABASE_SERVICE_ROLE_KEY` over REST, same pattern already used for `admin_settings`)
+`admin_settings.system_background` se mantiene como URL activa (compatibilidad con backend actual). "Set as Official" actualiza ambos: marca `is_active=true` en la fila y escribe la URL en `admin_settings`.
 
-If either check fails → return `401` (no token) or `403` (not admin) with `corsHeaders`. This blocks unauthenticated callers from every action, not only from the `customBackground` path.
+## 2. Edge function — nueva action en `ai-product-import`
 
-### 2. Defense-in-depth for the `customBackground` override
+`action: "generate_background_reference"`
 
-Even after the admin gate, keep the existing behavior for `system_workshop`:
-- If the (now-verified admin) caller passes `customBackground`, honor it.
-- Otherwise resolve from `admin_settings.system_background` (already implemented).
-- For `backgroundMode === "custom"`, `customBackground` remains required (existing 200+success:false error).
+Payload:
+```
+{ action, preset, count: 1|4|8, promptOverride?: string }
+```
 
-No prompt changes, no preset changes.
+Comportamiento:
+- Reutiliza el guard `requireAdmin()` ya existente.
+- Mapa interno `BACKGROUND_PRESET_PROMPTS` con los 4 prompts (los textos del mensaje del usuario).
+- Si `promptOverride` viene no vacío, lo usa; si no, usa el del preset.
+- Llama al modelo de imagen actual (`google/gemini-3.1-flash-image-preview`) vía AI Gateway `/v1/images/generations`, **sin sourceImage** (sólo texto), una vez por variante (loop secuencial con `count`, máximo 8).
+- Cada PNG resultante (`b64_json`) se sube a `system-backgrounds/{preset}/{uuid}.png` con service role.
+- Inserta una fila en `system_background_candidates` por cada variante (source='ai', is_active=false, created_by=admin user id).
+- Devuelve `{ success: true, candidates: [{id, image_url, preset, prompt}] }`.
 
-### 3. Keep `verify_jwt` behavior unchanged
+Errores → HTTP 200 + `{success:false, error}` (patrón actual).
 
-Lovable-managed functions deploy with `verify_jwt = false` so we can validate in code (the pattern documented for this project). The new in-code check is what enforces auth — no `supabase/config.toml` change.
+## 3. UI — `AdminBackgroundQA.tsx`
 
-### 4. Frontend impact: none expected
+Conservar todo lo existente. Agregar tres bloques nuevos arriba del QA actual:
 
-`supabase.functions.invoke(...)` from `@/integrations/supabase/client` already attaches the logged-in user's JWT in the `Authorization` header automatically. All three current callers (`AdminProducts`, `AdminBackgroundQA`, `BulkImportContext`) run inside `/admin/*` routes, which are already protected by `ProtectedRoute requireAdmin`. So no client code needs to change — calls will continue to succeed for admins and start failing (correctly) for anon/non-admin callers.
+### A. "Official Workshop Background" (refactor del bloque actual)
+- Preview grande de la imagen activa (de `admin_settings.system_background`).
+- Badge `Active` / `Not configured`.
+- Metadata: preset activo, fecha de creación, origen (AI/Manual) — leídos de la fila `is_active=true` en `system_background_candidates` si existe; si la URL viene sólo de admin_settings sin candidate, mostrar origen "Manual (legacy)".
+- Botones: **Replace** (abre file picker), **Remove** (limpia admin_settings + desactiva candidate activo), **Upload manual background** (idéntico al actual).
 
-### 5. QA after deploy
+### B. "AI Background Generator"
+- Select preset (4 opciones).
+- Select count (1 / 4 / 8).
+- Textarea opcional `promptOverride` con placeholder mostrando el prompt default del preset elegido.
+- Botón "Generate AI Backgrounds" → invoca la edge function, agrega los nuevos candidatos al estado, los muestra en la galería.
 
-- From `/admin/background-qa` while logged in as admin → all 5 presets still work.
-- A `curl` to the function endpoint with only the anon key → expect `401`.
-- A `curl` with a non-admin user's JWT → expect `403`.
+### C. "Generated Background Variants"
+- Grid de cards leídas de `system_background_candidates` (ordenadas por created_at desc, filtro opcional por preset).
+- Cada card:
+  - Preview imagen
+  - Preset, source, fecha
+  - Prompt corto con tooltip del prompt completo
+  - Botones:
+    - **Set as Official** → update `admin_settings.system_background` + marca esta fila `is_active=true` y las demás del mismo preset `is_active=false`
+    - **Preview with Product** → abre un mini-dialog: pega sourceImage URL, llama `generate_image` con `backgroundMode='system_workshop'` y `customBackground=<esta URL>` (ya soportado por la función para admins), muestra resultado lado a lado
+    - **Regenerate Similar** → llama `generate_background_reference` con mismo preset y `promptOverride=prompt original`
+    - **Delete** → borra fila + objeto del bucket (no permite borrar la activa sin confirmación)
 
-## Files touched
+El QA de los 5 presets (existente) se mantiene intacto debajo.
 
-- `supabase/functions/ai-product-import/index.ts` — add admin-auth helper + early check in `serve`.
+## 4. Seguridad
+- Edge function: `requireAdmin()` ya existe.
+- RLS de la nueva tabla: admin-only.
+- Bucket: lectura pública (los backgrounds se referencian en composiciones), escritura sólo via service role.
 
-No UI, no DB migration, no prompt or preset changes.
+## 5. UI pública
+Sin cambios.
+
+## Archivos tocados
+
+- **Migración nueva**: tabla `system_background_candidates` + bucket `system-backgrounds` + policies + grants.
+- `supabase/functions/ai-product-import/index.ts` — añadir `generate_background_reference` + prompts map + helper de upload a storage.
+- `src/pages/admin/AdminBackgroundQA.tsx` — refactor del bloque Official + dos bloques nuevos + galería + dialog Preview with Product.
+
+Sin cambios en: BulkImportContext, AdminProducts, prompts existentes, presets actuales, lógica `system_workshop` ya implementada.
