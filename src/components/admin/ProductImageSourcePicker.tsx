@@ -284,6 +284,56 @@ export default function ProductImageSourcePicker({
             }}
           />
         </TabsContent>
+
+        {showComposedResults && (
+          <TabsContent value="composed" className="space-y-2">
+            <div className="flex gap-2 items-center">
+              <select
+                className="text-xs border rounded px-2 py-1 bg-background"
+                value={composedFilter}
+                onChange={(e) => setComposedFilter(e.target.value as typeof composedFilter)}
+              >
+                <option value="all">All methods</option>
+                <option value="ai">AI</option>
+                <option value="safe_retry">Safe Retry</option>
+                <option value="non_ai">Non-AI</option>
+              </select>
+            </div>
+            {loadingComposed ? (
+              <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin" /></div>
+            ) : (
+              <div className="max-h-72 overflow-y-auto border rounded p-2 grid grid-cols-3 gap-2">
+                {composed.filter((c) => composedFilter === 'all' || c.method === composedFilter).length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4 col-span-3">No composed results yet.</p>
+                )}
+                {composed
+                  .filter((c) => composedFilter === 'all' || c.method === composedFilter)
+                  .map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        onChange(c.composed_image_url);
+                        setUrlInput(c.composed_image_url);
+                      }}
+                      className={`relative rounded overflow-hidden border-2 ${value === c.composed_image_url ? 'border-primary' : 'border-transparent'}`}
+                    >
+                      <img src={c.composed_image_url} alt="" className="w-full aspect-square object-cover" />
+                      <span className="absolute bottom-1 left-1 text-[9px] bg-black/70 text-white px-1 rounded">
+                        {c.method}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            )}
+          </TabsContent>
+        )}
+
+              setUrlInput(e.target.value);
+              onChange(e.target.value);
+            }}
+          />
+        </TabsContent>
       </Tabs>
 
       {value && (
