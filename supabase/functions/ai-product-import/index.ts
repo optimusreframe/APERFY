@@ -913,7 +913,8 @@ Preserve the exact same 3D object from the source image. Do not redesign it, do 
       };
 
       const anglePrompt = anglePrompts[angle] || anglePrompts.three_quarter;
-      const promptText = `${fidelityRule}\n\n${anglePrompt}\n\nThe output MUST be a single photorealistic image of the identical object — never reinterpret or restyle it. No people, no hands, no text, no watermark, no extra logos.`;
+      const framingRule = `CRITICAL FRAMING RULE: Show the entire 3D printed object fully visible inside the frame with at least 10-15% negative space on all sides. Do not crop the object. Keep the full silhouette, base, top, sides, and details visible. Macro is allowed but the object must remain fully visible.`;
+      const promptText = `${framingRule}\n\n${fidelityRule}\n\n${anglePrompt}\n\nThe output MUST be a single photorealistic image of the identical object — never reinterpret or restyle it. No people, no hands, no text, no watermark, no extra logos.`;
 
       const imgResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
