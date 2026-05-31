@@ -53,17 +53,17 @@ export default function ProductImageSourcePicker({
   const [urlInput, setUrlInput] = useState(value || '');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-
-  const [urlInput, setUrlInput] = useState(value || '');
-  const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
   // Library state
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+
+  // Composed Results state
+  const [composed, setComposed] = useState<ComposedRow[]>([]);
+  const [loadingComposed, setLoadingComposed] = useState(false);
+  const [composedFilter, setComposedFilter] = useState<'all' | 'ai' | 'safe_retry' | 'non_ai'>('all');
+
 
   useEffect(() => {
     setUrlInput(value || '');
