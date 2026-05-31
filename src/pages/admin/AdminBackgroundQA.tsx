@@ -123,23 +123,20 @@ export default function AdminBackgroundQA() {
   };
 
   const runPreset = async (preset: Preset) => {
+    // Mirror production payload exactly. system_workshop must NOT pass customBackground;
+    // the edge function resolves admin_settings.system_background internally.
     const willUseReference = preset === 'system_workshop' && !!officialBg;
     setResults((r) => ({ ...r, [preset]: { status: 'loading', usedReference: willUseReference } }));
     const t0 = performance.now();
     try {
-      const { data, error } = await supabase.functions.invoke('ai-product-import', {
-        body: {
-          action: 'generate_image',
-          sourceImage,
-          backgroundMode: preset,
-          customBackground:
-            preset === 'custom'
-              ? customBackground
-              : preset === 'system_workshop' && officialBg
-                ? officialBg
-                : undefined,
-        },
-      });
+      const payload: Record<string, unknown> = {
+        action: 'generate_image',
+        sourceImage,
+        backgroundMode: preset,
+      };
+      if (preset === 'custom') payload.customBackground = customBackground;
+
+      const { data, error } = await supabase.functions.invoke('ai-product-import', { body: payload });
       const ms = Math.round(performance.now() - t0);
       if (error) throw new Error(error.message);
       if (!data?.success) throw new Error(data?.error || 'Unknown error');
