@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, Sparkles, FlaskConical } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -42,7 +42,10 @@ const groups = [
   },
   {
     label: 'System',
-    items: [{ title: 'Logs', url: '/admin/logs', icon: ScrollText }],
+    items: [
+      { title: 'Logs', url: '/admin/logs', icon: ScrollText },
+      { title: 'Background QA', url: '/admin/background-qa', icon: FlaskConical },
+    ],
   },
 ];
 
