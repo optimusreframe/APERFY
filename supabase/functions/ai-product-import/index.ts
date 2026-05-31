@@ -506,7 +506,7 @@ ${imageListForAI || "No images found."}`
 
     // ── ACTION: generate_image ──
     if (action === "generate_image") {
-      const { sourceImage, customBackground, backgroundMode } = body;
+      const { sourceImage, customBackground, backgroundMode, safeRetry, backgroundCandidateId, preset: presetTag, productId } = body;
       if (!sourceImage) {
         return new Response(JSON.stringify({ error: "Source image is required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -515,6 +515,8 @@ ${imageListForAI || "No images found."}`
 
       const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
 Preserve the exact same 3D object from the source image. Do not redesign it, do not change its shape, geometry, proportions, silhouette, color, material, texture, surface details, printed layer lines, logos, holes, edges, or accessories. Do not add or remove any parts. Do not stylize the object. Only change the background, lighting, camera feel, shadows, and environment. The final image must look like the same physical object photographed in a professional 3D printing studio.`;
+
+      const SAFE_RETRY_PROMPT = `Create a clean product photo composition using the provided source object image and the provided background image. Preserve the exact object from the source image. Do not identify, rename, reinterpret, stylize, redesign, or transform the object. Do not add or remove any parts. Only adjust placement, scale, contact shadow, lighting match, and background integration. The output should look like a realistic ecommerce product photo.`;
 
       const BACKGROUND_PROMPTS: Record<string, string> = {
         system_workshop: `BACKGROUND AND PHOTOGRAPHY STYLE:
@@ -552,11 +554,12 @@ Luxury technology product display of the EXACT same 3D printed object on a dark 
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      const promptText = `${fidelityRule}\n\n${BACKGROUND_PROMPTS[normalizedBackgroundMode]}`;
+      // Safe Retry uses a neutral prompt with no IP/brand references.
+      const promptText = safeRetry === true
+        ? SAFE_RETRY_PROMPT
+        : `${fidelityRule}\n\n${BACKGROUND_PROMPTS[normalizedBackgroundMode]}`;
 
-      // For system_workshop, resolve the official reference image from admin_settings
-      // if the caller didn't explicitly pass one. This makes the edge function the
-      // single source of truth — admin/bulk callers don't need to pre-fetch the URL.
+      // Resolve official workshop reference image when applicable
       let resolvedReference: string | undefined = customBackground;
       if (normalizedBackgroundMode === "system_workshop" && !resolvedReference) {
         try {
@@ -574,7 +577,7 @@ Luxury technology product display of the EXACT same 3D printed object on a dark 
             }
           }
         } catch {
-          // Non-fatal: fall back to text-prompt-only generation.
+          // Non-fatal
         }
       }
 
@@ -582,7 +585,6 @@ Luxury technology product display of the EXACT same 3D printed object on a dark 
       contentParts.push({ type: "text", text: promptText });
       contentParts.push({ type: "image_url", image_url: { url: sourceImage } });
 
-      // Attach a second reference image when relevant
       if (normalizedBackgroundMode === "custom" && customBackground) {
         contentParts.push({ type: "image_url", image_url: { url: customBackground } });
       } else if (normalizedBackgroundMode === "system_workshop" && resolvedReference) {
@@ -604,10 +606,22 @@ Luxury technology product display of the EXACT same 3D printed object on a dark 
         }),
       });
 
+      const BLOCKED_RX = /(prohibited|safety|content[_\s-]?policy|blocked|unsafe|moderation|rejected|recitation|copyright)/i;
+      const BLOCKED_MESSAGE = "La IA no pudo procesar esta imagen. Puede ocurrir con personajes reconocibles, diseños con copyright, logos, rostros o contenido sensible. Puedes intentar Safe Retry, usar un preview sin IA o elegir otra imagen.";
+
       if (!imgResp.ok) {
         const status = imgResp.status;
         const t = await imgResp.text();
-        console.error("Image generation error:", status, t);
+        console.error("[generate_image] AI HTTP error:", status, t);
+        if ((status === 400 || status === 422) && BLOCKED_RX.test(t)) {
+          return new Response(JSON.stringify({
+            success: false,
+            error_code: "AI_CONTENT_BLOCKED",
+            message: BLOCKED_MESSAGE,
+            can_retry_safe: !safeRetry,
+            can_use_non_ai_fallback: true,
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
         let errorMsg = 'Error al generar imagen con IA.';
         if (status === 429) errorMsg = 'Demasiadas solicitudes. Intenta de nuevo en unos minutos.';
         else if (status === 402) errorMsg = 'Créditos de IA agotados.';
@@ -616,21 +630,15 @@ Luxury technology product display of the EXACT same 3D printed object on a dark 
       }
 
       const imgResult = await imgResp.json();
-      console.log("AI image response keys:", JSON.stringify(Object.keys(imgResult)));
       const message = imgResult.choices?.[0]?.message;
-      console.log("Message keys:", message ? JSON.stringify(Object.keys(message)) : "no message");
 
       let generatedImage: string | undefined;
-
       if (message?.images?.[0]?.image_url?.url) {
         generatedImage = message.images[0].image_url.url;
       } else if (Array.isArray(message?.content)) {
         const imgPart = message.content.find((p: any) => p.type === "image_url" || p.type === "image");
-        if (imgPart?.image_url?.url) {
-          generatedImage = imgPart.image_url.url;
-        } else if (imgPart?.url) {
-          generatedImage = imgPart.url;
-        }
+        if (imgPart?.image_url?.url) generatedImage = imgPart.image_url.url;
+        else if (imgPart?.url) generatedImage = imgPart.url;
       } else if (typeof message?.content === "string" && message.content.startsWith("data:image")) {
         generatedImage = message.content;
       }
@@ -638,22 +646,24 @@ Luxury technology product display of the EXACT same 3D printed object on a dark 
       if (!generatedImage) {
         const finishReason = imgResult.choices?.[0]?.finish_reason || 'unknown';
         const nativeReason = imgResult.choices?.[0]?.native_finish_reason || '';
-        
-        const reasonMap: Record<string, string> = {
-          'IMAGE_PROHIBITED_CONTENT': 'La IA detectó contenido prohibido en la imagen. Intenta con otra imagen fuente.',
-          'MALFORMED_FUNCTION_CALL': 'La IA no pudo procesar la solicitud correctamente. Intenta de nuevo o con otra imagen.',
-          'SAFETY': 'La imagen fue bloqueada por filtros de seguridad. Usa una imagen diferente.',
-          'RECITATION': 'La IA detectó contenido protegido por derechos de autor. Usa otra imagen.',
-          'MAX_TOKENS': 'La respuesta fue demasiado larga. Intenta con una imagen más simple.',
-        };
-        
-        const readableError = reasonMap[nativeReason] || reasonMap[finishReason] || 
-          `La IA no devolvió una imagen (razón: ${nativeReason || finishReason}). Intenta con otra imagen fuente o modo diferente.`;
-        
-        console.error("Full AI response (no image found):", JSON.stringify(imgResult).substring(0, 2000));
+        const combined = `${finishReason} ${nativeReason}`;
+        console.error("[generate_image] no image, finish_reason:", combined, JSON.stringify(imgResult).substring(0, 1200));
+
+        const blocked = BLOCKED_RX.test(combined) || /IMAGE_PROHIBITED_CONTENT|SAFETY|RECITATION/i.test(combined);
+        if (blocked) {
+          return new Response(JSON.stringify({
+            success: false,
+            error_code: "AI_CONTENT_BLOCKED",
+            message: BLOCKED_MESSAGE,
+            can_retry_safe: !safeRetry,
+            can_use_non_ai_fallback: true,
+            ai_finish_reason: combined.trim(),
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
         return new Response(JSON.stringify({
           success: false,
-          error: readableError,
+          error: `La IA no devolvió una imagen (razón: ${nativeReason || finishReason}). Intenta con otra imagen fuente o modo diferente.`,
           error_code: nativeReason || finishReason,
         }), {
           status: 200,
@@ -661,9 +671,63 @@ Luxury technology product display of the EXACT same 3D printed object on a dark 
         });
       }
 
+      // ── Persist composed result to storage + DB (best-effort) ──
+      let composedPublicUrl: string | undefined;
+      let savedResultId: string | undefined;
+      try {
+        const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+        const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        if (SUPABASE_URL && SERVICE_KEY && generatedImage.startsWith("data:image")) {
+          const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(generatedImage);
+          if (m) {
+            const mime = m[1];
+            const bin = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+            const ext = mime === "image/jpeg" ? "jpg" : (mime.split("/")[1] || "png");
+            const method = safeRetry === true ? "safe_retry" : "ai";
+            const presetSlug = (typeof presetTag === "string" ? presetTag : normalizedBackgroundMode).replace(/[^a-zA-Z0-9_-]/g, "_");
+            const path = `composed-results/${authCheck.userId}/${Date.now()}-${method}-${presetSlug}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+            const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
+              auth: { persistSession: false, autoRefreshToken: false },
+            });
+            const { error: upErr } = await supabaseAdmin.storage
+              .from("product-images")
+              .upload(path, new Blob([bin], { type: mime }), { contentType: mime, upsert: false });
+            if (!upErr) {
+              const { data: pub } = supabaseAdmin.storage.from("product-images").getPublicUrl(path);
+              composedPublicUrl = pub.publicUrl;
+              const backgroundUrl = customBackground || resolvedReference || "";
+              const { data: row } = await supabaseAdmin
+                .from("background_composition_results")
+                .insert({
+                  source_image_url: sourceImage,
+                  background_image_url: backgroundUrl,
+                  composed_image_url: composedPublicUrl,
+                  background_candidate_id: backgroundCandidateId || null,
+                  method,
+                  preset: presetSlug,
+                  product_id: productId || null,
+                  created_by: authCheck.userId,
+                })
+                .select("id")
+                .single();
+              if (row) savedResultId = row.id;
+            } else {
+              console.error("[generate_image] composed upload failed:", upErr);
+            }
+          }
+        }
+      } catch (persistErr) {
+        console.error("[generate_image] persist error:", persistErr);
+      }
+
       return new Response(JSON.stringify({
         success: true,
-        data: { generated_image: generatedImage },
+        data: {
+          generated_image: composedPublicUrl || generatedImage,
+          composed_image_url: composedPublicUrl,
+          saved_result_id: savedResultId,
+          method: safeRetry === true ? "safe_retry" : "ai",
+        },
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

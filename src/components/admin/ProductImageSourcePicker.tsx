@@ -21,10 +21,22 @@ interface Props {
   onChange: (url: string) => void;
   /** When true, hides the Product Library tab (used for custom background picker). */
   hideLibrary?: boolean;
+  /** When true, shows the Composed Results tab (admin-only contexts). */
+  showComposedResults?: boolean;
   /** Storage folder under product-images bucket. */
   uploadFolder?: string;
   label?: string;
 }
+
+interface ComposedRow {
+  id: string;
+  composed_image_url: string;
+  method: string;
+  preset: string | null;
+  created_at: string;
+  product_id: string | null;
+}
+
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
@@ -32,19 +44,26 @@ export default function ProductImageSourcePicker({
   value,
   onChange,
   hideLibrary = false,
+  showComposedResults = false,
   uploadFolder = 'background-qa-sources',
   label,
 }: Props) {
-  const [tab, setTab] = useState<'library' | 'upload' | 'url'>(hideLibrary ? 'upload' : 'library');
+  type TabKey = 'library' | 'upload' | 'url' | 'composed';
+  const [tab, setTab] = useState<TabKey>(hideLibrary ? 'upload' : 'library');
   const [urlInput, setUrlInput] = useState(value || '');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
   // Library state
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+
+  // Composed Results state
+  const [composed, setComposed] = useState<ComposedRow[]>([]);
+  const [loadingComposed, setLoadingComposed] = useState(false);
+  const [composedFilter, setComposedFilter] = useState<'all' | 'ai' | 'safe_retry' | 'non_ai'>('all');
+
 
   useEffect(() => {
     setUrlInput(value || '');
@@ -66,6 +85,22 @@ export default function ProductImageSourcePicker({
     })();
   }, [tab, hideLibrary, products.length]);
 
+  useEffect(() => {
+    if (!showComposedResults || tab !== 'composed' || composed.length) return;
+    (async () => {
+      setLoadingComposed(true);
+      const { data, error } = await supabase
+        .from('background_composition_results')
+        .select('id, composed_image_url, method, preset, created_at, product_id')
+        .order('created_at', { ascending: false })
+        .limit(120);
+      if (error) toast.error(error.message);
+      else setComposed((data || []) as ComposedRow[]);
+      setLoadingComposed(false);
+    })();
+  }, [tab, showComposedResults, composed.length]);
+
+
   const filteredProducts = products.filter((p) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
@@ -82,14 +117,16 @@ export default function ProductImageSourcePicker({
   };
 
   const handleFile = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('Only image files are allowed');
+    const ALLOWED_EXT = /\.(png|jpe?g|webp)$/i;
+    if (!file.type.startsWith('image/') || !ALLOWED_EXT.test(file.name)) {
+      toast.error('Only PNG, JPG, JPEG, or WEBP images are allowed');
       return;
     }
     if (file.size > MAX_BYTES) {
       toast.error('Image too large (max 10MB)');
       return;
     }
+
     setUploading(true);
     toast.info('Uploading image...');
     try {
@@ -116,12 +153,21 @@ export default function ProductImageSourcePicker({
   return (
     <div className="space-y-2">
       {label && <Label>{label}</Label>}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-        <TabsList className={hideLibrary ? 'grid w-full grid-cols-2' : 'grid w-full grid-cols-3'}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+        <TabsList
+          className={(() => {
+            const cols = (hideLibrary ? 0 : 1) + 2 + (showComposedResults ? 1 : 0);
+            const map: Record<number, string> = { 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' };
+            return `grid w-full ${map[cols] || 'grid-cols-3'}`;
+          })()}
+        >
           {!hideLibrary && <TabsTrigger value="library">Product Library</TabsTrigger>}
           <TabsTrigger value="upload">Upload Image</TabsTrigger>
           <TabsTrigger value="url">Image URL</TabsTrigger>
+          {showComposedResults && <TabsTrigger value="composed">Composed Results</TabsTrigger>}
         </TabsList>
+
+
 
         {!hideLibrary && (
           <TabsContent value="library" className="space-y-2">
@@ -238,7 +284,52 @@ export default function ProductImageSourcePicker({
             }}
           />
         </TabsContent>
+
+        {showComposedResults && (
+          <TabsContent value="composed" className="space-y-2">
+            <div className="flex gap-2 items-center">
+              <select
+                className="text-xs border rounded px-2 py-1 bg-background"
+                value={composedFilter}
+                onChange={(e) => setComposedFilter(e.target.value as typeof composedFilter)}
+              >
+                <option value="all">All methods</option>
+                <option value="ai">AI</option>
+                <option value="safe_retry">Safe Retry</option>
+                <option value="non_ai">Non-AI</option>
+              </select>
+            </div>
+            {loadingComposed ? (
+              <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin" /></div>
+            ) : (
+              <div className="max-h-72 overflow-y-auto border rounded p-2 grid grid-cols-3 gap-2">
+                {composed.filter((c) => composedFilter === 'all' || c.method === composedFilter).length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4 col-span-3">No composed results yet.</p>
+                )}
+                {composed
+                  .filter((c) => composedFilter === 'all' || c.method === composedFilter)
+                  .map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        onChange(c.composed_image_url);
+                        setUrlInput(c.composed_image_url);
+                      }}
+                      className={`relative rounded overflow-hidden border-2 ${value === c.composed_image_url ? 'border-primary' : 'border-transparent'}`}
+                    >
+                      <img src={c.composed_image_url} alt="" className="w-full aspect-square object-cover" />
+                      <span className="absolute bottom-1 left-1 text-[9px] bg-black/70 text-white px-1 rounded">
+                        {c.method}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            )}
+          </TabsContent>
+        )}
       </Tabs>
+
 
       {value && (
         <div className="flex gap-2 items-start mt-2">
