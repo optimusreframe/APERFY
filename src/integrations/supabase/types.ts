@@ -113,6 +113,48 @@ export type Database = {
         }
         Relationships: []
       }
+      background_composition_results: {
+        Row: {
+          background_candidate_id: string | null
+          background_image_url: string
+          composed_image_url: string
+          created_at: string
+          created_by: string | null
+          id: string
+          method: string
+          notes: string | null
+          preset: string | null
+          product_id: string | null
+          source_image_url: string
+        }
+        Insert: {
+          background_candidate_id?: string | null
+          background_image_url: string
+          composed_image_url: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          method?: string
+          notes?: string | null
+          preset?: string | null
+          product_id?: string | null
+          source_image_url: string
+        }
+        Update: {
+          background_candidate_id?: string | null
+          background_image_url?: string
+          composed_image_url?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          method?: string
+          notes?: string | null
+          preset?: string | null
+          product_id?: string | null
+          source_image_url?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
