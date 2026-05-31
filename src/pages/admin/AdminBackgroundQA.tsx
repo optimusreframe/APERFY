@@ -103,6 +103,12 @@ export default function AdminBackgroundQA() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewResult, setPreviewResult] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewBlocked, setPreviewBlocked] = useState(false);
+  const [previewMethod, setPreviewMethod] = useState<'ai' | 'safe_retry' | 'non_ai' | null>(null);
+  const [nonAiSize, setNonAiSize] = useState<NonAiPlacement['productSize']>('medium');
+  const [nonAiVPos, setNonAiVPos] = useState<NonAiPlacement['verticalPosition']>('lower');
+  const [nonAiShadow, setNonAiShadow] = useState<NonAiPlacement['shadow']>('soft');
+
 
   const fetchOfficialBg = async () => {
     setLoadingBg(true);
