@@ -869,6 +869,39 @@ export type Database = {
         }
         Relationships: []
       }
+      system_background_candidates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          image_url: string
+          is_active: boolean
+          preset: string
+          prompt: string | null
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_url: string
+          is_active?: boolean
+          preset: string
+          prompt?: string | null
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_url?: string
+          is_active?: boolean
+          preset?: string
+          prompt?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
