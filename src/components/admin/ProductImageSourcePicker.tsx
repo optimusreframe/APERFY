@@ -21,10 +21,22 @@ interface Props {
   onChange: (url: string) => void;
   /** When true, hides the Product Library tab (used for custom background picker). */
   hideLibrary?: boolean;
+  /** When true, shows the Composed Results tab (admin-only contexts). */
+  showComposedResults?: boolean;
   /** Storage folder under product-images bucket. */
   uploadFolder?: string;
   label?: string;
 }
+
+interface ComposedRow {
+  id: string;
+  composed_image_url: string;
+  method: string;
+  preset: string | null;
+  created_at: string;
+  product_id: string | null;
+}
+
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
