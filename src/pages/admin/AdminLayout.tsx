@@ -27,9 +27,9 @@ export default function AdminLayout() {
 
   return (
     <SidebarProvider>
-      <div className="mac-admin-layout flex min-h-full w-full bg-[radial-gradient(circle_at_75%_0%,hsl(var(--primary)/.08),transparent_32%),linear-gradient(180deg,hsl(220_18%_9%),hsl(220_20%_6%))]">
+      <div className="mac-admin-layout flex h-full min-h-0 w-full overflow-hidden bg-[radial-gradient(circle_at_75%_0%,hsl(var(--primary)/.08),transparent_32%),linear-gradient(180deg,hsl(220_18%_9%),hsl(220_20%_6%))]">
         <AdminSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* Command bar */}
           <header className="mac-admin-toolbar sticky top-0 z-30 h-14 flex items-center gap-3 border-b border-white/[0.08] px-4 bg-[hsl(220_18%_9%/.82)] backdrop-blur-2xl">
             <SidebarTrigger className="text-foreground/80 hover:text-foreground" />
@@ -53,7 +53,7 @@ export default function AdminLayout() {
               <NotificationBell />
             </div>
           </header>
-          <main className="mac-admin-main flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+          <main className="mac-admin-main min-h-0 p-4 md:p-6 lg:p-8">
             <Outlet />
           </main>
         </div>

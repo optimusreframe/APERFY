@@ -53,8 +53,7 @@ Rules:
 - Query 2: Use the product type/category + brand/model name
 - Query 3: Use a simplified 2-3 word description + "price"
 - Query 4 (optional): Use the model number or product family
-- Strip site names like "MakerWorld", "Thingiverse", "Printables" from queries
-- Strip phrases like "Free 3D Print Model", "STL file", etc.
+- Prefer manufacturer, model, category, and retail descriptors; avoid marketplace noise.
 - Keep queries concise (under 10 words after "site:ebay.com")`
           },
           {
@@ -514,34 +513,34 @@ ${imageListForAI || "No images found."}`
       }
 
       const FRAMING_RULE = `CRITICAL FRAMING RULE:
-Show the entire 3D printed object fully visible inside the frame. Do not crop any part of the object. Keep clear margins around the object on all sides (at least 10-15% negative space top, bottom, left, and right). Center the object on the workbench. Use a medium product photography framing — not an extreme close-up. The full silhouette, base, top, sides, and details must remain visible. For tall/vertical objects, keep both the base and the top inside the frame. For long/horizontal objects, keep both the left and right ends inside the frame. Macro style is allowed but the object must remain fully visible and not cropped.`;
+Show the entire physical product fully visible inside the frame. Do not crop any part of it. Keep clear margins on all sides, center the product, and use a premium ecommerce composition. Preserve the complete silhouette, packaging, labels, and visible details.`;
 
       const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
-Preserve the exact same 3D object from the source image. Do not redesign it, do not change its shape, geometry, proportions, silhouette, color, material, texture, surface details, printed layer lines, logos, holes, edges, or accessories. Do not add or remove any parts. Do not stylize the object. Only change the background, lighting, camera feel, shadows, and environment. The final image must look like the same physical object photographed in a professional curated shopping studio.`;
+Preserve the exact same physical product from the source image. Do not redesign it or change its proportions, silhouette, color, packaging, labels, logos, texture, or visible details. Only change the background, lighting, camera feel, shadows, and environment. The final image must look like the same product photographed in a professional APERFY retail studio.`;
 
       const SAFE_RETRY_PROMPT = `Create a clean product photo composition using the provided source object image and the provided background image. Preserve the exact object from the source image. Do not identify, rename, reinterpret, stylize, redesign, or transform the object. Do not add or remove any parts. Only adjust placement, scale, contact shadow, lighting match, and background integration. Keep the entire object fully visible inside the frame with at least 10-15% margin on all sides — never crop the object. The output should look like a realistic ecommerce product photo.`;
 
       const BACKGROUND_PROMPTS: Record<string, string> = {
         system_workshop: `BACKGROUND AND PHOTOGRAPHY STYLE:
-Place the EXACT same object on a brushed grey metallic industrial workbench inside a premium FDM curated shopping studio.
+Place the EXACT same product on a matte graphite display surface inside a premium APERFY ecommerce studio.
 
-The background must show a softly blurred professional 3D printer, out-of-focus orange and teal product detail spools, subtle workshop tools, and a dark cinematic maker-lab environment.
+The background must show a clean neutral retail environment with subtle geometric depth and a restrained APERFY green accent light.
 
 Use realistic premium ecommerce product photography lighting: soft studio light, cool blue rim light on the object edges, warm orange accent glow from the background, natural soft contact shadows, and subtle reflections on the metal tabletop.
 
 Use a macro product photography look with shallow depth of field, heavy background bokeh, 50mm lens aesthetic, realistic scale, centered composition, and high-end catalog quality.
 
-The object must remain the main focus, sharp, clean, physically grounded on the table, and must look like a real 3D printed PLA product.
+The product must remain the main focus, sharp, clean, physically grounded, and color-accurate.
 
 No people, no hands, no text, no watermark, no extra logos, no extra objects distracting from the product.`,
         system_macro: `BACKGROUND AND PHOTOGRAPHY STYLE:
-Macro ecommerce product photo of the EXACT same 3D printed object on a brushed grey metallic tabletop. Very shallow depth of field, close-up camera angle, heavily blurred FDM 3D printer and orange/teal product detail spools in the background. Premium studio lighting, soft realistic shadows, subtle metal reflections, sharp focus on the object, realistic PLA texture, clean product catalog composition. No people, no hands, no text, no watermark, no extra logos.`,
+Macro ecommerce product photo of the EXACT same physical product on a matte graphite tabletop. Very shallow depth of field, soft neutral bokeh, premium studio lighting, realistic shadows, sharp focus on the product, and clean retail catalog composition. No people, no hands, no text, no watermark, no extra logos.`,
         system_dark_premium: `BACKGROUND AND PHOTOGRAPHY STYLE:
-Premium cinematic product photography of the EXACT same 3D printed object displayed on a brushed dark metallic workbench inside a high-end curated shopping studio. Background: dark blurred FDM printer, teal and orange product detail bokeh, low-key lighting, dramatic cool blue rim light, warm orange accent glow, soft shadows, realistic reflections, luxury maker-lab atmosphere, centered hero composition, high-end ecommerce catalog image. No people, no hands, no text, no watermark, no extra logos.`,
+Premium cinematic product photography of the EXACT same physical product displayed on a matte graphite plinth inside a high-end APERFY technology studio. Use low-key lighting, cool rim light, subtle green reflections, realistic shadows, and a centered hero composition. No people, no hands, no text, no watermark, no extra logos.`,
         custom: `BACKGROUND AND PHOTOGRAPHY STYLE:
 Seamlessly composite the identical object onto the user-uploaded background image. Match perspective, scale, lighting direction, color temperature, shadows, and surface contact. Add realistic soft contact shadows and subtle ambient reflections so the object looks physically placed in the scene. Do not alter the object. No people, no hands, no text, no watermark unless they already exist in the uploaded background.`,
         premium_tech_plinth: `BACKGROUND AND PHOTOGRAPHY STYLE:
-Luxury technology product display of the EXACT same 3D printed object on a dark carbon-fiber plinth. Background: dark blue and grey geometric network structure, subtle copper and gold accents, premium cyber-tech aesthetic, soft realistic contact shadows, dramatic studio lighting, high-end product hero shot. Do not change the object. No people, no hands, no watermark.`,
+Luxury technology product display of the EXACT same physical product on a matte graphite plinth. Use a dark blue-grey geometric background, subtle APERFY green accents, soft contact shadows, and dramatic studio lighting. Do not change the product. No people, no hands, no watermark.`,
       };
 
        BACKGROUND_PROMPTS.system_workshop = `BACKGROUND AND PHOTOGRAPHY STYLE: Place the exact same physical product on a matte graphite retail display surface inside a premium APERFY ecommerce studio. Use clean neutral gradients, soft catalog lighting, subtle green edge light, accurate product color, realistic contact shadows, generous negative space, no people, no hands, no text, no watermark, no extra logos.`;
@@ -906,22 +905,22 @@ If the input name/description is already good, polish it slightly. If it's empty
       }
 
       const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
-Preserve the exact same 3D object from the source image. Do not redesign it, do not change its shape, geometry, proportions, silhouette, color, material, texture, surface details, printed layer lines, logos, holes, edges, or accessories. Do not add or remove any parts. Do not stylize the object. Only change the camera angle. The final image must look like the same physical object photographed in a professional APERFY workshop studio.`;
+Preserve the exact same physical product from the source image. Do not redesign it or change its proportions, silhouette, color, packaging, labels, logos, texture, or visible details. Only change the camera angle. The final image must look like the same product photographed in a professional APERFY retail studio.`;
 
-      const sharedBackground = `Generate a new product angle of the exact same object while preserving the same APERFY workshop background, same brushed grey metallic workbench, same blurred FDM printer, same orange and teal product detail bokeh, same lighting direction, same shadows, same camera lens style, and same ecommerce catalog quality. Only change the camera angle. Do not alter the object.`;
+      const sharedBackground = `Generate a new product angle of the exact same physical product while preserving a consistent APERFY graphite retail studio, soft neutral background, green accent light, lighting direction, shadows, camera style, and ecommerce catalog quality. Only change the camera angle. Do not alter the product.`;
 
       const anglePrompts: Record<string, string> = {
         side: `${sharedBackground} Render the EXACT same object from a perfect side / profile view (90° rotation).`,
         back: `${sharedBackground} Render the EXACT same object from the back (180° rotation).`,
         three_quarter: `${sharedBackground} Render the EXACT same object from a 3/4 hero angle (roughly 45° rotation, slight high angle).`,
         top: `${sharedBackground} Render the EXACT same object from a top-down / overhead angle.`,
-        macro: `${sharedBackground} Render an ultra close-up macro shot of the EXACT same object focusing on its surface details and PLA texture, with very shallow depth of field.`,
-        lifestyle: `${sharedBackground} Render the EXACT same object framed as a tasteful lifestyle hero shot within the same APERFY workshop scene. Do not modify the object.`,
+        macro: `${sharedBackground} Render a close-up product detail while preserving identity, packaging, and visible surface details.`,
+        lifestyle: `${sharedBackground} Render the same product in a tasteful APERFY retail lifestyle scene. Do not modify the product.`,
       };
 
        const genericAnglePrompts: Record<string, string> = { side: 'Show the same product from a clean side profile.', back: 'Show the same product from the back.', three_quarter: 'Show the same product from a three-quarter hero angle.', top: 'Show the same product from a top-down angle.', macro: 'Show a close product detail while preserving identity details.', lifestyle: 'Show the same product in a tasteful APERFY retail lifestyle scene.' };
        const anglePrompt = genericAnglePrompts[angle] || genericAnglePrompts.three_quarter;
-      const framingRule = `CRITICAL FRAMING RULE: Show the entire 3D printed object fully visible inside the frame with at least 10-15% negative space on all sides. Do not crop the object. Keep the full silhouette, base, top, sides, and details visible. Macro is allowed but the object must remain fully visible.`;
+      const framingRule = `CRITICAL FRAMING RULE: Show the entire physical product fully visible inside the frame with at least 10-15% negative space on all sides. Do not crop it. Keep the complete silhouette, packaging, labels, and visible details.`;
       const promptText = `${framingRule}\n\n${fidelityRule}\n\n${anglePrompt}\n\nThe output MUST be a single photorealistic image of the identical object — never reinterpret or restyle it. No people, no hands, no text, no watermark, no extra logos.`;
 
       const imgResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -988,10 +987,10 @@ Preserve the exact same 3D object from the source image. Do not redesign it, do 
       };
 
       const BACKGROUND_PRESET_PROMPTS: Record<string, string> = {
-        system_workshop: `Empty premium curated shopping workshop product photography background. Brushed grey metallic workbench in the foreground with enough empty space to place a product. Dark cinematic maker studio in the background, softly blurred FDM 3D printer, out-of-focus orange and teal product detail spools, subtle industrial tools, shallow depth of field, soft reflections on the metal table, realistic studio lighting, premium ecommerce catalog look, clean composition, no product, no people, no hands, no text, no logos, no watermark.`,
-        system_macro: `Empty macro-style premium curated shopping workshop background. Brushed grey metallic tabletop in the foreground with empty centered placement area for a product. Very shallow depth of field, heavily blurred FDM 3D printer and orange/teal product detail spools in the background, premium studio lighting, subtle metal reflections, close-up product photography composition, clean dark maker-lab atmosphere, no product, no people, no hands, no text, no logos, no watermark.`,
-        system_dark_premium: `Empty premium dark cinematic curated shopping studio background. Brushed dark metallic workbench in the foreground with enough empty space for a product. Background shows a blurred FDM 3D printer, teal and orange product detail bokeh, low-key luxury lighting, cool rim glow, warm orange accents, soft realistic shadows, subtle reflections, high-end maker-lab atmosphere, no product, no people, no hands, no text, no logos, no watermark.`,
-        premium_tech_plinth: `Empty luxury technology product display background. Dark carbon-fiber plinth centered in the foreground with empty space for a product. Background: dark blue and grey geometric network forms, subtle copper and gold accents, premium cyber-tech aesthetic, soft contact shadows, dramatic studio lighting, clean composition, no product, no people, no hands, no text, no watermark.`,
+        system_workshop: `Empty APERFY retail product photography studio, matte graphite surface, clean neutral gradient background, soft controlled green accent light, generous negative space for the product, premium ecommerce composition, no product, no people, no hands, no text, no logos, no watermark.`,
+        system_macro: `Empty APERFY macro ecommerce studio, matte graphite tabletop, soft neutral bokeh, precise focus area, subtle green edge light, clean premium retail composition, no product, no people, no hands, no text, no logos, no watermark.`,
+        system_dark_premium: `Empty APERFY dark premium technology studio, matte graphite surface, cool rim light, subtle green reflections, accurate product color, clean ecommerce composition, no product, no people, no hands, no text, no logos, no watermark.`,
+        premium_tech_plinth: `Empty APERFY technology product display, matte graphite plinth, clean geometric background, soft green accent light, generous negative space, premium retail catalog composition, no product, no people, no hands, no text, no logos, no watermark.`,
       };
 
       const presetKey = typeof preset === "string" ? preset : "";

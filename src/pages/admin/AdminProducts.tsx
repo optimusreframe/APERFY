@@ -1211,8 +1211,8 @@ export default function AdminProducts() {
                 AI Import Studio
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-card border-border max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-              <div className="p-6 pb-0">
+            <DialogContent className="flex h-[min(900px,90vh)] max-h-[90vh] max-w-4xl flex-col overflow-hidden bg-card border-border p-0">
+              <div className="shrink-0 p-6 pb-0">
                 <DialogHeader>
                   <DialogTitle className="font-display flex items-center gap-2 text-xl">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
@@ -1223,7 +1223,7 @@ export default function AdminProducts() {
                 </DialogHeader>
               </div>
 
-              <div className="p-6 pt-4">
+              <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-4">
                 {/* ── STEP: SOURCE ── */}
                 {aiStep === 'source' && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -1259,11 +1259,11 @@ export default function AdminProducts() {
                       </Label>
                       <RadioGroup value={aiBgMode} onValueChange={(v) => setAiBgMode(v)} className="space-y-3">
                         {[
-                          { value: 'system_workshop', label: 'APERFY Workshop', desc: 'Workbench metálico con impresora FDM borrosa y product detailos naranja/teal — look oficial APERFY', badge: 'Recomendado' },
-                          { value: 'system_macro', label: 'APERFY Macro', desc: 'Macro close-up con bokeh intenso del taller y enfoque selectivo sobre el producto' },
-                          { value: 'system_dark_premium', label: 'APERFY Dark Premium', desc: 'Atmósfera cinematográfica oscura con rim light azul frío y acento naranja cálido' },
+                          { value: 'system_workshop', label: 'APERFY Studio', desc: 'Superficie graphite, luz de catálogo y acento verde para destacar cualquier producto', badge: 'Recomendado' },
+                          { value: 'system_macro', label: 'APERFY Macro', desc: 'Enfoque cercano, bokeh suave y detalle nítido del producto' },
+                          { value: 'system_dark_premium', label: 'APERFY Dark Premium', desc: 'Atmósfera tecnológica oscura con rim light frío y acento verde' },
                           { value: 'custom', label: 'Custom Background', desc: 'Sube tu propia imagen de fondo' },
-                          { value: 'premium_tech_plinth', label: 'Premium Tech Plinth', desc: 'Plinto de fibra de carbono con red geométrica oscura y acentos cobre/oro' },
+                          { value: 'premium_tech_plinth', label: 'Tech Plinth', desc: 'Base graphite minimalista con geometría sutil y luz verde APERFY' },
                         ].map((opt) => (
                           <div
                             key={opt.value}
@@ -1771,7 +1771,7 @@ export default function AdminProducts() {
             <DialogTrigger asChild>
               <Button className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2"><Plus className="w-4 h-4" />Agregar Producto</Button>
             </DialogTrigger>
-            <DialogContent className="bg-card border-border max-w-6xl w-[95vw] h-[92vh] p-0 overflow-hidden gap-0 flex flex-col">
+            <DialogContent className="flex h-[min(920px,92vh)] max-h-[92vh] w-[95vw] max-w-6xl flex-col gap-0 overflow-hidden bg-card border-border p-0">
               <DialogHeader className="sr-only"><DialogTitle>{editId ? 'Editar' : 'Agregar'} Producto</DialogTitle></DialogHeader>
               {(() => {
                 const WIZARD_STEPS = [
@@ -1971,7 +1971,7 @@ export default function AdminProducts() {
                                 <Label className="text-xs font-semibold">Fondo</Label>
                                 <div className="flex flex-wrap gap-2">
                                   {[
-                                    { value: 'system_workshop', label: 'Workshop', badge: '★' },
+                                    { value: 'system_workshop', label: 'APERFY STUDIO', badge: '★' },
                                     { value: 'system_macro', label: 'Macro', badge: null },
                                     { value: 'system_dark_premium', label: 'Dark Premium', badge: null },
                                     { value: 'custom', label: 'Custom', badge: null },
