@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 function generateCode(userId: string) {
   // Stable, short code derived from user id.
   const hex = userId.replace(/-/g, '').toUpperCase();
-  return `3DP${hex.slice(0, 6)}`;
+  return `APF${hex.slice(0, 6)}`;
 }
 
 export default function ReferralsTab() {

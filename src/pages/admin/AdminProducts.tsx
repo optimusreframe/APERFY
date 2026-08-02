@@ -22,7 +22,6 @@ import { sanitizeUrl } from '@/lib/sanitize';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AdminPageHeader } from './_shared';
 import MarginCalculator from '@/components/admin/MarginCalculator';
-import Product3DField from '@/components/admin/Product3DField';
 
 // ── Types ──
 interface ProductForm {
@@ -62,7 +61,7 @@ const COMMON_COLORS = [
 
 // ── AI Progress Log ──
 const AI_PROGRESS_MESSAGES = [
-  '◉ Aislando modelo 3D...',
+  '◉ Preparando producto...',
   '◉ Configurando iluminación de estudio...',
   '◉ Aplicando efecto Bokeh...',
   '◉ Renderizando en 8K...',
@@ -1219,7 +1218,7 @@ export default function AdminProducts() {
                           className="bg-background"
                           maxLength={2000}
                         />
-                        <p className="text-xs text-muted-foreground">Pega un enlace a un modelo 3D de Thingiverse, MyMiniFactory, Cults3D, etc.</p>
+                        <p className="text-xs text-muted-foreground">Añade enlaces de referencia para enriquecer la ficha del producto.</p>
                       </div>
                     </div>
 
@@ -1321,7 +1320,7 @@ export default function AdminProducts() {
                           <Textarea
                             value={bulkUrls}
                             onChange={(e) => setBulkUrls(e.target.value)}
-                            placeholder={"https://www.thingiverse.com/thing/12345\nhttps://www.thingiverse.com/thing/67890\nhttps://cults3d.com/en/3d-model/..."}
+                            placeholder={"https://example.com/producto\nhttps://example.com/referencia"}
                             className="bg-background min-h-[160px] font-mono text-xs"
                             rows={6}
                           />
@@ -1813,17 +1812,6 @@ export default function AdminProducts() {
                         <Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} />
                         <Label className="text-xs">Destacado</Label>
                       </div>
-                      <Product3DField
-                        value={form.model_3d_url || ''}
-                        onChange={(v) => setForm({ ...form, model_3d_url: v })}
-                        productName={form.name_es || form.name_en}
-                        onImageGenerated={(url) => {
-                          setMediaFiles(prev => [
-                            ...prev,
-                            { id: `ai-${Date.now()}`, preview: url, type: 'image', isExisting: true },
-                          ]);
-                        }}
-                      />
                     </div>
                   </aside>
 
@@ -2385,7 +2373,7 @@ export default function AdminProducts() {
                                       body: {
                                         action: 'generate_image',
                                         source_image: base,
-                                        prompt_addition: `Same 3D printed product, identical design, color and texture. Show this specific variation: ${variantDesc}. Clean studio background, premium product photography.`,
+                                        prompt_addition: `Same product, identical design, color and texture. Show this specific variation: ${variantDesc}. Clean studio background, premium product photography.`,
                                       },
                                     });
                                     if (error || !data?.success) throw new Error(error?.message || data?.error || 'Falló la generación');

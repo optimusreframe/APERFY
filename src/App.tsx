@@ -34,7 +34,6 @@ import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
 import AdminShipping from "./pages/admin/AdminShipping";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminDiscounts from "./pages/admin/AdminDiscounts";
-import AdminAI3DSettings from "./pages/admin/AdminAI3DSettings";
 import AdminBackgroundQA from "./pages/admin/AdminBackgroundQA";
 import RequestModel from "./pages/RequestModel";
 import Contact from "./pages/Contact";
@@ -56,8 +55,6 @@ const AppContent = () => {
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/3dmodels" element={<Navigate to="/" replace />} />
-          <Route path="/3dmodels/:slug" element={<ProductDetail />} />
           <Route path="/products" element={<Navigate to="/" replace />} />
           <Route path="/products/:slug" element={<ProductDetail />} />
           <Route path="/catalog" element={<Navigate to="/" replace />} />
@@ -86,7 +83,6 @@ const AppContent = () => {
             <Route path="shipping" element={<AdminShipping />} />
             <Route path="discounts" element={<AdminDiscounts />} />
             <Route path="logs" element={<AdminLogs />} />
-            <Route path="ai-3d" element={<AdminAI3DSettings />} />
             <Route path="background-qa" element={<AdminBackgroundQA />} />
           </Route>
           </Route>

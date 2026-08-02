@@ -7,8 +7,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useLanguage } from "@/i18n/LanguageContext";
 import IOSSheet from "@/components/mobile/IOSSheet";
 
-const VISIT_KEY = "3dp-pwa-visits";
-const LAST_SHOWN_KEY = "3dp-pwa-last-shown";
+const VISIT_KEY = "aperfy-pwa-visits";
+const LAST_SHOWN_KEY = "aperfy-pwa-last-shown";
 const MIN_VISITS = 2;
 const COOLDOWN_MS = 1000 * 60 * 60 * 24 * 3; // 3 days between popups
 
@@ -31,8 +31,8 @@ export default function InstallPWAPopup() {
 
   useEffect(() => {
     try {
-      if (!sessionStorage.getItem("3dp-pwa-counted")) {
-        sessionStorage.setItem("3dp-pwa-counted", "1");
+      if (!sessionStorage.getItem("aperfy-pwa-counted")) {
+        sessionStorage.setItem("aperfy-pwa-counted", "1");
         const total = (Number(localStorage.getItem(VISIT_KEY)) || 0) + 1;
         localStorage.setItem(VISIT_KEY, String(total));
       }

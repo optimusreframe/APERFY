@@ -190,7 +190,7 @@ export default function RequestModel() {
   const step3Done = previews.length > 0 || !!form.reference_url || !!form.description;
   const steps = [
     { n: '01', label: language === 'es' ? 'Contacto' : 'Contact', done: step1Done },
-    { n: '02', label: language === 'es' ? 'Modelo' : 'Model', done: step2Done },
+    { n: '02', label: language === 'es' ? 'Producto' : 'Product', done: step2Done },
     { n: '03', label: language === 'es' ? 'Referencias' : 'References', done: step3Done },
   ];
 
@@ -210,7 +210,7 @@ export default function RequestModel() {
             className="text-center mb-12"
           >
             <div className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary/80 mb-5">
-              REQUEST · CUSTOM · 3D
+              {language === 'es' ? 'APERFY · SOLICITUD DE PRODUCTO' : 'APERFY · PRODUCT REQUEST'}
             </div>
             <h1 className="font-display font-bold text-4xl sm:text-6xl tracking-[-0.02em] leading-[1.02] text-foreground">
               {t.requestModel.title}{' '}

@@ -27,7 +27,6 @@ const groups = [
       { title: 'Products', url: '/admin/products', icon: Package },
       { title: 'Categories', url: '/admin/categories', icon: Tags },
       { title: 'Materials', url: '/admin/materials', icon: Layers },
-      { title: 'AI catalog tools', url: '/admin/ai-3d', icon: Sparkles },
     ],
   },
   {

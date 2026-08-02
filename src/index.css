@@ -68,6 +68,8 @@
   .mac-toolbar-button:hover { background: hsl(var(--primary) / .1); color: hsl(var(--foreground)); transform: translateY(-1px); }
   .mac-toolbar-button:active { transform: translateY(0); }
   .mac-toolbar-button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+  .aperfy-wordmark { display: inline-flex; align-items: baseline; gap: 0; font-weight: 700; letter-spacing: -.03em; color: hsl(var(--foreground)); }
+  .aperfy-wordmark span:last-child { color: hsl(var(--primary)); }
   .mac-nav-item { @apply flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors duration-200; }
   .mac-nav-item:hover { @apply bg-white/[0.05] text-foreground; }
   .mac-nav-item.is-active { @apply bg-primary/[0.12] text-primary; }
