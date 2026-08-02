@@ -45,7 +45,7 @@ export default function ProductCard({
       className="group"
     >
       <div className="relative rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
-        <Link to={`/3dmodels/${product.slug}`}>
+        <Link to={`/products/${product.slug}`}>
           <div className="aspect-[4/3] bg-secondary relative overflow-hidden">
             {images.length > 0 ? (
               <img
@@ -92,7 +92,7 @@ export default function ProductCard({
         </div>
         {/* Card info */}
         <div className="p-3">
-          <Link to={`/3dmodels/${product.slug}`}>
+          <Link to={`/products/${product.slug}`}>
             <h3 className="font-display font-semibold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate">
               {name}
             </h3>

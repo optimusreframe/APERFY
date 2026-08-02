@@ -2,7 +2,7 @@
 
 **A Perfect Find, For You.**
 
-APERFY is a curated ecommerce storefront for real, limited-quantity products. It reuses the original 3dtoprint React/Supabase foundation while replacing the 3D-printing positioning with a general catalog, verified-value messaging and conversational order confirmation through WhatsApp.
+APERFY is a curated ecommerce storefront for real, limited-quantity products. It reuses the original React/Supabase foundation while replacing the inherited 3D-printing positioning with a general catalog, verified-value messaging and conversational order confirmation through WhatsApp.
 
 ## Local development
 

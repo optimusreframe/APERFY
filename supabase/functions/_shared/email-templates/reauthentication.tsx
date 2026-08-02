@@ -16,7 +16,7 @@ import {
 } from 'npm:@react-email/components@0.0.22'
 
 const LOGO_URL = 'https://fyqcbkfzyjgddmqupdfr.supabase.co/storage/v1/object/public/email-assets/logo.png'
-const SITE_URL = 'https://3dtoprint.online'
+const SITE_URL = 'https://aperfy.online'
 
 interface ReauthenticationEmailProps {
   token: string
@@ -25,11 +25,11 @@ interface ReauthenticationEmailProps {
 export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Your verification code at 3DtoPrint</Preview>
+    <Preview>Your verification code at APERFY</Preview>
     <Body style={main}>
       <Container style={card}>
         <Section style={logoSection}>
-          <Img src={LOGO_URL} width="56" height="56" alt="3DtoPrint" style={logoImg} />
+          <Img src={LOGO_URL} width="56" height="56" alt="APERFY" style={logoImg} />
           <Heading style={brandName}>
             3Dto<span style={brandGold}>Print</span>
           </Heading>
@@ -51,8 +51,8 @@ export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => 
         <Section style={footerSection}>
           <Text style={footerBrand}>
             © 2026{' '}
-            <Link href={SITE_URL} style={footerLink}>3DtoPrint</Link>
-            {' '}— Premium 3D Printing
+            <Link href={SITE_URL} style={footerLink}>APERFY</Link>
+            {' '}— Curated finds
           </Text>
         </Section>
       </Container>

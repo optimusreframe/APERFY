@@ -17,7 +17,7 @@ import {
 } from 'npm:@react-email/components@0.0.22'
 
 const LOGO_URL = 'https://fyqcbkfzyjgddmqupdfr.supabase.co/storage/v1/object/public/email-assets/logo.png'
-const SITE_URL = 'https://3dtoprint.online'
+const SITE_URL = 'https://aperfy.online'
 
 interface InviteEmailProps {
   siteName: string
@@ -32,23 +32,23 @@ export const InviteEmail = ({
 }: InviteEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>You've been invited to 3DtoPrint</Preview>
+    <Preview>You've been invited to APERFY</Preview>
     <Body style={main}>
       <Container style={card}>
         <Section style={logoSection}>
-          <Img src={LOGO_URL} width="56" height="56" alt="3DtoPrint" style={logoImg} />
+          <Img src={LOGO_URL} width="56" height="56" alt="APERFY" style={logoImg} />
           <Heading style={brandName}>
             3Dto<span style={brandGold}>Print</span>
           </Heading>
         </Section>
 
-        <Heading style={h1}>You've been invited to 3DtoPrint</Heading>
+        <Heading style={h1}>You've been invited to APERFY</Heading>
         <Text style={text}>
           You've been invited to join{' '}
           <Link href={siteUrl || SITE_URL} style={link}>
-            <strong>3DtoPrint</strong>
+            <strong>APERFY</strong>
           </Link>
-          , the premium 3D printing platform. Click the button below to accept the invitation and create your account.
+          , the premium curated shopping platform. Click the button below to accept the invitation and create your account.
         </Text>
 
         <Section style={buttonSection}>
@@ -64,8 +64,8 @@ export const InviteEmail = ({
         <Section style={footerSection}>
           <Text style={footerBrand}>
             © 2026{' '}
-            <Link href={SITE_URL} style={footerLink}>3DtoPrint</Link>
-            {' '}— Premium 3D Printing
+            <Link href={SITE_URL} style={footerLink}>APERFY</Link>
+            {' '}— Curated finds
           </Text>
         </Section>
       </Container>

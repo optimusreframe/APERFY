@@ -205,7 +205,7 @@ async function validateAndAveragePrices(
 
 Rules:
 - DISCARD listings that are clearly different products (wrong character, wrong type, unrelated items)
-- DISCARD listings that are STL files or digital downloads (we sell physical 3D printed items)
+- DISCARD listings that are digital files or digital downloads (we sell physical 3D printed items)
 - From the RELEVANT listings, calculate the average price
 - If 3+ relevant listings match → confidence "high"
 - If 1-2 relevant listings match → confidence "medium"
@@ -419,7 +419,7 @@ serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: `You are a product data extraction expert for a 3D printing e-commerce store called "3DtoPrint".
+              content: `You are a product data extraction expert for a curated shopping e-commerce store called "APERFY".
 
 STRICT RULES:
 - Product name (name_en, name_es): Create a TOTALLY NEW name. MAX 4 WORDS. Short, catchy, commercial. NEVER copy the original name.
@@ -428,7 +428,7 @@ STRICT RULES:
 - slug: URL-friendly, lowercase, hyphens only, based on the new name.
 - ${priceInstruction}
 - suggested_category: Use one of these existing slugs if applicable: ${categorySlugs || "none yet"}. Otherwise suggest a new slug.
-- materials: Logical 3D printing materials (PLA, ABS, PETG, Resin, etc.)
+- materials: Logical curated shopping materials (PLA, ABS, PETG, Resin, etc.)
 - colors: Recommended colors in Spanish (Negro, Blanco, Dorado, etc.)
 
 EXTRACTED IMAGES:
@@ -517,15 +517,15 @@ ${imageListForAI || "No images found."}`
 Show the entire 3D printed object fully visible inside the frame. Do not crop any part of the object. Keep clear margins around the object on all sides (at least 10-15% negative space top, bottom, left, and right). Center the object on the workbench. Use a medium product photography framing — not an extreme close-up. The full silhouette, base, top, sides, and details must remain visible. For tall/vertical objects, keep both the base and the top inside the frame. For long/horizontal objects, keep both the left and right ends inside the frame. Macro style is allowed but the object must remain fully visible and not cropped.`;
 
       const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
-Preserve the exact same 3D object from the source image. Do not redesign it, do not change its shape, geometry, proportions, silhouette, color, material, texture, surface details, printed layer lines, logos, holes, edges, or accessories. Do not add or remove any parts. Do not stylize the object. Only change the background, lighting, camera feel, shadows, and environment. The final image must look like the same physical object photographed in a professional 3D printing studio.`;
+Preserve the exact same 3D object from the source image. Do not redesign it, do not change its shape, geometry, proportions, silhouette, color, material, texture, surface details, printed layer lines, logos, holes, edges, or accessories. Do not add or remove any parts. Do not stylize the object. Only change the background, lighting, camera feel, shadows, and environment. The final image must look like the same physical object photographed in a professional curated shopping studio.`;
 
       const SAFE_RETRY_PROMPT = `Create a clean product photo composition using the provided source object image and the provided background image. Preserve the exact object from the source image. Do not identify, rename, reinterpret, stylize, redesign, or transform the object. Do not add or remove any parts. Only adjust placement, scale, contact shadow, lighting match, and background integration. Keep the entire object fully visible inside the frame with at least 10-15% margin on all sides — never crop the object. The output should look like a realistic ecommerce product photo.`;
 
       const BACKGROUND_PROMPTS: Record<string, string> = {
         system_workshop: `BACKGROUND AND PHOTOGRAPHY STYLE:
-Place the EXACT same object on a brushed grey metallic industrial workbench inside a premium FDM 3D printing studio.
+Place the EXACT same object on a brushed grey metallic industrial workbench inside a premium FDM curated shopping studio.
 
-The background must show a softly blurred professional 3D printer, out-of-focus orange and teal filament spools, subtle workshop tools, and a dark cinematic maker-lab environment.
+The background must show a softly blurred professional 3D printer, out-of-focus orange and teal product detail spools, subtle workshop tools, and a dark cinematic maker-lab environment.
 
 Use realistic premium ecommerce product photography lighting: soft studio light, cool blue rim light on the object edges, warm orange accent glow from the background, natural soft contact shadows, and subtle reflections on the metal tabletop.
 
@@ -535,9 +535,9 @@ The object must remain the main focus, sharp, clean, physically grounded on the 
 
 No people, no hands, no text, no watermark, no extra logos, no extra objects distracting from the product.`,
         system_macro: `BACKGROUND AND PHOTOGRAPHY STYLE:
-Macro ecommerce product photo of the EXACT same 3D printed object on a brushed grey metallic tabletop. Very shallow depth of field, close-up camera angle, heavily blurred FDM 3D printer and orange/teal filament spools in the background. Premium studio lighting, soft realistic shadows, subtle metal reflections, sharp focus on the object, realistic PLA texture, clean product catalog composition. No people, no hands, no text, no watermark, no extra logos.`,
+Macro ecommerce product photo of the EXACT same 3D printed object on a brushed grey metallic tabletop. Very shallow depth of field, close-up camera angle, heavily blurred FDM 3D printer and orange/teal product detail spools in the background. Premium studio lighting, soft realistic shadows, subtle metal reflections, sharp focus on the object, realistic PLA texture, clean product catalog composition. No people, no hands, no text, no watermark, no extra logos.`,
         system_dark_premium: `BACKGROUND AND PHOTOGRAPHY STYLE:
-Premium cinematic product photography of the EXACT same 3D printed object displayed on a brushed dark metallic workbench inside a high-end 3D printing studio. Background: dark blurred FDM printer, teal and orange filament bokeh, low-key lighting, dramatic cool blue rim light, warm orange accent glow, soft shadows, realistic reflections, luxury maker-lab atmosphere, centered hero composition, high-end ecommerce catalog image. No people, no hands, no text, no watermark, no extra logos.`,
+Premium cinematic product photography of the EXACT same 3D printed object displayed on a brushed dark metallic workbench inside a high-end curated shopping studio. Background: dark blurred FDM printer, teal and orange product detail bokeh, low-key lighting, dramatic cool blue rim light, warm orange accent glow, soft shadows, realistic reflections, luxury maker-lab atmosphere, centered hero composition, high-end ecommerce catalog image. No people, no hands, no text, no watermark, no extra logos.`,
         custom: `BACKGROUND AND PHOTOGRAPHY STYLE:
 Seamlessly composite the identical object onto the user-uploaded background image. Match perspective, scale, lighting direction, color temperature, shadows, and surface contact. Add realistic soft contact shadows and subtle ambient reflections so the object looks physically placed in the scene. Do not alter the object. No people, no hands, no text, no watermark unless they already exist in the uploaded background.`,
         premium_tech_plinth: `BACKGROUND AND PHOTOGRAPHY STYLE:
@@ -756,7 +756,7 @@ Luxury technology product display of the EXACT same 3D printed object on a dark 
           messages: [
             {
               role: "system",
-              content: "You are a translator for a 3D printing e-commerce store. Translate the given Spanish product name and description to English. Keep it compelling and suitable for an online store."
+              content: "You are a translator for a curated shopping e-commerce store. Translate the given Spanish product name and description to English. Keep it compelling and suitable for an online store."
             },
             {
               role: "user",
@@ -809,7 +809,7 @@ Luxury technology product display of the EXACT same 3D printed object on a dark 
       const messages: any[] = [
         {
           role: "system",
-          content: `You are a product copywriter for "3DtoPrint", a 3D printing e-commerce store.
+          content: `You are a product copywriter for "APERFY", a curated shopping e-commerce store.
 
 Given a product's current Spanish name and description (which may be rough/incomplete), generate polished, commercial versions.
 
@@ -899,9 +899,9 @@ If the input name/description is already good, polish it slightly. If it's empty
       }
 
       const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
-Preserve the exact same 3D object from the source image. Do not redesign it, do not change its shape, geometry, proportions, silhouette, color, material, texture, surface details, printed layer lines, logos, holes, edges, or accessories. Do not add or remove any parts. Do not stylize the object. Only change the camera angle. The final image must look like the same physical object photographed in a professional 3DtoPrint workshop studio.`;
+Preserve the exact same 3D object from the source image. Do not redesign it, do not change its shape, geometry, proportions, silhouette, color, material, texture, surface details, printed layer lines, logos, holes, edges, or accessories. Do not add or remove any parts. Do not stylize the object. Only change the camera angle. The final image must look like the same physical object photographed in a professional APERFY workshop studio.`;
 
-      const sharedBackground = `Generate a new product angle of the exact same object while preserving the same 3DtoPrint workshop background, same brushed grey metallic workbench, same blurred FDM printer, same orange and teal filament bokeh, same lighting direction, same shadows, same camera lens style, and same ecommerce catalog quality. Only change the camera angle. Do not alter the object.`;
+      const sharedBackground = `Generate a new product angle of the exact same object while preserving the same APERFY workshop background, same brushed grey metallic workbench, same blurred FDM printer, same orange and teal product detail bokeh, same lighting direction, same shadows, same camera lens style, and same ecommerce catalog quality. Only change the camera angle. Do not alter the object.`;
 
       const anglePrompts: Record<string, string> = {
         side: `${sharedBackground} Render the EXACT same object from a perfect side / profile view (90° rotation).`,
@@ -909,7 +909,7 @@ Preserve the exact same 3D object from the source image. Do not redesign it, do 
         three_quarter: `${sharedBackground} Render the EXACT same object from a 3/4 hero angle (roughly 45° rotation, slight high angle).`,
         top: `${sharedBackground} Render the EXACT same object from a top-down / overhead angle.`,
         macro: `${sharedBackground} Render an ultra close-up macro shot of the EXACT same object focusing on its surface details and PLA texture, with very shallow depth of field.`,
-        lifestyle: `${sharedBackground} Render the EXACT same object framed as a tasteful lifestyle hero shot within the same 3DtoPrint workshop scene. Do not modify the object.`,
+        lifestyle: `${sharedBackground} Render the EXACT same object framed as a tasteful lifestyle hero shot within the same APERFY workshop scene. Do not modify the object.`,
       };
 
       const anglePrompt = anglePrompts[angle] || anglePrompts.three_quarter;
@@ -980,9 +980,9 @@ Preserve the exact same 3D object from the source image. Do not redesign it, do 
       };
 
       const BACKGROUND_PRESET_PROMPTS: Record<string, string> = {
-        system_workshop: `Empty premium 3D printing workshop product photography background. Brushed grey metallic workbench in the foreground with enough empty space to place a product. Dark cinematic maker studio in the background, softly blurred FDM 3D printer, out-of-focus orange and teal filament spools, subtle industrial tools, shallow depth of field, soft reflections on the metal table, realistic studio lighting, premium ecommerce catalog look, clean composition, no product, no people, no hands, no text, no logos, no watermark.`,
-        system_macro: `Empty macro-style premium 3D printing workshop background. Brushed grey metallic tabletop in the foreground with empty centered placement area for a product. Very shallow depth of field, heavily blurred FDM 3D printer and orange/teal filament spools in the background, premium studio lighting, subtle metal reflections, close-up product photography composition, clean dark maker-lab atmosphere, no product, no people, no hands, no text, no logos, no watermark.`,
-        system_dark_premium: `Empty premium dark cinematic 3D printing studio background. Brushed dark metallic workbench in the foreground with enough empty space for a product. Background shows a blurred FDM 3D printer, teal and orange filament bokeh, low-key luxury lighting, cool rim glow, warm orange accents, soft realistic shadows, subtle reflections, high-end maker-lab atmosphere, no product, no people, no hands, no text, no logos, no watermark.`,
+        system_workshop: `Empty premium curated shopping workshop product photography background. Brushed grey metallic workbench in the foreground with enough empty space to place a product. Dark cinematic maker studio in the background, softly blurred FDM 3D printer, out-of-focus orange and teal product detail spools, subtle industrial tools, shallow depth of field, soft reflections on the metal table, realistic studio lighting, premium ecommerce catalog look, clean composition, no product, no people, no hands, no text, no logos, no watermark.`,
+        system_macro: `Empty macro-style premium curated shopping workshop background. Brushed grey metallic tabletop in the foreground with empty centered placement area for a product. Very shallow depth of field, heavily blurred FDM 3D printer and orange/teal product detail spools in the background, premium studio lighting, subtle metal reflections, close-up product photography composition, clean dark maker-lab atmosphere, no product, no people, no hands, no text, no logos, no watermark.`,
+        system_dark_premium: `Empty premium dark cinematic curated shopping studio background. Brushed dark metallic workbench in the foreground with enough empty space for a product. Background shows a blurred FDM 3D printer, teal and orange product detail bokeh, low-key luxury lighting, cool rim glow, warm orange accents, soft realistic shadows, subtle reflections, high-end maker-lab atmosphere, no product, no people, no hands, no text, no logos, no watermark.`,
         premium_tech_plinth: `Empty luxury technology product display background. Dark carbon-fiber plinth centered in the foreground with empty space for a product. Background: dark blue and grey geometric network forms, subtle copper and gold accents, premium cyber-tech aesthetic, soft contact shadows, dramatic studio lighting, clean composition, no product, no people, no hands, no text, no watermark.`,
       };
 

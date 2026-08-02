@@ -73,7 +73,7 @@ export default function Cart() {
             {language === 'es' ? 'Pedido' : 'Order'} · {String(itemCount).padStart(2, '0')} {language === 'es' ? 'items' : 'items'}
           </div>
           <p className="font-display text-2xl lg:text-3xl tracking-[-0.02em] text-foreground/80 max-w-2xl">
-            {language === 'es' ? 'Revisa tu selección antes de iniciar la impresión.' : 'Review your selection before kicking off the print.'}
+            {language === 'es' ? 'Revisa tu selección antes de confirmar el pedido.' : 'Review your selection before confirming the order.'}
           </p>
         </motion.div>
 
@@ -116,7 +116,7 @@ export default function Cart() {
                     className="group relative rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-xl p-4 hover:border-white/[0.1] transition-colors"
                   >
                     <div className="flex gap-4">
-                      <Link to={`/3dmodels/${item.slug}`} className="shrink-0">
+                      <Link to={`/products/${item.slug}`} className="shrink-0">
                         <div className="w-24 h-24 rounded-xl overflow-hidden bg-white/[0.02] border border-white/[0.06]">
                           {item.productImage ? (
                             <img src={item.productImage} alt={item.productName} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" />
@@ -131,7 +131,7 @@ export default function Cart() {
                       <div className="flex-1 min-w-0 flex flex-col">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <Link to={`/3dmodels/${item.slug}`}>
+                            <Link to={`/products/${item.slug}`}>
                               <h3 className="font-display font-semibold text-[15px] text-foreground truncate hover:text-primary transition-colors leading-tight">
                                 {item.productName}
                               </h3>

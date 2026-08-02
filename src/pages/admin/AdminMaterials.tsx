@@ -133,7 +133,7 @@ export default function AdminMaterials() {
                   placeholder="50.00"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Costo total por 1 KG de filamento (incluye material + tiempo de impresión + labor + otros gastos)
+                  Costo total por 1 KG de product detailo (incluye material + tiempo de impresión + labor + otros gastos)
                 </p>
               </div>
 

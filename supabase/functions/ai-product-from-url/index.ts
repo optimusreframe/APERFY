@@ -73,12 +73,12 @@ serve(async (req) => {
     const sanitizedUrl = url ? sanitizeForPrompt(String(url)) : "Not provided";
     const sanitizedDesc = description ? sanitizeForPrompt(String(description)) : "Not provided";
 
-    const prompt = `You are a product data extraction assistant for a 3D printing store. Given the following reference URL and/or description, generate structured product data for a bilingual (English/Spanish) e-commerce catalog.
+    const prompt = `You are a product data extraction assistant for a curated shopping store. Given the following reference URL and/or description, generate structured product data for a bilingual (English/Spanish) e-commerce catalog.
 
 Reference URL: ${sanitizedUrl}
 Additional description: ${sanitizedDesc}
 
-Extract or generate the following fields based on the reference. Be creative and write compelling product descriptions suitable for a 3D printing store.`;
+Extract or generate the following fields based on the reference. Be creative and write compelling product descriptions suitable for a curated shopping store.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

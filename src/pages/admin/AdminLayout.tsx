@@ -36,7 +36,7 @@ export default function AdminLayout() {
               <span className="text-foreground/90">{current.toLowerCase()}</span>
             </div>
             <div className="md:hidden font-display text-sm text-foreground">
-              3Dto<span className="text-gradient-gold">Print</span>
+              APER<span className="text-gradient-gold">FY</span>
             </div>
             <div className="ml-auto flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded border border-border/60 bg-card/40">

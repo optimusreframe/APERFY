@@ -82,7 +82,7 @@ export default function AdminRequests() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t.admin.requests.customer}</TableHead>
-                <TableHead>{t.admin.requests.model}</TableHead>
+                <TableHead>{t.admin.requests.product}</TableHead>
                 <TableHead>{t.admin.requests.status}</TableHead>
                 <TableHead>{t.admin.requests.date}</TableHead>
                 <TableHead>{t.admin.requests.actions}</TableHead>
@@ -138,7 +138,7 @@ export default function AdminRequests() {
 
               {/* Model Details */}
               <div className="space-y-2">
-                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">{t.admin.requests.model}</h3>
+                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">{t.admin.requests.product}</h3>
                 <p className="font-medium text-lg">{selectedRequest.product_name}</p>
                 {selectedRequest.description && (
                   <div>

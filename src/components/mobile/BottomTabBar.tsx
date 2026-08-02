@@ -23,7 +23,7 @@ export default function BottomTabBar() {
 
   const tabs = [
     { to: '/', icon: Home, label: 'Inicio' },
-    { to: '/request-model', icon: Sparkles, label: 'Ask\n3D', multiline: true },
+    { to: '/request-product', icon: Sparkles, label: 'Ask\nAPERFY', multiline: true },
     { to: '/cart', icon: ShoppingBag, label: 'Carrito', badge: itemCount },
     { to: '/profile?tab=favorites', icon: Heart, label: 'Favoritos', match: '/profile' },
     { to: user ? '/profile' : '/auth', icon: UserIcon, label: user ? 'Yo' : 'Entrar' },

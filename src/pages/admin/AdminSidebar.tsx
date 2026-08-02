@@ -27,7 +27,7 @@ const groups = [
       { title: 'Products', url: '/admin/products', icon: Package },
       { title: 'Categories', url: '/admin/categories', icon: Tags },
       { title: 'Materials', url: '/admin/materials', icon: Layers },
-      { title: 'AI 3D', url: '/admin/ai-3d', icon: Sparkles },
+      { title: 'AI catalog tools', url: '/admin/ai-3d', icon: Sparkles },
     ],
   },
   {
@@ -64,11 +64,11 @@ export default function AdminSidebar() {
     <Sidebar collapsible="icon" className="border-r border-border/60">
       <SidebarHeader className="h-14 border-b border-border/60 px-3 flex items-center justify-center">
         <div className="flex items-center gap-2 w-full">
-          <img src="/logo.png" alt="3DtoPrint" className="w-7 h-7 object-contain shrink-0" />
+          <img src="/logo.png" alt="APERFY" className="w-7 h-7 object-contain shrink-0" />
           {!collapsed && (
             <div className="flex flex-col leading-none min-w-0">
               <span className="font-display text-sm text-foreground truncate">
-                3Dto<span className="text-gradient-gold">Print</span>
+                APER<span className="text-gradient-gold">FY</span>
               </span>
               <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-muted-foreground mt-0.5">
                 console

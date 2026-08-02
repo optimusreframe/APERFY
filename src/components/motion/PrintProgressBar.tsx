@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 /**
  * Top "print head" progress bar that runs on every route change.
- * Simulates a filament-extrusion sweep across the top of the viewport.
+ * Simulates a product detail-extrusion sweep across the top of the viewport.
  */
 export default function PrintProgressBar() {
   const location = useLocation();

@@ -2,7 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { ReactNode } from 'react';
 
 /**
- * Reveals its child as if filament is being deposited from bottom to top.
+ * Reveals its child as if product detail is being deposited from bottom to top.
  * Use on cards, sections, or hero blocks for the 3D-print storytelling.
  */
 export default function PrintLayerReveal({

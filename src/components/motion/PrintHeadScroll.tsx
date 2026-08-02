@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import { useLocation } from "react-router-dom";
 
-const LONG_ROUTES = ["/catalog", "/3dmodels/", "/checkout", "/our-process", "/materials"];
+const LONG_ROUTES = ["/catalog", "/products/", "/checkout", "/our-process", "/materials"];
 
 /**
- * Scroll-linked filament "print head": a thin horizontal track at the top with
+ * Scroll-linked product detail "print head": a thin horizontal track at the top with
  * a golden nozzle that moves left→right as the user scrolls, leaving an
  * extruded golden line behind it. Only on long content routes; respects
  * prefers-reduced-motion.

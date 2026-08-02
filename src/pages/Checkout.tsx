@@ -120,7 +120,7 @@ function StepRail({ current, labels }: { current: number; labels: string[] }) {
         </div>
         <div className="text-right">
           <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            Printed
+            Ready
           </div>
           <div className="font-display text-sm font-semibold tabular-nums text-gradient-gold mt-0.5">
             {pct}%
@@ -499,7 +499,7 @@ export default function Checkout() {
       const itemLines = items.map(item => {
         const varInfo = item.selectedVariations.map(v => v.name).filter(Boolean).join(', ');
         const price = (item.unitPrice * item.quantity).toFixed(2);
-        return `• ${item.productName}${varInfo ? ` (${varInfo})` : ''} x${item.quantity} — $${price}\n  ${origin}/3dmodels/${item.slug}`;
+        return `• ${item.productName}${varInfo ? ` (${varInfo})` : ''} x${item.quantity} — $${price}\n  ${origin}/products/${item.slug}`;
       }).join('\n');
       const shippingLine = selectedProvider ? `\n📦 ${language === 'es' ? 'Envío' : 'Shipping'}: ${selectedProvider.name} — $${shippingCost.toFixed(2)}` : '';
       const message = [

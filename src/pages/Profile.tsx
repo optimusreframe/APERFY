@@ -398,7 +398,7 @@ function FavoritesTab() {
       <div className="text-center py-20">
         <Heart className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
         <p className="text-muted-foreground mb-4">{t.favorites.empty}</p>
-        <Link to="/3dmodels">
+        <Link to="/products">
           <Button className="bg-gradient-gold text-primary-foreground gap-2">
             <ShoppingBag className="w-4 h-4" />
             {t.favorites.browseStore}
@@ -419,7 +419,7 @@ function FavoritesTab() {
           className="group"
         >
           <div className="rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold relative">
-            <Link to={`/3dmodels/${product.slug}`}>
+            <Link to={`/products/${product.slug}`}>
               <div className="aspect-[4/3] bg-secondary relative overflow-hidden">
                 {(product.images as string[])?.length > 0 ? (
                   <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -437,7 +437,7 @@ function FavoritesTab() {
               <Heart className="w-4 h-4 fill-primary text-primary" />
             </button>
             <div className="p-3">
-              <Link to={`/3dmodels/${product.slug}`}>
+              <Link to={`/products/${product.slug}`}>
                 <h3 className="font-display font-semibold text-sm text-foreground group-hover:text-primary transition-colors truncate">
                   {language === 'es' ? product.name_es : product.name_en}
                 </h3>

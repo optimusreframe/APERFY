@@ -21,7 +21,7 @@ import FavoriteCount from '@/components/FavoriteCount';
 import ShareMenu from '@/components/ShareMenu';
 
 const WHATSAPP_NUMBER = '16893324656';
-const PUBLIC_URL = 'https://3dtoprint.online';
+const PUBLIC_URL = 'https://aperfy.online';
 
 function CatalogCardSkeleton() {
   return (
@@ -116,10 +116,10 @@ export default function Catalog() {
   const getWhatsAppUrl = (product: any) => {
     const name = language === 'es' ? product.name_es : product.name_en;
     const desc = language === 'es' ? (product.description_es || '') : (product.description_en || '');
-    const url = `${PUBLIC_URL}/3dmodels/${product.slug}`;
+    const url = `${PUBLIC_URL}/products/${product.slug}`;
     const message = language === 'es'
-      ? `Hola, me interesa este modelo.\n\nModelo: ${name}\nDescripción: ${desc}\nURL: ${url}`
-      : `Hi, I'm interested in this model.\n\nModel: ${name}\nDescription: ${desc}\nURL: ${url}`;
+      ? `Hola, me interesa este producto.\n\nProducto: ${name}\nDescripción: ${desc}\nURL: ${url}`
+      : `Hi, I'm interested in this product.\n\nProduct: ${name}\nDescription: ${desc}\nURL: ${url}`;
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
   };
 
@@ -140,8 +140,8 @@ export default function Catalog() {
           </h1>
           <p className="text-muted-foreground text-lg">
             {language === 'es'
-              ? 'Explora nuestros modelos y ordena directamente por WhatsApp.'
-              : 'Browse our models and order directly via WhatsApp.'}
+              ? 'Explora nuestros productos y ordena directamente por WhatsApp.'
+              : 'Browse our products and order directly via WhatsApp.'}
           </p>
         </div>
 
@@ -302,7 +302,7 @@ export default function Catalog() {
                 )}
 
                 <div className="space-y-3">
-                  <Link to={`/3dmodels/${selectedProduct.slug}`} className="block" onClick={() => setSelectedProduct(null)}>
+                  <Link to={`/products/${selectedProduct.slug}`} className="block" onClick={() => setSelectedProduct(null)}>
                     <Button className="w-full bg-gradient-gold text-primary-foreground gap-2 font-semibold text-base py-5">
                       <ShoppingBag className="w-5 h-5" />
                       {language === 'es' ? 'Comprar Online' : 'Buy Online'}

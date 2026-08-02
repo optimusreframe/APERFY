@@ -17,7 +17,7 @@ import {
 } from 'npm:@react-email/components@0.0.22'
 
 const LOGO_URL = 'https://fyqcbkfzyjgddmqupdfr.supabase.co/storage/v1/object/public/email-assets/logo.png'
-const SITE_URL = 'https://3dtoprint.online'
+const SITE_URL = 'https://aperfy.online'
 
 interface EmailChangeEmailProps {
   siteName: string
@@ -34,11 +34,11 @@ export const EmailChangeEmail = ({
 }: EmailChangeEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Confirm your new email at 3DtoPrint</Preview>
+    <Preview>Confirm your new email at APERFY</Preview>
     <Body style={main}>
       <Container style={card}>
         <Section style={logoSection}>
-          <Img src={LOGO_URL} width="56" height="56" alt="3DtoPrint" style={logoImg} />
+          <Img src={LOGO_URL} width="56" height="56" alt="APERFY" style={logoImg} />
           <Heading style={brandName}>
             3Dto<span style={brandGold}>Print</span>
           </Heading>
@@ -46,7 +46,7 @@ export const EmailChangeEmail = ({
 
         <Heading style={h1}>Confirm your new email</Heading>
         <Text style={text}>
-          You requested to change your email address at 3DtoPrint from{' '}
+          You requested to change your email address at APERFY from{' '}
           <Link href={`mailto:${email}`} style={link}>{email}</Link>
           {' '}to{' '}
           <Link href={`mailto:${newEmail}`} style={link}>{newEmail}</Link>.
@@ -68,8 +68,8 @@ export const EmailChangeEmail = ({
         <Section style={footerSection}>
           <Text style={footerBrand}>
             © 2026{' '}
-            <Link href={SITE_URL} style={footerLink}>3DtoPrint</Link>
-            {' '}— Premium 3D Printing
+            <Link href={SITE_URL} style={footerLink}>APERFY</Link>
+            {' '}— Curated finds
           </Text>
         </Section>
       </Container>
