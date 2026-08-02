@@ -14,7 +14,7 @@ export default function SignalBench({ locale, reducedMotionLabel, className = ''
   const rootRef = useRef<HTMLDivElement>(null);
   const copy = locale === 'es'
     ? { label: 'Banco de señales de valor APERFY', status: 'Señal bloqueada', readout: 'Valor verificado', axis: 'referencia / oportunidad' }
-    : { label: 'APERFY value signal bench', status: 'Signal locked', readout: 'Value verified', axis: 'reference / opportunity' };
+    : { label: 'APERFY deal pulse', status: 'Deal available', readout: 'Stock checked', axis: 'bulk buy / limited stock' };
 
   useGSAP(() => {
     const mm = gsap.matchMedia();
