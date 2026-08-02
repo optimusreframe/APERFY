@@ -19,7 +19,7 @@
     --sidebar-background: 150 20% 98%; --sidebar-foreground: 160 24% 11%; --sidebar-primary: 142 72% 42%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-accent: 145 23% 93%; --sidebar-accent-foreground: 160 24% 11%; --sidebar-border: 145 20% 85%; --sidebar-ring: 142 72% 42%;
   }
   .dark {
-    --background: 160 24% 7%; --foreground: 145 30% 96%; --card: 160 22% 10%; --card-foreground: 145 30% 96%; --popover: 160 22% 10%; --popover-foreground: 145 30% 96%; --primary: 142 72% 52%; --primary-foreground: 160 24% 7%; --secondary: 160 18% 16%; --secondary-foreground: 145 30% 96%; --muted: 160 18% 16%; --muted-foreground: 145 12% 68%; --accent: 86 72% 52%; --accent-foreground: 160 24% 7%; --border: 160 14% 24%; --input: 160 14% 24%; --ring: 142 72% 52%; --surface: 160 24% 7%; --surface-elevated: 160 22% 10%; --glass: 160 18% 14%;
+    --background: 220 22% 7%; --foreground: 220 24% 97%; --card: 220 19% 12%; --card-foreground: 220 24% 97%; --popover: 220 19% 12%; --popover-foreground: 220 24% 97%; --primary: 142 72% 52%; --primary-foreground: 220 24% 7%; --secondary: 220 16% 18%; --secondary-foreground: 220 24% 97%; --muted: 220 16% 18%; --muted-foreground: 220 14% 80%; --accent: 86 72% 52%; --accent-foreground: 220 24% 7%; --destructive: 0 72% 57%; --destructive-foreground: 0 0% 100%; --border: 220 14% 30%; --input: 220 14% 30%; --ring: 142 72% 58%; --surface: 220 22% 7%; --surface-elevated: 220 19% 12%; --glass: 220 20% 16%;
   }
   * { @apply border-border; }
   body { @apply bg-background text-foreground antialiased; font-family: 'DM Sans', sans-serif; }
@@ -41,10 +41,29 @@
   .signal-bench-grid line { stroke: hsl(145 26% 70% / .18); stroke-width: 1; }
   .signal-bench-noise { background-image: radial-gradient(circle at 20% 20%, hsl(142 72% 52% / .08), transparent 28%), radial-gradient(circle at 80% 70%, hsl(86 72% 52% / .07), transparent 24%); }
   .signal-bench { isolation: isolate; }
-  .mac-workspace { background: radial-gradient(circle at 50% -10%, hsl(150 30% 18% / .55), transparent 42%), hsl(160 28% 4%); }
-  .mac-window { background: hsl(var(--background)); }
-  .mac-titlebar, .mac-sidebar { background: hsl(160 24% 8% / .96); }
-  .mac-page-toolbar { background: linear-gradient(180deg, hsl(160 18% 12% / .5), hsl(160 20% 8% / .25)); }
+  .mac-workspace {
+    --background: 220 22% 7%; --foreground: 220 24% 97%;
+    --card: 220 19% 12%; --card-foreground: 220 24% 97%;
+    --popover: 220 19% 12%; --popover-foreground: 220 24% 97%;
+    --primary: 142 72% 52%; --primary-foreground: 220 24% 7%;
+    --secondary: 220 16% 18%; --secondary-foreground: 220 24% 97%;
+    --muted: 220 16% 18%; --muted-foreground: 220 14% 80%;
+    --accent: 86 72% 52%; --accent-foreground: 220 24% 7%;
+    --destructive: 0 72% 57%; --destructive-foreground: 0 0% 100%;
+    --border: 220 14% 30%; --input: 220 14% 30%; --ring: 142 72% 58%;
+    --surface: 220 22% 7%; --surface-elevated: 220 19% 12%; --glass: 220 20% 16%;
+    --sidebar-background: 220 24% 10%; --sidebar-foreground: 220 24% 97%; --sidebar-primary: 142 72% 52%; --sidebar-primary-foreground: 220 24% 7%; --sidebar-accent: 220 16% 18%; --sidebar-accent-foreground: 220 24% 97%; --sidebar-border: 220 14% 30%; --sidebar-ring: 142 72% 58%;
+    background: radial-gradient(circle at 50% -10%, hsl(220 28% 22% / .7), transparent 42%), hsl(220 34% 3%);
+    color: hsl(var(--foreground));
+  }
+  .mac-shell-intro { min-height: 0; }
+  .mac-window { background: hsl(220 22% 7% / .98); }
+  .mac-titlebar, .mac-sidebar { background: hsl(220 24% 10% / .94); backdrop-filter: blur(24px) saturate(1.25); }
+  .mac-page-toolbar { background: linear-gradient(180deg, hsl(220 24% 15% / .7), hsl(220 24% 9% / .35)); }
+  .mac-content-scroll { scrollbar-color: hsl(var(--primary) / .38) transparent; scrollbar-width: thin; }
+  .mac-content-scroll::-webkit-scrollbar, .mac-sidebar::-webkit-scrollbar { width: 9px; }
+  .mac-content-scroll::-webkit-scrollbar-track, .mac-sidebar::-webkit-scrollbar-track { background: transparent; }
+  .mac-content-scroll::-webkit-scrollbar-thumb, .mac-sidebar::-webkit-scrollbar-thumb { background: hsl(var(--primary) / .3); border: 3px solid transparent; background-clip: padding-box; border-radius: 999px; }
   .mac-toolbar-button { display: inline-flex; min-height: 32px; min-width: 32px; align-items: center; justify-content: center; gap: .4rem; border-radius: .6rem; padding: .35rem .55rem; color: hsl(var(--muted-foreground)); transition: background-color .14s ease-out, color .14s ease-out, transform .14s ease-out; }
   .mac-toolbar-button:hover { background: hsl(var(--primary) / .1); color: hsl(var(--foreground)); transform: translateY(-1px); }
   .mac-toolbar-button:active { transform: translateY(0); }
