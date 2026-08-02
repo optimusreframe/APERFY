@@ -1,4 +1,3 @@
-import { useState, useCallback, lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -44,26 +43,14 @@ import Materials from "./pages/Materials";
 import EmailUnsubscribe from "./pages/EmailUnsubscribe";
 import CartAddedToast from "./components/CartAddedToast";
 
-const SplashLoader3D = lazy(() => import("@/components/SplashLoader3D"));
-
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
 
-  const shouldShowLoader = false;
-  const [showLoader, setShowLoader] = useState(shouldShowLoader);
-
-  const handleLoaderComplete = useCallback(() => setShowLoader(false), []);
-
   return (
     <>
-      {showLoader && (
-        <Suspense fallback={null}>
-          <SplashLoader3D onComplete={handleLoaderComplete} />
-        </Suspense>
-      )}
       <PageTransition>
         <Routes location={location}>
           <Route path="/" element={<Index />} />
@@ -71,7 +58,10 @@ const AppContent = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/3dmodels" element={<Navigate to="/catalog" replace />} />
           <Route path="/3dmodels/:slug" element={<ProductDetail />} />
+          <Route path="/products" element={<Navigate to="/catalog" replace />} />
+          <Route path="/products/:slug" element={<ProductDetail />} />
           <Route path="/catalog" element={<Catalog />} />
+          <Route path="/request-product" element={<RequestModel />} />
           <Route path="/request-model" element={<RequestModel />} />
           <Route path="/our-process" element={<OurProcess />} />
           <Route path="/materials" element={<Materials />} />

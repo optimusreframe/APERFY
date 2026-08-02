@@ -1231,9 +1231,9 @@ export default function AdminProducts() {
                       </Label>
                       <RadioGroup value={aiBgMode} onValueChange={(v) => setAiBgMode(v)} className="space-y-3">
                         {[
-                          { value: 'system_workshop', label: '3DtoPrint Workshop', desc: 'Workbench metálico con impresora FDM borrosa y filamentos naranja/teal — look oficial 3DtoPrint', badge: 'Recomendado' },
-                          { value: 'system_macro', label: '3DtoPrint Macro', desc: 'Macro close-up con bokeh intenso del taller y enfoque selectivo sobre el producto' },
-                          { value: 'system_dark_premium', label: '3DtoPrint Dark Premium', desc: 'Atmósfera cinematográfica oscura con rim light azul frío y acento naranja cálido' },
+                          { value: 'system_workshop', label: 'APERFY Workshop', desc: 'Workbench metálico con impresora FDM borrosa y product detailos naranja/teal — look oficial APERFY', badge: 'Recomendado' },
+                          { value: 'system_macro', label: 'APERFY Macro', desc: 'Macro close-up con bokeh intenso del taller y enfoque selectivo sobre el producto' },
+                          { value: 'system_dark_premium', label: 'APERFY Dark Premium', desc: 'Atmósfera cinematográfica oscura con rim light azul frío y acento naranja cálido' },
                           { value: 'custom', label: 'Custom Background', desc: 'Sube tu propia imagen de fondo' },
                           { value: 'premium_tech_plinth', label: 'Premium Tech Plinth', desc: 'Plinto de fibra de carbono con red geométrica oscura y acentos cobre/oro' },
                         ].map((opt) => (

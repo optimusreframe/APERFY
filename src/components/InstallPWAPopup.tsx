@@ -80,7 +80,7 @@ export default function InstallPWAPopup() {
   };
 
   const t = {
-    title: language === "es" ? "Instala 3DtoPrint" : "Install 3DtoPrint",
+    title: language === "es" ? "Instala APERFY" : "Install APERFY",
     body:
       language === "es"
         ? "Añádela a tu pantalla de inicio para acceso rápido, modo offline y experiencia tipo app."

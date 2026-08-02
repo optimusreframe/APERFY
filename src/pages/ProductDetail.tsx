@@ -347,11 +347,11 @@ export default function ProductDetail() {
   useEffect(() => {
     if (!product) return;
     const name = language === 'es' ? product.name_es : product.name_en;
-    const desc = (language === 'es' ? product.description_es : product.description_en) || `${name} · 3DtoPrint`;
+    const desc = (language === 'es' ? product.description_es : product.description_en) || `${name} · APERFY`;
     const img = baseImages[0] || '';
     const url = typeof window !== 'undefined' ? window.location.href : '';
 
-    document.title = `${name} · 3DtoPrint`;
+    document.title = `${name} · APERFY`;
 
     const setMeta = (selector: string, attr: string, key: string, val: string) => {
       if (!val) return;
@@ -380,7 +380,7 @@ export default function ProductDetail() {
       offers: { '@type': 'Offer', price: Number(product.base_price || 0), priceCurrency: 'USD', availability: 'https://schema.org/InStock' },
     });
 
-    return () => { document.title = '3DtoPrint'; };
+    return () => { document.title = 'APERFY'; };
   }, [product, language, baseImages]);
 
 
@@ -559,8 +559,8 @@ export default function ProductDetail() {
                 </div>
               )}
 
-              {/* 3D toggle */}
-              {product.model_3d_url && (
+              {/* Optional interactive media remains hidden until the catalog policy is defined. */}
+              {false && product.model_3d_url && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setView3D(v => !v); }}
                   className={`absolute top-4 right-4 z-10 px-3 py-1.5 rounded-md backdrop-blur-md border font-mono text-[10px] uppercase tracking-[0.15em] flex items-center gap-1.5 transition-all ${
@@ -827,7 +827,7 @@ export default function ProductDetail() {
           >
             <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-4">Overview</div>
             <h2 className="font-display text-2xl lg:text-3xl font-bold tracking-tight text-foreground mb-5">
-              {language === 'es' ? 'Acerca de este modelo' : 'About this model'}
+              {language === 'es' ? 'Acerca de este producto' : 'About this product'}
             </h2>
             <p className="text-muted-foreground leading-relaxed text-[15px] whitespace-pre-wrap">
               {language === 'es' ? product.description_es : product.description_en}
@@ -885,10 +885,10 @@ export default function ProductDetail() {
             <div className="flex items-baseline justify-between mb-6">
               <div>
                 <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-1">Related</div>
-                <h2 className="font-display font-bold text-2xl tracking-tight">{t.product.relatedModels}</h2>
+                <h2 className="font-display font-bold text-2xl tracking-tight">{t.product.relatedProducts}</h2>
               </div>
               <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground tabular-nums">
-                {String(relatedProducts.length).padStart(2, '0')} {language === 'es' ? 'modelos' : 'models'}
+                {String(relatedProducts.length).padStart(2, '0')} {language === 'es' ? 'productos' : 'products'}
               </span>
             </div>
             <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 scrollbar-hide -mx-4 px-4 lg:-mx-0 lg:px-0">

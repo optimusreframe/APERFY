@@ -72,11 +72,11 @@ export default function ReferralsTab() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: '3DtoPrint',
+          title: 'APERFY',
           text:
             language === 'es'
-              ? 'Mira esta tienda de modelos 3D impresos. Usa mi código y obtén un descuento.'
-              : 'Check this 3D-printed models shop. Use my code for a discount.',
+              ? 'Mira estos hallazgos seleccionados en APERFY. Usa mi código para descubrir la tienda.'
+              : 'Explore these curated finds on APERFY. Use my code to discover the store.',
           url: link,
         });
       } catch {}

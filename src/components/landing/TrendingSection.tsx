@@ -63,7 +63,7 @@ export default function TrendingSection({ products, likeCounts }: TrendingSectio
             </h2>
           </div>
           <p className="text-muted-foreground text-xs sm:text-sm ml-[42px]">
-            {language === 'es' ? 'Los modelos más populares de la comunidad' : 'Most popular models from the community'}
+            {language === 'es' ? 'Los hallazgos más seguidos de la comunidad' : 'Most followed finds from the community'}
           </p>
           <div className="ml-[42px] mt-2 h-0.5 w-16 bg-gradient-to-r from-primary/60 to-transparent rounded-full" />
         </div>
@@ -109,7 +109,7 @@ export default function TrendingSection({ products, likeCounts }: TrendingSectio
               style={{ perspective: '1000px' }}
             >
               <Link
-                to={`/3dmodels/${product.slug}`}
+                to={`/products/${product.slug}`}
                 className="group block"
                 onClick={e => { if (isDragging) e.preventDefault(); }}
                 draggable={false}

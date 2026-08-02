@@ -28,7 +28,7 @@ type Preset =
   | 'premium_tech_plinth';
 
 const PRESETS: { id: Preset; label: string; desc: string }[] = [
-  { id: 'system_workshop', label: 'system_workshop', desc: 'Default · 3DtoPrint workshop' },
+  { id: 'system_workshop', label: 'system_workshop', desc: 'Default · APERFY workshop' },
   { id: 'system_macro', label: 'system_macro', desc: 'Macro shallow DOF' },
   { id: 'system_dark_premium', label: 'system_dark_premium', desc: 'Dark cinematic premium' },
   { id: 'custom', label: 'custom', desc: 'Requires custom background URL' },
@@ -44,9 +44,9 @@ const BG_PRESETS = [
 type BgPreset = (typeof BG_PRESETS)[number];
 
 const DEFAULT_PROMPTS: Record<BgPreset, string> = {
-  system_workshop: 'Empty premium 3D printing workshop product photography background. Brushed grey metallic workbench, blurred FDM 3D printer, orange/teal filament bokeh, shallow depth of field, premium ecommerce look.',
-  system_macro: 'Empty macro-style premium 3D printing workshop background. Brushed metallic tabletop, very shallow DOF, heavy blur, close-up product photography composition.',
-  system_dark_premium: 'Empty premium dark cinematic 3D printing studio. Brushed dark metallic workbench, low-key luxury lighting, cool rim glow, warm orange accents.',
+  system_workshop: 'Empty premium curated shopping workshop product photography background. Brushed grey metallic workbench, blurred FDM 3D printer, orange/teal product detail bokeh, shallow depth of field, premium ecommerce look.',
+  system_macro: 'Empty macro-style premium curated shopping workshop background. Brushed metallic tabletop, very shallow DOF, heavy blur, close-up product photography composition.',
+  system_dark_premium: 'Empty premium dark cinematic curated shopping studio. Brushed dark metallic workbench, low-key luxury lighting, cool rim glow, warm orange accents.',
   premium_tech_plinth: 'Empty luxury tech display. Dark carbon-fiber plinth, dark blue/grey geometric forms, copper/gold accents, premium cyber-tech aesthetic.',
 };
 
@@ -428,7 +428,7 @@ export default function AdminBackgroundQA() {
     const ts = Date.now();
     const ext = previewResult.includes('.jpg') ? 'jpg' : 'png';
     try {
-      await downloadRemoteImage(previewResult, `3dtoprint-composed-result-${ts}.${ext}`);
+      await downloadRemoteImage(previewResult, `aperfy-composed-result-${ts}.${ext}`);
     } catch (e: any) {
       toast.error(e.message || 'Download failed');
     }
@@ -446,7 +446,7 @@ export default function AdminBackgroundQA() {
 
   const handleDownloadBackground = async (c: Candidate) => {
     try {
-      await downloadRemoteImage(c.image_url, `3dtoprint-background-${c.preset}-${Date.now()}.png`);
+      await downloadRemoteImage(c.image_url, `aperfy-background-${c.preset}-${Date.now()}.png`);
     } catch (e: any) {
       toast.error(e.message || 'Download failed');
     }

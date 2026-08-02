@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-const PUBLIC_URL = 'https://3dtoprint.online';
+const PUBLIC_URL = 'https://aperfy.online';
 
 interface ShareMenuProps {
   slug: string;
@@ -28,8 +28,8 @@ export default function ShareMenu({ slug, productName, className, size = 'sm' }:
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
-  const url = `${PUBLIC_URL}/3dmodels/${slug}`;
-  const text = language === 'es' ? `Mira este modelo 3D: ${productName}` : `Check out this 3D model: ${productName}`;
+  const url = `${PUBLIC_URL}/products/${slug}`;
+  const text = language === 'es' ? `Mira este producto: ${productName}` : `Check out this product: ${productName}`;
 
   const iconSize = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
   const hasNativeShare = typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function';

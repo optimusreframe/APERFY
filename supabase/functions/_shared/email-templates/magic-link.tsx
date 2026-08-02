@@ -17,7 +17,7 @@ import {
 } from 'npm:@react-email/components@0.0.22'
 
 const LOGO_URL = 'https://fyqcbkfzyjgddmqupdfr.supabase.co/storage/v1/object/public/email-assets/logo.png'
-const SITE_URL = 'https://3dtoprint.online'
+const SITE_URL = 'https://aperfy.online'
 
 interface MagicLinkEmailProps {
   siteName: string
@@ -30,11 +30,11 @@ export const MagicLinkEmail = ({
 }: MagicLinkEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Your login link for 3DtoPrint</Preview>
+    <Preview>Your login link for APERFY</Preview>
     <Body style={main}>
       <Container style={card}>
         <Section style={logoSection}>
-          <Img src={LOGO_URL} width="56" height="56" alt="3DtoPrint" style={logoImg} />
+          <Img src={LOGO_URL} width="56" height="56" alt="APERFY" style={logoImg} />
           <Heading style={brandName}>
             3Dto<span style={brandGold}>Print</span>
           </Heading>
@@ -42,7 +42,7 @@ export const MagicLinkEmail = ({
 
         <Heading style={h1}>Your login link</Heading>
         <Text style={text}>
-          Click the button below to access your account at 3DtoPrint. This link will expire shortly.
+          Click the button below to access your account at APERFY. This link will expire shortly.
         </Text>
 
         <Section style={buttonSection}>
@@ -58,8 +58,8 @@ export const MagicLinkEmail = ({
         <Section style={footerSection}>
           <Text style={footerBrand}>
             © 2026{' '}
-            <Link href={SITE_URL} style={footerLink}>3DtoPrint</Link>
-            {' '}— Premium 3D Printing
+            <Link href={SITE_URL} style={footerLink}>APERFY</Link>
+            {' '}— Curated finds
           </Text>
         </Section>
       </Container>

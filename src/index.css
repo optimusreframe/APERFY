@@ -34,7 +34,11 @@
   .navbar-glass { background: hsl(var(--card) / .82); backdrop-filter: blur(20px) saturate(1.3); border: 1px solid hsl(var(--border) / .75); }
   .navbar-glass-scrolled { background: hsl(var(--card) / .94); backdrop-filter: blur(24px) saturate(1.4); border: 1px solid hsl(var(--primary) / .18); }
   .navbar-floating, .navbar-floating-scrolled { filter: drop-shadow(0 8px 28px hsl(160 24% 11% / .08)); }
-  .nav-link-3d::after { content: ''; position: absolute; bottom: 4px; left: 20%; width: 0; height: 2px; background: hsl(var(--primary)); border-radius: 1px; transition: width .25s ease; }
-  .nav-link-3d:hover::after { width: 60%; }
+  .nav-link-3d::after { content: ''; position: absolute; bottom: 4px; left: 20%; width: 0; height: 2px; background: hsl(var(--primary)); border-radius: 1px; transform-origin: left; transition: transform .25s ease; }
+  .nav-link-3d::after { transform: scaleX(0.01); }
+  .nav-link-3d:hover::after { transform: scaleX(6); }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; } .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .signal-bench-grid line { stroke: hsl(145 26% 70% / .18); stroke-width: 1; }
+  .signal-bench-noise { background-image: radial-gradient(circle at 20% 20%, hsl(142 72% 52% / .08), transparent 28%), radial-gradient(circle at 80% 70%, hsl(86 72% 52% / .07), transparent 24%); }
+  .signal-bench { isolation: isolate; }
 }

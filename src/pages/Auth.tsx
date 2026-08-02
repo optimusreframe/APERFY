@@ -181,10 +181,10 @@ export default function Auth() {
               <div className="flex flex-col items-center mb-8 relative z-10">
                 <div className="relative mb-4">
                   <div className="absolute inset-0 bg-primary/30 rounded-xl blur-lg opacity-60 animate-[glow-pulse_3s_ease-in-out_infinite]" />
-                  <img src="/logo.png" alt="3DtoPrint" className="relative w-14 h-14 object-contain" />
+                  <img src="/logo.png" alt="APERFY" className="relative w-14 h-14 object-contain" />
                 </div>
                 <span className="font-display font-bold text-xl text-foreground tracking-tight">
-                  3Dto<span className="text-gradient-gold">Print</span>
+                  APER<span className="text-gradient-gold">FY</span>
                 </span>
               </div>
 
@@ -300,7 +300,7 @@ export default function Auth() {
                   </button>
                 )}
 
-                {/* Premium 3D submit button */}
+                {/* Curated submit button */}
                 <Button
                   type="submit"
                   disabled={loading || isThrottled}
