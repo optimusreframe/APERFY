@@ -63,7 +63,7 @@ export default function Navbar() {
   const macShell = useMacShell();
   if (macShell === 'store') {
     return <header className="mac-page-toolbar flex min-h-12 items-center justify-between gap-3 border-b border-white/[0.06] bg-black/10 px-4 py-2 sm:px-6" aria-label="Page controls">
-      <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" /><span className="truncate">{location.pathname === '/catalog' ? (language === 'es' ? 'Catálogo disponible' : 'Available catalog') : 'APERFY Store'}</span></div>
+      <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" /><span className="truncate">{location.pathname === '/ask' ? (language === 'es' ? 'Solicitar producto' : 'Request a product') : location.pathname === '/contact' ? (language === 'es' ? 'Contacto APERFY' : 'Contact APERFY') : 'APERFY Store'}</span></div>
       <div className="flex shrink-0 items-center gap-1">
         <button onClick={() => setLanguage(language === 'en' ? 'es' : 'en')} className="mac-toolbar-button" aria-label="Toggle language"><Globe className="h-3.5 w-3.5" /><span className="text-[10px] font-semibold uppercase">{language}</span></button>
         <Link to="/cart" className="mac-toolbar-button" aria-label={language === 'es' ? 'Abrir carrito' : 'Open cart'}><ShoppingCart className="h-4 w-4" />{itemCount > 0 && <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">{itemCount}</span>}</Link>

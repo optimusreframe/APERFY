@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import { useLocation } from "react-router-dom";
 
-const LONG_ROUTES = ["/catalog", "/products/", "/checkout", "/our-process", "/materials"];
+const LONG_ROUTES = ["/", "/products/", "/checkout", "/ask", "/contact"];
 
 /**
  * Scroll-linked product detail "print head": a thin horizontal track at the top with
