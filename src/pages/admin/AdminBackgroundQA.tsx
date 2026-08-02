@@ -44,10 +44,10 @@ const BG_PRESETS = [
 type BgPreset = (typeof BG_PRESETS)[number];
 
 const DEFAULT_PROMPTS: Record<BgPreset, string> = {
-  system_workshop: 'Empty premium curated shopping workshop product photography background. Brushed grey metallic workbench, soft product detail bokeh, shallow depth of field, premium ecommerce look.',
-  system_macro: 'Empty macro-style premium curated shopping workshop background. Brushed metallic tabletop, very shallow DOF, heavy blur, close-up product photography composition.',
-  system_dark_premium: 'Empty premium dark cinematic curated shopping studio. Brushed dark metallic workbench, low-key luxury lighting, cool rim glow, warm orange accents.',
-  premium_tech_plinth: 'Empty luxury tech display. Dark carbon-fiber plinth, dark blue/grey geometric forms, copper/gold accents, premium cyber-tech aesthetic.',
+  system_workshop: 'Empty APERFY retail product photography studio, graphite surface, soft neutral gradient, controlled green accent light, clean premium ecommerce composition, generous negative space, no people, no hands, no text, no logos, no watermark.',
+  system_macro: 'Empty APERFY macro ecommerce studio, graphite tabletop, soft neutral bokeh, precise product focus, subtle green edge light, clean premium retail composition, no people, no hands, no text, no logos, no watermark.',
+  system_dark_premium: 'Empty APERFY dark premium technology studio, graphite surface, cool rim light, subtle green reflections, accurate product color, clean ecommerce composition, no people, no hands, no text, no logos, no watermark.',
+  premium_tech_plinth: 'Empty APERFY technology product display, matte graphite plinth, clean geometric background, soft green accent light, generous negative space, premium retail catalog composition, no people, no hands, no text, no logos, no watermark.',
 };
 
 interface Result {

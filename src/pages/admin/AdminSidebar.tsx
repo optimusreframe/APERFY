@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, Sparkles, FlaskConical } from 'lucide-react';
+import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, Sparkles, FlaskConical, Settings2 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -18,32 +18,33 @@ import {
 
 const groups = [
   {
-    label: 'Overview',
-    items: [{ title: 'Dashboard', url: '/admin', icon: LayoutDashboard }],
+    label: 'OVERVIEW',
+    items: [{ title: 'DASHBOARD', url: '/admin', icon: LayoutDashboard }],
   },
   {
-    label: 'Catalog',
+    label: 'CATALOG',
     items: [
-      { title: 'Products', url: '/admin/products', icon: Package },
-      { title: 'Categories', url: '/admin/categories', icon: Tags },
-      { title: 'Materials', url: '/admin/materials', icon: Layers },
+      { title: 'PRODUCTS', url: '/admin/products', icon: Package },
+      { title: 'CATEGORIES', url: '/admin/categories', icon: Tags },
+      { title: 'VARIANTS', url: '/admin/variants', icon: Layers },
     ],
   },
   {
-    label: 'Operations',
+    label: 'OPERATIONS',
     items: [
-      { title: 'Orders', url: '/admin/orders', icon: ClipboardList },
-      { title: 'Requests', url: '/admin/requests', icon: MessageSquare },
-      { title: 'Discounts', url: '/admin/discounts', icon: Percent },
-      { title: 'Shipping', url: '/admin/shipping', icon: Truck },
-      { title: 'Payments', url: '/admin/payments', icon: CreditCard },
+      { title: 'ORDERS', url: '/admin/orders', icon: ClipboardList },
+      { title: 'REQUESTS', url: '/admin/requests', icon: MessageSquare },
+      { title: 'DISCOUNTS', url: '/admin/discounts', icon: Percent },
+      { title: 'SHIPPING', url: '/admin/shipping', icon: Truck },
+      { title: 'PAYMENTS', url: '/admin/payments', icon: CreditCard },
     ],
   },
   {
-    label: 'System',
+    label: 'SYSTEM',
     items: [
-      { title: 'Logs', url: '/admin/logs', icon: ScrollText },
-      { title: 'Background QA', url: '/admin/background-qa', icon: FlaskConical },
+      { title: 'LOGS', url: '/admin/logs', icon: ScrollText },
+      { title: 'BACKGROUND QA', url: '/admin/background-qa', icon: FlaskConical },
+      { title: 'AI SETTINGS', url: '/admin/ai-settings', icon: Settings2 },
     ],
   },
 ];
@@ -66,11 +67,9 @@ export default function AdminSidebar() {
           <img src="/logo.png" alt="APERFY" className="w-7 h-7 object-contain shrink-0" />
           {!collapsed && (
             <div className="flex flex-col leading-none min-w-0">
-              <span className="font-display text-sm text-foreground truncate">
-                APER<span className="text-gradient-gold">FY</span>
-              </span>
+              <span className="aperfy-wordmark text-sm truncate"><span>APER</span><span>FY</span></span>
               <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-muted-foreground mt-0.5">
-                console
+                CONSOLE
               </span>
             </div>
           )}
@@ -117,7 +116,7 @@ export default function AdminSidebar() {
               className="h-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             >
               <LogOut className="h-4 w-4" strokeWidth={1.5} />
-              {!collapsed && <span className="text-sm">Sign out</span>}
+              {!collapsed && <span className="text-sm">SIGN OUT</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

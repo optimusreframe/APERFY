@@ -56,6 +56,16 @@
     background: radial-gradient(circle at 50% -10%, hsl(220 28% 22% / .7), transparent 42%), hsl(220 34% 3%);
     color: hsl(var(--foreground));
   }
+  body:has(.mac-admin-layout) {
+    --background: 220 22% 7%; --foreground: 220 24% 97%; --card: 220 19% 12%; --card-foreground: 220 24% 97%;
+    --popover: 220 19% 12%; --popover-foreground: 220 24% 97%; --secondary: 220 16% 18%; --secondary-foreground: 220 24% 97%;
+    --muted: 220 16% 18%; --muted-foreground: 220 14% 80%; --border: 220 14% 30%; --input: 220 14% 30%;
+    background: hsl(220 34% 3%); color: hsl(var(--foreground));
+  }
+  body:has(.mac-admin-layout) [data-radix-dialog-content], body:has(.mac-admin-layout) [role="dialog"] {
+    background: hsl(220 19% 12% / .98); color: hsl(220 24% 97%); border-color: hsl(220 14% 30%);
+  }
+  .mac-admin-layout input, .mac-admin-layout textarea, .mac-admin-layout button, .mac-admin-layout [role="combobox"] { color-scheme: dark; }
   .mac-shell-intro { min-height: 0; }
   .mac-window { background: hsl(220 22% 7% / .98); }
   .mac-titlebar, .mac-sidebar { background: hsl(220 24% 10% / .94); backdrop-filter: blur(24px) saturate(1.25); }

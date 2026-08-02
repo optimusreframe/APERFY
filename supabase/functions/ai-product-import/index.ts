@@ -45,14 +45,14 @@ async function generateEbayQueries(
         messages: [
           {
             role: "system",
-            content: `You generate eBay search queries to find 3D printed products similar to the one described. Generate 3-4 diverse search queries that maximize the chance of finding relevant listings.
+            content: `You generate marketplace search queries to find the same general retail product described. Generate 3-4 diverse search queries that maximize the chance of finding relevant listings.
 
 Rules:
 - All queries MUST start with "site:ebay.com"
-- Query 1: Use the most distinctive keywords from the title + "3D printed"
-- Query 2: Use the product type/category + character/franchise name + "3D print"
-- Query 3: Use a simplified 2-3 word description + "3D printed figurine" or "3D printed model"
-- Query 4 (optional): If the product is from a known franchise, use the franchise name + product type + "3D print"
+- Query 1: Use the most distinctive keywords from the title
+- Query 2: Use the product type/category + brand/model name
+- Query 3: Use a simplified 2-3 word description + "price"
+- Query 4 (optional): Use the model number or product family
 - Strip site names like "MakerWorld", "Thingiverse", "Printables" from queries
 - Strip phrases like "Free 3D Print Model", "STL file", etc.
 - Keep queries concise (under 10 words after "site:ebay.com")`
@@ -87,20 +87,20 @@ Rules:
 
     if (!resp.ok) {
       console.error("Query generation failed:", resp.status);
-      return [`site:ebay.com ${title.substring(0, 50)} 3D printed`];
+      return [`site:ebay.com ${title.substring(0, 50)}`];
     }
 
     const result = await resp.json();
     const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) return [`site:ebay.com ${title.substring(0, 50)} 3D printed`];
+    if (!toolCall) return [`site:ebay.com ${title.substring(0, 50)}`];
 
     const parsed = JSON.parse(toolCall.function.arguments);
     const queries = (parsed.queries || []).filter((q: string) => q && q.length > 10);
     console.log("Generated eBay queries:", queries);
-    return queries.length > 0 ? queries : [`site:ebay.com ${title.substring(0, 50)} 3D printed`];
+    return queries.length > 0 ? queries : [`site:ebay.com ${title.substring(0, 50)}`];
   } catch (e) {
     console.error("generateEbayQueries error:", e);
-    return [`site:ebay.com ${title.substring(0, 50)} 3D printed`];
+    return [`site:ebay.com ${title.substring(0, 50)}`];
   }
 }
 
@@ -201,11 +201,11 @@ async function validateAndAveragePrices(
         messages: [
           {
             role: "system",
-            content: `You are a pricing analyst for 3D printed products. Given a target product and a list of eBay listings found via search, determine which listings are ACTUALLY the same or very similar product (same character, same type, similar size/complexity).
+            content: `You are a pricing analyst for general retail products. Given a target product and marketplace listings found via search, determine which listings are actually the same or very similar product.
 
 Rules:
 - DISCARD listings that are clearly different products (wrong character, wrong type, unrelated items)
-- DISCARD listings that are digital files or digital downloads (we sell physical 3D printed items)
+- DISCARD listings that are digital files or digital downloads; we sell physical products
 - From the RELEVANT listings, calculate the average price
 - If 3+ relevant listings match → confidence "high"
 - If 1-2 relevant listings match → confidence "medium"
@@ -406,7 +406,7 @@ serve(async (req) => {
 
       const priceInstruction = priceResult.price_source === "ebay_market"
         ? `suggested_price: Use exactly ${priceResult.suggested_price} as the price (validated from eBay market data).`
-        : `suggested_price: Reasonable retail price in USD for a 3D printed product.`;
+        : `suggested_price: Reasonable retail price in USD for this physical product.`;
 
       const extractResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -428,7 +428,7 @@ STRICT RULES:
 - slug: URL-friendly, lowercase, hyphens only, based on the new name.
 - ${priceInstruction}
 - suggested_category: Use one of these existing slugs if applicable: ${categorySlugs || "none yet"}. Otherwise suggest a new slug.
-- materials: Logical curated shopping materials (PLA, ABS, PETG, Resin, etc.)
+- materials: Product attributes, included components, finishes, or other useful specification values
 - colors: Recommended colors in Spanish (Negro, Blanco, Dorado, etc.)
 
 EXTRACTED IMAGES:
@@ -456,12 +456,12 @@ ${imageListForAI || "No images found."}`
                   suggested_category: { type: "string", description: "Best matching existing category slug, or a new slug" },
                   suggested_category_name_en: { type: "string", description: "Category name in English (for new categories)" },
                   suggested_category_name_es: { type: "string", description: "Category name in Spanish (for new categories)" },
-                  materials: { type: "array", items: { type: "string" }, description: "Material names (e.g. PLA, ABS, PETG, Resin)" },
+                   materials: { type: "array", items: { type: "string" }, description: "Product attributes or included materials" },
                   colors: { type: "array", items: { type: "string" }, description: "Colors in Spanish (e.g. Negro, Blanco, Dorado)" },
                   original_title: { type: "string", description: "The original product title from the source" },
                   reference_image_url: { type: "string", description: "The single best product image URL from the extracted images list" },
                 },
-                required: ["name_en", "name_es", "description_en", "description_es", "slug", "suggested_price", "suggested_category", "materials", "colors", "reference_image_url"],
+                   required: ["name_en", "name_es", "description_en", "description_es", "slug", "suggested_price", "suggested_category", "materials", "colors", "reference_image_url"],
                 additionalProperties: false,
               },
             },
@@ -544,7 +544,12 @@ Seamlessly composite the identical object onto the user-uploaded background imag
 Luxury technology product display of the EXACT same 3D printed object on a dark carbon-fiber plinth. Background: dark blue and grey geometric network structure, subtle copper and gold accents, premium cyber-tech aesthetic, soft realistic contact shadows, dramatic studio lighting, high-end product hero shot. Do not change the object. No people, no hands, no watermark.`,
       };
 
-      const normalizedBackgroundMode =
+       BACKGROUND_PROMPTS.system_workshop = `BACKGROUND AND PHOTOGRAPHY STYLE: Place the exact same physical product on a matte graphite retail display surface inside a premium APERFY ecommerce studio. Use clean neutral gradients, soft catalog lighting, subtle green edge light, accurate product color, realistic contact shadows, generous negative space, no people, no hands, no text, no watermark, no extra logos.`;
+       BACKGROUND_PROMPTS.system_macro = `BACKGROUND AND PHOTOGRAPHY STYLE: Show the exact same physical product in a clean APERFY macro ecommerce studio with graphite surface, soft neutral bokeh, precise focus, subtle green edge light, realistic shadows, no people, no hands, no text, no watermark, no extra logos.`;
+       BACKGROUND_PROMPTS.system_dark_premium = `BACKGROUND AND PHOTOGRAPHY STYLE: Show the exact same physical product in an APERFY dark premium technology studio with matte graphite surface, cool rim light, subtle green reflections, accurate color, realistic shadows, no people, no hands, no text, no watermark, no extra logos.`;
+       BACKGROUND_PROMPTS.premium_tech_plinth = `BACKGROUND AND PHOTOGRAPHY STYLE: Display the exact same physical product on a clean matte graphite plinth with APERFY green accent light, geometric neutral background, realistic contact shadows, generous negative space, no people, no hands, no text, no watermark, no extra logos.`;
+
+       const normalizedBackgroundMode =
         !backgroundMode ? "system_workshop" :
         backgroundMode === "system" ? "system_workshop" :
         BACKGROUND_PROMPTS[backgroundMode] ? backgroundMode :
@@ -557,10 +562,12 @@ Luxury technology product display of the EXACT same 3D printed object on a dark 
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Safe Retry uses a neutral prompt with no IP/brand references.
-      const promptText = safeRetry === true
-        ? `${FRAMING_RULE}\n\n${SAFE_RETRY_PROMPT}`
-        : `${FRAMING_RULE}\n\n${fidelityRule}\n\n${BACKGROUND_PROMPTS[normalizedBackgroundMode]}`;
+       // Safe Retry uses a neutral prompt with no legacy product assumptions.
+       const genericFramingRule = `Show the entire physical product fully visible inside the frame. Do not crop it. Preserve proportions, packaging, labels, logos, and visible details.`;
+       const genericFidelityRule = `Preserve the exact same physical product from the source image. Do not redesign, restyle, add, remove, or alter its proportions, color, texture, packaging, labels, logos, or accessories.`;
+       const promptText = safeRetry === true
+         ? `${genericFramingRule}\n\n${SAFE_RETRY_PROMPT}`
+         : `${genericFramingRule}\n\n${genericFidelityRule}\n\n${BACKGROUND_PROMPTS[normalizedBackgroundMode]}`;
 
       // Resolve official workshop reference image when applicable
       let resolvedReference: string | undefined = customBackground;
@@ -912,7 +919,8 @@ Preserve the exact same 3D object from the source image. Do not redesign it, do 
         lifestyle: `${sharedBackground} Render the EXACT same object framed as a tasteful lifestyle hero shot within the same APERFY workshop scene. Do not modify the object.`,
       };
 
-      const anglePrompt = anglePrompts[angle] || anglePrompts.three_quarter;
+       const genericAnglePrompts: Record<string, string> = { side: 'Show the same product from a clean side profile.', back: 'Show the same product from the back.', three_quarter: 'Show the same product from a three-quarter hero angle.', top: 'Show the same product from a top-down angle.', macro: 'Show a close product detail while preserving identity details.', lifestyle: 'Show the same product in a tasteful APERFY retail lifestyle scene.' };
+       const anglePrompt = genericAnglePrompts[angle] || genericAnglePrompts.three_quarter;
       const framingRule = `CRITICAL FRAMING RULE: Show the entire 3D printed object fully visible inside the frame with at least 10-15% negative space on all sides. Do not crop the object. Keep the full silhouette, base, top, sides, and details visible. Macro is allowed but the object must remain fully visible.`;
       const promptText = `${framingRule}\n\n${fidelityRule}\n\n${anglePrompt}\n\nThe output MUST be a single photorealistic image of the identical object — never reinterpret or restyle it. No people, no hands, no text, no watermark, no extra logos.`;
 
@@ -994,6 +1002,11 @@ Preserve the exact same 3D object from the source image. Do not redesign it, do 
       }
       const allowedCounts = [1, 4, 8];
       const variantCount = allowedCounts.includes(Number(count)) ? Number(count) : 1;
+    BACKGROUND_PRESET_PROMPTS.system_workshop = `Empty APERFY retail product photography studio, graphite surface, soft neutral gradient background, controlled green accent light, clean premium ecommerce composition, generous negative space for the product, no people, no hands, no text, no logos, no watermark.`;
+    BACKGROUND_PRESET_PROMPTS.system_macro = `Empty APERFY macro ecommerce studio, graphite tabletop, soft neutral bokeh, precise product focus, subtle green edge light, clean premium retail composition, no people, no hands, no text, no logos, no watermark.`;
+    BACKGROUND_PRESET_PROMPTS.system_dark_premium = `Empty APERFY dark premium technology studio, graphite surface, cool rim light, subtle green reflections, high contrast but accurate product color, clean ecommerce composition, no people, no hands, no text, no logos, no watermark.`;
+    BACKGROUND_PRESET_PROMPTS.premium_tech_plinth = `Empty APERFY technology product display, matte graphite plinth, clean geometric background, soft green accent light, generous negative space, premium retail catalog composition, no people, no hands, no text, no logos, no watermark.`;
+
       const prompt = (typeof promptOverride === "string" && promptOverride.trim().length > 10)
         ? promptOverride.trim()
         : BACKGROUND_PRESET_PROMPTS[presetKey];
