@@ -14,7 +14,7 @@ import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, 
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
 
-const WHATSAPP_NUMBER = '16893324656';
+const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '14708469271';
 
 type Step = 'shipping' | 'method' | 'payment-instructions' | 'whatsapp-sent';
 type Section = 'contact' | 'address' | 'shipping';
@@ -100,7 +100,7 @@ function TAField({ label, value, onChange, ...rest }: TAFieldProps) {
   );
 }
 
-// ─── Checkout-as-3D-print stepper: filament extrusion + layer percentage ───
+// ─── APERFY conversational checkout stepper ───
 function StepRail({ current, labels }: { current: number; labels: string[] }) {
   const total = labels.length;
   const pct = Math.round(((current + 0.0001) / total) * 100);
@@ -918,7 +918,7 @@ export default function Checkout() {
                                   <h3 className="font-semibold text-[15px] tracking-tight">WhatsApp</h3>
                                   <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 border border-green-500/20">Instant</span>
                                 </div>
-                                <p className="text-xs text-muted-foreground mt-0.5">{language === 'es' ? 'Confirma y paga por mensaje' : 'Confirm and pay via message'}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{language === 'es' ? 'Confirma tu orden por mensaje; el pago se coordina fuera del sitio' : 'Confirm your order by message; payment is coordinated off-site'}</p>
                               </div>
                               {loading && selectedPayment === null
                                 ? <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -926,7 +926,7 @@ export default function Checkout() {
                             </div>
                           </motion.button>
 
-                          {Object.keys(paymentConfigs).length > 0 && (
+                          {false && Object.keys(paymentConfigs).length > 0 && (
                             <div className="flex items-center gap-3 my-6">
                               <div className="flex-1 h-px bg-white/[0.06]" />
                               <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">

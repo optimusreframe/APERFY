@@ -12,7 +12,7 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 function detectLanguage(): Language {
-  const stored = localStorage.getItem('3dtoprint-lang');
+  const stored = localStorage.getItem('aperfy-lang');
   if (stored === 'en' || stored === 'es') return stored;
 
   const browserLang = navigator.language || (navigator as any).userLanguage || 'en';
@@ -24,7 +24,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem('3dtoprint-lang', lang);
+    localStorage.setItem('aperfy-lang', lang);
     document.documentElement.lang = lang;
   }, []);
 

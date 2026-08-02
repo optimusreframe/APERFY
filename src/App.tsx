@@ -10,11 +10,8 @@ import { CartProvider } from "@/contexts/CartContext";
 import { BulkImportProvider } from "@/contexts/BulkImportContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BulkImportBanner from "@/components/BulkImportBanner";
-import PrintingBackground from "@/components/PrintingBackground";
 import PageTransition from "@/components/motion/PageTransition";
-import PrintProgressBar from "@/components/motion/PrintProgressBar";
 import BottomTabBar from "@/components/mobile/BottomTabBar";
-import PrintHeadScroll from "@/components/motion/PrintHeadScroll";
 import InstallPWAPopup from "@/components/InstallPWAPopup";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -46,7 +43,6 @@ import OurProcess from "./pages/OurProcess";
 import Materials from "./pages/Materials";
 import EmailUnsubscribe from "./pages/EmailUnsubscribe";
 import CartAddedToast from "./components/CartAddedToast";
-import DiscountBanner from "./components/DiscountBanner";
 
 const SplashLoader3D = lazy(() => import("@/components/SplashLoader3D"));
 
@@ -56,7 +52,7 @@ const AppContent = () => {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith("/admin");
 
-  const shouldShowLoader = location.pathname === "/" && !sessionStorage.getItem("3dp-loaded");
+  const shouldShowLoader = false;
   const [showLoader, setShowLoader] = useState(shouldShowLoader);
 
   const handleLoaderComplete = useCallback(() => setShowLoader(false), []);
@@ -68,16 +64,12 @@ const AppContent = () => {
           <SplashLoader3D onComplete={handleLoaderComplete} />
         </Suspense>
       )}
-      {!isAdmin && <PrintingBackground />}
-      {!isAdmin && <DiscountBanner />}
-      <PrintProgressBar />
-      {!isAdmin && <PrintHeadScroll />}
       <PageTransition>
         <Routes location={location}>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/3dmodels" element={<Navigate to="/" replace />} />
+          <Route path="/3dmodels" element={<Navigate to="/catalog" replace />} />
           <Route path="/3dmodels/:slug" element={<ProductDetail />} />
           <Route path="/catalog" element={<Catalog />} />
           <Route path="/request-model" element={<RequestModel />} />

@@ -1,336 +1,57 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Search, Box, SlidersHorizontal, X, LayoutGrid, Grid3X3 } from 'lucide-react';
+import { ArrowRight, Search, ShieldCheck, Sparkles, Truck } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useLanguage } from '@/i18n/LanguageContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import HeroBanner from '@/components/landing/HeroBanner';
-import CategoryPills from '@/components/landing/CategoryPills';
-import TrendingSection from '@/components/landing/TrendingSection';
 import ProductCard from '@/components/ProductCard';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useLanguage } from '@/i18n/LanguageContext';
 
-function GridSkeleton({ gridClass }: { gridClass: string }) {
-  return (
-    <div className={gridClass}>
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="rounded-2xl bg-card border border-border/50 overflow-hidden">
-          <Skeleton className="aspect-[4/3] w-full" />
-          <div className="p-3 space-y-2">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-5 w-1/3" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+type Product = { id: string; name_en: string; name_es: string; description_en?: string | null; [key: string]: unknown };
 
 export default function Index() {
-  const { language, t } = useLanguage();
-  const { user } = useAuth();
-  const { toast } = useToast();
+  const { language } = useLanguage();
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState('newest');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState([0, 100]);
-  const [showFilters, setShowFilters] = useState(false);
-  const [gridCols, setGridCols] = useState<3 | 4>(4);
-
   const { data: products = [], isLoading } = useQuery({
-    queryKey: ['all-products'],
+    queryKey: ['aperfy-products'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, categories(id, name_en, name_es, slug)')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('products').select('*, categories(id, name_en, name_es, slug)').eq('is_active', true).order('created_at', { ascending: false }).limit(12);
       if (error) throw error;
-      return data;
+      return data ?? [];
     },
   });
-
-  const productIds = useMemo(() => products.map((p: any) => p.id), [products]);
-
-  const { data: likeCounts = {} } = useQuery({
-    queryKey: ['bulk-like-counts', productIds],
-    enabled: productIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('product_likes')
-        .select('product_id')
-        .in('product_id', productIds);
-      if (error) throw error;
-      const counts: Record<string, number> = {};
-      data.forEach((row: any) => {
-        counts[row.product_id] = (counts[row.product_id] || 0) + 1;
-      });
-      return counts;
-    },
-  });
-
-  const { data: favCounts = {} } = useQuery({
-    queryKey: ['bulk-fav-counts', productIds],
-    enabled: productIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('favorites')
-        .select('product_id')
-        .in('product_id', productIds);
-      if (error) throw error;
-      const counts: Record<string, number> = {};
-      data.forEach((row: any) => {
-        counts[row.product_id] = (counts[row.product_id] || 0) + 1;
-      });
-      return counts;
-    },
-  });
-
-  const { data: materials = [] } = useQuery({
-    queryKey: ['store-materials'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('materials').select('*').eq('is_active', true).order('name_en');
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: productMaterials = [] } = useQuery({
-    queryKey: ['store-product-materials'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('product_materials').select('*');
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: favorites = [], refetch: refetchFavorites } = useQuery({
-    queryKey: ['user-favorites', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('favorites').select('product_id').eq('user_id', user.id);
-      if (error) throw error;
-      return data.map((f: any) => f.product_id);
-    },
-    enabled: !!user,
-  });
-
-  const toggleFavorite = async (productId: string) => {
-    if (!user) {
-      toast({ title: language === 'es' ? 'Inicia sesión para guardar favoritos' : 'Sign in to save favorites', variant: 'destructive' });
-      return;
-    }
-    const isFav = favorites.includes(productId);
-    if (isFav) {
-      await supabase.from('favorites').delete().eq('user_id', user.id).eq('product_id', productId);
-    } else {
-      await supabase.from('favorites').insert({ user_id: user.id, product_id: productId });
-    }
-    refetchFavorites();
+  const visible = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return products;
+    return products.filter((p: Product) => `${p.name_en} ${p.name_es} ${p.description_en ?? ''}`.toLowerCase().includes(query));
+  }, [products, search]);
+  const copy = language === 'es' ? {
+    eyebrow: 'Curated finds · Verified value', title: 'Encuentra algo', highlight: 'perfecto para ti.', desc: 'Productos reales, cantidades limitadas y precios verificados. Andrés encuentra la oportunidad; APERFY la convierte en una compra inteligente.', explore: 'Explorar catálogo', how: 'Cómo funciona', search: 'Buscar productos, categorías o marcas…', latest: 'Últimos hallazgos', latestDesc: 'Una selección cambiante, elegida por valor y utilidad.', empty: 'Todavía estamos preparando nuevos hallazgos.'
+  } : {
+    eyebrow: 'Curated finds · Verified value', title: 'Find something', highlight: 'perfect for you.', desc: 'Real products, limited quantities, and verified value. Andrés finds the opportunity; APERFY turns it into a smarter buy.', explore: 'Explore the catalog', how: 'How it works', search: 'Search products, categories, or brands…', latest: 'Latest finds', latestDesc: 'A changing selection chosen for value and usefulness.', empty: 'We are preparing the next perfect finds.'
   };
-
-  const toggleMaterial = (id: string) => setSelectedMaterials(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
-
-  const clearFilters = () => {
-    setSelectedCategory(null);
-    setSelectedMaterials([]);
-    setPriceRange([0, 100]);
-    setSearch('');
-  };
-
-  const hasActiveFilters = selectedCategory || selectedMaterials.length > 0 || priceRange[0] > 0 || priceRange[1] < 100;
-
-  const filtered = useMemo(() => {
-    let result = [...products];
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter((p: any) =>
-        p.name_en.toLowerCase().includes(q) || p.name_es.toLowerCase().includes(q)
-      );
-    }
-    if (selectedCategory) {
-      result = result.filter((p: any) => p.category_id === selectedCategory);
-    }
-    if (selectedMaterials.length > 0) {
-      const productIdsWithMaterial = productMaterials
-        .filter((pm: any) => selectedMaterials.includes(pm.material_id))
-        .map((pm: any) => pm.product_id);
-      result = result.filter((p: any) => productIdsWithMaterial.includes(p.id));
-    }
-    result = result.filter((p: any) => Number(p.base_price) >= priceRange[0] && Number(p.base_price) <= priceRange[1]);
-    switch (sort) {
-      case 'price_asc': result.sort((a: any, b: any) => Number(a.base_price) - Number(b.base_price)); break;
-      case 'price_desc': result.sort((a: any, b: any) => Number(b.base_price) - Number(a.base_price)); break;
-      case 'popular': result.sort((a: any, b: any) => (likeCounts[b.id] || 0) - (likeCounts[a.id] || 0)); break;
-      default: break;
-    }
-    return result;
-  }, [products, search, sort, selectedCategory, selectedMaterials, priceRange, productMaterials, likeCounts]);
-
-  const gridClass = gridCols === 4
-    ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4'
-    : 'grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5';
-
-  return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="pt-20 sm:pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Hero Banner */}
-        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <HeroBanner />
-        </motion.div>
-
-        {/* Search + Sort + Filters bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.4 }}
-          className="flex flex-col sm:flex-row gap-3 mt-6"
-        >
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t.store.search}
-              className="pl-10 bg-card border-border/50 h-10"
-            />
-          </div>
-          <Select value={sort} onValueChange={setSort}>
-            <SelectTrigger className="w-full sm:w-44 bg-card border-border/50 h-10">
-              <SelectValue placeholder={t.store.sortBy} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">{t.store.newest}</SelectItem>
-              <SelectItem value="price_asc">{t.store.priceAsc}</SelectItem>
-              <SelectItem value="price_desc">{t.store.priceDesc}</SelectItem>
-              <SelectItem value="popular">{t.store.popular}</SelectItem>
-            </SelectContent>
-          </Select>
-          {/* Grid toggle - desktop only */}
-          <div className="hidden lg:flex items-center gap-1 bg-card border border-border/50 rounded-lg p-1">
-            <button onClick={() => setGridCols(3)} className={`p-1.5 rounded ${gridCols === 3 ? 'bg-secondary text-foreground' : 'text-muted-foreground'}`}>
-              <Grid3X3 className="w-4 h-4" />
-            </button>
-            <button onClick={() => setGridCols(4)} className={`p-1.5 rounded ${gridCols === 4 ? 'bg-secondary text-foreground' : 'text-muted-foreground'}`}>
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-          </div>
-          <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="gap-2 border-border/50 h-10">
-            <SlidersHorizontal className="w-4 h-4" />
-            {t.store.filters}
-            {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-primary" />}
-          </Button>
-        </motion.div>
-
-        {/* Category Pills */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.4 }}
-          className="mt-5"
-        >
-          <CategoryPills selected={selectedCategory} onSelect={setSelectedCategory} />
-        </motion.div>
-
-        {/* Trending Section */}
-        {!isLoading && !search && !selectedCategory && !hasActiveFilters && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
-            className="mt-8"
-          >
-            <TrendingSection products={products} likeCounts={likeCounts} />
+  return <div className="min-h-screen bg-background">
+    <Navbar />
+    <main className="pt-24 sm:pt-28">
+      <section className="aperfy-gradient aperfy-grid relative overflow-hidden border-b border-border/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
+          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .55 }} className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-card/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-[.16em] text-primary"><Sparkles className="w-3.5 h-3.5" /> {copy.eyebrow}</div>
+            <h1 className="mt-6 text-5xl sm:text-7xl font-semibold tracking-[-.06em] leading-[.95]">{copy.title}<br /><span className="text-primary">{copy.highlight}</span></h1>
+            <p className="mt-7 max-w-xl text-lg sm:text-xl leading-relaxed text-muted-foreground">{copy.desc}</p>
+            <div className="mt-9 flex flex-wrap gap-3"><Link to="/catalog" className="inline-flex h-12 items-center gap-2 rounded-full bg-primary px-6 font-semibold text-primary-foreground shadow-gold hover:-translate-y-0.5 transition-transform">{copy.explore}<ArrowRight className="w-4 h-4" /></Link><Link to="/our-process" className="inline-flex h-12 items-center rounded-full border border-border bg-card/70 px-6 font-semibold hover:bg-card transition-colors">{copy.how}</Link></div>
           </motion.div>
-        )}
-
-        {/* Main content area with optional filter sidebar */}
-        <div className="flex gap-6 mt-8">
-          {/* Filter sidebar */}
-          {showFilters && (
-            <motion.aside
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="w-full sm:w-56 shrink-0"
-            >
-              <div className="bg-card border border-border/50 rounded-xl p-4 space-y-5 sticky top-24">
-                <div>
-                  <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">{t.store.materialFilter}</h3>
-                  <div className="space-y-2">
-                    {materials.map((m: any) => (
-                      <label key={m.id} className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
-                        <Checkbox checked={selectedMaterials.includes(m.id)} onCheckedChange={() => toggleMaterial(m.id)} />
-                        {language === 'es' ? m.name_es : m.name_en}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-3">{t.store.priceRange}</h3>
-                  <Slider value={priceRange} onValueChange={setPriceRange} min={0} max={100} step={1} className="mt-2" />
-                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                    <span>${priceRange[0]}</span>
-                    <span>${priceRange[1]}</span>
-                  </div>
-                </div>
-                <Button variant="ghost" onClick={clearFilters} className="w-full text-muted-foreground hover:text-foreground gap-2 text-xs">
-                  <X className="w-3 h-3" />
-                  {t.store.clearFilters}
-                </Button>
-              </div>
-            </motion.aside>
-          )}
-
-          {/* Product grid */}
-          <div className="flex-1 min-w-0">
-            {/* Results count */}
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-muted-foreground">
-                {isLoading ? '...' : (
-                  language === 'es'
-                    ? `${filtered.length} modelo${filtered.length !== 1 ? 's' : ''}`
-                    : `${filtered.length} model${filtered.length !== 1 ? 's' : ''}`
-                )}
-              </p>
-            </div>
-
-            {isLoading ? (
-              <GridSkeleton gridClass={gridClass} />
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-20 text-muted-foreground">
-                <Box className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                <p>{t.store.noResults}</p>
-              </div>
-            ) : (
-              <div className={gridClass}>
-                {filtered.map((product: any, i: number) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    index={i}
-                    likeCount={likeCounts[product.id] || 0}
-                    favCount={favCounts[product.id] || 0}
-                    isFavorite={favorites.includes(product.id)}
-                    onToggleFavorite={toggleFavorite}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          <img src="/brand/aperfy-logo.png" alt="APERFY" className="absolute -right-20 bottom-[-180px] hidden md:block w-[560px] opacity-20 blur-[1px]" />
         </div>
-      </div>
-      <Footer />
-    </div>
-  );
+      </section>
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <div className="grid gap-3 sm:grid-cols-3 mb-12"><div className="aperfy-glass rounded-2xl p-5"><ShieldCheck className="w-5 h-5 text-primary mb-3" /><h3 className="font-semibold">{language === 'es' ? 'Valor verificado' : 'Verified value'}</h3><p className="mt-1 text-sm text-muted-foreground">{language === 'es' ? 'Referencias de precio documentadas.' : 'Documented reference pricing.'}</p></div><div className="aperfy-glass rounded-2xl p-5"><Sparkles className="w-5 h-5 text-primary mb-3" /><h3 className="font-semibold">{language === 'es' ? 'Selección humana' : 'Human curation'}</h3><p className="mt-1 text-sm text-muted-foreground">{language === 'es' ? 'Cada hallazgo tiene un porqué.' : 'Every find has a reason.'}</p></div><div className="aperfy-glass rounded-2xl p-5"><Truck className="w-5 h-5 text-primary mb-3" /><h3 className="font-semibold">{language === 'es' ? 'Compra conversacional' : 'Conversational checkout'}</h3><p className="mt-1 text-sm text-muted-foreground">{language === 'es' ? 'Ordena primero; confirma por WhatsApp.' : 'Place an order; confirm via WhatsApp.'}</p></div></div>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5"><div><p className="text-sm font-semibold uppercase tracking-[.16em] text-primary">APERFY / 01</p><h2 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight">{copy.latest}</h2><p className="mt-2 text-muted-foreground">{copy.latestDesc}</p></div><div className="relative w-full sm:w-80"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder={copy.search} className="h-11 w-full rounded-full border border-border bg-card pl-10 pr-4 outline-none focus:ring-2 focus:ring-primary/30" /></div></div>
+        {isLoading ? <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-7">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="aspect-[4/5] animate-pulse rounded-2xl bg-muted" />)}</div> : visible.length ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-7">{visible.map((p: Product, i: number) => <ProductCard key={p.id} product={p} index={i} showBadges />)}</div> : <div className="py-20 text-center text-muted-foreground">{copy.empty}</div>}
+      </section>
+    </main>
+    <Footer />
+  </div>;
 }
