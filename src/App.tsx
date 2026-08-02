@@ -18,7 +18,6 @@ import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import { Navigate } from "react-router-dom";
 import ProductDetail from "./pages/ProductDetail";
-import Catalog from "./pages/Catalog";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import Orders from "./pages/Orders";
@@ -38,8 +37,7 @@ import AdminDiscounts from "./pages/admin/AdminDiscounts";
 import AdminAI3DSettings from "./pages/admin/AdminAI3DSettings";
 import AdminBackgroundQA from "./pages/admin/AdminBackgroundQA";
 import RequestModel from "./pages/RequestModel";
-import OurProcess from "./pages/OurProcess";
-import Materials from "./pages/Materials";
+import Contact from "./pages/Contact";
 import EmailUnsubscribe from "./pages/EmailUnsubscribe";
 import CartAddedToast from "./components/CartAddedToast";
 import MacAppShell from "@/components/layout/MacAppShell";
@@ -58,15 +56,17 @@ const AppContent = () => {
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/3dmodels" element={<Navigate to="/catalog" replace />} />
+          <Route path="/3dmodels" element={<Navigate to="/" replace />} />
           <Route path="/3dmodels/:slug" element={<ProductDetail />} />
-          <Route path="/products" element={<Navigate to="/catalog" replace />} />
+          <Route path="/products" element={<Navigate to="/" replace />} />
           <Route path="/products/:slug" element={<ProductDetail />} />
-          <Route path="/catalog" element={<Catalog />} />
-          <Route path="/request-product" element={<RequestModel />} />
-          <Route path="/request-model" element={<RequestModel />} />
-          <Route path="/our-process" element={<OurProcess />} />
-          <Route path="/materials" element={<Materials />} />
+          <Route path="/catalog" element={<Navigate to="/" replace />} />
+          <Route path="/ask" element={<RequestModel />} />
+          <Route path="/request-product" element={<Navigate to="/ask" replace />} />
+          <Route path="/request-model" element={<Navigate to="/ask" replace />} />
+          <Route path="/our-process" element={<Navigate to="/" replace />} />
+          <Route path="/materials" element={<Navigate to="/" replace />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/unsubscribe" element={<EmailUnsubscribe />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
