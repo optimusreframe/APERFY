@@ -6,7 +6,6 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
-import MacAppShell from '@/components/layout/MacAppShell';
 import TrustInstrumentation from '@/components/landing/TrustInstrumentation';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { getHomepageCopy } from './homepage-copy';
@@ -31,7 +30,7 @@ export default function Index() {
   const visible = useMemo(() => { const query = search.trim().toLowerCase(); if (!query) return products; return products.filter(product => `${product.name_en} ${product.name_es} ${product.description_en ?? ''}`.toLowerCase().includes(query)); }, [products, search]);
   const es = language === 'es';
 
-  return <MacAppShell>
+  return <>
     <main>
       <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .35 }} className="mac-hero relative overflow-hidden border-b border-border/70">
         <div className="mac-hero-orbit" aria-hidden="true" />
@@ -61,5 +60,5 @@ export default function Index() {
       <motion.section {...reveal} className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20 lg:px-12"><div className="grid gap-4 sm:grid-cols-3"><div className="sm:col-span-2 rounded-2xl border border-primary/20 bg-primary/[0.06] p-7"><p className="text-xs font-semibold uppercase tracking-[.16em] text-primary">{es ? 'La regla APERFY' : 'The APERFY rule'}</p><h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-[-.045em]">{es ? 'Lo publicado es lo disponible.' : 'What is published is what is available.'}</h2><p className="mt-3 max-w-xl text-muted-foreground">{es ? 'El stock no está garantizado para siempre. Si encuentras algo que te gusta, revisa los detalles y añádelo al carrito.' : 'Stock is not guaranteed forever. If you find something you like, review the details and add it to your cart.'}</p></div><Link to="/catalog" className="group flex min-h-40 flex-col justify-between rounded-2xl border border-border bg-card p-7 transition-colors hover:border-primary/50"><span className="text-sm font-semibold">{es ? 'Explorar catálogo' : 'Explore catalog'}</span><ArrowRight className="h-6 w-6 text-primary transition-transform group-hover:translate-x-1" /></Link></div></motion.section>
     </main>
     <Footer />
-  </MacAppShell>;
+  </>;
 }
