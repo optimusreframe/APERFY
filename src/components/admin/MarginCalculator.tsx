@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
 /**
- * Inline margin calculator: price − (material cost / kg × weight g / 1000) − shipping.
+ * Inline retail margin calculator for general APERFY products.
  * Shows margin in $ and %.
  */
 export default function MarginCalculator({
@@ -21,8 +21,8 @@ export default function MarginCalculator({
   const [cost, setCost] = useState<number>(defaultCostPerKg);
   const [shipping, setShipping] = useState<number>(0);
 
-  const materialCost = useMemo(() => (cost * weight) / 1000, [cost, weight]);
-  const margin = useMemo(() => price - materialCost - shipping, [price, materialCost, shipping]);
+  const productCost = useMemo(() => cost, [cost]);
+  const margin = useMemo(() => price - productCost - shipping, [price, productCost, shipping]);
   const marginPct = useMemo(() => (price > 0 ? (margin / price) * 100 : 0), [margin, price]);
 
   const healthy = marginPct >= 40;
@@ -40,7 +40,7 @@ export default function MarginCalculator({
         <Field label="Envío" value={shipping} onChange={setShipping} prefix="$" />
       </div>
       <div className="pt-2 border-t border-white/[0.06] space-y-1.5 font-mono text-[11px]">
-        <Row label="Costo material" value={`$${materialCost.toFixed(2)}`} muted />
+        <Row label="COSTO DEL PRODUCTO" value={`$${productCost.toFixed(2)}`} muted />
         <Row label="Margen" value={`$${margin.toFixed(2)}`} accent={margin >= 0 ? 'gold' : 'destructive'} />
         <Row
           label="Margen %"

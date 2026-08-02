@@ -22,6 +22,7 @@ import { sanitizeUrl } from '@/lib/sanitize';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AdminPageHeader } from './_shared';
 import MarginCalculator from '@/components/admin/MarginCalculator';
+import { suggestRetailPrice } from '@/lib/product-intelligence';
 
 // ── Types ──
 interface ProductForm {
@@ -34,7 +35,6 @@ interface ProductForm {
   category_id: string;
   is_active: boolean;
   is_featured: boolean;
-  model_3d_url?: string | null;
 }
 
 interface MediaItem {
@@ -48,7 +48,6 @@ interface MediaItem {
 const empty: ProductForm = {
   name_en: '', name_es: '', description_en: '', description_es: '',
   slug: '', base_price: 0, category_id: '', is_active: true, is_featured: false,
-  model_3d_url: '',
 };
 
 const MAX_MEDIA = 5;
@@ -314,7 +313,7 @@ export default function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name_en, name_es, slug, base_price, is_active, is_featured, category_id, images, created_at, model_3d_url, description_en, description_es, categories(name_en, name_es)')
+        .select('id, name_en, name_es, slug, base_price, is_active, is_featured, category_id, images, created_at, description_en, description_es, categories(name_en, name_es)')
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -348,6 +347,17 @@ export default function AdminProducts() {
       return data?.setting_value || null;
     },
   });
+
+  const { data: aiProductSettings = [] } = useQuery({
+    queryKey: ['admin-ai-product-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('admin_settings').select('setting_key, setting_value').in('setting_key', ['ai_discount_percent', 'ai_search_enabled']);
+      if (error) throw error;
+      return data;
+    },
+  });
+  const aiDiscountPercent = Number(aiProductSettings.find((row: any) => row.setting_key === 'ai_discount_percent')?.setting_value || 20);
+  const aiSearchEnabled = aiProductSettings.find((row: any) => row.setting_key === 'ai_search_enabled')?.setting_value === 'true';
 
   // Auto-slug from name (English if showEnglish is active, otherwise Spanish)
   useEffect(() => {
@@ -430,7 +440,7 @@ export default function AdminProducts() {
       }
       setFieldErrors({});
 
-      const payload = { ...f, category_id: f.category_id || null, base_price: Number(f.base_price), model_3d_url: f.model_3d_url?.trim() || null };
+      const payload = { ...f, category_id: f.category_id || null, base_price: Number(f.base_price) };
       let productId = editId;
 
       if (editId) {
@@ -468,15 +478,9 @@ export default function AdminProducts() {
         }
         // Upsert variations
         for (const v of productVariations.filter(vr => !vr._deleted)) {
-          // Find selected material for this product to calc price
-          const selectedMaterial = materials.find((m: any) => m.id === v.material_id);
-          const costPerKg = selectedMaterial ? Number(selectedMaterial.cost_per_kg || 0) : 0;
-          const calculatedPrice = v.weight_grams > 0 && costPerKg > 0
-            ? (v.weight_grams / 1000) * costPerKg
-            : 0;
-          const effectivePrice = v.use_manual_price && v.price_override !== null && v.price_override >= 0
-            ? Number(v.price_override)
-            : calculatedPrice;
+           const effectivePrice = v.use_manual_price && v.price_override !== null && v.price_override >= 0
+             ? Number(v.price_override)
+             : 0;
 
           const varPayload = {
             product_id: productId,
@@ -485,12 +489,12 @@ export default function AdminProducts() {
             type: v.type || 'size',
             weight_grams: v.weight_grams || null,
             dimensions: v.dimensions || null,
-            material_id: v.material_id || null,
+             material_id: null,
             price_modifier: effectivePrice,
             price_override: v.use_manual_price && v.price_override !== null ? Number(v.price_override) : null,
             use_manual_price: !!v.use_manual_price,
             image_url: v.image_url || null,
-            value: `${v.weight_grams}g`,
+             value: `${v.type || 'custom'}: ${v.name_es || v.name_en}`,
             is_active: v.is_active,
           };
           
@@ -580,7 +584,6 @@ export default function AdminProducts() {
       description_en: p.description_en || '', description_es: p.description_es || '',
       slug: p.slug, base_price: p.base_price,
       category_id: p.category_id || '', is_active: p.is_active, is_featured: p.is_featured,
-      model_3d_url: p.model_3d_url || '',
     });
     const existingImages = (p.images as string[]) || [];
     setMediaFiles(existingImages.map((url, i) => ({
@@ -816,13 +819,14 @@ export default function AdminProducts() {
         body: {
           action: 'scrape',
           url: aiUrl,
-          existingCategories: categories.map((c: any) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
+           existingCategories: categories.map((c: any) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
+           discountPercent: aiDiscountPercent,
         },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Error al extraer datos');
 
-      setAiData(data.data);
+      setAiData({ ...data.data, market_reference_price: data.data.suggested_price, suggested_price: suggestRetailPrice(Number(data.data.suggested_price || 0), aiDiscountPercent), discount_percent: aiDiscountPercent });
       setAiExtractedImages(data.data.extracted_images || []);
 
       // Determine best source image: manual upload > AI reference > first extracted
@@ -851,6 +855,31 @@ export default function AdminProducts() {
       return;
     }
     await triggerAiGenerateImage(sourceImage);
+  };
+
+  const handleAiPhotoAnalyze = async () => {
+    if (!aiOriginalImage) {
+      toast({ title: 'SUBE UNA FOTO DEL PRODUCTO', variant: 'destructive' });
+      return;
+    }
+    setAiStep('loading');
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-from-photo', {
+        body: { imageData: aiOriginalImage, discountPercent: aiDiscountPercent, searchEnabled: aiSearchEnabled },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'NO SE PUDO ANALIZAR LA FOTO');
+      const product = data.data;
+      setAiData({ ...product, name_es: product.name || '', name_en: product.name || '', description_es: product.description || '', description_en: product.description || '', slug: slugify(product.name || 'producto'), suggested_category: '', colors: [], materials: [] });
+      setAiSelectedSourceImage(aiOriginalImage);
+      setAiStep('review');
+    } catch (e: any) {
+      toast({ title: 'ERROR DE ANÁLISIS', description: e.message, variant: 'destructive' });
+      setAiStep('source');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const handleAiOriginalUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1214,7 +1243,7 @@ export default function AdminProducts() {
                         <Input
                           value={aiUrl}
                           onChange={(e) => setAiUrl(e.target.value)}
-                          placeholder="https://www.thingiverse.com/thing/..."
+                           placeholder="https://example.com/product/..."
                           className="bg-background"
                           maxLength={2000}
                         />
@@ -1224,7 +1253,7 @@ export default function AdminProducts() {
 
                     {/* Background Mode Selector — Card Style */}
                     <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-4">
-                      <Label className="flex items-center gap-2 text-sm font-semibold">
+                         <Label className="flex items-center gap-2 text-sm font-semibold uppercase">
                         <Image className="w-4 h-4 text-primary" />
                         Fondo para imagen AI
                       </Label>
@@ -1282,7 +1311,7 @@ export default function AdminProducts() {
 
                     {/* Original Product Photo */}
                     <div className="p-4 rounded-xl bg-secondary/50 border border-border space-y-3">
-                      <Label className="flex items-center gap-2 text-sm font-semibold">
+                         <Label className="flex items-center gap-2 text-sm font-semibold uppercase">
                         <ImagePlus className="w-4 h-4 text-primary" />
                         Foto original del producto (opcional)
                       </Label>
@@ -1298,7 +1327,8 @@ export default function AdminProducts() {
                           <span className="text-xs text-muted-foreground">Subir</span>
                         </button>
                       )}
-                      <input ref={aiOriginalInputRef} type="file" accept="image/*" onChange={handleAiOriginalUpload} className="hidden" />
+                       <input ref={aiOriginalInputRef} type="file" accept="image/*" capture="environment" onChange={handleAiOriginalUpload} className="hidden" />
+                       <Button type="button" variant="outline" onClick={handleAiPhotoAnalyze} disabled={!aiOriginalImage || aiLoading} className="w-full gap-2 uppercase"><Sparkles className="h-4 w-4" /> ANALYZE PHOTO &amp; SUGGEST PRICE</Button>
                     </div>
 
                     <Button
@@ -1663,7 +1693,7 @@ export default function AdminProducts() {
 
                         {/* Materials Multi-Select */}
                         <div className="space-y-2">
-                          <Label className="text-xs">Materiales</Label>
+                          <Label className="text-xs uppercase">VARIANT PRESETS</Label>
                           <div className="flex flex-wrap gap-2 p-2 rounded-lg bg-secondary border border-border min-h-[40px]">
                             {materials.map((m: any) => {
                               const isSelected = (aiData.materials || []).some((mat: string) =>
@@ -1748,7 +1778,7 @@ export default function AdminProducts() {
                   { id: 0, label: 'Media', icon: ImagePlus, desc: 'Imágenes y AI' },
                   { id: 1, label: 'Identidad', icon: Languages, desc: 'Nombre y descripción' },
                   { id: 2, label: 'Precio', icon: Sparkles, desc: 'Precio y categoría' },
-                  { id: 3, label: 'Variaciones', icon: Ruler, desc: 'Tamaños y materiales' },
+                  { id: 3, label: 'VARIANTS', icon: Ruler, desc: 'COLOR, SIZE, CAPACITY, STORAGE, AND MORE' },
                   { id: 4, label: 'Publicar', icon: CheckCircle2, desc: 'Revisar y guardar' },
                 ];
                 const liveTitle = (form.name_es || form.name_en || (editId ? 'Editar producto' : 'Nuevo producto'));
@@ -1859,7 +1889,7 @@ export default function AdminProducts() {
                     <h3 className="text-2xl font-semibold tracking-tight">Media del producto</h3>
                     <p className="text-sm text-muted-foreground mt-1">Sube hasta {MAX_MEDIA} imágenes o videos. La primera es la portada.</p>
                   </div>
-                  <Label className="flex items-center gap-2 font-semibold">
+                      <Label className="flex items-center gap-2 font-semibold uppercase">
                     <Film className="w-4 h-4 text-primary" />
                     Media ({mediaFiles.length}/{MAX_MEDIA})
                   </Label>
@@ -2098,11 +2128,7 @@ export default function AdminProducts() {
 
                   {productVariations.filter(v => !v._deleted).map((variation, idx) => {
                     const actualIdx = productVariations.indexOf(variation);
-                    const selectedMat = materials.find((m: any) => m.id === variation.material_id);
-                    const costPerKg = selectedMat ? Number(selectedMat.cost_per_kg || 0) : 0;
-                    const calcPrice = variation.weight_grams > 0 && costPerKg > 0
-                      ? (variation.weight_grams / 1000) * costPerKg
-                      : 0;
+                    const calcPrice = variation.price_override ?? 0;
 
                     return (
                       <div key={idx} className="p-3 rounded-lg bg-secondary/50 border border-border space-y-3">
@@ -2210,21 +2236,21 @@ export default function AdminProducts() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div className="space-y-1">
-                            <Label className="text-xs">Material</Label>
+                          <Label className="text-xs uppercase">VARIANT TYPE</Label>
                             <Select
-                              value={variation.material_id}
+                              value={variation.type}
                               onValueChange={(v) => {
                                 setProductVariations(prev => {
                                   const updated = [...prev];
-                                  updated[actualIdx] = { ...updated[actualIdx], material_id: v };
+                                   updated[actualIdx] = { ...updated[actualIdx], type: v, material_id: '' };
                                   return updated;
                                 });
                               }}
                             >
                               <SelectTrigger className="bg-background text-sm h-8"><SelectValue placeholder="—" /></SelectTrigger>
                               <SelectContent>
-                                {materials.map((m: any) => (
-                                  <SelectItem key={m.id} value={m.id}>{m.name_es} (${Number(m.cost_per_kg || 0).toFixed(0)}/kg)</SelectItem>
+                                {['COLOR', 'SIZE', 'CAPACITY', 'STORAGE', 'FINISH', 'PACK', 'CUSTOM'].map((type) => (
+                                  <SelectItem key={type} value={type.toLowerCase()}>{type}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>

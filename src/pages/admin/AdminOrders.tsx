@@ -12,6 +12,7 @@ import { sendTransactionalEmail } from '@/lib/send-email';
 import { AdminPageHeader } from './_shared';
 
 const statuses = ['pending', 'confirmed', 'printing', 'shipped', 'delivered', 'cancelled'] as const;
+const statusLabels: Record<string, string> = { pending: 'PENDING', confirmed: 'CONFIRMED', printing: 'PROCESSING', shipped: 'SHIPPED', delivered: 'DELIVERED', cancelled: 'CANCELLED' };
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
@@ -169,7 +170,7 @@ export default function AdminOrders() {
               >
                 <div className="px-2 py-2 mb-1 border-b border-border/40 flex items-center justify-between">
                   <div>
-                    <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{status}</div>
+                    <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{statusLabels[status]}</div>
                     <div className="font-mono text-[10px] text-muted-foreground/60 tabular-nums">${colTotal.toFixed(2)}</div>
                   </div>
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono tabular-nums border ${statusColors[status]}`}>{colOrders.length}</span>
@@ -234,7 +235,7 @@ export default function AdminOrders() {
                       >
                         <SelectTrigger className="w-32 h-8" onClick={(e) => e.stopPropagation()}>
                           <Badge variant="outline" className={statusColors[order.status] || ''}>
-                            {order.status}
+                            {statusLabels[order.status] || order.status.toUpperCase()}
                           </Badge>
                         </SelectTrigger>
                         <SelectContent>

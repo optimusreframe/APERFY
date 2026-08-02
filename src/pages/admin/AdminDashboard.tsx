@@ -64,13 +64,13 @@ export default function AdminDashboard() {
         supabase.from('categories').select('*', { count: 'exact', head: true }),
         supabase.from('materials').select('*', { count: 'exact', head: true }),
       ]);
-      return { products: p.count ?? 0, categories: c.count ?? 0, materials: m.count ?? 0 };
+      return { products: p.count ?? 0, categories: c.count ?? 0, variants: m.count ?? 0 };
     },
     staleTime: 60_000,
   });
   const productCount = counts?.products;
   const categoryCount = counts?.categories;
-  const materialCount = counts?.materials;
+  const materialCount = counts?.variants;
   const loadingProducts = loadingCounts;
   const loadingCategories = loadingCounts;
   const loadingMaterials = loadingCounts;
@@ -145,7 +145,7 @@ export default function AdminDashboard() {
         />
         <StatCard label="Products" value={productCount ?? 0} icon={Package} loading={loadingProducts} />
         <StatCard label="Categories" value={categoryCount ?? 0} icon={Tags} loading={loadingCategories} />
-        <StatCard label="Materials" value={materialCount ?? 0} icon={Layers} loading={loadingMaterials} />
+        <StatCard label="VARIANTS" value={materialCount ?? 0} icon={Layers} loading={loadingMaterials} />
       </div>
 
       {/* Recent orders — Palantir table */}

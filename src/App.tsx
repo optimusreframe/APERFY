@@ -28,6 +28,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminProducts from "./pages/admin/AdminProducts";
 import AdminCategories from "./pages/admin/AdminCategories";
 import AdminMaterials from "./pages/admin/AdminMaterials";
+import AdminAISettings from "./pages/admin/AdminAISettings";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminRequests from "./pages/admin/AdminRequests";
 import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
@@ -76,14 +77,16 @@ const AppContent = () => {
             <Route index element={<AdminDashboard />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="categories" element={<AdminCategories />} />
-            <Route path="materials" element={<AdminMaterials />} />
+          <Route path="variants" element={<AdminMaterials />} />
+          <Route path="materials" element={<Navigate to="/admin/variants" replace />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="requests" element={<AdminRequests />} />
             <Route path="payments" element={<AdminPaymentSettings />} />
             <Route path="shipping" element={<AdminShipping />} />
             <Route path="discounts" element={<AdminDiscounts />} />
             <Route path="logs" element={<AdminLogs />} />
-            <Route path="background-qa" element={<AdminBackgroundQA />} />
+          <Route path="background-qa" element={<AdminBackgroundQA />} />
+          <Route path="ai-settings" element={<AdminAISettings />} />
           </Route>
           </Route>
           <Route element={<MacAppShell><Outlet /></MacAppShell>}>
