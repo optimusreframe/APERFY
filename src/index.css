@@ -41,4 +41,12 @@
   .signal-bench-grid line { stroke: hsl(145 26% 70% / .18); stroke-width: 1; }
   .signal-bench-noise { background-image: radial-gradient(circle at 20% 20%, hsl(142 72% 52% / .08), transparent 28%), radial-gradient(circle at 80% 70%, hsl(86 72% 52% / .07), transparent 24%); }
   .signal-bench { isolation: isolate; }
+  .mac-workspace { background: radial-gradient(circle at 50% -10%, hsl(150 30% 18% / .55), transparent 42%), hsl(160 28% 4%); }
+  .mac-window { background: hsl(var(--background)); }
+  .mac-titlebar, .mac-sidebar { background: hsl(160 24% 8% / .96); }
+  .mac-nav-item { @apply flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors duration-200; }
+  .mac-nav-item:hover { @apply bg-white/[0.05] text-foreground; }
+  .mac-nav-item.is-active { @apply bg-primary/[0.12] text-primary; }
+  .mac-light { @apply h-3 w-3 rounded-full; }
+  @media (prefers-reduced-motion: reduce) { .mac-nav-item { transition: none; } }
 }

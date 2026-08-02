@@ -4,10 +4,9 @@ import { motion } from 'framer-motion';
 import { ArrowRight, ArrowUpRight, Search, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import MacAppShell from '@/components/layout/MacAppShell';
 import ProductCard from '@/components/ProductCard';
-import SignalBench from '@/components/motion/SignalBench';
 import SignalRail from '@/components/landing/SignalRail';
 import TrustInstrumentation from '@/components/landing/TrustInstrumentation';
 import FindNarrative from '@/components/landing/FindNarrative';
@@ -41,9 +40,8 @@ export default function Index() {
     return products.filter(product => `${product.name_en} ${product.name_es} ${product.description_en ?? ''}`.toLowerCase().includes(query));
   }, [products, search]);
 
-  return <div className="min-h-screen bg-background">
-    <Navbar />
-    <main className="pt-24 sm:pt-28">
+  return <MacAppShell>
+    <main className="pt-0">
       <section className="relative overflow-hidden border-b border-border/70 bg-[hsl(150_20%_98%)] dark:bg-[hsl(160_24%_7%)]">
         <div className="absolute inset-0 aperfy-grid opacity-50" aria-hidden="true" />
         <div className="relative mx-auto grid max-w-7xl gap-12 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:px-8 lg:py-24">
@@ -53,7 +51,7 @@ export default function Index() {
             <div className="mt-9 flex flex-wrap gap-3"><Link to="/catalog" className="inline-flex h-12 items-center gap-2 rounded-full bg-primary px-6 font-semibold text-primary-foreground shadow-gold transition-transform hover:-translate-y-0.5">{copy.primaryCta}<ArrowRight className="h-4 w-4" /></Link><Link to="/our-process" className="inline-flex h-12 items-center gap-2 rounded-full border border-border bg-card px-6 font-semibold transition-colors hover:border-primary/40">{copy.secondaryCta}<ArrowUpRight className="h-4 w-4" /></Link></div>
             <div className="mt-10 flex items-center gap-3 text-xs text-muted-foreground"><span className="flex h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary))]" />{language === 'es' ? 'Una selección viva, no un catálogo infinito' : 'A living selection, not an endless catalog'}</div>
           </motion.div>
-          <SignalBench locale={language} reducedMotionLabel={language === 'es' ? 'Movimiento reducido disponible' : 'Reduced motion supported'} />
+          <div className="mac-deal-window rounded-2xl border border-primary/25 bg-card p-5 shadow-[0_24px_80px_hsl(160_60%_5%/.35)] sm:p-7"><div className="mb-8 flex items-center justify-between"><span className="text-xs font-medium text-muted-foreground">{language === 'es' ? 'Deal destacado' : 'Featured deal'}</span><span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[.14em] text-primary">{language === 'es' ? 'Stock limitado' : 'Limited stock'}</span></div><div className="grid gap-4"><div className="h-40 rounded-xl bg-[radial-gradient(circle_at_50%_40%,hsl(var(--primary)/.28),transparent_55%),linear-gradient(145deg,hsl(160_22%_12%),hsl(160_24%_6%))]" /><div className="flex items-end justify-between gap-4"><div><p className="text-xl font-semibold tracking-[-.03em]">{language === 'es' ? 'Oportunidades seleccionadas' : 'Selected opportunities'}</p><p className="mt-1 text-sm text-muted-foreground">{language === 'es' ? 'Compra al por mayor, precio APERFY.' : 'Bulk-buy sourcing, APERFY pricing.'}</p></div><span className="text-2xl font-bold text-primary">{language === 'es' ? 'Ahora' : 'Now'}</span></div></div></div>
         </div>
       </section>
 
@@ -72,5 +70,5 @@ export default function Index() {
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8"><FindNarrative locale={language} /></section>
     </main>
     <Footer />
-  </div>;
+  </MacAppShell>;
 }
