@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -42,6 +42,7 @@ import OurProcess from "./pages/OurProcess";
 import Materials from "./pages/Materials";
 import EmailUnsubscribe from "./pages/EmailUnsubscribe";
 import CartAddedToast from "./components/CartAddedToast";
+import MacAppShell from "@/components/layout/MacAppShell";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const AppContent = () => {
     <>
       <PageTransition>
         <Routes location={location}>
+          <Route element={<MacAppShell><Outlet /></MacAppShell>}>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
@@ -71,6 +73,8 @@ const AppContent = () => {
           <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
+          </Route>
+          <Route element={<MacAppShell variant="admin"><Outlet /></MacAppShell>}>
           <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminLayout /></ProtectedRoute>}>
             <Route index element={<AdminDashboard />} />
             <Route path="products" element={<AdminProducts />} />
@@ -85,7 +89,10 @@ const AppContent = () => {
             <Route path="ai-3d" element={<AdminAI3DSettings />} />
             <Route path="background-qa" element={<AdminBackgroundQA />} />
           </Route>
-          <Route path="*" element={<NotFound />} />
+          </Route>
+          <Route element={<MacAppShell><Outlet /></MacAppShell>}>
+            <Route path="*" element={<NotFound />} />
+          </Route>
         </Routes>
       </PageTransition>
       {!isAdmin && <CartAddedToast />}

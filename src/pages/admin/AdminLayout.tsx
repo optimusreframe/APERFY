@@ -24,11 +24,11 @@ export default function AdminLayout() {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="mac-admin-layout flex min-h-full w-full bg-transparent">
         <AdminSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           {/* Command bar */}
-          <header className="sticky top-0 z-30 h-14 flex items-center gap-3 border-b border-border/60 px-4 bg-background/70 backdrop-blur-xl">
+          <header className="mac-admin-toolbar sticky top-0 z-30 h-14 flex items-center gap-3 border-b border-white/[0.07] px-4 bg-black/10 backdrop-blur-xl">
             <SidebarTrigger className="text-foreground/80 hover:text-foreground" />
             <div className="hidden md:flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
               <span>console</span>
@@ -50,7 +50,7 @@ export default function AdminLayout() {
               <NotificationBell />
             </div>
           </header>
-          <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+          <main className="mac-admin-main flex-1 overflow-auto p-4 md:p-6 lg:p-8">
             <Outlet />
           </main>
         </div>

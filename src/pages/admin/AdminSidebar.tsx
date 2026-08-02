@@ -61,7 +61,7 @@ export default function AdminSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border/60">
+    <Sidebar collapsible="icon" className="border-r border-white/[0.07] bg-black/10">
       <SidebarHeader className="h-14 border-b border-border/60 px-3 flex items-center justify-center">
         <div className="flex items-center gap-2 w-full">
           <img src="/logo.png" alt="APERFY" className="w-7 h-7 object-contain shrink-0" />

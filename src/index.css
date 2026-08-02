@@ -44,6 +44,11 @@
   .mac-workspace { background: radial-gradient(circle at 50% -10%, hsl(150 30% 18% / .55), transparent 42%), hsl(160 28% 4%); }
   .mac-window { background: hsl(var(--background)); }
   .mac-titlebar, .mac-sidebar { background: hsl(160 24% 8% / .96); }
+  .mac-page-toolbar { background: linear-gradient(180deg, hsl(160 18% 12% / .5), hsl(160 20% 8% / .25)); }
+  .mac-toolbar-button { display: inline-flex; min-height: 32px; min-width: 32px; align-items: center; justify-content: center; gap: .4rem; border-radius: .6rem; padding: .35rem .55rem; color: hsl(var(--muted-foreground)); transition: background-color .14s ease-out, color .14s ease-out, transform .14s ease-out; }
+  .mac-toolbar-button:hover { background: hsl(var(--primary) / .1); color: hsl(var(--foreground)); transform: translateY(-1px); }
+  .mac-toolbar-button:active { transform: translateY(0); }
+  .mac-toolbar-button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
   .mac-nav-item { @apply flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors duration-200; }
   .mac-nav-item:hover { @apply bg-white/[0.05] text-foreground; }
   .mac-nav-item.is-active { @apply bg-primary/[0.12] text-primary; }
