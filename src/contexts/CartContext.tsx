@@ -62,8 +62,8 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const CART_KEY = '3dtoprint-cart';
-const DISCOUNT_KEY = '3dtoprint-discount';
+const CART_KEY = 'aperfy-cart';
+const DISCOUNT_KEY = 'aperfy-discount';
 
 function loadCart(): CartItem[] {
   try {
