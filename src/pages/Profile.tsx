@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, User, Package, Heart, LogOut, Camera, Save, Box, ShoppingBag, ChevronDown, ChevronUp, TrendingUp, ThumbsUp, Gift } from 'lucide-react';
+import { LayoutDashboard, User, Package, Heart, LogOut, Camera, Save, Box, ShoppingBag, ChevronDown, ChevronUp, ChevronRight, TrendingUp, ThumbsUp, Gift, Mail, ShieldCheck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,6 +42,33 @@ const statusColors: Record<string, string> = {
 
 // ─── Overview Tab ───────────────────────────────────────────
 function OverviewTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
+  const { user } = useAuth();
+  const { t } = useLanguage();
+  const { data: stats } = useQuery({
+    queryKey: ['user-dashboard-stats', user?.id],
+    queryFn: async () => {
+      const [ordersRes, favsRes, likesRes] = await Promise.all([
+        supabase.from('orders').select('id', { count: 'exact', head: true }).eq('user_id', user!.id),
+        supabase.from('favorites').select('id', { count: 'exact', head: true }).eq('user_id', user!.id),
+        supabase.from('product_likes').select('id', { count: 'exact', head: true }).eq('user_id', user!.id),
+      ]);
+      return { orders: ordersRes.count || 0, favorites: favsRes.count || 0, likes: likesRes.count || 0 };
+    }, enabled: !!user,
+  });
+  const initials = user?.email?.slice(0, 2).toUpperCase() || 'AP';
+  const rows = [
+    { label: t.profile.totalOrders, value: stats?.orders ?? 0, icon: Package, tab: 'orders' as TabId },
+    { label: t.profile.totalFavorites, value: stats?.favorites ?? 0, icon: Heart, tab: 'favorites' as TabId },
+    { label: t.profile.totalLikes, value: stats?.likes ?? 0, icon: ThumbsUp, tab: 'overview' as TabId },
+  ];
+  return <div className="space-y-5">
+    <Card className="overflow-hidden border-white/[0.09] bg-[linear-gradient(135deg,hsl(220_20%_15%/.96),hsl(220_19%_11%/.82))] shadow-[0_20px_60px_hsl(220_35%_2%/.28)]"><CardContent className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"><div className="flex items-center gap-4"><div className="flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-primary/[0.12] text-lg font-semibold text-primary">{initials}</div><div><p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">APERFY ID</p><h2 className="mt-1 text-xl font-semibold tracking-tight">{t.profile.welcomeBack}</h2><p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"><Mail className="h-3.5 w-3.5" />{user?.email}</p></div></div><div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/[0.08] px-3 py-2 text-xs text-primary"><ShieldCheck className="h-3.5 w-3.5" />{t.profile.overviewSubtitle}</div></CardContent></Card>
+    <section className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3 backdrop-blur-xl"><div className="flex items-center justify-between px-2 pb-3"><div><p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">APERFY · OVERVIEW</p><h2 className="mt-1 text-base font-semibold">{t.profile.overview}</h2></div><span className="hidden text-[11px] text-muted-foreground sm:block">{t.profile.overviewSubtitle}</span></div><div className="grid gap-2 md:grid-cols-3">{rows.map((row, i) => <motion.button key={row.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} onClick={() => onNavigate(row.tab)} className="group flex items-center gap-3 rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-primary/[0.06]"><span className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.04] text-muted-foreground group-hover:text-primary"><row.icon className="h-4 w-4" /></span><span className="min-w-0 flex-1"><span className="block text-xl font-semibold leading-none">{row.value}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{row.label}</span></span><ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-primary" /></motion.button>)}</div></section>
+    <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.025]"><div className="border-b border-white/[0.07] px-4 py-3"><h2 className="text-sm font-semibold">{t.profile.title}</h2><p className="mt-0.5 text-xs text-muted-foreground">{t.profile.overviewSubtitle}</p></div><div className="divide-y divide-white/[0.07]"><button onClick={() => onNavigate('orders')} className="group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.04]"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/[0.1] text-primary"><Package className="h-4 w-4" /></span><span className="flex-1"><span className="block text-sm font-medium">{t.orders.title}</span><span className="block text-xs text-muted-foreground">{t.profile.totalOrders}</span></span><ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-primary" /></button><button onClick={() => onNavigate('favorites')} className="group flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.04]"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/[0.1] text-primary"><Heart className="h-4 w-4" /></span><span className="flex-1"><span className="block text-sm font-medium">{t.favorites.title}</span><span className="block text-xs text-muted-foreground">{t.profile.totalFavorites}</span></span><ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-primary" /></button></div></section>
+  </div>;
+}
+
+function LegacyOverviewTab({ onNavigate }: { onNavigate: (tab: TabId) => void }) {
   const { user } = useAuth();
   const { t } = useLanguage();
 
@@ -479,7 +506,7 @@ export default function Profile() {
       <Navbar />
       <div className="px-4 py-5 sm:px-6 sm:py-8 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-6 flex items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.035] px-5 py-4 shadow-[0_18px_50px_hsl(220_35%_2%/.18)] backdrop-blur-xl">
+          <div className="mb-5 flex items-center justify-between border-b border-white/[0.08] px-1 pb-4">
             <div><p className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary">APERFY · ACCOUNT CENTER</p><h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">{t.profile.title}</h1></div>
             <div className="hidden items-center gap-2 rounded-full border border-primary/20 bg-primary/[0.08] px-3 py-1.5 text-xs text-primary sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary))]" />{t.profile.welcomeBack}</div>
           </div>
