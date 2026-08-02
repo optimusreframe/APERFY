@@ -1,9 +1,3 @@
-import { ArrowUpRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { useLanguage } from '@/i18n/LanguageContext';
-
 export default function Footer() {
-  const { language } = useLanguage();
-  const es = language === 'es';
-  return <footer className="border-t border-border/70 bg-background"><div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8"><div className="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between"><div><Link to="/" className="inline-flex items-center gap-2.5" aria-label="APERFY home"><img src="/logo.png" alt="APERFY" className="h-9 w-9 rounded-xl object-contain" /><span className="font-display text-lg font-bold tracking-tight">APER<span className="text-primary">FY</span></span></Link><p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">{es ? 'Productos de muchas categorías, oportunidades reales y precios por debajo del fabricante.' : 'Products across many categories, real opportunities, and prices below the manufacturer.'}</p></div><nav aria-label={es ? 'Enlaces del pie' : 'Footer links'} className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted-foreground"><Link to="/" className="transition-colors hover:text-foreground">{es ? 'Tienda' : 'Store'}</Link><Link to="/ask" className="transition-colors hover:text-foreground">{es ? 'Solicitar producto' : 'Request a product'}</Link><Link to="/contact" className="transition-colors hover:text-foreground">{es ? 'Contacto' : 'Contact'}</Link><Link to="/auth" className="inline-flex items-center gap-1 transition-colors hover:text-foreground">{es ? 'Cuenta' : 'Account'}<ArrowUpRight className="h-3.5 w-3.5" /></Link></nav></div><div className="mt-10 border-t border-border/60 pt-4 text-xs text-muted-foreground">© {new Date().getFullYear()} APERFY. {es ? 'Todos los derechos reservados.' : 'All rights reserved.'}</div></div></footer>;
+  return <footer className="border-t border-white/[0.06] bg-background/60 px-4 py-4 text-center text-xs text-muted-foreground"><p>© 2026 APERFY, Copyright</p></footer>;
 }

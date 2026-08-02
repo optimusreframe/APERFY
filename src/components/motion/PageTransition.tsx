@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { ReactNode } from 'react';
 
 /**
- * Page transition that simulates a 3D print finishing and starting:
+ * Page transition tuned for the APERFY app shell:
  * - exit: page peels off the build plate (slight rise + fade)
  * - enter: page is "laid down" layer by layer via mask reveal (clip from bottom)
  */

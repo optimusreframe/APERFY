@@ -44,7 +44,7 @@ const BG_PRESETS = [
 type BgPreset = (typeof BG_PRESETS)[number];
 
 const DEFAULT_PROMPTS: Record<BgPreset, string> = {
-  system_workshop: 'Empty premium curated shopping workshop product photography background. Brushed grey metallic workbench, blurred FDM 3D printer, orange/teal product detail bokeh, shallow depth of field, premium ecommerce look.',
+  system_workshop: 'Empty premium curated shopping workshop product photography background. Brushed grey metallic workbench, soft product detail bokeh, shallow depth of field, premium ecommerce look.',
   system_macro: 'Empty macro-style premium curated shopping workshop background. Brushed metallic tabletop, very shallow DOF, heavy blur, close-up product photography composition.',
   system_dark_premium: 'Empty premium dark cinematic curated shopping studio. Brushed dark metallic workbench, low-key luxury lighting, cool rim glow, warm orange accents.',
   premium_tech_plinth: 'Empty luxury tech display. Dark carbon-fiber plinth, dark blue/grey geometric forms, copper/gold accents, premium cyber-tech aesthetic.',
@@ -775,7 +775,7 @@ export default function AdminBackgroundQA() {
           <h2 className="text-lg font-semibold">Preset QA Runner</h2>
           <div className="grid md:grid-cols-2 gap-4">
             <ProductImageSourcePicker
-              label="Source Image (the 3D object)"
+              label="Source Image (the product)"
               value={sourceImage}
               onChange={setSourceImage}
             />
@@ -932,7 +932,7 @@ export default function AdminBackgroundQA() {
             </DialogHeader>
             <div className="space-y-4">
               <ProductImageSourcePicker
-                label="Source image (3D object)"
+                label="Source image (product)"
                 value={previewSource}
                 onChange={(url) => {
                   setPreviewSource(url);

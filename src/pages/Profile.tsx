@@ -475,19 +475,23 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-full bg-transparent">
       <Navbar />
-      <div className="pt-20 pb-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex gap-8">
+      <div className="px-4 py-5 sm:px-6 sm:py-8 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-6 flex items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.035] px-5 py-4 shadow-[0_18px_50px_hsl(220_35%_2%/.18)] backdrop-blur-xl">
+            <div><p className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary">APERFY · ACCOUNT CENTER</p><h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">{t.profile.title}</h1></div>
+            <div className="hidden items-center gap-2 rounded-full border border-primary/20 bg-primary/[0.08] px-3 py-1.5 text-xs text-primary sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary))]" />{t.profile.welcomeBack}</div>
+          </div>
+          <div className="flex gap-5 lg:gap-8">
             {/* Desktop Sidebar */}
             {!isMobile && (
               <motion.aside
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="w-60 shrink-0 pt-4"
+                className="w-60 shrink-0"
               >
-                <div className="sticky top-24 space-y-1">
+                <div className="sticky top-4 space-y-1 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-2 backdrop-blur-xl">
                   {tabs.map((tab) => {
                     const isActive = activeTab === tab.id;
                     return (
@@ -496,8 +500,8 @@ export default function Profile() {
                         onClick={() => setActiveTab(tab.id)}
                         className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 relative ${
                           isActive
-                            ? 'text-primary bg-primary/10 border border-primary/20 shadow-gold'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                            ? 'text-primary bg-primary/[0.12] border border-primary/25 shadow-[0_0_24px_hsl(var(--primary)/.08)]'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.05]'
                         }`}
                       >
                         <tab.icon className="w-4 h-4" />
@@ -505,7 +509,7 @@ export default function Profile() {
                       </button>
                     );
                   })}
-                  <div className="pt-4 border-t border-border/30 mt-4">
+                  <div className="mt-4 border-t border-white/[0.08] pt-4">
                     <button
                       onClick={signOut}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
@@ -531,8 +535,8 @@ export default function Profile() {
                         onClick={() => setActiveTab(tab.id)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
                           isActive
-                            ? 'bg-primary/10 text-primary border border-primary/20'
-                            : 'bg-card text-muted-foreground border border-border/50'
+                            ? 'bg-primary/[0.12] text-primary border border-primary/25'
+                            : 'bg-white/[0.04] text-muted-foreground border border-white/[0.08]'
                         }`}
                       >
                         <tab.icon className="w-3.5 h-3.5" />

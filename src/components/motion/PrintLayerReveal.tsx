@@ -3,7 +3,7 @@ import { ReactNode } from 'react';
 
 /**
  * Reveals its child as if product detail is being deposited from bottom to top.
- * Use on cards, sections, or hero blocks for the 3D-print storytelling.
+ * Use on cards, sections, or product blocks for layered motion.
  */
 export default function PrintLayerReveal({
   children,

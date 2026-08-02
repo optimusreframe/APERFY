@@ -18,7 +18,6 @@ import LikeButton from '@/components/LikeButton';
 import ShareMenu from '@/components/ShareMenu';
 import ProductReviews from '@/components/ProductReviews';
 import { Badge } from '@/components/ui/badge';
-import Model3DViewer from '@/components/Model3DViewer';
 import MobileStickyAddToCart from '@/components/mobile/MobileStickyAddToCart';
 
 
@@ -215,7 +214,6 @@ export default function ProductDetail() {
   const [notes, setNotes] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [view3D, setView3D] = useState(false);
   
 
   const { data: product, isLoading } = useQuery({
@@ -522,14 +520,7 @@ export default function ProductDetail() {
               className="aspect-square rounded-2xl overflow-hidden relative group border border-white/[0.06] bg-card/30 backdrop-blur-sm"
               style={{ boxShadow: '0 0 60px hsl(var(--primary) / 0.06), 0 30px 80px hsl(var(--background) / 0.5)' }}
             >
-              {view3D && product.model_3d_url ? (
-                <Model3DViewer
-                  src={product.model_3d_url}
-                  poster={images[selectedImage]}
-                  alt={language === 'es' ? product.name_es : product.name_en}
-                  className="absolute inset-0 w-full h-full"
-                />
-              ) : (
+              {
                 <div className="absolute inset-0 cursor-zoom-in" onClick={() => setLightboxOpen(true)}>
                   {/* Blurred background fill */}
                   {images.length > 0 && (
@@ -557,32 +548,17 @@ export default function ProductDetail() {
                     )}
                   </AnimatePresence>
                 </div>
-              )}
-
-              {/* Optional interactive media remains hidden until the catalog policy is defined. */}
-              {false && product.model_3d_url && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setView3D(v => !v); }}
-                  className={`absolute top-4 right-4 z-10 px-3 py-1.5 rounded-md backdrop-blur-md border font-mono text-[10px] uppercase tracking-[0.15em] flex items-center gap-1.5 transition-all ${
-                    view3D
-                      ? 'bg-primary/20 border-primary/40 text-primary'
-                      : 'bg-background/70 border-white/[0.06] text-foreground/80 hover:bg-background/90'
-                  }`}
-                >
-                  <Box className="w-3 h-3" />
-                  {view3D ? '2D' : '3D'}
-                </button>
-              )}
+              }
 
               {/* Counter chip */}
-              {!view3D && images.length > 1 && (
+              {images.length > 1 && (
                 <div className="absolute bottom-4 left-4 px-2.5 py-1 rounded-md bg-background/70 backdrop-blur-md border border-white/[0.06] font-mono text-[10px] tabular-nums uppercase tracking-[0.15em] text-foreground/80">
                   {String(selectedImage + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
                 </div>
               )}
 
               {/* Zoom hint */}
-              {!view3D && images.length > 0 && (
+              {images.length > 0 && (
                 <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-background/70 backdrop-blur-md border border-white/[0.06] rounded-md px-2.5 py-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-foreground/80 pointer-events-none">
                   <Maximize2 className="w-3 h-3 text-primary" />
                   Zoom
@@ -590,7 +566,7 @@ export default function ProductDetail() {
               )}
 
               {/* Arrow nav */}
-              {!view3D && images.length > 1 && (
+              {images.length > 1 && (
                 <>
                   <button
                     onClick={(e) => { e.stopPropagation(); setSelectedImage((selectedImage - 1 + images.length) % images.length); }}

@@ -502,7 +502,7 @@ export default function SplashLoader3D({ onComplete }: { onComplete: () => void 
     const t2 = setTimeout(() => setPhase(2), 1400);
     const t3 = setTimeout(() => setOpacity(0), 2600);
     const t4 = setTimeout(() => {
-      sessionStorage.setItem("3dp-loaded", "true");
+      sessionStorage.setItem("aperfy-loaded", "true");
       onComplete();
     }, 3200);
 
@@ -584,7 +584,7 @@ export default function SplashLoader3D({ onComplete }: { onComplete: () => void 
               transition={{ duration: 0.4, delay: 0.1 }}
               className="mt-2 text-primary/80 text-xs sm:text-sm tracking-[0.35em] uppercase font-light"
             >
-              3D · PRINT
+              APERFY · STORE
             </motion.div>
           )}
         </AnimatePresence>

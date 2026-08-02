@@ -72,7 +72,7 @@ export const translations = {
     requestModel: {
       title: 'Request a',
       titleHighlight: 'Product',
-      subtitle: "Can't find what you're looking for? Describe the product you want and we'll try to source it for our catalog.",
+      subtitle: "Tell us what you're looking for and we'll let you know when a great deal becomes available.",
       nameLabel: 'Your Name',
       namePlaceholder: 'John Doe',
       emailLabel: 'Email',
@@ -379,7 +379,7 @@ export const translations = {
     requestModel: {
       title: 'Solicitar un',
       titleHighlight: 'Producto',
-      subtitle: '¿No encuentras lo que buscas? Describe el producto que deseas y trataremos de conseguirlo para nuestro catálogo.',
+      subtitle: 'Cuéntanos qué buscas y te avisaremos cuando encontremos una buena oferta disponible.',
       nameLabel: 'Tu Nombre',
       namePlaceholder: 'Juan Pérez',
       emailLabel: 'Correo Electrónico',

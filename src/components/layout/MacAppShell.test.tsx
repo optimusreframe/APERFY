@@ -8,7 +8,7 @@ describe('MacAppShell', () => {
   it('renders the APERFY desktop app landmarks and mobile-safe navigation', () => {
     render(<MemoryRouter><LanguageProvider><CartProvider><MacAppShell><div>Store content</div></MacAppShell></CartProvider></LanguageProvider></MemoryRouter>);
 
-    expect(screen.getByRole('banner', { name: /aperfy store/i })).toBeInTheDocument();
+    expect(screen.getByRole('banner', { name: /^aperfy$/i })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: /store navigation/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /request a product/i })).toHaveAttribute('href', '/ask');
     expect(screen.queryByText(/available now/i)).not.toBeInTheDocument();
