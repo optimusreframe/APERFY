@@ -82,7 +82,7 @@ export default function Navbar() {
             <div className="flex items-center justify-between h-full">
               {/* Logo */}
               <Link to="/" className="flex items-center gap-2.5 group">
-                <img src="/brand/aperfy-logo.png" alt="APERFY" className="w-10 h-10 object-contain rounded-xl group-hover:scale-105 transition-transform duration-300" />
+                <img src="/logo.png" alt="APERFY" className="w-10 h-10 object-contain rounded-xl group-hover:scale-105 transition-transform duration-300" />
                 <span className="font-display font-bold text-lg text-foreground tracking-tight">APER<span className="text-primary">FY</span></span>
               </Link>
 

@@ -41,4 +41,18 @@
   .signal-bench-grid line { stroke: hsl(145 26% 70% / .18); stroke-width: 1; }
   .signal-bench-noise { background-image: radial-gradient(circle at 20% 20%, hsl(142 72% 52% / .08), transparent 28%), radial-gradient(circle at 80% 70%, hsl(86 72% 52% / .07), transparent 24%); }
   .signal-bench { isolation: isolate; }
+  .mac-workspace { background: radial-gradient(circle at 50% -10%, hsl(150 30% 18% / .55), transparent 42%), hsl(160 28% 4%); }
+  .mac-window { background: hsl(var(--background)); }
+  .mac-titlebar, .mac-sidebar { background: hsl(160 24% 8% / .96); }
+  .mac-nav-item { @apply flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors duration-200; }
+  .mac-nav-item:hover { @apply bg-white/[0.05] text-foreground; }
+  .mac-nav-item.is-active { @apply bg-primary/[0.12] text-primary; }
+  .mac-light { @apply h-3 w-3 rounded-full; }
+  .pointer-glow { pointer-events: none; position: fixed; z-index: 30; inset: 0; opacity: .55; background: radial-gradient(280px circle at var(--pointer-x, 50vw) var(--pointer-y, 20vh), hsl(var(--primary) / .08), transparent 68%); mix-blend-mode: screen; }
+  .mac-hero-orbit { position: absolute; right: -10%; top: -30%; width: 70%; height: 150%; border: 1px solid hsl(var(--primary) / .12); border-radius: 50%; transform: rotate(-18deg); }
+  .mac-deal-panel { transform: translateZ(0); transition: transform .3s cubic-bezier(.2,0,0,1), border-color .2s ease, box-shadow .3s ease; }
+  .mac-deal-panel:hover { transform: translateY(-3px); border-color: hsl(var(--primary) / .45); box-shadow: 0 28px 90px hsl(160 60% 5% / .42); }
+  @media (prefers-reduced-motion: reduce) { .mac-nav-item { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .pointer-glow, .mac-deal-panel { transition: none; } }
+  @media (pointer: coarse) { .pointer-glow { display: none; } }
 }

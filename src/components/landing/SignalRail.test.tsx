@@ -5,9 +5,9 @@ import SignalRail from './SignalRail';
 describe('SignalRail', () => {
   it('renders the four APERFY truth stages in Spanish', () => {
     render(<SignalRail locale="es" />);
-    expect(screen.getByText('Encontrado')).toBeInTheDocument();
-    expect(screen.getByText('Verificado')).toBeInTheDocument();
-    expect(screen.getByText('Listado')).toBeInTheDocument();
+    expect(screen.getByText('Disponible')).toBeInTheDocument();
+    expect(screen.getByText('Revisado')).toBeInTheDocument();
+    expect(screen.getByText('Añadido')).toBeInTheDocument();
     expect(screen.getByText('Confirmado')).toBeInTheDocument();
   });
 });

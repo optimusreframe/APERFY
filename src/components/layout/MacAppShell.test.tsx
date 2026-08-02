@@ -1,0 +1,15 @@
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import MacAppShell from './MacAppShell';
+import { LanguageProvider } from '@/i18n/LanguageContext';
+import { CartProvider } from '@/contexts/CartContext';
+
+describe('MacAppShell', () => {
+  it('renders the APERFY desktop app landmarks and mobile-safe navigation', () => {
+    render(<MemoryRouter><LanguageProvider><CartProvider><MacAppShell><div>Store content</div></MacAppShell></CartProvider></LanguageProvider></MemoryRouter>);
+
+    expect(screen.getByRole('banner', { name: /aperfy store/i })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: /store navigation/i })).toBeInTheDocument();
+    expect(screen.getByText('Store content')).toBeInTheDocument();
+  });
+});

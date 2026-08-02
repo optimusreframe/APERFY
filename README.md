@@ -26,7 +26,7 @@ The current repository contains legacy lint debt inherited from the source app. 
 
 ## Brand and commerce notes
 
-- Official logo: `public/brand/aperfy-logo.png`.
+- Official logo: `public/logo.png`; favicon/app icon: `public/favicon.png`.
 - Design system: `docs/aperfy-design-system.md`.
 - Price comparison is shown only when the reference price is valid and dated.
 - Orders are created before WhatsApp handoff; online card/payment-provider checkout is intentionally not part of the storefront.
