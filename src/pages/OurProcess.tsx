@@ -6,7 +6,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
 const steps = [
-  { icon: Search, en: ['01 / Find the signal', 'Start with a category, use case or question.'], es: ['01 / Encuentra la señal', 'Empieza con una categoría, un uso o una pregunta.'] },
+  { icon: Search, en: ['01 / Find a product', 'Start with a category, use case or question.'], es: ['01 / Encuentra un producto', 'Empieza con una categoría, un uso o una pregunta.'] },
   { icon: ShieldCheck, en: ['02 / Compare the context', 'Review source, condition, availability and the details that matter.'], es: ['02 / Compara el contexto', 'Revisa fuente, condición, disponibilidad y los detalles que importan.'] },
   { icon: MessageCircle, en: ['03 / Ask with confidence', 'If a detail is missing, send a request and clarify the next best action.'], es: ['03 / Pregunta con confianza', 'Si falta un detalle, envía una solicitud y aclara el siguiente paso.'] },
   { icon: CheckCircle2, en: ['04 / Confirm and receive', 'Your order is confirmed through WhatsApp, then prepared and shipped.'], es: ['04 / Confirma y recibe', 'Tu orden se confirma por WhatsApp, se prepara y se envía.'] },

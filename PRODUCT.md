@@ -42,14 +42,14 @@ The storefront supports browsing, search, product detail, cart, account, checkou
 ## Brand Commitments
 
 - Name: APERFY. Technical slug: `aperfy`.
-- Official asset: `public/brand/aperfy-logo.png`.
+- Official logo asset: `public/logo.png`; favicon and app icon asset: `public/favicon.png`.
 - Green identity derived from the supplied logo, with light/dark support.
 - Voice: precise, confident, modern, helpful; never spammy, fake-urgent or discount-bin.
 - Approved phrase: “A Perfect Find, For You.”
 
 ## Evidence on Hand
 
-- Official logo supplied by the user at `C:\Users\LRS\Downloads\APERFY_LOGO-green.png` and copied to `public/brand/aperfy-logo.png`.
+- Official logo supplied by the user at `C:\Users\LRS\Downloads\APERFY_LOGO-green.png` and copied to `public/logo.png`.
 - Existing React/Supabase source repository and demo product records are available in this workspace.
 - No verified testimonials, market benchmark dataset, production Supabase project, Telegram bot credentials or final product photography have been supplied. The interface must not fabricate these.
 

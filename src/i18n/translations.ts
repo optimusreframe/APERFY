@@ -15,9 +15,9 @@ export const translations = {
       requestModel: 'Request a Product',
     },
     hero: {
-      badge: 'Curated finds with verified value',
-      title: 'Find the signal,',
-      titleHighlight: 'not the noise.',
+      badge: 'Bulk-buy value, available today',
+      title: 'Big deals,',
+      titleHighlight: 'small quantities.',
       subtitle: 'Browse a changing selection of useful products and real opportunities, then order with confidence.',
       cta: 'Explore Products',
       ctaSecondary: 'How It Works',

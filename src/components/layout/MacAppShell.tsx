@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { Boxes, Home, ShoppingBag, Sparkles, UserRound } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useCart } from '@/contexts/CartContext';
+import MacWindowIntro from '@/components/motion/MacWindowIntro';
+import PointerGlow from '@/components/motion/PointerGlow';
 
 type MacAppShellProps = { children: ReactNode };
 
@@ -19,8 +21,8 @@ export default function MacAppShell({ children }: MacAppShellProps) {
     { to: '/profile', label: es ? 'Cuenta' : 'Account', icon: UserRound },
   ];
 
-  return <div className="mac-workspace min-h-screen px-0 py-0 text-foreground sm:px-4 sm:py-4 lg:px-8 lg:py-8">
-    <div className="mac-window mx-auto flex min-h-screen max-w-[1480px] overflow-hidden sm:min-h-[calc(100vh-2rem)] sm:rounded-[1.25rem] sm:border sm:border-white/[0.08] sm:shadow-[0_32px_100px_hsl(160_60%_4%/.55)] lg:min-h-[calc(100vh-4rem)]">
+  return <div className="mac-workspace relative min-h-screen px-0 py-0 text-foreground sm:px-4 sm:py-4 lg:px-8 lg:py-8"><PointerGlow />
+    <MacWindowIntro><div className="mac-window mx-auto flex min-h-screen max-w-[1480px] overflow-hidden sm:min-h-[calc(100vh-2rem)] sm:rounded-[1.25rem] sm:border sm:border-white/[0.08] sm:shadow-[0_32px_100px_hsl(160_60%_4%/.55)] lg:min-h-[calc(100vh-4rem)]">
       <aside className="mac-sidebar hidden w-[220px] shrink-0 flex-col border-r border-white/[0.07] px-3 py-4 md:flex" aria-label={es ? 'Navegación de tienda' : 'Store navigation'}>
         <Link to="/" className="mb-8 flex items-center gap-2.5 px-3" aria-label="APERFY Store home">
           <img src="/logo.png" alt="APERFY" className="h-8 w-8 rounded-lg object-contain" />
@@ -43,6 +45,6 @@ export default function MacAppShell({ children }: MacAppShellProps) {
         </header>
         <div className="flex-1">{children}</div>
       </div>
-    </div>
+    </div></MacWindowIntro>
   </div>;
 }

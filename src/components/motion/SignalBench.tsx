@@ -13,7 +13,7 @@ interface SignalBenchProps {
 export default function SignalBench({ locale, reducedMotionLabel, className = '' }: SignalBenchProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const copy = locale === 'es'
-    ? { label: 'Banco de señales de valor APERFY', status: 'Señal bloqueada', readout: 'Valor verificado', axis: 'referencia / oportunidad' }
+    ? { label: 'Panel de ofertas APERFY', status: 'Oferta disponible', readout: 'Stock comprobado', axis: 'compra al mayor / stock limitado' }
     : { label: 'APERFY deal pulse', status: 'Deal available', readout: 'Stock checked', axis: 'bulk buy / limited stock' };
 
   useGSAP(() => {
@@ -45,7 +45,7 @@ export default function SignalBench({ locale, reducedMotionLabel, className = ''
       <div className="relative p-5 sm:p-7">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[.2em] text-emerald-200/60">APERFY / SIGNAL BENCH</p>
+            <p className="font-mono text-[10px] uppercase tracking-[.2em] text-emerald-200/60">APERFY / DEAL DESK</p>
             <p className="mt-2 text-sm font-medium text-emerald-50/90">{copy.status}</p>
           </div>
           <span className="rounded-full border border-emerald-300/25 px-2.5 py-1 font-mono text-[10px] text-emerald-200/70">LIVE FIND</span>
