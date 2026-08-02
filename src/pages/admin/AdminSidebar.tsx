@@ -61,7 +61,7 @@ export default function AdminSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-white/[0.07] bg-black/10">
+    <Sidebar collapsible="icon" className="h-full max-h-full min-h-0 border-r border-white/[0.07] bg-black/10">
       <SidebarHeader className="h-14 border-b border-border/60 px-3 flex items-center justify-center">
         <div className="flex items-center gap-2 w-full">
           <img src="/logo.png" alt="APERFY" className="w-7 h-7 object-contain shrink-0" />
@@ -76,7 +76,7 @@ export default function AdminSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2 py-3">
+      <SidebarContent className="min-h-0 overflow-hidden px-2 py-3">
         {groups.map((group) => (
           <SidebarGroup key={group.label} className="mb-1">
             {!collapsed && (

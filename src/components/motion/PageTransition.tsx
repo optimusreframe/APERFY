@@ -4,7 +4,7 @@ import { ReactNode } from 'react';
 
 /**
  * Page transition tuned for the APERFY app shell:
- * - exit: page peels off the build plate (slight rise + fade)
+ * - exit: page eases away with a subtle rise and fade
  * - enter: page is "laid down" layer by layer via mask reveal (clip from bottom)
  */
 export default function PageTransition({ children }: { children: ReactNode }) {

@@ -28,7 +28,7 @@ type Preset =
   | 'premium_tech_plinth';
 
 const PRESETS: { id: Preset; label: string; desc: string }[] = [
-  { id: 'system_workshop', label: 'system_workshop', desc: 'Default · APERFY workshop' },
+  { id: 'system_workshop', label: 'APERFY STUDIO', desc: 'Default retail product studio' },
   { id: 'system_macro', label: 'system_macro', desc: 'Macro shallow DOF' },
   { id: 'system_dark_premium', label: 'system_dark_premium', desc: 'Dark cinematic premium' },
   { id: 'custom', label: 'custom', desc: 'Requires custom background URL' },
@@ -44,7 +44,7 @@ const BG_PRESETS = [
 type BgPreset = (typeof BG_PRESETS)[number];
 
 const DEFAULT_PROMPTS: Record<BgPreset, string> = {
-  system_workshop: 'Empty APERFY retail product photography studio, graphite surface, soft neutral gradient, controlled green accent light, clean premium ecommerce composition, generous negative space, no people, no hands, no text, no logos, no watermark.',
+    system_workshop: 'Empty APERFY retail product photography studio, matte graphite surface, soft neutral gradient, controlled green accent light, clean premium ecommerce composition, generous negative space, no people, no hands, no text, no logos, no watermark.',
   system_macro: 'Empty APERFY macro ecommerce studio, graphite tabletop, soft neutral bokeh, precise product focus, subtle green edge light, clean premium retail composition, no people, no hands, no text, no logos, no watermark.',
   system_dark_premium: 'Empty APERFY dark premium technology studio, graphite surface, cool rim light, subtle green reflections, accurate product color, clean ecommerce composition, no people, no hands, no text, no logos, no watermark.',
   premium_tech_plinth: 'Empty APERFY technology product display, matte graphite plinth, clean geometric background, soft green accent light, generous negative space, premium retail catalog composition, no people, no hands, no text, no logos, no watermark.',
@@ -242,7 +242,7 @@ export default function AdminBackgroundQA() {
   };
 
   const handleRemoveBg = async () => {
-    if (!confirm('Remove the official workshop background?')) return;
+    if (!confirm('Remove the official APERFY studio background?')) return;
     try {
       await setOfficialUrl(null);
       await supabase.from('system_background_candidates').update({ is_active: false }).eq('is_active', true);
@@ -509,11 +509,11 @@ export default function AdminBackgroundQA() {
           </p>
         </div>
 
-        {/* ── A. Official Workshop Background ── */}
+        {/* ── A. Official APERFY Studio Background ── */}
         <Card className="p-5 space-y-4 border-2 border-amber-500/30">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h2 className="text-lg font-semibold">Official Workshop Background</h2>
+              <h2 className="text-lg font-semibold">Official APERFY Studio Background</h2>
               <p className="text-xs text-muted-foreground mt-1">
                 Used as visual reference for <code className="font-mono">system_workshop</code> generations.
               </p>

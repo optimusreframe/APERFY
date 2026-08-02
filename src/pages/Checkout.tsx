@@ -10,7 +10,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Printer, Cog, Package } from 'lucide-react';
+import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Zap, Cog, Package } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
 
@@ -104,7 +104,7 @@ function TAField({ label, value, onChange, ...rest }: TAFieldProps) {
 function StepRail({ current, labels }: { current: number; labels: string[] }) {
   const total = labels.length;
   const pct = Math.round(((current + 0.0001) / total) * 100);
-  const stepIcons = [Cog, Printer, Package, Truck];
+  const stepIcons = [Cog, CreditCard, Package, Truck];
 
   return (
     <div className="mb-12">
@@ -112,7 +112,7 @@ function StepRail({ current, labels }: { current: number; labels: string[] }) {
       <div className="flex items-end justify-between mb-3 px-1">
         <div>
           <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            Layer {String(current + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
+            Step {String(current + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
           </div>
           <div className="font-display text-sm font-semibold text-foreground mt-0.5 tracking-tight">
             {labels[current]}
@@ -128,7 +128,7 @@ function StepRail({ current, labels }: { current: number; labels: string[] }) {
         </div>
       </div>
 
-      {/* Filament extrusion bar */}
+      {/* Checkout progress bar */}
       <div className="relative h-[6px] w-full rounded-full bg-white/[0.05] overflow-hidden">
         <motion.div
           initial={false}
@@ -153,10 +153,10 @@ function StepRail({ current, labels }: { current: number; labels: string[] }) {
         />
       </div>
 
-      {/* Step nodes (printer / extruder / package / truck) */}
+      {/* Step nodes */}
       <div className="grid grid-cols-3 gap-2 mt-5" style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }}>
         {labels.map((label, i) => {
-          const Icon = stepIcons[i] ?? Printer;
+          const Icon = stepIcons[i] ?? Zap;
           const done = i < current;
           const active = i === current;
           return (
