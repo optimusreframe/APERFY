@@ -47,7 +47,7 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
           </div>}
           {isAdmin && <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary))]" />{es ? 'En vivo' : 'Live'}</div>}
         </header>
-        <div className="mac-content-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
+        <div className="mac-content-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div></MacWindowIntro>
   </div></MacShellProvider>;
