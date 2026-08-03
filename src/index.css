@@ -68,6 +68,12 @@
   body:has(.mac-admin-layout) .mac-admin-layout,
   body:has(.mac-admin-layout) .mac-admin-layout [data-sidebar="sidebar"] { min-height: 0; max-height: 100%; }
   body:has(.mac-admin-layout) .mac-admin-layout [data-sidebar="sidebar"] { height: 100%; }
+  /* The shadcn sidebar is viewport-fixed by default. Inside APERFY it belongs to the app window. */
+  body:has(.mac-admin-layout) .mac-admin-layout > .group[data-sidebar] { position: relative; height: 100%; flex: none; }
+  body:has(.mac-admin-layout) .mac-admin-layout > .group[data-sidebar] > div:first-child { height: 100%; }
+  body:has(.mac-admin-layout) .mac-admin-layout > .group[data-sidebar] > div:nth-child(2) {
+    position: absolute; inset: 0 auto auto 0; height: 100%;
+  }
   .mac-admin-layout input, .mac-admin-layout textarea, .mac-admin-layout button, .mac-admin-layout [role="combobox"] { color-scheme: dark; }
   .mac-shell-intro { min-height: 0; }
   .mac-window { background: hsl(220 22% 7% / .98); }
