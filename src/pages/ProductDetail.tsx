@@ -19,6 +19,7 @@ import ShareMenu from '@/components/ShareMenu';
 import ProductReviews from '@/components/ProductReviews';
 import { Badge } from '@/components/ui/badge';
 import MobileStickyAddToCart from '@/components/mobile/MobileStickyAddToCart';
+import { productCommandBarClassName } from './productDetailLayout';
 
 
 
@@ -447,7 +448,7 @@ export default function ProductDetail() {
       </AnimatePresence>
 
       {/* ═══ Top Command Bar (sticky) ═══ */}
-      <div className="sticky top-16 z-30 border-b border-white/[0.05] bg-background/80 backdrop-blur-xl">
+      <div data-product-command-bar className={productCommandBarClassName}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0 text-[12px] text-muted-foreground">
             <Link to="/" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors shrink-0">
