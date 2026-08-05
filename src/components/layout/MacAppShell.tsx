@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Globe, Home, MessageCircle, ShoppingBag, ShoppingCart, UserRound } from 'lucide-react';
+import ScrollToTopButton from './ScrollToTopButton';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useCart } from '@/contexts/CartContext';
 import { useOptionalAuth } from '@/contexts/AuthContext';
@@ -11,6 +12,7 @@ import { MacShellProvider, type MacShellVariant } from './MacShellContext';
 type MacAppShellProps = { children: ReactNode; variant?: MacShellVariant };
 
 export default function MacAppShell({ children, variant = 'store' }: MacAppShellProps) {
+  const contentScrollRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
   const { itemCount } = useCart();
   const auth = useOptionalAuth();
@@ -35,7 +37,7 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
         <nav><Link to="/profile" className={`mac-nav-item ${location.pathname === '/profile' ? 'is-active' : ''}`}><UserRound className="h-4 w-4" /><span>{es ? 'Cuenta' : 'Account'}</span></Link></nav>
         <div className="mt-auto rounded-xl border border-primary/20 bg-primary/[0.07] p-3"><p className="text-xs font-semibold">{es ? 'Nuevos productos cada día' : 'New products every day'}</p><p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{es ? 'Lo publicado es lo disponible.' : 'What is published is what is available.'}</p></div>
       </aside>}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="mac-titlebar flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.07] px-4 sm:px-5" aria-label={isAdmin ? 'APERFY Admin Console' : 'APERFY'}>
           <div className="mac-traffic-lights hidden items-center gap-2 sm:flex" aria-hidden="true"><span className="mac-light bg-[#ff5f57]" /><span className="mac-light bg-[#febc2e]" /><span className="mac-light bg-[#28c840]" /></div>
           <Link to="/" className="flex items-center gap-2 md:hidden"><img src="/logo.png" alt="APERFY" className="h-7 w-7 rounded-lg object-contain" /><span className="aperfy-wordmark text-sm"><span>APER</span><span>FY</span></span></Link>
@@ -47,7 +49,8 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
           </div>}
           {isAdmin && <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary))]" />{es ? 'En vivo' : 'Live'}</div>}
         </header>
-        <div data-testid="mac-content-scroll" className="mac-content-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">{children}</div>
+        <div ref={contentScrollRef} data-testid="mac-content-scroll" className="mac-content-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">{children}</div>
+        <ScrollToTopButton targetRef={contentScrollRef} />
       </div>
     </div></MacWindowIntro>
   </div></MacShellProvider>;
