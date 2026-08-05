@@ -25,7 +25,7 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
     { to: '/cart', label: es ? 'Carrito' : 'Cart', icon: ShoppingBag, count: itemCount },
   ];
 
-  return <MacShellProvider variant={variant}><div className="mac-workspace relative h-[100dvh] overflow-hidden px-0 py-0 text-foreground sm:px-4 sm:py-4 lg:px-8 lg:py-8"><PointerGlow />
+  return <MacShellProvider variant={variant}><div data-testid="mac-app-shell" data-aperfy-shell="macos" data-shell-variant={variant} className="mac-workspace relative h-[100dvh] overflow-hidden px-0 py-0 text-foreground sm:px-4 sm:py-4 lg:px-8 lg:py-8"><PointerGlow />
     <MacWindowIntro><div className="mac-window mx-auto flex h-full min-h-0 max-w-[1480px] overflow-hidden sm:rounded-[1.25rem] sm:border sm:border-white/[0.08] sm:shadow-[0_32px_100px_hsl(220_35%_2%/.7)]">
       {!isAdmin && <aside className="mac-sidebar hidden min-h-0 w-[220px] shrink-0 flex-col overflow-y-auto border-r border-white/[0.07] px-3 py-4 md:flex" aria-label={es ? 'Navegación de tienda' : 'Store navigation'}>
         <Link to="/" className="mb-8 flex items-center gap-2.5 px-3" aria-label="APERFY home"><img src="/logo.png" alt="APERFY" className="h-8 w-8 rounded-lg object-contain" /><span className="aperfy-wordmark text-sm"><span>APER</span><span>FY</span></span></Link>
@@ -47,7 +47,7 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
           </div>}
           {isAdmin && <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary))]" />{es ? 'En vivo' : 'Live'}</div>}
         </header>
-        <div className="mac-content-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">{children}</div>
+        <div data-testid="mac-content-scroll" className="mac-content-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div></MacWindowIntro>
   </div></MacShellProvider>;
