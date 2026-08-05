@@ -12,5 +12,5 @@ export default function PointerGlow() {
     window.addEventListener('pointermove', onMove, { passive: true });
     return () => window.removeEventListener('pointermove', onMove);
   }, []);
-  return <div ref={ref} className="pointer-glow" aria-hidden="true" />;
+  return <div ref={ref} className="pointer-glow" data-motion-layer="pointer-glow" aria-hidden="true" />;
 }

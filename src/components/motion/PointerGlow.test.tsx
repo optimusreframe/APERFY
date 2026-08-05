@@ -5,5 +5,6 @@ describe('PointerGlow', () => {
   it('renders as decorative content', () => {
     const { container } = render(<PointerGlow />);
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
+    expect(container.firstElementChild).toHaveAttribute('data-motion-layer', 'pointer-glow');
   });
 });
