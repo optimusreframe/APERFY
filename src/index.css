@@ -76,6 +76,9 @@
     position: absolute; inset: 0 auto auto 0; height: 100%;
   }
   .mac-admin-layout input, .mac-admin-layout textarea, .mac-admin-layout button, .mac-admin-layout [role="combobox"] { color-scheme: dark; }
+  [data-aperfy-surface="dialog"] { animation-duration: .22s; box-shadow: 0 28px 90px hsl(220 35% 2% / .7), inset 0 1px hsl(0 0% 100% / .06); }
+  [data-aperfy-surface="dialog"]:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
+  .mac-workspace button:focus-visible, .mac-workspace a:focus-visible, .mac-workspace input:focus-visible, .mac-workspace textarea:focus-visible, .mac-workspace [role="combobox"]:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
   .mac-shell-intro { min-height: 0; }
   .mac-window { background: linear-gradient(145deg, hsl(220 25% 13% / .98), hsl(220 22% 7% / .98) 48%, hsl(220 28% 5% / .98)); box-shadow: 0 32px 100px hsl(220 35% 2% / .7), inset 0 1px hsl(0 0% 100% / .06); }
   .mac-titlebar, .mac-sidebar { background: linear-gradient(180deg, hsl(220 24% 12% / .94), hsl(220 24% 9% / .9)); backdrop-filter: blur(28px) saturate(1.35); }
