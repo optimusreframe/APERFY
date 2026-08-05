@@ -833,7 +833,7 @@ export default function ProductDetail() {
                 { k: 'Category', v: product.categories ? (language === 'es' ? product.categories.name_es : product.categories.name_en) : '—' },
                 { k: 'Weight', v: selectedWeight ? `${selectedWeight}${t.product.grams}` : '—' },
                 { k: 'Dimensions', v: selectedDimensions ? `${selectedDimensions}mm` : '—' },
-                { k: 'Materials', v: productMaterialsList.length > 0 ? productMaterialsList.map((pm: any) => language === 'es' ? pm.materials.name_es : pm.materials.name_en).join(' · ') : '—' },
+                { k: 'Variants', v: productMaterialsList.length > 0 ? productMaterialsList.map((pm: any) => language === 'es' ? pm.materials.name_es : pm.materials.name_en).join(' · ') : '—' },
                 { k: 'Variations', v: variations.length > 0 ? `${variations.length} ${language === 'es' ? 'opciones' : 'options'}` : '—' },
                 { k: 'SKU', v: `PRD-${product.id.slice(0, 8).toUpperCase()}` },
               ].map((row, i) => (
