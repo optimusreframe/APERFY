@@ -26,6 +26,7 @@ import MarginCalculator from '@/components/admin/MarginCalculator';
 import { suggestRetailPrice } from '@/lib/product-intelligence';
 import { getNextWizardStep, getPreviousWizardStep, getWizardStepError } from './productWizard';
 import { toggleAllBulkSelection, toggleBulkSelection } from './productBulkSelection';
+import { partitionProductDeletion } from './productDeletion';
 
 // ── Types ──
 interface ProductForm {
@@ -547,20 +548,33 @@ export default function AdminProducts() {
     },
   });
 
-  const del = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('products').delete().eq('id', id);
+  const safelyDeleteProducts = async (productIds: string[]) => {
+    const { data: orderItems, error: orderItemsError } = await supabase.from('order_items').select('product_id').in('product_id', productIds);
+    if (orderItemsError) throw orderItemsError;
+    const referencedProductIds = Array.from(new Set((orderItems || []).map((item: any) => item.product_id)));
+    const { deleteIds, archiveIds } = partitionProductDeletion(productIds, referencedProductIds);
+    if (deleteIds.length > 0) {
+      const { error } = await supabase.from('products').delete().in('id', deleteIds);
       if (error) throw error;
-    },
-    onSuccess: (_data, deletedId) => {
+    }
+    if (archiveIds.length > 0) {
+      const { error } = await supabase.from('products').update({ is_active: false, is_featured: false }).in('id', archiveIds);
+      if (error) throw error;
+    }
+    return { deleteIds, archiveIds };
+  };
+
+  const del = useMutation({
+    mutationFn: (id: string) => safelyDeleteProducts([id]),
+    onSuccess: ({ archiveIds }, deletedId) => {
       qc.invalidateQueries({ queryKey: ['admin-products'] });
       qc.invalidateQueries({ queryKey: ['admin-product-count'] });
       logActivity({
-        action: 'product_deleted',
+        action: archiveIds.length > 0 ? 'product_archived' : 'product_deleted',
         category: 'edit',
         entity_type: 'product',
         entity_id: deletedId,
-        title: 'Producto eliminado',
+        title: archiveIds.length > 0 ? 'Producto archivado por historial de pedidos' : 'Producto eliminado',
       });
       toast({ title: '✓', description: 'Producto eliminado.' });
     },
@@ -870,17 +884,16 @@ export default function AdminProducts() {
     if (selectedProductIds.length === 0) return;
     setBulkDeleting(true);
     try {
-      const { error } = await supabase.from('products').delete().in('id', selectedProductIds);
-      if (error) throw error;
       const deletedCount = selectedProductIds.length;
+      const { deleteIds, archiveIds } = await safelyDeleteProducts(selectedProductIds);
       qc.invalidateQueries({ queryKey: ['admin-products'] });
       qc.invalidateQueries({ queryKey: ['admin-product-count'] });
       logActivity({
         action: 'products_bulk_deleted',
         category: 'edit',
         entity_type: 'product',
-        title: `${deletedCount} productos eliminados`,
-        metadata: { product_ids: selectedProductIds },
+        title: `${deleteIds.length} productos eliminados, ${archiveIds.length} archivados`,
+        metadata: { product_ids: selectedProductIds, deleted_ids: deleteIds, archived_ids: archiveIds },
       });
       setSelectedProductIds([]);
       setBulkDeleteOpen(false);
