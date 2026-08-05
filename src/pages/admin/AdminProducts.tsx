@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AdminPageHeader } from './_shared';
 import MarginCalculator from '@/components/admin/MarginCalculator';
 import { suggestRetailPrice } from '@/lib/product-intelligence';
+import { getNextWizardStep, getPreviousWizardStep, getWizardStepError } from './productWizard';
 
 // ── Types ──
 interface ProductForm {
@@ -1783,6 +1784,16 @@ export default function AdminProducts() {
                 ];
                 const liveTitle = (form.name_es || form.name_en || (editId ? 'Editar producto' : 'Nuevo producto'));
                 const stepProgress = ((wizardStep + 1) / WIZARD_STEPS.length) * 100;
+                const stepError = getWizardStepError(wizardStep, form);
+                const completed = (step: number) => step < wizardStep && !getWizardStepError(step, form);
+                const goNext = () => {
+                  if (stepError) {
+                    setFieldErrors({ wizard: stepError });
+                    return;
+                  }
+                  setFieldErrors({});
+                  setWizardStep(getNextWizardStep(wizardStep));
+                };
                 return (
               <form onSubmit={(e) => { e.preventDefault(); save.mutate(form); }} className="flex flex-col flex-1 min-h-0">
                 {/* Sticky header */}
@@ -1809,12 +1820,12 @@ export default function AdminProducts() {
                     {WIZARD_STEPS.map((s) => {
                       const Icon = s.icon;
                       const active = wizardStep === s.id;
-                      const done = wizardStep > s.id;
+                      const done = completed(s.id);
                       return (
                         <button
                           key={s.id}
                           type="button"
-                          onClick={() => setWizardStep(s.id)}
+                          onClick={() => (s.id <= wizardStep || completed(s.id)) && setWizardStep(s.id)}
                           className={`group flex items-start gap-3 px-3 py-3 rounded-xl text-left transition-all mb-1 ${
                             active ? 'bg-primary/10 border border-primary/30' : 'hover:bg-background/60 border border-transparent'
                           }`}
@@ -1848,7 +1859,7 @@ export default function AdminProducts() {
                   {/* Mobile step pills */}
                   <div className="md:hidden absolute top-[88px] left-0 right-0 flex gap-1 overflow-x-auto px-3 pb-2 bg-card/95 backdrop-blur z-10 border-b border-border">
                     {WIZARD_STEPS.map(s => (
-                      <button key={s.id} type="button" onClick={() => setWizardStep(s.id)}
+                      <button key={s.id} type="button" onClick={() => (s.id <= wizardStep || completed(s.id)) && setWizardStep(s.id)}
                         className={`px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap shrink-0 ${
                           wizardStep === s.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
                         }`}>
@@ -1858,7 +1869,7 @@ export default function AdminProducts() {
                   </div>
 
                   {/* Content */}
-                  <div className="flex-1 overflow-y-auto p-6 md:p-8">
+                  <div className="flex-1 min-h-0 overflow-y-auto p-6 md:p-8">
                     <div className="max-w-3xl mx-auto space-y-6">
 
                 {wizardStep <= 2 && (
@@ -1883,8 +1894,11 @@ export default function AdminProducts() {
                 <div className="space-y-3">
                   <div>
                     <h3 className="text-2xl font-semibold tracking-tight">{['Media del producto','Identidad','Precio y categoría','Variaciones','Revisar y publicar'][wizardStep]}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">Todos los campos visibles. Usa la barra lateral para navegar.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Completa este paso y continúa cuando estés listo.</p>
                   </div>
+                  {fieldErrors.wizard && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{fieldErrors.wizard}</p>}
+                </div>
+                {wizardStep === 0 && <div className="space-y-3">
                   <div>
                     <h3 className="text-2xl font-semibold tracking-tight">Media del producto</h3>
                     <p className="text-sm text-muted-foreground mt-1">Sube hasta {MAX_MEDIA} imágenes o videos. La primera es la portada.</p>
@@ -2038,7 +2052,8 @@ export default function AdminProducts() {
                   <p className="text-xs text-muted-foreground">JPG, PNG, WebP, GIF, MP4, WebM · Imágenes max 5MB · Videos max 20MB · Arrastra para reordenar</p>
                 </div>
 
-                {/* ── PRODUCT FIELDS ── */}
+                }
+                {wizardStep === 1 && <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Nombre (ES)</Label>
@@ -2066,12 +2081,16 @@ export default function AdminProducts() {
                     <Textarea value={form.description_en} onChange={(e) => setForm({ ...form, description_en: e.target.value })} className="bg-secondary" rows={3} maxLength={2000} />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label>Slug</Label>
                     <Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} className="bg-secondary" maxLength={255} required />
                     {fieldErrors.slug && <p className="text-xs text-destructive">{fieldErrors.slug}</p>}
                   </div>
+                </div>
+                </>}
+                {wizardStep === 2 && <>
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Precio Base ($)</Label>
                     <Input type="number" step="0.01" min="0" max="999999" value={form.base_price} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} className="bg-secondary" required />
@@ -2098,6 +2117,8 @@ export default function AdminProducts() {
                 </div>
 
                 {/* ── VARIATIONS (Size/Weight) ── */}
+                </>}
+                {wizardStep === 3 && <>
                 <div className="space-y-3 border-t border-border pt-4">
                   <div className="flex items-center justify-between">
                     <Label className="flex items-center gap-2 font-semibold">
@@ -2442,12 +2463,27 @@ export default function AdminProducts() {
                   })}
                 </div>
 
+                </>}
+                {wizardStep === 4 && <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 space-y-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-primary">Último paso</p>
+                    <h4 className="text-xl font-semibold mt-1">Revisa y publica</h4>
+                    <p className="text-sm text-muted-foreground mt-1">Confirma que la ficha está lista antes de guardarla.</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 text-sm">
+                    <div className="rounded-lg bg-background/60 p-3"><span className="text-muted-foreground">Nombre</span><p className="font-medium truncate">{form.name_es || 'Sin nombre'}</p></div>
+                    <div className="rounded-lg bg-background/60 p-3"><span className="text-muted-foreground">Precio base</span><p className="font-medium">${Number(form.base_price || 0).toFixed(2)}</p></div>
+                    <div className="rounded-lg bg-background/60 p-3"><span className="text-muted-foreground">Media</span><p className="font-medium">{mediaFiles.length} archivo(s)</p></div>
+                    <div className="rounded-lg bg-background/60 p-3"><span className="text-muted-foreground">Variantes</span><p className="font-medium">{productVariations.filter(v => !v._deleted).length}</p></div>
+                  </div>
+                </div>}
+
                 <div className="flex items-center justify-between pt-6 border-t border-border/40 mt-6">
-                  <Button type="button" variant="ghost" onClick={() => setWizardStep(s => Math.max(0, s - 1))} disabled={wizardStep === 0}>
+                  <Button type="button" variant="ghost" onClick={() => setWizardStep(getPreviousWizardStep(wizardStep))} disabled={wizardStep === 0}>
                     ← Anterior
                   </Button>
                   {wizardStep < 4 ? (
-                    <Button type="button" onClick={() => setWizardStep(s => Math.min(4, s + 1))} className="bg-foreground text-background hover:bg-foreground/90">
+                    <Button type="button" onClick={goNext} className="bg-foreground text-background hover:bg-foreground/90">
                       Siguiente →
                     </Button>
                   ) : (
