@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useBulkImport } from '@/contexts/BulkImportContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler } from 'lucide-react';
+import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler, Check } from 'lucide-react';
 import { logActivity } from '@/lib/activity-log';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { productSchema, validateMediaFile, sanitizeFileName } from '@/lib/validation';
@@ -24,6 +25,7 @@ import { AdminPageHeader } from './_shared';
 import MarginCalculator from '@/components/admin/MarginCalculator';
 import { suggestRetailPrice } from '@/lib/product-intelligence';
 import { getNextWizardStep, getPreviousWizardStep, getWizardStepError } from './productWizard';
+import { toggleAllBulkSelection, toggleBulkSelection } from './productBulkSelection';
 
 // ── Types ──
 interface ProductForm {
@@ -254,6 +256,9 @@ export default function AdminProducts() {
   const [bulkEditMode, setBulkEditMode] = useState(false);
   const [bulkEdits, setBulkEdits] = useState<Record<string, { name_es?: string; base_price?: number; category_id?: string | null; is_active?: boolean }>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const bulkEditCount = Object.keys(bulkEdits).length;
 
@@ -322,6 +327,9 @@ export default function AdminProducts() {
     },
     staleTime: 30_000,
   });
+
+  const visibleProductIds = products.map((product: any) => product.id);
+  const allProductsSelected = visibleProductIds.length > 0 && visibleProductIds.every((id: string) => selectedProductIds.includes(id));
 
   const { data: categories = [] } = useQuery({
     queryKey: ['admin-categories'],
@@ -856,6 +864,32 @@ export default function AdminProducts() {
       return;
     }
     await triggerAiGenerateImage(sourceImage);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProductIds.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      const { error } = await supabase.from('products').delete().in('id', selectedProductIds);
+      if (error) throw error;
+      const deletedCount = selectedProductIds.length;
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      qc.invalidateQueries({ queryKey: ['admin-product-count'] });
+      logActivity({
+        action: 'products_bulk_deleted',
+        category: 'edit',
+        entity_type: 'product',
+        title: `${deletedCount} productos eliminados`,
+        metadata: { product_ids: selectedProductIds },
+      });
+      setSelectedProductIds([]);
+      setBulkDeleteOpen(false);
+      toast({ title: '✓', description: `${deletedCount} producto(s) eliminado(s).` });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setBulkDeleting(false);
+    }
   };
 
   const handleAiPhotoAnalyze = async () => {
@@ -2505,6 +2539,35 @@ export default function AdminProducts() {
         }
       />
 
+      <AnimatePresence>
+        {selectedProductIds.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: -8, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }} exit={{ opacity: 0, y: -8, height: 0 }} className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/[0.08] px-4 py-3">
+            <div className="flex items-center gap-3 text-sm">
+              <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-destructive/15 px-2 font-semibold text-destructive">{selectedProductIds.length}</span>
+              <span>producto(s) seleccionado(s)</span>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedProductIds([])} className="h-8 text-muted-foreground hover:text-foreground">Limpiar selección</Button>
+            </div>
+            <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)} className="gap-1.5"><Trash2 className="h-4 w-4" /> Eliminar seleccionados</Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar productos seleccionados?</AlertDialogTitle>
+            <AlertDialogDescription>Vas a eliminar {selectedProductIds.length} producto(s). Esta acción no se puede deshacer y también retirará sus ofertas de la tienda.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(event) => { event.preventDefault(); void handleBulkDelete(); }} disabled={bulkDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {bulkDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              {bulkDeleting ? 'Eliminando...' : 'Eliminar productos'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Bulk Edit Toggle */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -2535,6 +2598,9 @@ export default function AdminProducts() {
         <Table>
           <TableHeader>
             <TableRow className="border-border">
+              <TableHead className="w-12">
+                <Checkbox checked={allProductsSelected} onCheckedChange={(checked) => setSelectedProductIds(toggleAllBulkSelection(selectedProductIds, visibleProductIds, checked === true))} aria-label={allProductsSelected ? 'Deseleccionar todos' : 'Seleccionar todos'} />
+              </TableHead>
               <TableHead>Producto</TableHead>
               <TableHead>Categoría</TableHead>
               <TableHead>Precio</TableHead>
@@ -2544,7 +2610,10 @@ export default function AdminProducts() {
           </TableHeader>
           <TableBody>
             {products.map((p: any) => (
-              <TableRow key={p.id} className={`border-border ${bulkEdits[p.id] ? 'bg-primary/5' : ''}`}>
+              <TableRow key={p.id} className={`border-border ${selectedProductIds.includes(p.id) ? 'bg-destructive/[0.05]' : bulkEdits[p.id] ? 'bg-primary/5' : ''}`}>
+                <TableCell className="w-12">
+                  <Checkbox checked={selectedProductIds.includes(p.id)} onCheckedChange={(checked) => setSelectedProductIds(toggleBulkSelection(selectedProductIds, p.id, checked === true))} aria-label={`Seleccionar ${p.name_es}`} />
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     {(p.images as string[])?.length > 0 ? (
@@ -2637,7 +2706,7 @@ export default function AdminProducts() {
               </TableRow>
             ))}
             {products.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No hay productos aún.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No hay productos aún.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
