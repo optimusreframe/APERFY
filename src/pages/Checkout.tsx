@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, ReactNode, InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { useState, useEffect, useMemo, useRef, ReactNode, InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Zap, Cog, Package } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
+import { buildIncomingOrderMessages } from '@/lib/incomingOrder';
 
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '14708469271';
 
@@ -302,6 +303,7 @@ export default function Checkout() {
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [paymentConfigs, setPaymentConfigs] = useState<Record<string, PaymentConfig>>({});
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const whatsappIdempotencyKeyRef = useRef<string | null>(null);
 
   const stepLabels = language === 'es' ? ['Envío', 'Pago', 'Confirmación'] : ['Shipping', 'Payment', 'Confirmation'];
   const currentStepNum = step === 'shipping' ? 0 : step === 'method' ? 1 : 2;
@@ -438,10 +440,15 @@ export default function Checkout() {
     const formResult = checkoutSchema.safeParse(form);
     if (!formResult.success) return null;
     const vf = formResult.data;
+    const idempotencyKey = paymentMethod === 'whatsapp'
+      ? (whatsappIdempotencyKeyRef.current ||= crypto.randomUUID())
+      : crypto.randomUUID();
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
         user_id: user.id, total: orderTotal, notes: vf.notes || null, payment_method: paymentMethod,
+        source: paymentMethod === 'whatsapp' ? 'whatsapp' : 'website',
+        idempotency_key: idempotencyKey,
         shipping_address: {
           full_name: vf.fullName, email: vf.email, phone: vf.phone,
           address: vf.address, address2: vf.address2 || '', city: vf.city,
@@ -452,6 +459,10 @@ export default function Checkout() {
         discount_amount: discountAmount,
       } as any)
       .select().single();
+    if (orderError?.code === '23505') {
+      const { data: existingOrder } = await supabase.from('orders').select('id').eq('idempotency_key', idempotencyKey).maybeSingle();
+      if (existingOrder?.id) return existingOrder.id;
+    }
     if (orderError) throw orderError;
     if (discount?.id) {
       // best-effort increment usage counter
@@ -487,6 +498,25 @@ export default function Checkout() {
     } catch (e) { console.error('Email send failed:', e); }
   };
 
+  const notifyTelegramOrder = async (orderId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('notify-telegram-order', { body: { orderId } });
+      if (error) throw error;
+      if (data?.ok === false) {
+        toast({
+          title: language === 'es' ? 'Pedido guardado' : 'Order saved',
+          description: language === 'es' ? 'Telegram no pudo recibir la alerta. Puedes continuar por WhatsApp.' : 'Telegram could not receive the alert. You can continue through WhatsApp.',
+        });
+      }
+    } catch (error) {
+      console.error('Telegram order notification failed:', error);
+      toast({
+        title: language === 'es' ? 'Pedido guardado' : 'Order saved',
+        description: language === 'es' ? 'La alerta de Telegram no esta disponible, pero tu pedido quedo registrado.' : 'Telegram alerts are unavailable, but your order was recorded.',
+      });
+    }
+  };
+
   const handleWhatsApp = async () => {
     setLoading(true);
     try {
@@ -494,24 +524,27 @@ export default function Checkout() {
       if (!orderId) { setLoading(false); return; }
       setCreatedOrderId(orderId);
       await sendOrderEmail(orderId, 'WhatsApp');
-      const orderCode = orderId.slice(0, 8).toUpperCase();
-      const origin = window.location.origin;
-      const itemLines = items.map(item => {
-        const varInfo = item.selectedVariations.map(v => v.name).filter(Boolean).join(', ');
-        const price = (item.unitPrice * item.quantity).toFixed(2);
-        return `• ${item.productName}${varInfo ? ` (${varInfo})` : ''} x${item.quantity} — $${price}\n  ${origin}/products/${item.slug}`;
-      }).join('\n');
-      const shippingLine = selectedProvider ? `\n📦 ${language === 'es' ? 'Envío' : 'Shipping'}: ${selectedProvider.name} — $${shippingCost.toFixed(2)}` : '';
-      const message = [
-        `🛒 *Order #${orderCode}*`, '', itemLines, shippingLine, '', `*Total: $${orderTotal.toFixed(2)}*`, '',
-        `📍 ${form.fullName}`, `${form.phone} | ${form.email}`,
-        `${form.address}${form.address2 ? ', ' + form.address2 : ''}`,
-        `${form.city}, ${form.state} ${form.zipCode}`, form.country,
-        form.notes ? `\n📝 ${form.notes}` : '',
-      ].filter(Boolean).join('\n');
+      await notifyTelegramOrder(orderId);
+      const { whatsappUrl } = buildIncomingOrderMessages({
+        orderCode: orderId.slice(0, 8).toUpperCase(),
+        customerName: form.fullName,
+        phone: form.phone,
+        email: form.email,
+        items: items.map(item => ({
+          name: item.productName,
+          quantity: item.quantity,
+          total: (item.unitPrice + item.selectedVariations.reduce((sum, variation) => sum + variation.priceModifier, 0)) * item.quantity,
+        })),
+        total: orderTotal,
+        language,
+        whatsappNumber: WHATSAPP_NUMBER,
+        shipping: selectedProvider ? `${selectedProvider.name} - $${shippingCost.toFixed(2)}` : undefined,
+        notes: form.notes,
+      });
       clearCart();
       setStep('whatsapp-sent');
-      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+      await supabase.from('orders').update({ whatsapp_opened_at: new Date().toISOString() }).eq('id', orderId);
+      window.open(whatsappUrl, '_blank');
     } catch (err: any) {
       toast({ title: t.checkout.error, description: err.message, variant: 'destructive' });
     } finally { setLoading(false); }

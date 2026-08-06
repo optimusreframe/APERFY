@@ -37,7 +37,7 @@ export default function AdminOrders() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, total, status, created_at, payment_method, shipping_address, user_id, profiles(full_name, phone)')
+        .select('id, total, status, created_at, payment_method, shipping_address, user_id, source, telegram_status, profiles(full_name, phone)')
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -277,6 +277,7 @@ export default function AdminOrders() {
                               <p><strong>Ship to:</strong> {(order.shipping_address as any).full_name}</p>
                               <p>{(order.shipping_address as any).address}, {(order.shipping_address as any).city}</p>
                               <p>Phone: {(order.shipping_address as any).phone}</p>
+                              <p>Source: {order.source || 'website'} · Telegram: {order.telegram_status || 'pending'}</p>
                             </div>
                           )}
                         </div>
