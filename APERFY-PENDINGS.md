@@ -34,6 +34,9 @@ Este archivo concentra las tareas de infraestructura y credenciales que quedan p
 
 - [ ] Confirmar `VITE_WHATSAPP_NUMBER` y probar el flujo completo de orden.
 - [ ] Configurar `TELEGRAM_BOT_TOKEN` y `TELEGRAM_ADMIN_CHAT_ID` si se usará Telegram.
+- [ ] Configurar `TELEGRAM_CHAT_ID` y `WHATSAPP_BUSINESS_NUMBER` como secretos de la Edge Function `notify-telegram-order`.
+- [ ] Desplegar `notify-telegram-order` y probar que el pedido llegue a Telegram antes de abrir WhatsApp.
+- [ ] Verificar estados `pending`, `sending`, `sent` y `failed` en el panel de admin.
 - [ ] Confirmar `ORDER_RESERVATION_MINUTES`.
 - [ ] Configurar proveedor de email transaccional y verificar plantillas.
 
