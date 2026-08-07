@@ -6,7 +6,7 @@
 - **Repositorio:** `https://github.com/optimusreframe/APERFY.git`.
 - **Rama auditada:** `feat/aperfy-rebrand`.
 - **Commit actual:** `063ea38` (`feat: persist incoming orders and notify telegram`).
-- **Sincronización de la rama auditada:** sincronizada con `origin/feat/aperfy-rebrand` (0 commits adelante y 0 atrás después de la auditoría; la exclusión de `.env` queda pendiente de commit en este momento).
+- **Sincronización de la rama auditada:** sincronizada con `origin/feat/aperfy-rebrand` (0 commits adelante y 0 atrás después de la auditoría).
 - **Estado de `main`:** la rama local `main` tiene configurado por error `upstream-3dtoprint/main` como upstream. `origin/main` existe y no coincide con la rama auditada; no se modificó `main` durante esta auditoría.
 - **Remoto adicional:** `upstream-3dtoprint` apunta a `https://github.com/optimusreframe/a3dtoprint.git`.
 
