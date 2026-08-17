@@ -93,10 +93,10 @@ export default function Auth() {
         resetRateLimit('auth-signup');
         toast({ title: '✓', description: 'Check your email to confirm your account.' });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       const genericMsg = isLogin
         ? (t.auth.invalidCredentials || 'Invalid email or password')
-        : (error.message || 'An error occurred');
+        : (error instanceof Error ? error.message : 'An error occurred');
       toast({ title: 'Error', description: genericMsg, variant: 'destructive' });
     } finally {
       setLoading(false);

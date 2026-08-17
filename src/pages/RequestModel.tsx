@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import { sanitizeText } from '@/lib/sanitize';
 import { validateFileUpload } from '@/lib/validation';
+import type { LucideIcon } from 'lucide-react';
 
 const requestSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -24,7 +25,7 @@ const requestSchema = z.object({
 // ─── Apple-style floating-label field ───
 function Field({
   id, name, label, value, onChange, error, type = 'text', icon: Icon, placeholder,
-}: any) {
+}: { id: string; name: string; label: string; value: string; onChange: (event: React.ChangeEvent<HTMLInputElement>) => void; error?: string; type?: string; icon?: LucideIcon; placeholder?: string }) {
   const [focused, setFocused] = useState(false);
   const filled = value && value.length > 0;
   const lifted = focused || filled;

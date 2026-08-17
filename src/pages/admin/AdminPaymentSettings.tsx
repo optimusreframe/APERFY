@@ -74,12 +74,12 @@ export default function AdminPaymentSettings() {
       qc.invalidateQueries({ queryKey: ['admin-payment-settings'] });
       toast({ title: '✓', description: 'Métodos de pago actualizados.' });
     },
-    onError: (e: any) => {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to save payment settings', variant: 'destructive' });
     },
   });
 
-  const updateConfig = (key: string, field: keyof PaymentConfig, value: any) => {
+  const updateConfig = (key: string, field: keyof PaymentConfig, value: PaymentConfig[keyof PaymentConfig]) => {
     setConfigs(prev => ({
       ...prev,
       [key]: { ...prev[key], [field]: value },

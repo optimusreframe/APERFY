@@ -15,8 +15,6 @@ const host = window.location.hostname;
 const isPreviewHost =
   host.includes("id-preview--") ||
   host.includes("preview--") ||
-  host.endsWith(".lovableproject.com") ||
-  host.endsWith(".lovableproject-dev.com") ||
   host === "localhost" ||
   host === "127.0.0.1";
 

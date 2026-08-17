@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { Category } from '@/lib/model-types';
 
 interface CategoryPillsProps {
   selected: string | null;
@@ -54,7 +55,7 @@ export default function CategoryPills({ selected, onSelect }: CategoryPillsProps
         )}
         <span className="relative z-10">{t.store.allCategories}</span>
       </button>
-      {categories.map((cat: any) => (
+      {categories.map((cat: Category) => (
         <button
           key={cat.id}
           onClick={() => onSelect(cat.id)}

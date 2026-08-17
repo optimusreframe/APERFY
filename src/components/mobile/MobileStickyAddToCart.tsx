@@ -42,7 +42,7 @@ export default function MobileStickyAddToCart({
       setTimeout(() => setShake(false), 400);
       return;
     }
-    try { (navigator as any).vibrate?.(10); } catch {}
+    try { navigator.vibrate?.(10); } catch (error: unknown) { console.debug('Haptic feedback unavailable', error); }
 
     const cartIcon = document.querySelector('[data-mobile-cart-icon]') as HTMLElement | null;
     const start = previewRef.current?.getBoundingClientRect();

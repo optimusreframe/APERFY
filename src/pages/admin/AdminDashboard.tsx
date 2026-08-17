@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Package, Tags, Layers, ClipboardList, DollarSign, TrendingUp, ArrowUpRight } from 'lucide-react';
+import { Package, Tags, Layers, ClipboardList, DollarSign, TrendingUp, ArrowUpRight, type LucideIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,7 +24,7 @@ function StatCard({
 }: {
   label: string;
   value: string | number;
-  icon: any;
+  icon: LucideIcon;
   meta?: string;
   accent?: boolean;
   loading?: boolean;
@@ -80,7 +80,7 @@ export default function AdminDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, total, status, created_at, profiles(full_name)')
+        .select('id, user_id, total, status, created_at')
         .order('created_at', { ascending: false })
         .limit(6);
       if (error) throw error;
@@ -97,11 +97,11 @@ export default function AdminDashboard() {
         .order('created_at', { ascending: false })
         .limit(1000);
       if (error) throw error;
-      const totalRevenue = data.reduce((s: number, o: any) => s + Number(o.total), 0);
+      const totalRevenue = data.reduce((sum, order) => sum + Number(order.total), 0);
       const totalOrders = data.length;
-      const pending = data.filter((o: any) => o.status === 'pending').length;
+      const pending = data.filter((order) => order.status === 'pending').length;
       const last7 = data.filter(
-        (o: any) => new Date(o.created_at).getTime() > Date.now() - 7 * 86400000,
+        (order) => new Date(order.created_at).getTime() > Date.now() - 7 * 86400000,
       ).length;
       return { totalRevenue, totalOrders, pending, last7 };
     },
@@ -180,14 +180,14 @@ export default function AdminDashboard() {
               ))
             : orders.length === 0
               ? <p className="px-4 py-8 text-sm text-muted-foreground text-center">{t.dashboard.noOrders}</p>
-              : orders.map((order: any) => (
+              : orders.map((order) => (
                   <div
                     key={order.id}
                     className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_120px_120px_120px] gap-3 px-4 py-3 hover:bg-primary/[0.03] transition-colors group/row"
                   >
                     <div className="min-w-0">
                       <div className="text-sm text-foreground truncate font-medium">
-                        {order.profiles?.full_name || t.dashboard.customer}
+                        {order.user_id ? `${t.dashboard.customer} · ${order.user_id.slice(0, 8)}` : t.dashboard.customer}
                       </div>
                       <div className="text-[10px] font-mono text-muted-foreground/60 truncate">
                         #{order.id.slice(0, 8)}

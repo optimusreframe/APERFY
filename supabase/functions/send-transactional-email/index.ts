@@ -2,18 +2,7 @@ import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
-
-// Configuration baked in at scaffold time — do NOT change these manually.
-// To update, re-run the email domain setup flow.
-const SITE_NAME = "aaperfy"
-// SENDER_DOMAIN is the verified sender subdomain FQDN (e.g., "notify.example.com").
-// It MUST match the subdomain delegated to Lovable's nameservers — never the root domain.
-// The email API looks up this exact domain; a mismatch causes "No email domain record found".
-const SENDER_DOMAIN = "info.aperfy.online"
-// FROM_DOMAIN is the domain shown in the From: header (e.g., "example.com").
-// When display_from_root is enabled, this can be the root domain for cleaner branding,
-// even though actual sending uses the subdomain above.
-const FROM_DOMAIN = "aperfy.online"
+import { getIntegrationSecret } from '../_shared/integration-secrets.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,7 +48,7 @@ Deno.serve(async (req) => {
   let recipientEmail: string
   let idempotencyKey: string
   let messageId: string
-  let templateData: Record<string, any> = {}
+  let templateData: Record<string, unknown> = {}
   try {
     const body = await req.json()
     templateName = body.templateName || body.template_name
@@ -124,6 +113,14 @@ Deno.serve(async (req) => {
 
   // Create Supabase client with service role (bypasses RLS)
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const fromEmail = await getIntegrationSecret(supabase, 'RESEND_FROM_EMAIL')
+  const fromName = await getIntegrationSecret(supabase, 'RESEND_FROM_NAME') || 'APERFY'
+  if (!fromEmail) {
+    return new Response(JSON.stringify({ error: 'RESEND_FROM_EMAIL is not configured in Admin → Integrations' }), {
+      status: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
 
   // 2. Check suppression list (fail-closed: if we can't verify, don't send)
   const { data: suppressed, error: suppressionError } = await supabase
@@ -284,10 +281,10 @@ Deno.serve(async (req) => {
 
   // 4. Render React Email template to HTML and plain text
   const html = await renderAsync(
-    React.createElement(template.component, templateData)
+        React.createElement(template.component, templateData as never)
   )
   const plainText = await renderAsync(
-    React.createElement(template.component, templateData),
+    React.createElement(template.component, templateData as never),
     { plainText: true }
   )
 
@@ -313,8 +310,7 @@ Deno.serve(async (req) => {
     payload: {
       message_id: messageId,
       to: effectiveRecipient,
-      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-      sender_domain: SENDER_DOMAIN,
+      from: `${fromName} <${fromEmail}>`,
       subject: resolvedSubject,
       html,
       text: plainText,

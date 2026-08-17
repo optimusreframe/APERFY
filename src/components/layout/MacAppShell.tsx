@@ -13,7 +13,7 @@ type MacAppShellProps = { children: ReactNode; variant?: MacShellVariant };
 
 export default function MacAppShell({ children, variant = 'store' }: MacAppShellProps) {
   const contentScrollRef = useRef<HTMLDivElement>(null);
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const { itemCount } = useCart();
   const auth = useOptionalAuth();
   const user = auth?.user;

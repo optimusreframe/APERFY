@@ -1,5 +1,7 @@
 import "https://deno.land/std@0.168.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { aiChatCompletionsUrl, aiHeaders, loadAiConfig } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +32,18 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
+    if (!supabaseUrl || !serviceRoleKey || !token) {
+      return new Response(JSON.stringify({ error: "Authentication required" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const { data: userData } = await adminClient.auth.getUser(token);
+    if (!userData.user) return new Response(JSON.stringify({ error: "Authentication required" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const { data: role } = await adminClient.from("user_roles").select("role").eq("user_id", userData.user.id).eq("role", "admin").maybeSingle();
+    if (!role) return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
     // Request size limit (50KB)
     const contentLength = req.headers.get('content-length');
     if (contentLength && parseInt(contentLength) > 50000) {
@@ -67,8 +81,8 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const aiConfig = await loadAiConfig(adminClient);
+    if (!aiConfig) throw new Error("AI provider is not configured");
 
     const sanitizedUrl = url ? sanitizeForPrompt(String(url)) : "Not provided";
     const sanitizedDesc = description ? sanitizeForPrompt(String(description)) : "Not provided";
@@ -80,14 +94,11 @@ Additional description: ${sanitizedDesc}
 
 Extract or generate the following fields based on the reference. Be creative and write compelling product descriptions suitable for a curated shopping store.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(aiChatCompletionsUrl(aiConfig), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: aiHeaders(aiConfig),
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: aiConfig.model,
         messages: [
           { role: "system", content: "You are a product data assistant. Return structured data only." },
           { role: "user", content: prompt },

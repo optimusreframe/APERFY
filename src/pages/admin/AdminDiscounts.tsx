@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Tag, Pencil } from 'lucide-react';
 import { AdminPageHeader, AdminSurface } from './_shared';
+import type { Database } from '@/integrations/supabase/types';
 
 interface Discount {
   id: string;
@@ -73,7 +74,7 @@ export default function AdminDiscounts() {
 
   const handleSave = async () => {
     if (!form.code.trim()) { toast({ title: 'Código requerido', variant: 'destructive' }); return; }
-    const payload: any = {
+    const payload: Database['public']['Tables']['discount_codes']['Insert'] = {
       code: form.code.trim().toUpperCase(),
       discount_type: form.discount_type,
       discount_value: Number(form.discount_value) || 0,

@@ -5,7 +5,8 @@ import {
 import type { TemplateEntry } from './registry.ts'
 
 const SITE_NAME = 'APERFY'
-const LOGO_URL = 'https://fyqcbkfzyjgddmqupdfr.supabase.co/storage/v1/object/public/email-assets/logo.png'
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const LOGO_URL = `${SUPABASE_URL}/storage/v1/object/public/email-assets/logo.png`
 
 interface Props {
   customerName?: string
@@ -66,7 +67,7 @@ const OrderConfirmationEmail = ({
 
 export const template = {
   component: OrderConfirmationEmail,
-  subject: (data: Record<string, any>) => `Order Confirmed — #${(data.orderId || '').slice(0, 8).toUpperCase()}`,
+  subject: (data: Record<string, unknown>) => `Order Confirmed — #${String(data.orderId || '').slice(0, 8).toUpperCase()}`,
   displayName: 'Order Confirmation',
   previewData: { customerName: 'John', orderId: 'abc12345-xxxx', total: '49.99', paymentMethod: 'Zelle', itemsSummary: 'Dragon Figurine x1, Phone Stand x2', shippingAddress: '123 Main St, Miami, FL 33101' },
 } satisfies TemplateEntry

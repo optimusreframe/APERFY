@@ -9,8 +9,10 @@ import ProductCard from '@/components/ProductCard';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { getHomepageCopy } from './homepage-copy';
 export { getHomepageCopy } from './homepage-copy';
+import type { Product } from '@/lib/model-types';
+import type { ProductCardProduct } from '@/components/ProductCard';
 
-type Product = { id: string; name_en: string; name_es: string; description_en?: string | null; description_es?: string | null; base_price?: number | string | null; categories?: { name_en?: string; name_es?: string; slug?: string } | null; [key: string]: unknown };
+type ProductWithCategory = ProductCardProduct & { categories?: ProductCardProduct['categories'] & { slug?: string } };
 const reveal = { initial: { opacity: 0, y: 18 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '-10% 0px' }, transition: { duration: .4, ease: [0.2, 0, 0, 1] } } as const;
 
 export default function Index() {
@@ -24,11 +26,14 @@ export default function Index() {
     queryFn: async () => {
       const { data, error } = await supabase.from('products').select('*, categories(id, name_en, name_es, slug)').eq('is_active', true).order('created_at', { ascending: false }).limit(48);
       if (error) throw error;
-      return (data ?? []) as Product[];
+      return (data ?? []) as ProductWithCategory[];
     },
   });
   const es = language === 'es';
-  const categories = useMemo(() => Array.from(new Map(products.map(product => { const label = es ? product.categories?.name_es : product.categories?.name_en; return [product.categories?.slug || label || '', label || '']; }).filter(([value, label]) => value && label)).entries()), [products, es]);
+  const categories = useMemo(() => Array.from(new Map<string, string>(products.map(product => {
+    const label = es ? product.categories?.name_es : product.categories?.name_en;
+    return [product.categories?.slug || label || '', label || ''] as [string, string];
+  }).filter(([value, label]) => Boolean(value && label))).entries()), [products, es]);
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
     return products.filter(product => {

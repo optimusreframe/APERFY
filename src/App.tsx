@@ -29,6 +29,7 @@ import AdminProducts from "./pages/admin/AdminProducts";
 import AdminCategories from "./pages/admin/AdminCategories";
 import AdminMaterials from "./pages/admin/AdminMaterials";
 import AdminAISettings from "./pages/admin/AdminAISettings";
+import AdminIntegrations from "./pages/admin/AdminIntegrations";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminRequests from "./pages/admin/AdminRequests";
 import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
@@ -87,6 +88,7 @@ const AppContent = () => {
             <Route path="logs" element={<AdminLogs />} />
           <Route path="background-qa" element={<AdminBackgroundQA />} />
           <Route path="ai-settings" element={<AdminAISettings />} />
+          <Route path="integrations" element={<AdminIntegrations />} />
           </Route>
           </Route>
           <Route element={<MacAppShell><Outlet /></MacAppShell>}>

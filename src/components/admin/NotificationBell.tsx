@@ -34,7 +34,7 @@ export default function NotificationBell() {
           setNotifs(prev => [payload.new as Notif, ...prev].slice(0, 30));
           // pulse audio (optional)
           try {
-            const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+            const AC = window.AudioContext;
             if (AC) {
               const ctx = new AC();
               const o = ctx.createOscillator(); const g = ctx.createGain();
@@ -43,7 +43,7 @@ export default function NotificationBell() {
               g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
               o.start(); o.stop(ctx.currentTime + 0.25);
             }
-          } catch {}
+          } catch (error: unknown) { console.debug('Notification sound unavailable', error); }
         }
       ).subscribe();
     return () => { mounted = false; supabase.removeChannel(channel); };

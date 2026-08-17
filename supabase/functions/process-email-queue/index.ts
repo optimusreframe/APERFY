@@ -1,11 +1,37 @@
-import { sendLovableEmail } from 'npm:@lovable.dev/email-js'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { getIntegrationSecret } from '../_shared/integration-secrets.ts'
 
 const MAX_RETRIES = 5
 const DEFAULT_BATCH_SIZE = 10
 const DEFAULT_SEND_DELAY_MS = 200
 const DEFAULT_AUTH_TTL_MINUTES = 15
 const DEFAULT_TRANSACTIONAL_TTL_MINUTES = 60
+
+class ResendError extends Error {
+  constructor(public status: number, message: string, public retryAfterSeconds?: number) {
+    super(message)
+  }
+}
+
+async function sendResendEmail(apiKey: string, payload: Record<string, unknown>) {
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: payload.from,
+      to: [payload.to],
+      subject: payload.subject,
+      html: payload.html,
+      text: payload.text,
+      headers: payload.unsubscribe_token ? { 'List-Unsubscribe': `<${Deno.env.get('VITE_SITE_URL') || 'https://aperfy.kpwr.dev'}/unsubscribe?token=${payload.unsubscribe_token}>` } : undefined,
+    }),
+  })
+
+  if (response.ok) return response.json()
+  const responseText = await response.text()
+  const retryAfter = Number(response.headers.get('retry-after') || 60)
+  throw new ResendError(response.status, `Resend ${response.status}: ${responseText.slice(0, 500)}`, retryAfter)
+}
 
 // Check if an error is a rate-limit (429) response.
 // Uses EmailAPIError.status when available (email-js >=0.x with structured errors),
@@ -79,11 +105,10 @@ async function moveToDlq(
 }
 
 Deno.serve(async (req) => {
-  const apiKey = Deno.env.get('LOVABLE_API_KEY')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-  if (!apiKey || !supabaseUrl || !supabaseServiceKey) {
+  if (!supabaseUrl || !supabaseServiceKey) {
     console.error('Missing required environment variables')
     return new Response(
       JSON.stringify({ error: 'Server configuration error' }),
@@ -91,20 +116,13 @@ Deno.serve(async (req) => {
     )
   }
 
+  const cronSecret = await getIntegrationSecret(createClient(supabaseUrl, supabaseServiceKey), 'EMAIL_QUEUE_CRON_SECRET')
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized' }),
-      { status: 401, headers: { 'Content-Type': 'application/json' } }
-    )
-  }
-
-  // Defense in depth: verify_jwt=true already requires a valid JWT at the
-  // gateway layer. This adds an explicit role check so only service-role
-  // callers can trigger queue processing.
-  const token = authHeader.slice('Bearer '.length).trim()
-  const claims = parseJwtClaims(token)
-  if (claims?.role !== 'service_role') {
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : ''
+  const claims = token ? parseJwtClaims(token) : null
+  const serviceRoleCall = claims?.role === 'service_role'
+  const cronCall = Boolean(cronSecret && req.headers.get('x-cron-secret') === cronSecret)
+  if (!serviceRoleCall && !cronCall) {
     return new Response(
       JSON.stringify({ error: 'Forbidden' }),
       { status: 403, headers: { 'Content-Type': 'application/json' } }
@@ -112,6 +130,13 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const resendApiKey = await getIntegrationSecret(supabase, 'RESEND_API_KEY')
+  if (!resendApiKey) {
+    return new Response(
+      JSON.stringify({ error: 'RESEND_API_KEY is not configured in Admin → Integrations' }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } },
+    )
+  }
 
   // 1. Check rate-limit cooldown and read queue config
   const { data: state } = await supabase
@@ -246,26 +271,7 @@ Deno.serve(async (req) => {
       }
 
       try {
-        await sendLovableEmail(
-          {
-            run_id: payload.run_id,
-            to: payload.to,
-            from: payload.from,
-            sender_domain: payload.sender_domain,
-            subject: payload.subject,
-            html: payload.html,
-            text: payload.text,
-            purpose: payload.purpose,
-            label: payload.label,
-            idempotency_key: payload.idempotency_key,
-            unsubscribe_token: payload.unsubscribe_token,
-            message_id: payload.message_id,
-          },
-          // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
-          // falls back to the default Lovable API endpoint (https://api.lovable.dev).
-          // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
-          { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
-        )
+        await sendResendEmail(resendApiKey, payload)
 
         // Log success
         await supabase.from('email_send_log').insert({
@@ -299,7 +305,7 @@ Deno.serve(async (req) => {
             message_id: payload.message_id,
             template_name: payload.label || queue,
             recipient_email: payload.to,
-            status: 'rate_limited',
+            status: 'failed',
             error_message: errorMsg.slice(0, 1000),
           })
 

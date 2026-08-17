@@ -9,9 +9,12 @@ import LikeButton from '@/components/LikeButton';
 import FavoriteCount from '@/components/FavoriteCount';
 import ShareMenu from '@/components/ShareMenu';
 import { Badge } from '@/components/ui/badge';
+import type { Category, Product } from '@/lib/model-types';
+
+export type ProductCardProduct = Product & { categories?: Pick<Category, 'name_en' | 'name_es'> | null };
 
 interface ProductCardProps {
-  product: any;
+  product: ProductCardProduct;
   index?: number;
   likeCount?: number;
   favCount?: number;
@@ -30,7 +33,7 @@ export default function ProductCard({
   showBadges = true,
 }: ProductCardProps) {
   const { language } = useLanguage();
-  const images = (product.images as string[]) || [];
+  const images = Array.isArray(product.images) ? product.images.filter((image): image is string => typeof image === 'string') : [];
   const name = language === 'es' ? product.name_es : product.name_en;
 
   // Check if product is new (less than 7 days old)

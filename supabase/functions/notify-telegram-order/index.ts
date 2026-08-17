@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { getIntegrationSecret } from '../_shared/integration-secrets.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,16 +12,37 @@ const json = (body: Record<string, unknown>, status = 200) =>
 
 const normalizePhone = (phone: string) => phone.replace(/\D/g, '')
 
-const itemLines = (items: any[]) => items.map((item) => {
+type Variation = { name?: unknown }
+type ProductReference = { name_es?: string | null; name_en?: string | null } | null
+type OrderItem = {
+  quantity: number
+  unit_price: number
+  selected_variations: unknown
+  products: ProductReference
+}
+type ShippingAddress = Record<string, unknown>
+type OrderData = {
+  id: string
+  total: number
+  shipping_address: unknown
+  notes: string | null
+  user_id: string
+  telegram_status: string | null
+}
+
+const itemLines = (items: OrderItem[]) => items.map((item) => {
   const variations = Array.isArray(item.selected_variations)
-    ? item.selected_variations.map((variation: any) => variation.name).filter(Boolean).join(', ')
+    ? item.selected_variations
+      .filter((variation): variation is Variation => Boolean(variation && typeof variation === 'object'))
+      .map((variation) => typeof variation.name === 'string' ? variation.name : '')
+      .filter(Boolean).join(', ')
     : ''
   const name = item.products?.name_es || item.products?.name_en || 'Producto'
   return `- ${item.quantity} x ${name}${variations ? ` (${variations})` : ''} - $${(Number(item.unit_price) * item.quantity).toFixed(2)}`
 })
 
-const whatsappMessage = (order: any, items: any[]) => {
-  const shipping = order.shipping_address || {}
+const whatsappMessage = (order: OrderData, items: OrderItem[]) => {
+  const shipping = order.shipping_address && typeof order.shipping_address === 'object' ? order.shipping_address as ShippingAddress : {}
   return [
     `Hola ${shipping.full_name || 'cliente'}, hemos recibido tu pedido:`, '',
     ...itemLines(items), '',
@@ -29,8 +51,8 @@ const whatsappMessage = (order: any, items: any[]) => {
   ].join('\n')
 }
 
-const telegramMessage = (order: any, items: any[]) => {
-  const shipping = order.shipping_address || {}
+const telegramMessage = (order: OrderData, items: OrderItem[]) => {
+  const shipping = order.shipping_address && typeof order.shipping_address === 'object' ? order.shipping_address as ShippingAddress : {}
   return [
     'NUEVO PEDIDO APERFY', '',
     `Orden: #${String(order.id).slice(0, 8).toUpperCase()}`,
@@ -52,12 +74,9 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
-  const telegramToken = Deno.env.get('TELEGRAM_BOT_TOKEN')
-  const telegramChatId = Deno.env.get('TELEGRAM_CHAT_ID')
-  const whatsappNumber = normalizePhone(Deno.env.get('WHATSAPP_BUSINESS_NUMBER') || '')
   const authorization = req.headers.get('Authorization')
 
-  if (!supabaseUrl || !serviceRoleKey || !anonKey || !telegramToken || !telegramChatId || !whatsappNumber) {
+  if (!supabaseUrl || !serviceRoleKey || !anonKey) {
     return json({ error: 'Server notification configuration is incomplete' }, 500)
   }
   if (!authorization) return json({ error: 'Authentication required' }, 401)
@@ -71,6 +90,11 @@ Deno.serve(async (req) => {
   if (userError || !userData.user) return json({ error: 'Authentication required' }, 401)
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey)
+  const telegramToken = await getIntegrationSecret(adminClient, 'TELEGRAM_BOT_TOKEN')
+  const telegramChatId = await getIntegrationSecret(adminClient, 'TELEGRAM_CHAT_ID')
+  const whatsappNumber = normalizePhone(await getIntegrationSecret(adminClient, 'WHATSAPP_BUSINESS_NUMBER') || '')
+  if (!telegramToken || !telegramChatId || !whatsappNumber) return json({ error: 'Server notification configuration is incomplete' }, 503)
+
   const { data: order, error: orderError } = await adminClient.from('orders').select('*').eq('id', orderId).maybeSingle()
   if (orderError) return json({ error: orderError.message }, 500)
   if (!order) return json({ error: 'Order not found' }, 404)
@@ -86,14 +110,16 @@ Deno.serve(async (req) => {
     .eq('order_id', orderId)
   if (itemsError) return json({ error: itemsError.message }, 500)
 
-  const waMessage = whatsappMessage(order, items || [])
+  const orderData = order as OrderData
+  const orderItems = (items || []) as OrderItem[]
+  const waMessage = whatsappMessage(orderData, orderItems)
   const waUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(waMessage)}`
   const telegramResponse = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: telegramChatId,
-      text: telegramMessage(order, items || []),
+      text: telegramMessage(orderData, orderItems),
       reply_markup: { inline_keyboard: [[{ text: 'Contactar por WhatsApp', url: waUrl }]] },
     }),
   })

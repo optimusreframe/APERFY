@@ -16,8 +16,9 @@ import {
   Text,
 } from 'npm:@react-email/components@0.0.22'
 
-const LOGO_URL = 'https://fyqcbkfzyjgddmqupdfr.supabase.co/storage/v1/object/public/email-assets/logo.png'
-const SITE_URL = 'https://aperfy.online'
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const LOGO_URL = `${SUPABASE_URL}/storage/v1/object/public/email-assets/logo.png`
+const SITE_URL = 'https://aperfy.kpwr.dev'
 
 interface EmailChangeEmailProps {
   siteName: string
@@ -40,7 +41,7 @@ export const EmailChangeEmail = ({
         <Section style={logoSection}>
           <Img src={LOGO_URL} width="56" height="56" alt="APERFY" style={logoImg} />
           <Heading style={brandName}>
-            3Dto<span style={brandGold}>Print</span>
+            APERFY
           </Heading>
         </Section>
 
@@ -86,7 +87,6 @@ const card = { maxWidth: '520px', margin: '40px auto', padding: '0', backgroundC
 const logoSection = { textAlign: 'center' as const, padding: '32px 24px 0' }
 const logoImg = { margin: '0 auto', borderRadius: '12px' }
 const brandName = { fontSize: '20px', fontWeight: 'bold' as const, color: '#ffffff', margin: '12px 0 0', letterSpacing: '-0.02em' }
-const brandGold = { color: gold }
 const h1 = { fontSize: '22px', fontWeight: 'bold' as const, color: '#ffffff', margin: '28px 32px 16px', lineHeight: '1.3' }
 const text = { fontSize: '15px', color: '#A0A0AB', lineHeight: '1.6', margin: '0 32px 16px' }
 const link = { color: gold, textDecoration: 'none' }

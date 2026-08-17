@@ -1,6 +1,8 @@
 import "https://deno.land/std@0.168.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { aiChatCompletionsUrl, aiHeaders, loadAiConfig } from "../_shared/ai-provider.ts";
+import { getIntegrationSecret } from "../_shared/integration-secrets.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,21 +29,22 @@ function extractPricesFromText(text: string): number[] {
   return prices;
 }
 
+type AiRuntime = { endpoint: string; headers: Record<string, string>; model: string };
+type ImagePart = { type: string; image_url?: { url?: string }; url?: string; text?: string };
+type ChatMessage = { role: "system" | "user" | "assistant"; content: string | ImagePart[] };
+
 // ── Phase 1: Generate optimized eBay search queries using AI ──
 async function generateEbayQueries(
   title: string,
   description: string,
-  LOVABLE_API_KEY: string
+  ai: AiRuntime
 ): Promise<string[]> {
   try {
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch(ai.endpoint, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: ai.headers,
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: ai.model,
         messages: [
           {
             role: "system",
@@ -134,10 +137,10 @@ async function searchEbayMulti(
         });
         const data = await resp.json();
         if (resp.ok && data.success && data.data) {
-          return data.data.map((r: any) => ({
-            title: r.title || r.metadata?.title || "",
-            markdown: r.markdown || r.description || "",
-            url: r.url || r.metadata?.sourceURL || "",
+          return data.data.map((r: Record<string, unknown>) => ({
+            title: String(r.title || (r.metadata as Record<string, unknown> | undefined)?.title || ""),
+            markdown: String(r.markdown || r.description || ""),
+            url: String(r.url || (r.metadata as Record<string, unknown> | undefined)?.sourceURL || ""),
           }));
         }
       } catch (e) {
@@ -177,7 +180,7 @@ async function validateAndAveragePrices(
   productTitle: string,
   productDescription: string,
   listings: EbayListing[],
-  LOVABLE_API_KEY: string
+  ai: AiRuntime
 ): Promise<ValidatedPrice> {
   if (listings.length === 0) {
     return { suggested_price: 0, price_confidence: "low", matched_listings_count: 0, price_source: "ai_estimate" };
@@ -189,14 +192,11 @@ async function validateAndAveragePrices(
       .map((l, i) => `${i + 1}. "${l.title}" — $${l.price.toFixed(2)}`)
       .join("\n");
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch(ai.endpoint, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: ai.headers,
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: ai.model,
         messages: [
           {
             role: "system",
@@ -311,7 +311,7 @@ serve(async (req) => {
     }
 
     // Admin-only: every action in this function mutates AI-generated content,
-    // burns LOVABLE_API_KEY / Firecrawl quota, or accepts a `customBackground`
+    // consumes the configured AI / Firecrawl quota, or accepts a `customBackground`
     // override. Block anon and non-admin callers at the door.
     const authCheck = await requireAdmin(req);
     if (!authCheck.ok) {
@@ -324,10 +324,14 @@ serve(async (req) => {
     const body = await req.json();
     const { url, action } = body;
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
-    const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceRoleKey) throw new Error("Supabase service configuration is missing");
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const aiConfig = await loadAiConfig(adminClient);
+    if (!aiConfig) throw new Error("AI provider is not configured in Admin → Integrations");
+    const ai: AiRuntime = { endpoint: aiChatCompletionsUrl(aiConfig), headers: aiHeaders(aiConfig), model: aiConfig.model };
+    const FIRECRAWL_API_KEY = await getIntegrationSecret(adminClient, "FIRECRAWL_API_KEY");
 
 
     // ── ACTION: scrape ──
@@ -341,7 +345,7 @@ serve(async (req) => {
       const existingCategories = body.existingCategories || [];
 
       let scrapedContent = "";
-      let scrapedImages: string[] = [];
+      const scrapedImages: string[] = [];
       let scrapedTitle = "";
 
       if (FIRECRAWL_API_KEY) {
@@ -390,31 +394,28 @@ serve(async (req) => {
 
       if (FIRECRAWL_API_KEY && scrapedTitle) {
         // Phase 1: Generate smart queries
-        const queries = await generateEbayQueries(scrapedTitle, scrapedContent.substring(0, 500), LOVABLE_API_KEY);
+        const queries = await generateEbayQueries(scrapedTitle, scrapedContent.substring(0, 500), ai);
         searchQueriesUsed = queries;
 
         // Phase 2: Parallel search
         const listings = await searchEbayMulti(queries, FIRECRAWL_API_KEY);
 
         // Phase 3: AI validation
-        priceResult = await validateAndAveragePrices(scrapedTitle, scrapedContent.substring(0, 500), listings, LOVABLE_API_KEY);
+        priceResult = await validateAndAveragePrices(scrapedTitle, scrapedContent.substring(0, 500), listings, ai);
       }
 
-      const categorySlugs = existingCategories.map((c: any) => c.slug).join(", ");
+      const categorySlugs = existingCategories.map((c: Record<string, unknown>) => String(c.slug || '')).join(", ");
       const imageListForAI = scrapedImages.slice(0, 10).map((u, i) => `${i + 1}. ${u}`).join("\n");
 
       const priceInstruction = priceResult.price_source === "ebay_market"
         ? `suggested_price: Use exactly ${priceResult.suggested_price} as the price (validated from eBay market data).`
         : `suggested_price: Reasonable retail price in USD for this physical product.`;
 
-      const extractResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const extractResp = await fetch(ai.endpoint, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: ai.headers,
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: ai.model,
           messages: [
             {
               role: "system",
@@ -590,7 +591,7 @@ Luxury technology product display of the EXACT same physical product on a matte 
         }
       }
 
-      const contentParts: any[] = [];
+      const contentParts: ImagePart[] = [];
       contentParts.push({ type: "text", text: promptText });
       contentParts.push({ type: "image_url", image_url: { url: sourceImage } });
 
@@ -602,14 +603,11 @@ Luxury technology product display of the EXACT same physical product on a matte 
 
       const messages = [{ role: "user", content: contentParts }];
 
-      const imgResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const imgResp = await fetch(ai.endpoint, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: ai.headers,
         body: JSON.stringify({
-          model: "google/gemini-3.1-flash-image-preview",
+          model: ai.model,
           messages,
           modalities: ["image", "text"],
         }),
@@ -645,7 +643,7 @@ Luxury technology product display of the EXACT same physical product on a matte 
       if (message?.images?.[0]?.image_url?.url) {
         generatedImage = message.images[0].image_url.url;
       } else if (Array.isArray(message?.content)) {
-        const imgPart = message.content.find((p: any) => p.type === "image_url" || p.type === "image");
+        const imgPart = message.content.find((p: ImagePart) => p.type === "image_url" || p.type === "image");
         if (imgPart?.image_url?.url) generatedImage = imgPart.image_url.url;
         else if (imgPart?.url) generatedImage = imgPart.url;
       } else if (typeof message?.content === "string" && message.content.startsWith("data:image")) {
@@ -751,14 +749,11 @@ Luxury technology product display of the EXACT same physical product on a matte 
         });
       }
 
-      const translateResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const translateResp = await fetch(ai.endpoint, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: ai.headers,
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: ai.model,
           messages: [
             {
               role: "system",
@@ -810,9 +805,9 @@ Luxury technology product display of the EXACT same physical product on a matte 
     if (action === "enhance_product") {
       const { name_es, description_es, existingCategories, imageUrl } = body;
 
-      const categorySlugs = (existingCategories || []).map((c: any) => `${c.slug} (${c.name_es})`).join(", ");
+      const categorySlugs = (existingCategories || []).map((c: Record<string, unknown>) => `${String(c.slug || '')} (${String(c.name_es || '')})`).join(", ");
 
-      const messages: any[] = [
+      const messages: ChatMessage[] = [
         {
           role: "system",
           content: `You are a product copywriter for "APERFY", a curated shopping e-commerce store.
@@ -842,14 +837,11 @@ If the input name/description is already good, polish it slightly. If it's empty
         }
       ];
 
-      const enhanceResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const enhanceResp = await fetch(ai.endpoint, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: ai.headers,
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: ai.model,
           messages,
           tools: [{
             type: "function",
@@ -923,11 +915,11 @@ Preserve the exact same physical product from the source image. Do not redesign 
       const framingRule = `CRITICAL FRAMING RULE: Show the entire physical product fully visible inside the frame with at least 10-15% negative space on all sides. Do not crop it. Keep the complete silhouette, packaging, labels, and visible details.`;
       const promptText = `${framingRule}\n\n${fidelityRule}\n\n${anglePrompt}\n\nThe output MUST be a single photorealistic image of the identical object — never reinterpret or restyle it. No people, no hands, no text, no watermark, no extra logos.`;
 
-      const imgResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const imgResp = await fetch(ai.endpoint, {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        headers: ai.headers,
         body: JSON.stringify({
-          model: "google/gemini-3.1-flash-image-preview",
+          model: ai.model,
           messages: [{
             role: "user",
             content: [
@@ -955,7 +947,7 @@ Preserve the exact same physical product from the source image. Do not redesign 
       if (message?.images?.[0]?.image_url?.url) {
         generatedImage = message.images[0].image_url.url;
       } else if (Array.isArray(message?.content)) {
-        const imgPart = message.content.find((p: any) => p.type === "image_url" || p.type === "image");
+        const imgPart = message.content.find((p: ImagePart) => p.type === "image_url" || p.type === "image");
         if (imgPart?.image_url?.url) generatedImage = imgPart.image_url.url;
         else if (imgPart?.url) generatedImage = imgPart.url;
       } else if (typeof message?.content === "string" && message.content.startsWith("data:image")) {
@@ -1022,16 +1014,16 @@ Preserve the exact same physical product from the source image. Do not redesign 
         auth: { persistSession: false, autoRefreshToken: false },
       });
 
-      const candidates: any[] = [];
+      const candidates: Record<string, unknown>[] = [];
       const errors: string[] = [];
 
       for (let i = 0; i < variantCount; i++) {
         try {
-          const imgResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          const imgResp = await fetch(ai.endpoint, {
             method: "POST",
-            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            headers: ai.headers,
             body: JSON.stringify({
-              model: "google/gemini-3.1-flash-image-preview",
+              model: ai.model,
               messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
               modalities: ["image", "text"],
             }),
@@ -1048,7 +1040,7 @@ Preserve the exact same physical product from the source image. Do not redesign 
           if (message?.images?.[0]?.image_url?.url) {
             generatedDataUrl = message.images[0].image_url.url;
           } else if (Array.isArray(message?.content)) {
-            const imgPart = message.content.find((p: any) => p.type === "image_url" || p.type === "image");
+            const imgPart = message.content.find((p: ImagePart) => p.type === "image_url" || p.type === "image");
             if (imgPart?.image_url?.url) generatedDataUrl = imgPart.image_url.url;
             else if (imgPart?.url) generatedDataUrl = imgPart.url;
           } else if (typeof message?.content === "string" && message.content.startsWith("data:image")) {
@@ -1108,9 +1100,9 @@ Preserve the exact same physical product from the source image. Do not redesign 
           } else if (inserted) {
             candidates.push(inserted);
           }
-        } catch (e: any) {
+        } catch (e: unknown) {
           console.error(`[generate_background_reference] variant ${i + 1} error:`, e);
-          errors.push(`Variant ${i + 1}: ${e?.message || "error"}`);
+          errors.push(`Variant ${i + 1}: ${e instanceof Error ? e.message : "error"}`);
         }
       }
 

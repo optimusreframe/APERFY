@@ -3,7 +3,8 @@ import { Body, Container, Head, Heading, Html, Preview, Text, Section, Img } fro
 import type { TemplateEntry } from './registry.ts'
 
 const SITE_NAME = 'APERFY'
-const LOGO_URL = 'https://fyqcbkfzyjgddmqupdfr.supabase.co/storage/v1/object/public/email-assets/logo.png'
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const LOGO_URL = `${SUPABASE_URL}/storage/v1/object/public/email-assets/logo.png`
 
 interface Props { customerName?: string; orderId?: string; total?: string }
 
@@ -28,7 +29,7 @@ const Email = ({ customerName, orderId, total }: Props) => (
 
 export const template = {
   component: Email,
-  subject: (data: Record<string, any>) => `Payment Received — Order #${(data.orderId || '').slice(0, 8).toUpperCase()}`,
+  subject: (data: Record<string, unknown>) => `Payment Received — Order #${String(data.orderId || '').slice(0, 8).toUpperCase()}`,
   displayName: 'Payment Received',
   previewData: { customerName: 'John', orderId: 'abc12345-xxxx', total: '49.99' },
 } satisfies TemplateEntry
