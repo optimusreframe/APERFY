@@ -78,7 +78,7 @@ export default function AdminShipping() {
       setDialogOpen(false);
       resetForm();
     },
-    onError: (err: any) => toast({ title: 'Error', description: err.message, variant: 'destructive' }),
+    onError: (error: unknown) => toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to save provider', variant: 'destructive' }),
   });
 
   const deleteMutation = useMutation({
@@ -90,7 +90,7 @@ export default function AdminShipping() {
       qc.invalidateQueries({ queryKey: ['admin-shipping-providers'] });
       toast({ title: 'Provider deleted' });
     },
-    onError: (err: any) => toast({ title: 'Error', description: err.message, variant: 'destructive' }),
+    onError: (error: unknown) => toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to delete provider', variant: 'destructive' }),
   });
 
   const resetForm = () => { setForm(emptyForm); setEditingId(null); };

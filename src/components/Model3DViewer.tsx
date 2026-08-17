@@ -1,10 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
+import type { DetailedHTMLProps, HTMLAttributes } from 'react';
+
+type ModelViewerAttributes = HTMLAttributes<HTMLElement> & {
+  src?: string;
+  poster?: string;
+  alt?: string;
+  'camera-controls'?: boolean;
+  'auto-rotate'?: boolean;
+  'shadow-intensity'?: string;
+  exposure?: string;
+  'environment-image'?: string;
+};
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
     interface IntrinsicElements {
-      'model-viewer': any;
+      'model-viewer': DetailedHTMLProps<ModelViewerAttributes, HTMLElement>;
     }
   }
 }
@@ -36,7 +48,7 @@ export default function Model3DViewer({ src, poster, alt, className }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
 
-  useEffect(() => { loadModelViewer().then(() => setReady(true)).catch(() => {}); }, []);
+  useEffect(() => { loadModelViewer().then(() => setReady(true)).catch((error: unknown) => console.debug('Model viewer unavailable', error)); }, []);
 
   if (!ready) {
     return (
@@ -47,7 +59,6 @@ export default function Model3DViewer({ src, poster, alt, className }: Props) {
   }
 
   return (
-    // @ts-ignore - custom element
     <model-viewer
       src={src}
       poster={poster}
@@ -58,7 +69,7 @@ export default function Model3DViewer({ src, poster, alt, className }: Props) {
       exposure="0.9"
       environment-image="neutral"
       style={{ width: '100%', height: '100%', background: 'transparent', borderRadius: '0.75rem' }}
-      class={className}
+      className={className}
     />
   );
 }

@@ -4,7 +4,7 @@ interface SendEmailParams {
   templateName: string;
   recipientEmail: string;
   idempotencyKey: string;
-  templateData?: Record<string, any>;
+  templateData?: Record<string, unknown>;
 }
 
 export async function sendTransactionalEmail(params: SendEmailParams) {

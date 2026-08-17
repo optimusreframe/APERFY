@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import type { ProfileSummary, Review } from '@/lib/model-types';
 
 interface ProductReviewsProps {
   productId: string;
@@ -61,13 +62,13 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
     queryKey: ['review-profiles', productId, reviews.length],
     queryFn: async () => {
       if (reviews.length === 0) return {};
-      const userIds = [...new Set(reviews.map((r: any) => r.user_id))];
+      const userIds = [...new Set(reviews.map((review) => review.user_id))];
       const { data } = await supabase
         .from('profiles')
         .select('id, full_name, avatar_url')
         .in('id', userIds);
-      const map: Record<string, any> = {};
-      data?.forEach((p: any) => { map[p.id] = p; });
+      const map: Record<string, ProfileSummary> = {};
+      data?.forEach((profile) => { map[profile.id] = profile; });
       return map;
     },
     enabled: reviews.length > 0,
@@ -86,10 +87,10 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
     enabled: !!user,
   });
 
-  const existingReview = user ? reviews.find((r: any) => r.user_id === user.id) : null;
+  const existingReview = user ? reviews.find((review) => review.user_id === user.id) : null;
 
   const avgRating = reviews.length > 0
-    ? reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / reviews.length
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
     : 0;
 
   const handleUploadMedia = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -220,8 +221,8 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
         </p>
       ) : (
         <div className="space-y-4">
-          {reviews.map((review: any) => {
-            const profile = (reviewProfiles as Record<string, any>)[review.user_id];
+          {reviews.map((review: Review) => {
+            const profile = (reviewProfiles as Record<string, ProfileSummary>)[review.user_id];
             const media = (review.media as string[]) || [];
             return (
               <div key={review.id} className="bg-card border border-border rounded-xl p-5 space-y-3">

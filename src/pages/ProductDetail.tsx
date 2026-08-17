@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,6 +20,14 @@ import ProductReviews from '@/components/ProductReviews';
 import { Badge } from '@/components/ui/badge';
 import MobileStickyAddToCart from '@/components/mobile/MobileStickyAddToCart';
 import { productCommandBarClassName } from './productDetailLayout';
+import type { Category, Material, Product } from '@/lib/model-types';
+import type { Database } from '@/integrations/supabase/types';
+
+type Variation = Database['public']['Tables']['product_variations']['Row'];
+type ProductMaterialWithMaterial = Database['public']['Tables']['product_materials']['Row'] & {
+  materials: Pick<Material, 'name_en' | 'name_es'> | null;
+};
+type RelatedProduct = Product & { categories: Pick<Category, 'name_en' | 'name_es'> | null };
 
 
 
@@ -240,7 +248,7 @@ export default function ProductDetail() {
         .eq('product_id', product!.id)
         .eq('is_active', true);
       if (error) throw error;
-      return data;
+      return (data ?? []) as Variation[];
     },
     enabled: !!product?.id,
   });
@@ -253,7 +261,7 @@ export default function ProductDetail() {
         .select('*, materials(name_en, name_es)')
         .eq('product_id', product!.id);
       if (error) throw error;
-      return data;
+      return (data ?? []) as ProductMaterialWithMaterial[];
     },
     enabled: !!product?.id,
   });
@@ -269,7 +277,7 @@ export default function ProductDetail() {
         .neq('id', product!.id)
         .limit(4);
       if (error) throw error;
-      return data;
+      return (data ?? []) as RelatedProduct[];
     },
     enabled: !!product?.category_id,
   });
@@ -280,7 +288,7 @@ export default function ProductDetail() {
       if (!user) return [];
       const { data, error } = await supabase.from('favorites').select('product_id').eq('user_id', user.id);
       if (error) throw error;
-      return data.map((f: any) => f.product_id);
+      return data.map((f) => f.product_id);
     },
     enabled: !!user,
   });
@@ -300,16 +308,16 @@ export default function ProductDetail() {
     refetchFavorites();
   };
 
-  const variationsByType = variations.reduce((acc: Record<string, any[]>, v: any) => {
-    if (!acc[v.type]) acc[v.type] = [];
-    acc[v.type].push(v);
+  const variationsByType = useMemo(() => variations.reduce<Record<string, Variation[]>>((acc, variation) => {
+    if (!acc[variation.type]) acc[variation.type] = [];
+    acc[variation.type].push(variation);
     return acc;
-  }, {});
+  }, {}), [variations]);
 
-  const selectedSizeVar = variations.find((v: any) => v.type === 'size' && v.id === selectedVariations['size']);
+  const selectedSizeVar = variations.find((variation) => variation.type === 'size' && variation.id === selectedVariations['size']);
 
   // Effective price per variation: if use_manual_price + price_override present, use that.
-  const effectiveVarPrice = (v: any): number => {
+  const effectiveVarPrice = (v: Variation | undefined): number => {
     if (!v) return 0;
     if (v.use_manual_price && v.price_override !== null && v.price_override !== undefined) {
       return Number(v.price_override);
@@ -318,7 +326,7 @@ export default function ProductDetail() {
   };
 
   const priceModifier = Object.values(selectedVariations).reduce((sum, varId) => {
-    const v = variations.find((vr: any) => vr.id === varId);
+    const v = variations.find((vr) => vr.id === varId);
     return sum + effectiveVarPrice(v);
   }, 0);
 
@@ -328,14 +336,14 @@ export default function ProductDetail() {
     : Number(product?.base_price || 0) + priceModifier;
   const totalPrice = product ? unitPrice * quantity : 0;
   const selectedWeight = selectedSizeVar ? Number(selectedSizeVar.weight_grams || 0) : null;
-  const selectedDimensions = selectedSizeVar ? (selectedSizeVar as any).dimensions : null;
-  const baseImages = product ? (product.images as string[]) || [] : [];
+  const selectedDimensions = selectedSizeVar?.dimensions || null;
+  const baseImages = useMemo(() => product ? (Array.isArray(product.images) ? product.images.filter((image): image is string => typeof image === 'string') : []) : [], [product]);
 
   // If any selected variation has an image_url, show it as the hero image (override)
-  const variationImage = Object.values(selectedVariations)
-    .map(varId => variations.find((vr: any) => vr.id === varId))
-    .find((v: any) => v?.image_url)?.image_url || null;
-  const images = variationImage ? [variationImage, ...baseImages.filter(i => i !== variationImage)] : baseImages;
+  const variationImage = useMemo(() => Object.values(selectedVariations)
+    .map(varId => variations.find((vr) => vr.id === varId))
+    .find((variation) => variation?.image_url)?.image_url || null, [selectedVariations, variations]);
+  const images = useMemo(() => variationImage ? [variationImage, ...baseImages.filter(i => i !== variationImage)] : baseImages, [baseImages, variationImage]);
 
   // When the user picks a variation that has its own image, jump to it.
   useEffect(() => {
@@ -395,7 +403,7 @@ export default function ProductDetail() {
       quantity,
       unitPrice,
       selectedVariations: Object.entries(selectedVariations).map(([type, varId]) => {
-        const v = variations.find((vr: any) => vr.id === varId);
+        const v = variations.find((vr) => vr.id === varId);
         const eff = effectiveVarPrice(v);
         const isAbsoluteSize = type === 'size' && v && eff > 0;
         return { id: varId, type, name: v ? (language === 'es' ? v.name_es : v.name_en) : '', priceModifier: isAbsoluteSize ? 0 : eff };
@@ -659,8 +667,8 @@ export default function ProductDetail() {
             >
               {/* Variations OR Standard fallback — Amazon-style "Label: Value" header */}
               {Object.entries(variationsByType).length > 0 ? (
-                Object.entries(variationsByType).map(([type, vars], idx) => {
-                  const selectedVar = (vars as any[]).find((v: any) => v.id === selectedVariations[type]);
+                (Object.entries(variationsByType) as [string, Variation[]][]).map(([type, vars], idx) => {
+                  const selectedVar = vars.find((variation) => variation.id === selectedVariations[type]);
                   const typeLabel = type === 'color'
                     ? t.product.color
                     : type === 'size'
@@ -679,7 +687,7 @@ export default function ProductDetail() {
                         <span className="text-foreground font-semibold">{selectedLabel}</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {(vars as any[]).map((v: any) => {
+                        {vars.map((v) => {
                           const isSize = type === 'size';
                           const vEff = effectiveVarPrice(v);
                           const vPrice = isSize && vEff > 0 ? vEff : null;
@@ -834,7 +842,7 @@ export default function ProductDetail() {
                 { k: 'Category', v: product.categories ? (language === 'es' ? product.categories.name_es : product.categories.name_en) : '—' },
                 { k: 'Weight', v: selectedWeight ? `${selectedWeight}${t.product.grams}` : '—' },
                 { k: 'Dimensions', v: selectedDimensions ? `${selectedDimensions}mm` : '—' },
-                { k: 'Variants', v: productMaterialsList.length > 0 ? productMaterialsList.map((pm: any) => language === 'es' ? pm.materials.name_es : pm.materials.name_en).join(' · ') : '—' },
+                { k: 'Variants', v: productMaterialsList.length > 0 ? productMaterialsList.map((pm) => language === 'es' ? pm.materials?.name_es : pm.materials?.name_en).filter(Boolean).join(' · ') : '—' },
                 { k: 'Variations', v: variations.length > 0 ? `${variations.length} ${language === 'es' ? 'opciones' : 'options'}` : '—' },
                 { k: 'SKU', v: `PRD-${product.id.slice(0, 8).toUpperCase()}` },
               ].map((row, i) => (
@@ -869,7 +877,7 @@ export default function ProductDetail() {
               </span>
             </div>
             <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 scrollbar-hide -mx-4 px-4 lg:-mx-0 lg:px-0">
-              {relatedProducts.map((rp: any, i: number) => (
+              {relatedProducts.map((rp, i) => (
                 <div key={rp.id} className="snap-start shrink-0 w-[260px] lg:w-[280px]">
                   <ProductCard product={rp} index={i} showBadges={false} />
                 </div>
@@ -886,7 +894,7 @@ export default function ProductDetail() {
         variationLabel={
           Object.entries(selectedVariations)
             .map(([, varId]) => {
-              const v = variations.find((vr: any) => vr.id === varId);
+              const v = variations.find((vr) => vr.id === varId);
               return v ? (language === 'es' ? v.name_es : v.name_en) : null;
             })
             .filter(Boolean)

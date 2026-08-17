@@ -12,7 +12,7 @@ interface ProductRow {
   name_en: string;
   name_es: string;
   base_price: number;
-  images: any;
+  images: unknown;
   category_id: string | null;
 }
 
@@ -142,8 +142,8 @@ export default function ProductImageSourcePicker({
       onChange(pub.publicUrl);
       setUrlInput(pub.publicUrl);
       toast.success('Image uploaded and ready for preview.');
-    } catch (e: any) {
-      console.error('[ProductImageSourcePicker] upload failed', e);
+    } catch (error: unknown) {
+      console.error('[ProductImageSourcePicker] upload failed', error);
       toast.error('Upload failed. Please try another image.');
     } finally {
       setUploading(false);

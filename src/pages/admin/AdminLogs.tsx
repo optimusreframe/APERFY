@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollText, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, ShoppingCart, Download, Pencil, Info } from 'lucide-react';
 import { AdminPageHeader } from './_shared';
+import type { Database } from '@/integrations/supabase/types';
 
 const TABS = [
   { value: 'all', label: 'Todos', icon: ScrollText },
@@ -37,7 +38,7 @@ export default function AdminLogs() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-logs', tab, page],
     queryFn: async () => {
-      let query = (supabase as any)
+      let query = supabase
         .from('activity_logs')
         .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
@@ -59,11 +60,11 @@ export default function AdminLogs() {
 
   const exportCsv = () => {
     const headers = ['fecha', 'categoria', 'accion', 'titulo', 'detalles', 'entity_type', 'entity_id'];
-    const escape = (v: any) => {
+    const escape = (v: unknown) => {
       const s = v == null ? '' : String(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const rows = logs.map((l: any) =>
+    const rows = logs.map((l) =>
       [
         new Date(l.created_at).toISOString(),
         l.category,
@@ -135,7 +136,7 @@ export default function AdminLogs() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {logs.map((log: any) => (
+                    {logs.map((log) => (
                       <LogRow
                         key={log.id}
                         log={log}
@@ -170,7 +171,7 @@ export default function AdminLogs() {
   );
 }
 
-function LogRow({ log, expanded, onToggle }: { log: any; expanded: boolean; onToggle: () => void }) {
+function LogRow({ log, expanded, onToggle }: { log: Database['public']['Tables']['activity_logs']['Row']; expanded: boolean; onToggle: () => void }) {
   const hasDetails = log.details || (log.metadata && Object.keys(log.metadata).length > 0);
 
   return (

@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
 import { AdminPageHeader, AdminSurface } from './_shared';
+import type { Category } from '@/lib/model-types';
 
 interface CategoryForm {
   name_en: string;
@@ -62,7 +63,7 @@ export default function AdminCategories() {
       setForm(empty);
       toast({ title: '✓', description: 'Category saved.' });
     },
-    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+    onError: (error: unknown) => toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to save category', variant: 'destructive' }),
   });
 
   const del = useMutation({
@@ -84,7 +85,7 @@ export default function AdminCategories() {
     },
   });
 
-  const openEdit = (cat: any) => {
+  const openEdit = (cat: Category) => {
     setEditId(cat.id);
     setForm({ name_en: cat.name_en, name_es: cat.name_es, slug: cat.slug, icon: cat.icon || 'Box', is_active: cat.is_active });
     setOpen(true);
@@ -137,7 +138,7 @@ export default function AdminCategories() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {categories.map((cat: any) => (
+            {categories.map((cat: Category) => (
               <TableRow key={cat.id} className="border-border">
                 <TableCell className="font-medium">{cat.name_en}</TableCell>
                 <TableCell>{cat.name_es}</TableCell>

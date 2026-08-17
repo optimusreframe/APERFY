@@ -20,6 +20,7 @@ import { profileSchema, validateImageFile, sanitizeFileName } from '@/lib/valida
 import { checkRateLimit } from '@/lib/rate-limit';
 import { useIsMobile } from '@/hooks/use-mobile';
 import ReferralsTab from '@/components/profile/ReferralsTab';
+import type { Order, OrderItem, Product } from '@/lib/model-types';
 
 const tabs = [
   { id: 'overview', icon: LayoutDashboard },
@@ -283,7 +284,7 @@ function OrdersTab() {
     queryFn: async () => {
       const { data, error } = await supabase.from('orders').select('*').eq('user_id', user!.id).order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return data as unknown as Order[];
     },
     enabled: !!user,
   });
@@ -293,7 +294,7 @@ function OrdersTab() {
     queryFn: async () => {
       const { data, error } = await supabase.from('order_items').select('*, products(name_en, name_es, images, slug)').eq('order_id', expandedOrder!);
       if (error) throw error;
-      return data;
+      return data as unknown as (OrderItem & { products?: { name_en: string; images: unknown } | null })[];
     },
     enabled: !!expandedOrder,
   });
@@ -322,7 +323,7 @@ function OrdersTab() {
 
   return (
     <div className="space-y-4">
-      {orders.map((order: any, i: number) => (
+      {orders.map((order: Order, i: number) => (
         <motion.div
           key={order.id}
           initial={{ opacity: 0, y: 10 }}
@@ -355,11 +356,11 @@ function OrdersTab() {
           </button>
           {expandedOrder === order.id && (
             <div className="border-t border-border/50 p-5 space-y-3">
-              {orderItems.map((item: any) => (
+              {orderItems.map((item) => (
                 <div key={item.id} className="flex gap-3 text-sm">
                   <div className="w-12 h-12 rounded-lg bg-secondary overflow-hidden shrink-0">
-                    {(item.products?.images as string[])?.[0] && (
-                      <img src={(item.products.images as string[])[0]} alt="" className="w-full h-full object-cover" />
+                    {Array.isArray(item.products?.images) && typeof item.products.images[0] === 'string' && (
+                      <img src={item.products.images[0]} alt="" className="w-full h-full object-cover" />
                     )}
                   </div>
                   <div className="flex-1">
@@ -437,7 +438,7 @@ function FavoritesTab() {
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4">
-      {favoriteProducts.map((product: any, i: number) => (
+      {favoriteProducts.map((product: Product, i: number) => (
         <motion.div
           key={product.id}
           initial={{ opacity: 0, y: 20 }}
@@ -448,8 +449,8 @@ function FavoritesTab() {
           <div className="rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold relative">
             <Link to={`/products/${product.slug}`}>
               <div className="aspect-[4/3] bg-secondary relative overflow-hidden">
-                {(product.images as string[])?.length > 0 ? (
-                  <img src={(product.images as string[])[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                {Array.isArray(product.images) && typeof product.images[0] === 'string' ? (
+                  <img src={product.images[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Box className="w-12 h-12 text-muted-foreground/30" />
@@ -498,7 +499,7 @@ export default function Profile() {
     profile: t.profile.title,
     orders: t.orders.title,
     favorites: t.favorites.title,
-    referrals: (t.profile as any).referrals || 'Referidos',
+    referrals: 'Referidos',
   };
 
   return (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import ProductImageSourcePicker from '@/components/admin/ProductImageSourcePicker';
 import { compositeNonAi, saveNonAiComposite, downloadRemoteImage, copyToClipboard, type NonAiPlacement } from '@/lib/non-ai-composite';
+import { getErrorMessage } from '@/lib/model-types';
 
 
 const LAST_SOURCE_KEY = 'bgqa.lastSourceImage';
@@ -151,7 +152,7 @@ export default function AdminBackgroundQA() {
     setLoadingCandidates(false);
   };
 
-  const fetchComposedResults = async () => {
+  const fetchComposedResults = useCallback(async () => {
     setLoadingComposed(true);
     const { data, error } = await supabase
       .from('background_composition_results')
@@ -161,13 +162,13 @@ export default function AdminBackgroundQA() {
     if (error) toast.error(error.message);
     else setComposedResults((data || []) as ComposedResult[]);
     setLoadingComposed(false);
-  };
+  }, []);
 
   useEffect(() => {
     fetchOfficialBg();
     fetchCandidates();
     fetchComposedResults();
-  }, []);
+  }, [fetchComposedResults]);
 
 
 
@@ -234,8 +235,8 @@ export default function AdminBackgroundQA() {
       toast.success('Official background updated');
       setOfficialBg(url);
       fetchCandidates();
-    } catch (e: any) {
-      toast.error(e.message || 'Upload failed');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Upload failed'));
     } finally {
       setUploadingBg(false);
     }
@@ -249,8 +250,8 @@ export default function AdminBackgroundQA() {
       setOfficialBg(null);
       toast.success('Official background removed');
       fetchCandidates();
-    } catch (e: any) {
-      toast.error(e.message || 'Remove failed');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Remove failed'));
     }
   };
 
@@ -277,8 +278,8 @@ export default function AdminBackgroundQA() {
         }
       }
       fetchCandidates();
-    } catch (e: any) {
-      toast.error(e.message || 'Generation failed');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Generation failed'));
     } finally {
       setGenerating(false);
     }
@@ -294,8 +295,8 @@ export default function AdminBackgroundQA() {
       setOfficialBg(c.image_url);
       toast.success('Set as official background');
       fetchCandidates();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Failed'));
     }
   };
 
@@ -320,8 +321,8 @@ export default function AdminBackgroundQA() {
       }
       toast.success('Deleted');
       fetchCandidates();
-    } catch (e: any) {
-      toast.error(e.message || 'Delete failed');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Delete failed'));
     }
   };
 
@@ -382,8 +383,8 @@ export default function AdminBackgroundQA() {
       }
       setPreviewResult(data.data?.composed_image_url || data.data?.generated_image);
       setPreviewMethod(opts?.safeRetry ? 'safe_retry' : 'ai');
-    } catch (e: any) {
-      setPreviewError(e.message);
+    } catch (e: unknown) {
+      setPreviewError(getErrorMessage(e));
     } finally {
       setPreviewLoading(false);
     }
@@ -415,9 +416,9 @@ export default function AdminBackgroundQA() {
       setPreviewMethod('non_ai');
       setPreviewBlocked(false);
       toast.success('Non-AI preview generated and saved.');
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[BackgroundQA] non-AI composite failed', e);
-      setPreviewError(e.message || 'Non-AI composite failed');
+      setPreviewError(getErrorMessage(e, 'Non-AI composite failed'));
     } finally {
       setPreviewLoading(false);
     }
@@ -429,8 +430,8 @@ export default function AdminBackgroundQA() {
     const ext = previewResult.includes('.jpg') ? 'jpg' : 'png';
     try {
       await downloadRemoteImage(previewResult, `aperfy-composed-result-${ts}.${ext}`);
-    } catch (e: any) {
-      toast.error(e.message || 'Download failed');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Download failed'));
     }
   };
 
@@ -447,8 +448,8 @@ export default function AdminBackgroundQA() {
   const handleDownloadBackground = async (c: Candidate) => {
     try {
       await downloadRemoteImage(c.image_url, `aperfy-background-${c.preset}-${Date.now()}.png`);
-    } catch (e: any) {
-      toast.error(e.message || 'Download failed');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'Download failed'));
     }
   };
 
@@ -483,8 +484,8 @@ export default function AdminBackgroundQA() {
         ...r,
         [preset]: { status: 'done', image: data.data?.generated_image, ms, usedReference: willUseReference },
       }));
-    } catch (e: any) {
-      setResults((r) => ({ ...r, [preset]: { status: 'error', error: e.message, usedReference: willUseReference } }));
+    } catch (e: unknown) {
+      setResults((r) => ({ ...r, [preset]: { status: 'error', error: getErrorMessage(e), usedReference: willUseReference } }));
     }
   };
 
@@ -651,7 +652,7 @@ export default function AdminBackgroundQA() {
             <h2 className="text-lg font-semibold">Generated Background Variants</h2>
             <div className="flex items-center gap-2">
               <Label className="text-xs">Filter:</Label>
-              <Select value={filterPreset} onValueChange={(v) => setFilterPreset(v as any)}>
+              <Select value={filterPreset} onValueChange={(v) => setFilterPreset(v as 'all' | BgPreset)}>
                 <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All presets</SelectItem>
@@ -846,7 +847,7 @@ export default function AdminBackgroundQA() {
             <h2 className="text-lg font-semibold">Saved Composed Results</h2>
             <div className="flex items-center gap-2">
               <Label className="text-xs">Method:</Label>
-              <Select value={composedMethodFilter} onValueChange={(v) => setComposedMethodFilter(v as any)}>
+              <Select value={composedMethodFilter} onValueChange={(v) => setComposedMethodFilter(v as 'all' | 'ai' | 'safe_retry' | 'non_ai')}>
                 <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
@@ -993,7 +994,7 @@ export default function AdminBackgroundQA() {
                 <div className="grid grid-cols-3 gap-2 mt-2">
                   <div>
                     <Label className="text-[10px]">Size</Label>
-                    <Select value={nonAiSize} onValueChange={(v) => setNonAiSize(v as any)}>
+                    <Select value={nonAiSize} onValueChange={(v) => setNonAiSize(v as NonAiPlacement['productSize'])}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="small">Small</SelectItem>
@@ -1004,7 +1005,7 @@ export default function AdminBackgroundQA() {
                   </div>
                   <div>
                     <Label className="text-[10px]">Vertical</Label>
-                    <Select value={nonAiVPos} onValueChange={(v) => setNonAiVPos(v as any)}>
+                    <Select value={nonAiVPos} onValueChange={(v) => setNonAiVPos(v as NonAiPlacement['verticalPosition'])}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="higher">Higher</SelectItem>
@@ -1015,7 +1016,7 @@ export default function AdminBackgroundQA() {
                   </div>
                   <div>
                     <Label className="text-[10px]">Shadow</Label>
-                    <Select value={nonAiShadow} onValueChange={(v) => setNonAiShadow(v as any)}>
+                    <Select value={nonAiShadow} onValueChange={(v) => setNonAiShadow(v as NonAiPlacement['shadow'])}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="off">Off</SelectItem>
@@ -1093,4 +1094,3 @@ export default function AdminBackgroundQA() {
     </TooltipProvider>
   );
 }
-

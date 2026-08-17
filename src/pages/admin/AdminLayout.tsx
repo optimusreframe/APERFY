@@ -17,6 +17,7 @@ const routeLabels: Record<string, string> = {
   '/admin/discounts': 'DISCOUNTS',
   '/admin/logs': 'LOGS',
   '/admin/ai-settings': 'AI PRODUCT INTELLIGENCE',
+  '/admin/integrations': 'SECURE INTEGRATIONS',
   '/admin/background-qa': 'BACKGROUND QA',
 };
 

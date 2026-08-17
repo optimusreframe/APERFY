@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
@@ -15,16 +14,15 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: null,
       devOptions: { enabled: false },
       includeAssets: ["favicon.ico", "favicon-32.png", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "robots.txt"],
       manifest: {
-        name: "3DtoPrint",
-        short_name: "3DtoPrint",
-        description: "Marketplace de modelos 3D físicos impresos a pedido.",
+        name: "APERFY",
+        short_name: "APERFY",
+        description: "Curated finds with verified value and limited availability.",
         start_url: "/",
         scope: "/",
         id: "/",

@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useCallback, useRef, type ReactNod
 import { supabase } from '@/integrations/supabase/client';
 import { logActivity } from '@/lib/activity-log';
 import { useQueryClient } from '@tanstack/react-query';
+import type { Category } from '@/lib/model-types';
+import { getErrorMessage } from '@/lib/model-types';
 
 export type BulkItemStatus = 'queued' | 'scraping' | 'generating' | 'saving' | 'done' | 'error';
 
@@ -16,7 +18,7 @@ interface BulkImportContextType {
   isRunning: boolean;
   isComplete: boolean;
   items: BulkItem[];
-  startBulkImport: (urls: string[], categories: any[], systemBgSetting: string | null) => void;
+  startBulkImport: (urls: string[], categories: Category[], systemBgSetting: string | null) => void;
   dismiss: () => void;
 }
 
@@ -70,7 +72,7 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
     setItems([]);
   }, []);
 
-  const startBulkImport = useCallback((urls: string[], categories: any[], systemBgSetting: string | null) => {
+  const startBulkImport = useCallback((urls: string[], categories: Category[], systemBgSetting: string | null) => {
     if (runningRef.current) return;
     runningRef.current = true;
     setIsRunning(true);
@@ -95,7 +97,7 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
             body: {
               action: 'scrape',
               url: currentUrl,
-              existingCategories: categories.map((c: any) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
+              existingCategories: categories.map((category) => ({ slug: category.slug, name_en: category.name_en, name_es: category.name_es })),
             },
           });
           if (scrapeError || !scrapeData?.success) throw new Error(scrapeData?.error || 'Scrape failed');
@@ -127,7 +129,7 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
 
           // Step 3: Save product
           setItems(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'saving' } : r));
-          const matchedCat = categories.find((c: any) => c.slug === productInfo.suggested_category);
+          const matchedCat = categories.find((category) => category.slug === productInfo.suggested_category);
           const nameEn = productInfo.name_en || productInfo.name_es;
           const descEn = productInfo.description_en || productInfo.description_es;
           const productSlug = productInfo.slug || slugify(productInfo.name_es || `product-${Date.now()}`);
@@ -156,16 +158,17 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
             details: `URL: ${currentUrl}`,
             metadata: { url: currentUrl, slug: productSlug },
           });
-        } catch (e: any) {
-          setItems(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'error', error: e.message } : r));
+        } catch (error: unknown) {
+          const message = getErrorMessage(error);
+          setItems(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'error', error: message } : r));
           errors++;
           logActivity({
             action: 'bulk_import_error',
             category: 'error',
             entity_type: 'product',
             title: `Error importando producto`,
-            details: `URL: ${currentUrl}\nError: ${e.message}`,
-            metadata: { url: currentUrl, error: e.message },
+            details: `URL: ${currentUrl}\nError: ${message}`,
+            metadata: { url: currentUrl, error: message },
           });
         }
       }

@@ -13,9 +13,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Zap, Cog, Package } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
-import { buildIncomingOrderMessages } from '@/lib/incomingOrder';
-
-const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '14708469271';
 
 type Step = 'shipping' | 'method' | 'payment-instructions' | 'whatsapp-sent';
 type Section = 'contact' | 'address' | 'shipping';
@@ -301,6 +298,7 @@ export default function Checkout() {
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<string | null>(null);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [paymentConfigs, setPaymentConfigs] = useState<Record<string, PaymentConfig>>({});
   const [summaryOpen, setSummaryOpen] = useState(false);
   const whatsappIdempotencyKeyRef = useRef<string | null>(null);
@@ -457,7 +455,7 @@ export default function Checkout() {
         shipping_provider_id: selectedShipping || null, shipping_cost: shippingCost,
         discount_code_id: discount?.id || null,
         discount_amount: discountAmount,
-      } as any)
+      })
       .select().single();
     if (orderError?.code === '23505') {
       const { data: existingOrder } = await supabase.from('orders').select('id').eq('idempotency_key', idempotencyKey).maybeSingle();
@@ -466,7 +464,7 @@ export default function Checkout() {
     if (orderError) throw orderError;
     if (discount?.id) {
       // best-effort increment usage counter
-      await supabase.rpc('increment_discount_usage' as any, { _id: discount.id }).then(() => {}, () => {});
+      await supabase.rpc('increment_discount_usage', { _id: discount.id }).then(() => undefined, () => undefined);
     }
     const orderItems = items.map(item => ({
       order_id: order.id, product_id: item.productId, quantity: item.quantity,
@@ -485,7 +483,7 @@ export default function Checkout() {
     }).join(', ');
     const shippingAddr = `${form.fullName}, ${form.address}, ${form.city}, ${form.state} ${form.zipCode}, ${form.country}`;
     try {
-      await supabase.functions.invoke('send-transactional-email', {
+      const { error } = await supabase.functions.invoke('send-transactional-email', {
         body: {
           templateName: 'order-confirmation', recipientEmail: form.email,
           idempotencyKey: `order-confirm-${orderId}`,
@@ -495,10 +493,11 @@ export default function Checkout() {
           },
         },
       });
-    } catch (e) { console.error('Email send failed:', e); }
+      if (error) throw error;
+    } catch (e) { console.error('Email send failed:', e); throw e; }
   };
 
-  const notifyTelegramOrder = async (orderId: string) => {
+  const notifyTelegramOrder = async (orderId: string): Promise<string | null> => {
     try {
       const { data, error } = await supabase.functions.invoke('notify-telegram-order', { body: { orderId } });
       if (error) throw error;
@@ -508,12 +507,14 @@ export default function Checkout() {
           description: language === 'es' ? 'Telegram no pudo recibir la alerta. Puedes continuar por WhatsApp.' : 'Telegram could not receive the alert. You can continue through WhatsApp.',
         });
       }
+      return typeof data?.whatsappUrl === 'string' ? data.whatsappUrl : null;
     } catch (error) {
       console.error('Telegram order notification failed:', error);
       toast({
         title: language === 'es' ? 'Pedido guardado' : 'Order saved',
         description: language === 'es' ? 'La alerta de Telegram no esta disponible, pero tu pedido quedo registrado.' : 'Telegram alerts are unavailable, but your order was recorded.',
       });
+      return null;
     }
   };
 
@@ -524,29 +525,15 @@ export default function Checkout() {
       if (!orderId) { setLoading(false); return; }
       setCreatedOrderId(orderId);
       await sendOrderEmail(orderId, 'WhatsApp');
-      await notifyTelegramOrder(orderId);
-      const { whatsappUrl } = buildIncomingOrderMessages({
-        orderCode: orderId.slice(0, 8).toUpperCase(),
-        customerName: form.fullName,
-        phone: form.phone,
-        email: form.email,
-        items: items.map(item => ({
-          name: item.productName,
-          quantity: item.quantity,
-          total: (item.unitPrice + item.selectedVariations.reduce((sum, variation) => sum + variation.priceModifier, 0)) * item.quantity,
-        })),
-        total: orderTotal,
-        language,
-        whatsappNumber: WHATSAPP_NUMBER,
-        shipping: selectedProvider ? `${selectedProvider.name} - $${shippingCost.toFixed(2)}` : undefined,
-        notes: form.notes,
-      });
+      const orderWhatsappUrl = await notifyTelegramOrder(orderId);
+      if (!orderWhatsappUrl) throw new Error(language === 'es' ? 'WhatsApp no está configurado en Admin → Integraciones.' : 'WhatsApp is not configured in Admin → Integrations.');
+      setWhatsappUrl(orderWhatsappUrl);
       clearCart();
       setStep('whatsapp-sent');
       await supabase.from('orders').update({ whatsapp_opened_at: new Date().toISOString() }).eq('id', orderId);
       window.open(whatsappUrl, '_blank');
-    } catch (err: any) {
-      toast({ title: t.checkout.error, description: err.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: t.checkout.error, description: error instanceof Error ? error.message : 'Checkout failed', variant: 'destructive' });
     } finally { setLoading(false); }
   };
 
@@ -560,8 +547,8 @@ export default function Checkout() {
       await sendOrderEmail(orderId, method);
       clearCart();
       setStep('payment-instructions');
-    } catch (err: any) {
-      toast({ title: t.checkout.error, description: err.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: t.checkout.error, description: error instanceof Error ? error.message : 'Checkout failed', variant: 'destructive' });
     } finally { setLoading(false); }
   };
 
@@ -959,16 +946,6 @@ export default function Checkout() {
                             </div>
                           </motion.button>
 
-                          {false && Object.keys(paymentConfigs).length > 0 && (
-                            <div className="flex items-center gap-3 my-6">
-                              <div className="flex-1 h-px bg-white/[0.06]" />
-                              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5">
-                                <CreditCard className="w-3 h-3" /> {language === 'es' ? 'Pago directo' : 'Direct payment'}
-                              </span>
-                              <div className="flex-1 h-px bg-white/[0.06]" />
-                            </div>
-                          )}
-
                           <div className="grid gap-2.5">
                             {Object.entries(paymentConfigs).map(([key, cfg]) => {
                               const isLoadingThis = loading && selectedPayment === key;
@@ -1084,7 +1061,7 @@ export default function Checkout() {
               </p>
               <p className="text-sm text-muted-foreground mt-2 mb-8">{t.checkout.whatsappSentDesc}</p>
               <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
-                <Button variant="outline" onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER}`, '_blank')} className="h-12 rounded-full gap-2">
+                <Button variant="outline" disabled={!whatsappUrl} onClick={() => whatsappUrl && window.open(whatsappUrl, '_blank')} className="h-12 rounded-full gap-2">
                   <ExternalLink className="w-4 h-4" />
                   {t.checkout.openWhatsApp}
                 </Button>

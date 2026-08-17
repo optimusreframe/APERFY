@@ -15,7 +15,7 @@ function detectLanguage(): Language {
   const stored = localStorage.getItem('aperfy-lang');
   if (stored === 'en' || stored === 'es') return stored;
 
-  const browserLang = navigator.language || (navigator as any).userLanguage || 'en';
+  const browserLang = navigator.language || 'en';
   return browserLang.startsWith('es') ? 'es' : 'en';
 }
 

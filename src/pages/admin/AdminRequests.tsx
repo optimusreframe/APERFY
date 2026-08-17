@@ -11,6 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ExternalLink, Eye, Mail, Phone, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminPageHeader } from './_shared';
+import type { Database } from '@/integrations/supabase/types';
+import type { Product } from '@/lib/model-types';
+
+type ModelRequest = Database['public']['Tables']['model_requests']['Row'];
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -23,7 +27,7 @@ export default function AdminRequests() {
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [selectedRequest, setSelectedRequest] = useState<ModelRequest | null>(null);
   const [fulfillProductId, setFulfillProductId] = useState('');
 
   const { data: requests = [], isLoading } = useQuery({
@@ -49,7 +53,7 @@ export default function AdminRequests() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status, fulfilled_product_id }: { id: string; status: string; fulfilled_product_id?: string }) => {
-      const update: any = { status };
+      const update: Database['public']['Tables']['model_requests']['Update'] = { status };
       if (fulfilled_product_id) update.fulfilled_product_id = fulfilled_product_id;
       const { error } = await supabase.from('model_requests').update(update).eq('id', id);
       if (error) throw error;
@@ -61,7 +65,7 @@ export default function AdminRequests() {
     },
   });
 
-  const handleFulfill = (request: any) => {
+  const handleFulfill = (request: ModelRequest) => {
     if (!fulfillProductId) return;
     updateStatus.mutate({ id: request.id, status: 'fulfilled', fulfilled_product_id: fulfillProductId });
   };
@@ -89,7 +93,7 @@ export default function AdminRequests() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {requests.map((req: any) => (
+              {requests.map((req: ModelRequest) => (
                 <TableRow key={req.id}>
                   <TableCell>
                     <div>
@@ -194,7 +198,7 @@ export default function AdminRequests() {
                         <SelectValue placeholder={t.admin.requests.selectProduct} />
                       </SelectTrigger>
                       <SelectContent>
-                        {products.map((p: any) => (
+                        {products.map((p: Pick<Product, 'id' | 'name_en' | 'name_es' | 'slug'>) => (
                           <SelectItem key={p.id} value={p.id}>
                             {language === 'es' ? p.name_es : p.name_en}
                           </SelectItem>

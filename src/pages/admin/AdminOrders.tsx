@@ -10,6 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
 import { sendTransactionalEmail } from '@/lib/send-email';
 import { AdminPageHeader } from './_shared';
+import type { Database } from '@/integrations/supabase/types';
+import type { Order, OrderItem } from '@/lib/model-types';
+
+type ShippingAddress = { email?: string; full_name?: string; address?: string; city?: string; phone?: string };
+const shippingAddress = (value: unknown): ShippingAddress => value && typeof value === 'object' ? value as ShippingAddress : {};
 
 const statuses = ['pending', 'confirmed', 'printing', 'shipped', 'delivered', 'cancelled'] as const;
 const statusLabels: Record<string, string> = { pending: 'PENDING', confirmed: 'CONFIRMED', printing: 'PROCESSING', shipped: 'SHIPPED', delivered: 'DELIVERED', cancelled: 'CANCELLED' };
@@ -41,7 +46,7 @@ export default function AdminOrders() {
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
-      return data;
+      return data as unknown as Order[];
     },
     staleTime: 30_000,
   });
@@ -54,7 +59,7 @@ export default function AdminOrders() {
         .select('*, products(name_en, images)')
         .eq('order_id', expandedOrder!);
       if (error) throw error;
-      return data;
+      return data as unknown as (OrderItem & { products?: { name_en: string; images: unknown } | null })[];
     },
     enabled: !!expandedOrder,
   });
@@ -69,7 +74,7 @@ export default function AdminOrders() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from('orders').update({ status: status as any }).eq('id', id);
+      const { error } = await supabase.from('orders').update({ status: status as Database['public']['Enums']['order_status'] }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: (_data, variables) => {
@@ -84,11 +89,12 @@ export default function AdminOrders() {
       });
 
       // Send status email to customer
-      const order = orders.find((o: any) => o.id === variables.id);
+      const order = orders.find((o) => o.id === variables.id);
       const templateName = statusTemplateMap[variables.status];
       if (order && templateName) {
-        const email = (order.shipping_address as any)?.email;
-        const name = (order.shipping_address as any)?.full_name;
+        const address = shippingAddress(order.shipping_address);
+        const email = address.email;
+        const name = address.full_name;
         if (email) {
           sendTransactionalEmail({
             templateName,
@@ -101,14 +107,15 @@ export default function AdminOrders() {
 
       toast({ title: 'Order status updated' });
     },
-    onError: (err: any) => {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    onError: (error: unknown) => {
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to update order', variant: 'destructive' });
     },
   });
 
-  const handleConfirmPayment = (order: any) => {
-    const email = (order.shipping_address as any)?.email;
-    const name = (order.shipping_address as any)?.full_name;
+  const handleConfirmPayment = (order: Order) => {
+    const address = shippingAddress(order.shipping_address);
+    const email = address.email;
+    const name = address.full_name;
     if (email) {
       sendTransactionalEmail({
         templateName: 'payment-received',
@@ -153,15 +160,15 @@ export default function AdminOrders() {
       ) : view === 'kanban' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {statuses.map(status => {
-            const colOrders = orders.filter((o: any) => o.status === status);
-            const colTotal = colOrders.reduce((s: number, o: any) => s + Number(o.total), 0);
+            const colOrders = orders.filter((order) => order.status === status);
+            const colTotal = colOrders.reduce((sum, order) => sum + Number(order.total), 0);
             return (
               <div
                 key={status}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => {
                   if (dragId) {
-                    const o = orders.find((x: any) => x.id === dragId);
+                    const o = orders.find((order) => order.id === dragId);
                     if (o && o.status !== status) updateStatus.mutate({ id: dragId, status });
                   }
                   setDragId(null);
@@ -176,7 +183,7 @@ export default function AdminOrders() {
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono tabular-nums border ${statusColors[status]}`}>{colOrders.length}</span>
                 </div>
                 <div className="space-y-2 flex-1 overflow-y-auto">
-                  {colOrders.map((order: any) => (
+                  {colOrders.map((order) => (
                     <div
                       key={order.id}
                       draggable
@@ -189,7 +196,7 @@ export default function AdminOrders() {
                         <span className="font-mono text-[11px] font-semibold tabular-nums">${Number(order.total).toFixed(2)}</span>
                       </div>
                       <div className="text-[12px] text-foreground truncate font-medium">
-                        {(order as any).profiles?.full_name || (order.shipping_address as any)?.full_name || '—'}
+                        {order.profiles?.full_name || shippingAddress(order.shipping_address).full_name || '—'}
                       </div>
                       <div className="flex items-center justify-between mt-1.5">
                         <span className="text-[10px] text-muted-foreground/70 font-mono">
@@ -223,11 +230,11 @@ export default function AdminOrders() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((order: any) => (
+              {orders.map((order) => (
                 <React.Fragment key={order.id}>
                   <TableRow className="cursor-pointer hover:bg-secondary/30" onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}>
                     <TableCell className="font-mono text-xs">#{order.id.slice(0, 8).toUpperCase()}</TableCell>
-                    <TableCell>{(order as any).profiles?.full_name || '—'}</TableCell>
+                    <TableCell>{order.profiles?.full_name || '—'}</TableCell>
                     <TableCell>
                       <Select
                         value={order.status}
@@ -260,11 +267,11 @@ export default function AdminOrders() {
                     <TableRow key={`${order.id}-items`}>
                       <TableCell colSpan={6} className="bg-secondary/20 p-4">
                         <div className="space-y-2">
-                          {orderItems.map((item: any) => (
+                          {orderItems.map((item) => (
                             <div key={item.id} className="flex items-center gap-3 text-sm">
                               <div className="w-10 h-10 rounded bg-secondary overflow-hidden">
-                                {(item.products?.images as string[])?.[0] && (
-                                  <img src={(item.products.images as string[])[0]} alt="" className="w-full h-full object-cover" />
+                                {Array.isArray(item.products?.images) && typeof item.products.images[0] === 'string' && (
+                                  <img src={item.products.images[0]} alt="" className="w-full h-full object-cover" />
                                 )}
                               </div>
                               <span className="font-medium">{item.products?.name_en}</span>
@@ -274,9 +281,9 @@ export default function AdminOrders() {
                           ))}
                           {order.shipping_address && (
                             <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
-                              <p><strong>Ship to:</strong> {(order.shipping_address as any).full_name}</p>
-                              <p>{(order.shipping_address as any).address}, {(order.shipping_address as any).city}</p>
-                              <p>Phone: {(order.shipping_address as any).phone}</p>
+                              <p><strong>Ship to:</strong> {shippingAddress(order.shipping_address).full_name}</p>
+                              <p>{shippingAddress(order.shipping_address).address}, {shippingAddress(order.shipping_address).city}</p>
+                              <p>Phone: {shippingAddress(order.shipping_address).phone}</p>
                               <p>Source: {order.source || 'website'} · Telegram: {order.telegram_status || 'pending'}</p>
                             </div>
                           )}

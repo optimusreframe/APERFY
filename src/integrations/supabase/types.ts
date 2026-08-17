@@ -492,6 +492,7 @@ export type Database = {
           discount_amount: number
           discount_code_id: string | null
           id: string
+          idempotency_key: string | null
           notes: string | null
           payment_method: string | null
           shipping_address: Json | null
@@ -499,6 +500,11 @@ export type Database = {
           shipping_provider_id: string | null
           status: Database["public"]["Enums"]["order_status"]
           total: number
+          source: string
+          telegram_error: string | null
+          telegram_message_id: number | null
+          telegram_status: string
+          whatsapp_opened_at: string | null
           updated_at: string
           user_id: string
         }
@@ -507,6 +513,7 @@ export type Database = {
           discount_amount?: number
           discount_code_id?: string | null
           id?: string
+          idempotency_key?: string | null
           notes?: string | null
           payment_method?: string | null
           shipping_address?: Json | null
@@ -514,6 +521,11 @@ export type Database = {
           shipping_provider_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
+          source?: string
+          telegram_error?: string | null
+          telegram_message_id?: number | null
+          telegram_status?: string
+          whatsapp_opened_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -522,6 +534,7 @@ export type Database = {
           discount_amount?: number
           discount_code_id?: string | null
           id?: string
+          idempotency_key?: string | null
           notes?: string | null
           payment_method?: string | null
           shipping_address?: Json | null
@@ -529,6 +542,11 @@ export type Database = {
           shipping_provider_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
+          source?: string
+          telegram_error?: string | null
+          telegram_message_id?: number | null
+          telegram_status?: string
+          whatsapp_opened_at?: string | null
           updated_at?: string
           user_id?: string
         }

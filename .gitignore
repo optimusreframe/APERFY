@@ -11,6 +11,14 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+supabase/.branches/
+supabase/.temp/
+
+# Local Supabase CLI state is generated and must not be linted or committed.
+*.tsbuildinfo
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +30,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.vercel
+.env*

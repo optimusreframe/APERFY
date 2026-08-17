@@ -27,6 +27,8 @@ import { suggestRetailPrice } from '@/lib/product-intelligence';
 import { getNextWizardStep, getPreviousWizardStep, getWizardStepError } from './productWizard';
 import { toggleAllBulkSelection, toggleBulkSelection } from './productBulkSelection';
 import { partitionProductDeletion } from './productDeletion';
+import { getErrorMessage } from '@/lib/model-types';
+import type { Category, Material, Product } from '@/lib/model-types';
 
 // ── Types ──
 interface ProductForm {
@@ -48,6 +50,30 @@ interface MediaItem {
   type: 'image' | 'gif' | 'video';
   isExisting?: boolean;
 }
+
+interface AiProductData {
+  name_es: string;
+  description_es: string;
+  name_en?: string;
+  description_en?: string;
+  slug: string;
+  suggested_price: number;
+  suggested_category: string;
+  suggested_category_name_es?: string;
+  materials?: string[];
+  colors?: string[];
+  price_confidence?: string;
+  price_source?: string;
+  matched_listings_count?: number;
+  search_queries_used?: string[];
+  [key: string]: unknown;
+}
+
+type AdminProduct = Pick<Product, 'id' | 'name_en' | 'name_es' | 'description_en' | 'description_es' | 'slug' | 'base_price' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
+  categories: Pick<Category, 'name_en' | 'name_es'> | null;
+};
+type BulkField = 'name_es' | 'base_price' | 'category_id' | 'is_active';
+type BulkEdit = Partial<Pick<AdminProduct, BulkField>>;
 
 const empty: ProductForm = {
   name_en: '', name_es: '', description_en: '', description_es: '',
@@ -125,9 +151,9 @@ function MediaThumb({ item, onRemove, onDragStart, onDragOver, onDrop, index }: 
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.8 }}
       draggable
-      onDragStart={(e: any) => onDragStart(e, index)}
+      onDragStartCapture={(e: React.DragEvent) => onDragStart(e, index)}
       onDragOver={onDragOver}
-      onDrop={(e: any) => onDrop(e, index)}
+      onDrop={(e: React.DragEvent) => onDrop(e, index)}
       className="relative group w-24 h-24 rounded-xl overflow-hidden border-2 border-border hover:border-primary/50 transition-all cursor-grab active:cursor-grabbing bg-secondary"
     >
       {item.type === 'video' ? (
@@ -186,7 +212,7 @@ export default function AdminProducts() {
   const [aiStoredImageUrl, setAiStoredImageUrl] = useState<string | null>(null);
   const [aiStoredImagePath, setAiStoredImagePath] = useState<string | null>(null);
   const [aiPersistingImage, setAiPersistingImage] = useState(false);
-  const [aiData, setAiData] = useState<any>(null);
+  const [aiData, setAiData] = useState<AiProductData | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
   const [aiProgressStep, setAiProgressStep] = useState(0);
@@ -255,7 +281,7 @@ export default function AdminProducts() {
 
   // Bulk Edit state
   const [bulkEditMode, setBulkEditMode] = useState(false);
-  const [bulkEdits, setBulkEdits] = useState<Record<string, { name_es?: string; base_price?: number; category_id?: string | null; is_active?: boolean }>>({});
+  const [bulkEdits, setBulkEdits] = useState<Record<string, BulkEdit>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -263,20 +289,21 @@ export default function AdminProducts() {
 
   const bulkEditCount = Object.keys(bulkEdits).length;
 
-  const getBulkValue = (productId: string, field: string, original: any) => {
+  const getBulkValue = <K extends BulkField>(productId: string, field: K, original: AdminProduct[K]): AdminProduct[K] => {
     const edits = bulkEdits[productId];
-    if (edits && field in edits) return (edits as any)[field];
+    if (edits && field in edits) return edits[field] as AdminProduct[K];
     return original;
   };
 
-  const setBulkField = (productId: string, field: string, value: any, original: any) => {
+  const setBulkField = <K extends BulkField>(productId: string, field: K, value: AdminProduct[K], original: AdminProduct[K]) => {
     setBulkEdits(prev => {
       const current = { ...prev };
-      if (!current[productId]) current[productId] = {};
-      (current[productId] as any)[field] = value;
+      current[productId] = { ...current[productId], [field]: value } as BulkEdit;
       if (value === original) {
-        delete (current[productId] as any)[field];
-        if (Object.keys(current[productId]).length === 0) delete current[productId];
+        const next = { ...current[productId] } as BulkEdit;
+        delete next[field];
+        if (Object.keys(next).length === 0) delete current[productId];
+        else current[productId] = next;
       }
       return current;
     });
@@ -295,8 +322,8 @@ export default function AdminProducts() {
       setBulkEditMode(false);
       setBulkEdits({});
       toast({ title: '✓', description: `${entries.length} producto(s) actualizado(s).` });
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
       setBulkSaving(false);
     }
@@ -329,7 +356,7 @@ export default function AdminProducts() {
     staleTime: 30_000,
   });
 
-  const visibleProductIds = products.map((product: any) => product.id);
+  const visibleProductIds = products.map((product) => product.id);
   const allProductsSelected = visibleProductIds.length > 0 && visibleProductIds.every((id: string) => selectedProductIds.includes(id));
 
   const { data: categories = [] } = useQuery({
@@ -366,16 +393,19 @@ export default function AdminProducts() {
       return data;
     },
   });
-  const aiDiscountPercent = Number(aiProductSettings.find((row: any) => row.setting_key === 'ai_discount_percent')?.setting_value || 20);
-  const aiSearchEnabled = aiProductSettings.find((row: any) => row.setting_key === 'ai_search_enabled')?.setting_value === 'true';
+  const aiDiscountPercent = Number(aiProductSettings.find((row) => row.setting_key === 'ai_discount_percent')?.setting_value || 20);
+  const aiSearchEnabled = aiProductSettings.find((row) => row.setting_key === 'ai_search_enabled')?.setting_value === 'true';
 
   // Auto-slug from name (English if showEnglish is active, otherwise Spanish)
   useEffect(() => {
-    if (aiData && slugLocked) {
-      const source = showEnglish && aiData.name_en ? aiData.name_en : (aiData.name_es || '');
-      setAiData((prev: any) => prev ? { ...prev, slug: slugify(source) } : prev);
-    }
-  }, [aiData?.name_es, aiData?.name_en, showEnglish, slugLocked]);
+    if (!slugLocked) return;
+    setAiData((prev) => {
+      if (!prev) return prev;
+      const source = showEnglish && prev.name_en ? prev.name_en : prev.name_es;
+      const nextSlug = slugify(source);
+      return prev.slug === nextSlug ? prev : { ...prev, slug: nextSlug };
+    });
+  }, [showEnglish, slugLocked]);
 
   // ── Media Upload ──
   const uploadMedia = async (file: File, productId: string): Promise<string> => {
@@ -534,15 +564,16 @@ export default function AdminProducts() {
       setProductVariations([]);
       toast({ title: '✓', description: 'Producto guardado.' });
     },
-    onError: (e: any) => {
-      if (e.message !== 'Validation failed') {
-        toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    onError: (e: unknown) => {
+      const message = getErrorMessage(e);
+      if (message !== 'Validation failed') {
+        toast({ title: 'Error', description: message, variant: 'destructive' });
         logActivity({
           action: 'product_save_error',
           category: 'error',
           entity_type: 'product',
           title: 'Error guardando producto',
-          details: e.message,
+          details: message,
         });
       }
     },
@@ -551,7 +582,7 @@ export default function AdminProducts() {
   const safelyDeleteProducts = async (productIds: string[]) => {
     const { data: orderItems, error: orderItemsError } = await supabase.from('order_items').select('product_id').in('product_id', productIds);
     if (orderItemsError) throw orderItemsError;
-    const referencedProductIds = Array.from(new Set((orderItems || []).map((item: any) => item.product_id)));
+    const referencedProductIds = Array.from(new Set((orderItems || []).map((item) => item.product_id)));
     const { deleteIds, archiveIds } = partitionProductDeletion(productIds, referencedProductIds);
     if (deleteIds.length > 0) {
       const { error } = await supabase.from('products').delete().in('id', deleteIds);
@@ -596,10 +627,10 @@ export default function AdminProducts() {
         title: field === 'is_active' ? (value ? 'Producto activado' : 'Producto desactivado') : (value ? 'Producto destacado' : 'Producto no destacado'),
       });
     },
-    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+    onError: (e: unknown) => toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' }),
   });
 
-  const openEdit = (p: any) => {
+  const openEdit = (p: AdminProduct) => {
     setEditId(p.id);
     setFieldErrors({});
     setForm({
@@ -608,7 +639,7 @@ export default function AdminProducts() {
       slug: p.slug, base_price: p.base_price,
       category_id: p.category_id || '', is_active: p.is_active, is_featured: p.is_featured,
     });
-    const existingImages = (p.images as string[]) || [];
+    const existingImages = Array.isArray(p.images) ? p.images.filter((url): url is string => typeof url === 'string') : [];
     setMediaFiles(existingImages.map((url, i) => ({
       id: `existing-${i}`,
       preview: url,
@@ -618,7 +649,7 @@ export default function AdminProducts() {
     // Load existing variations
     setLoadingVariations(true);
     supabase.from('product_variations').select('*').eq('product_id', p.id).order('created_at').then(({ data }) => {
-      setProductVariations((data || []).map((v: any) => ({
+      setProductVariations((data || []).map((v) => ({
         id: v.id,
         name_en: v.name_en,
         name_es: v.name_es,
@@ -743,7 +774,7 @@ export default function AdminProducts() {
         const { url, path } = await persistAiImage(generatedImg);
         setAiStoredImageUrl(url);
         setAiStoredImagePath(path);
-      } catch (persistErr: any) {
+      } catch (persistErr: unknown) {
         console.error('Failed to persist AI image:', persistErr);
         toast({ title: 'Error guardando imagen', description: 'La imagen se generó pero no se pudo guardar. Intenta regenerar.', variant: 'destructive' });
         setAiGeneratedImage(null);
@@ -752,14 +783,14 @@ export default function AdminProducts() {
       }
 
       toast({ title: '✓', description: '¡Imagen AI generada!' });
-    } catch (e: any) {
-      toast({ title: 'Error generando imagen', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Error generando imagen', description: getErrorMessage(e), variant: 'destructive' });
       logActivity({
         action: 'ai_image_error',
         category: 'error',
         entity_type: 'product',
         title: 'Error generando imagen AI',
-        details: e.message,
+        details: getErrorMessage(e),
         metadata: { backgroundMode: aiBgMode },
       });
     } finally {
@@ -802,11 +833,11 @@ export default function AdminProducts() {
         setAiAngles(prev => prev.map(a =>
           a.angle === angle && a.loading ? { ...a, url, path, loading: false } : a
         ));
-      } catch (e: any) {
+      } catch (e: unknown) {
         setAiAngles(prev => prev.map(a =>
-          a.angle === angle && a.loading ? { ...a, loading: false, error: e.message } : a
+          a.angle === angle && a.loading ? { ...a, loading: false, error: getErrorMessage(e) } : a
         ));
-        toast({ title: `Error en ángulo ${ANGLE_LABELS[angle] || angle}`, description: e.message, variant: 'destructive' });
+        toast({ title: `Error en ángulo ${ANGLE_LABELS[angle] || angle}`, description: getErrorMessage(e), variant: 'destructive' });
       }
     }));
 
@@ -842,7 +873,7 @@ export default function AdminProducts() {
         body: {
           action: 'scrape',
           url: aiUrl,
-           existingCategories: categories.map((c: any) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
+           existingCategories: categories.map((c) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
            discountPercent: aiDiscountPercent,
         },
       });
@@ -863,8 +894,8 @@ export default function AdminProducts() {
       if (bestImage) {
         triggerAiGenerateImage(bestImage);
       }
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
       setAiStep('source');
     } finally {
       setAiLoading(false);
@@ -898,8 +929,8 @@ export default function AdminProducts() {
       setSelectedProductIds([]);
       setBulkDeleteOpen(false);
       toast({ title: '✓', description: `${deletedCount} producto(s) eliminado(s).` });
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
       setBulkDeleting(false);
     }
@@ -922,8 +953,8 @@ export default function AdminProducts() {
       setAiData({ ...product, name_es: product.name || '', name_en: product.name || '', description_es: product.description || '', description_en: product.description || '', slug: slugify(product.name || 'producto'), suggested_category: '', colors: [], materials: [] });
       setAiSelectedSourceImage(aiOriginalImage);
       setAiStep('review');
-    } catch (e: any) {
-      toast({ title: 'ERROR DE ANÁLISIS', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'ERROR DE ANÁLISIS', description: getErrorMessage(e), variant: 'destructive' });
       setAiStep('source');
     } finally {
       setAiLoading(false);
@@ -957,7 +988,7 @@ export default function AdminProducts() {
       if (error) throw error;
       if (data?.success) {
         const newNameEn = data.data.name_en;
-        setAiData((prev: any) => {
+        setAiData((prev) => {
           const updated = { ...prev, name_en: newNameEn, description_en: data.data.description_en };
           // Regenerate slug from English name if English mode is on and slug is locked
           if (showEnglish && slugLocked && newNameEn) {
@@ -967,8 +998,8 @@ export default function AdminProducts() {
         });
         toast({ title: '✓', description: 'Traducción generada' });
       }
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
       setTranslating(false);
     }
@@ -1030,8 +1061,8 @@ export default function AdminProducts() {
       setEditAiImageOpen(false);
       setEditAiSourceImage(null);
       toast({ title: '✓', description: '¡Imagen AI generada y agregada!' });
-    } catch (e: any) {
-      const errorMessage = e.message || 'Error desconocido';
+    } catch (e: unknown) {
+      const errorMessage = getErrorMessage(e, 'Error desconocido');
       toast({ title: 'Error generando imagen', description: errorMessage, variant: 'destructive' });
       await logActivity({
         action: 'ai_image_generation_failed',
@@ -1057,7 +1088,7 @@ export default function AdminProducts() {
           action: 'enhance_product',
           name_es: form.name_es,
           description_es: form.description_es,
-          existingCategories: categories.map((c: any) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
+          existingCategories: categories.map((c) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
           imageUrl: firstImage,
         },
       });
@@ -1065,7 +1096,7 @@ export default function AdminProducts() {
       if (!data?.success) throw new Error(data?.error || 'Error');
 
       const enhanced = data.data;
-      const matchedCat = categories.find((c: any) => c.slug === enhanced.suggested_category);
+      const matchedCat = categories.find((c) => c.slug === enhanced.suggested_category);
 
       setForm(prev => ({
         ...prev,
@@ -1077,8 +1108,8 @@ export default function AdminProducts() {
         category_id: matchedCat?.id || prev.category_id,
       }));
       toast({ title: '✓', description: 'Producto mejorado con AI' });
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
       setEditEnhancing(false);
     }
@@ -1101,8 +1132,8 @@ export default function AdminProducts() {
         }));
         toast({ title: '✓', description: 'Traducción generada' });
       }
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
       setEditTranslating(false);
     }
@@ -1123,8 +1154,8 @@ export default function AdminProducts() {
           return updated;
         });
       }
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
     }
   };
 
@@ -1141,11 +1172,11 @@ export default function AdminProducts() {
       }).select().single();
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ['admin-categories'] });
-      setAiData((prev: any) => ({ ...prev, suggested_category: data.slug }));
+      setAiData((prev) => prev ? ({ ...prev, suggested_category: data.slug }) : prev);
       setNewCategoryName('');
       toast({ title: '✓', description: 'Categoría creada' });
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
       setCreatingCategory(false);
     }
@@ -1157,7 +1188,7 @@ export default function AdminProducts() {
       toast({ title: 'Espera', description: 'La imagen aún se está guardando...', variant: 'destructive' });
       return;
     }
-    const matchedCat = categories.find((c: any) => c.slug === aiData.suggested_category);
+    const matchedCat = categories.find((c) => c.slug === aiData.suggested_category);
 
     const nameEn = aiData.name_en || aiData.name_es;
     const descEn = aiData.description_en || aiData.description_es;
@@ -1712,7 +1743,7 @@ export default function AdminProducts() {
                             }}>
                               <SelectTrigger className="bg-secondary text-sm"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                               <SelectContent>
-                                {categories.map((c: any) => (
+                                {categories.map((c) => (
                                   <SelectItem key={c.id} value={c.slug}>{c.name_es}</SelectItem>
                                 ))}
                                 <SelectItem value="__new__">+ Crear nueva categoría</SelectItem>
@@ -1722,7 +1753,7 @@ export default function AdminProducts() {
                         </div>
 
                         {/* Inline new category creation */}
-                        {(aiData.suggested_category === '__new__' || (!categories.find((c: any) => c.slug === aiData.suggested_category) && aiData.suggested_category)) && (
+                        {(aiData.suggested_category === '__new__' || (!categories.find((c) => c.slug === aiData.suggested_category) && aiData.suggested_category)) && (
                           <div className="flex gap-2 items-end">
                             <div className="flex-1 space-y-1">
                               <Label className="text-xs">Nueva categoría</Label>
@@ -1743,7 +1774,7 @@ export default function AdminProducts() {
                         <div className="space-y-2">
                           <Label className="text-xs uppercase">VARIANT PRESETS</Label>
                           <div className="flex flex-wrap gap-2 p-2 rounded-lg bg-secondary border border-border min-h-[40px]">
-                            {materials.map((m: any) => {
+                            {materials.map((m) => {
                               const isSelected = (aiData.materials || []).some((mat: string) =>
                                 mat.toLowerCase() === m.name_es.toLowerCase() || mat.toLowerCase() === m.name_en.toLowerCase()
                               );
@@ -1754,9 +1785,9 @@ export default function AdminProducts() {
                                     onCheckedChange={(checked) => {
                                       const matName = m.name_es;
                                       if (checked) {
-                                        setAiData((prev: any) => ({ ...prev, materials: [...(prev.materials || []), matName] }));
+                                        setAiData((prev) => prev ? ({ ...prev, materials: [...(prev.materials || []), matName] }) : prev);
                                       } else {
-                                        setAiData((prev: any) => ({ ...prev, materials: (prev.materials || []).filter((mat: string) => mat.toLowerCase() !== m.name_es.toLowerCase() && mat.toLowerCase() !== m.name_en.toLowerCase()) }));
+                                        setAiData((prev) => prev ? ({ ...prev, materials: (prev.materials || []).filter((mat) => mat.toLowerCase() !== m.name_es.toLowerCase() && mat.toLowerCase() !== m.name_en.toLowerCase()) }) : prev);
                                       }
                                     }}
                                     className="w-3 h-3"
@@ -1780,9 +1811,9 @@ export default function AdminProducts() {
                                     checked={isSelected}
                                     onCheckedChange={(checked) => {
                                       if (checked) {
-                                        setAiData((prev: any) => ({ ...prev, colors: [...(prev.colors || []), color] }));
+                                        setAiData((prev) => prev ? ({ ...prev, colors: [...(prev.colors || []), color] }) : prev);
                                       } else {
-                                        setAiData((prev: any) => ({ ...prev, colors: (prev.colors || []).filter((c: string) => c.toLowerCase() !== color.toLowerCase()) }));
+                                        setAiData((prev) => prev ? ({ ...prev, colors: (prev.colors || []).filter((c) => c.toLowerCase() !== color.toLowerCase()) }) : prev);
                                       }
                                     }}
                                     className="w-3 h-3"
@@ -2151,7 +2182,7 @@ export default function AdminProducts() {
                     <Select value={form.category_id} onValueChange={(v) => setForm({ ...form, category_id: v })}>
                       <SelectTrigger className="bg-secondary"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                       <SelectContent>
-                        {categories.map((c: any) => (
+                        {categories.map((c) => (
                           <SelectItem key={c.id} value={c.id}>{c.name_es}</SelectItem>
                         ))}
                       </SelectContent>
@@ -2479,8 +2510,8 @@ export default function AdminProducts() {
                                       return u;
                                     });
                                     toast({ title: '✨ Imagen generada' });
-                                  } catch (err: any) {
-                                    toast({ title: 'Error al generar', description: err.message, variant: 'destructive' });
+                                  } catch (err: unknown) {
+                                    toast({ title: 'Error al generar', description: getErrorMessage(err), variant: 'destructive' });
                                     setProductVariations(prev => { const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _generatingImage: false }; return u; });
                                   }
                                 }}
@@ -2622,7 +2653,7 @@ export default function AdminProducts() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {products.map((p: any) => (
+            {products.map((p) => (
               <TableRow key={p.id} className={`border-border ${selectedProductIds.includes(p.id) ? 'bg-destructive/[0.05]' : bulkEdits[p.id] ? 'bg-primary/5' : ''}`}>
                 <TableCell className="w-12">
                   <Checkbox checked={selectedProductIds.includes(p.id)} onCheckedChange={(checked) => setSelectedProductIds(toggleBulkSelection(selectedProductIds, p.id, checked === true))} aria-label={`Seleccionar ${p.name_es}`} />
@@ -2658,7 +2689,7 @@ export default function AdminProducts() {
                     >
                       <SelectTrigger className="bg-secondary text-sm h-8 w-[140px]"><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent>
-                        {categories.map((c: any) => (
+                        {categories.map((c) => (
                           <SelectItem key={c.id} value={c.id}>{c.name_es}</SelectItem>
                         ))}
                       </SelectContent>

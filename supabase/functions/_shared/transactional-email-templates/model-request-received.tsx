@@ -3,7 +3,8 @@ import { Body, Container, Head, Heading, Html, Preview, Text, Section, Img } fro
 import type { TemplateEntry } from './registry.ts'
 
 const SITE_NAME = 'APERFY'
-const LOGO_URL = 'https://fyqcbkfzyjgddmqupdfr.supabase.co/storage/v1/object/public/email-assets/logo.png'
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const LOGO_URL = `${SUPABASE_URL}/storage/v1/object/public/email-assets/logo.png`
 
 interface Props { customerName?: string; productName?: string }
 

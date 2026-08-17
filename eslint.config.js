@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  { ignores: ["dist", "supabase/.temp/**", "supabase/.branches/**"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -22,5 +22,19 @@ export default tseslint.config(
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
     },
+  },
+  {
+    // These modules intentionally co-locate providers/hooks/constants with
+    // their components. Fast Refresh can preserve state safely here; the
+    // rule is a false positive for this shared design-system/runtime code.
+    files: [
+      "src/components/ui/**/*.{ts,tsx}",
+      "src/components/layout/MacShellContext.tsx",
+      "src/contexts/**/*.{ts,tsx}",
+      "src/i18n/LanguageContext.tsx",
+      "src/pages/Index.tsx",
+      "supabase/functions/_shared/transactional-email-templates/**/*.{ts,tsx}",
+    ],
+    rules: { "react-refresh/only-export-components": "off" },
   },
 );

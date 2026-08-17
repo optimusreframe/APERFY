@@ -45,6 +45,7 @@ const groups = [
       { title: 'LOGS', url: '/admin/logs', icon: ScrollText },
       { title: 'BACKGROUND QA', url: '/admin/background-qa', icon: FlaskConical },
       { title: 'AI SETTINGS', url: '/admin/ai-settings', icon: Settings2 },
+      { title: 'INTEGRATIONS', url: '/admin/integrations', icon: Settings2 },
     ],
   },
 ];

@@ -4,9 +4,10 @@ import { motion } from 'framer-motion';
 import { TrendingUp, ChevronLeft, ChevronRight, Box, Crown, Trophy, Medal } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import LikeButton from '@/components/LikeButton';
+import type { Product } from '@/lib/model-types';
 
 interface TrendingSectionProps {
-  products: any[];
+  products: Product[];
   likeCounts: Record<string, number>;
 }
 

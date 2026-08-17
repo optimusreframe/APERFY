@@ -2,11 +2,11 @@
 import * as React from 'npm:react@18.3.1'
 
 export interface TemplateEntry {
-  component: React.ComponentType<any>
-  subject: string | ((data: Record<string, any>) => string)
+  component: React.ComponentType<never>
+  subject: string | ((data: Record<string, unknown>) => string)
   to?: string
   displayName?: string
-  previewData?: Record<string, any>
+  previewData?: Record<string, unknown>
 }
 
 import { template as orderConfirmation } from './order-confirmation.tsx'

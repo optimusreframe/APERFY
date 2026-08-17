@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-const PUBLIC_URL = 'https://aperfy.online';
+const PUBLIC_URL = 'https://aperfy.kpwr.dev';
 
 interface ShareMenuProps {
   slug: string;
@@ -32,18 +32,18 @@ export default function ShareMenu({ slug, productName, className, size = 'sm' }:
   const text = language === 'es' ? `Mira este producto: ${productName}` : `Check out this product: ${productName}`;
 
   const iconSize = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5';
-  const hasNativeShare = typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function';
+  const hasNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (hasNativeShare) {
       try {
-        await (navigator as any).share({ title: productName, text, url });
+        await navigator.share({ title: productName, text, url });
         return;
-      } catch (err: any) {
+      } catch (err: unknown) {
         // user cancelled or browser blocked – fall through to dropdown
-        if (err?.name === 'AbortError') return;
+        if (err instanceof DOMException && err.name === 'AbortError') return;
       }
     }
     setOpen(true);

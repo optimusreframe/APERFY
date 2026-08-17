@@ -8,6 +8,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import type { Referral } from '@/lib/model-types';
 
 function generateCode(userId: string) {
   // Stable, short code derived from user id.
@@ -26,7 +27,7 @@ export default function ReferralsTab() {
     queryKey: ['referral-code', user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('referral_codes')
         .select('*')
         .eq('user_id', user!.id)
@@ -40,7 +41,7 @@ export default function ReferralsTab() {
     if (!user || codeRow || isLoading) return;
     (async () => {
       const code = generateCode(user.id);
-      await (supabase as any).from('referral_codes').insert({ user_id: user.id, code });
+      await supabase.from('referral_codes').insert({ user_id: user.id, code });
       qc.invalidateQueries({ queryKey: ['referral-code', user.id] });
     })();
   }, [user, codeRow, isLoading, qc]);
@@ -49,7 +50,7 @@ export default function ReferralsTab() {
     queryKey: ['my-referrals', user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('referrals')
         .select('*')
         .eq('referrer_user_id', user!.id)
@@ -79,7 +80,7 @@ export default function ReferralsTab() {
               : 'Explore these curated finds on APERFY. Use my code to discover the store.',
           url: link,
         });
-      } catch {}
+      } catch (error: unknown) { console.debug('Share cancelled', error); }
     } else {
       copy();
     }
@@ -94,7 +95,7 @@ export default function ReferralsTab() {
     },
     {
       label: language === 'es' ? 'Compras' : 'Orders',
-      value: codeRow?.total_orders ?? referrals.filter((r: any) => r.first_order_id).length,
+      value: codeRow?.total_orders ?? referrals.filter((referral: Referral) => referral.first_order_id).length,
       icon: ShoppingBag,
       gradient: 'from-purple-500/20 to-pink-500/10',
     },
@@ -164,7 +165,7 @@ export default function ReferralsTab() {
               {language === 'es' ? 'Actividad' : 'Activity'}
             </div>
             <ul className="space-y-2">
-              {referrals.map((r: any) => (
+              {referrals.map((r: Referral) => (
                 <li key={r.id} className="flex items-center justify-between text-sm border-b border-white/[0.04] pb-2 last:border-0">
                   <span className="font-mono text-xs text-muted-foreground">
                     {new Date(r.created_at).toLocaleDateString()}
