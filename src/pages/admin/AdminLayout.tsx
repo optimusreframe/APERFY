@@ -54,7 +54,7 @@ export default function AdminLayout() {
               <NotificationBell />
             </div>
           </header>
-          <main className="mac-admin-main min-h-0 p-4 md:p-6 lg:p-8">
+          <main className="mac-admin-main min-h-0 flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
             <Outlet />
           </main>
         </div>
