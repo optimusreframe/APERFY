@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Zap, Cog, Package } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
+import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutWhatsAppUrl } from '@/lib/checkout';
 
 type Step = 'shipping' | 'method' | 'payment-instructions' | 'whatsapp-sent';
 type Section = 'contact' | 'address' | 'shipping';
@@ -414,7 +415,10 @@ export default function Checkout() {
   };
 
   const createOrder = async (paymentMethod: string): Promise<string | null> => {
-    if (!user || items.length === 0) return null;
+    if (!user) {
+      throw new Error(language === 'es' ? 'Debes iniciar sesión para completar el pedido.' : 'You must sign in to complete the order.');
+    }
+    if (items.length === 0) return null;
     const pmResult = paymentMethodSchema.safeParse(paymentMethod);
     if (!pmResult.success) {
       toast({ title: 'Error', description: 'Invalid payment method', variant: 'destructive' });
@@ -436,32 +440,36 @@ export default function Checkout() {
       if (!dbProduct.is_active) throw new Error('Product is no longer available');
     }
     const formResult = checkoutSchema.safeParse(form);
-    if (!formResult.success) return null;
+    if (!formResult.success) {
+      throw new Error(language === 'es' ? 'Revisa los datos de envío antes de continuar.' : 'Review your shipping details before continuing.');
+    }
     const vf = formResult.data;
     const idempotencyKey = paymentMethod === 'whatsapp'
       ? (whatsappIdempotencyKeyRef.current ||= crypto.randomUUID())
       : crypto.randomUUID();
+    const orderInput = buildOrderInsert({
+      userId: user.id,
+      total: orderTotal,
+      paymentMethod,
+      idempotencyKey,
+      form: vf,
+      selectedShipping,
+      shippingCost,
+      discountId: discount?.id || null,
+      discountAmount,
+    });
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .insert({
-        user_id: user.id, total: orderTotal, notes: vf.notes || null, payment_method: paymentMethod,
-        source: paymentMethod === 'whatsapp' ? 'whatsapp' : 'website',
-        idempotency_key: idempotencyKey,
-        shipping_address: {
-          full_name: vf.fullName, email: vf.email, phone: vf.phone,
-          address: vf.address, address2: vf.address2 || '', city: vf.city,
-          state: vf.state, zip_code: vf.zipCode, country: vf.country,
-        },
-        shipping_provider_id: selectedShipping || null, shipping_cost: shippingCost,
-        discount_code_id: discount?.id || null,
-        discount_amount: discountAmount,
-      })
+      .insert(orderInput)
       .select().single();
     if (orderError?.code === '23505') {
       const { data: existingOrder } = await supabase.from('orders').select('id').eq('idempotency_key', idempotencyKey).maybeSingle();
       if (existingOrder?.id) return existingOrder.id;
     }
-    if (orderError) throw orderError;
+    if (orderError) {
+      console.error('Checkout order insert failed:', orderError);
+      throw orderError;
+    }
     if (discount?.id) {
       // best-effort increment usage counter
       await supabase.rpc('increment_discount_usage', { _id: discount.id }).then(() => undefined, () => undefined);
@@ -531,9 +539,10 @@ export default function Checkout() {
       clearCart();
       setStep('whatsapp-sent');
       await supabase.from('orders').update({ whatsapp_opened_at: new Date().toISOString() }).eq('id', orderId);
-      window.open(whatsappUrl, '_blank');
+      const redirectUrl = getCheckoutWhatsAppUrl(whatsappUrl, orderWhatsappUrl);
+      if (redirectUrl) window.open(redirectUrl, '_blank');
     } catch (error: unknown) {
-      toast({ title: t.checkout.error, description: error instanceof Error ? error.message : 'Checkout failed', variant: 'destructive' });
+      toast({ title: t.checkout.error, description: getCheckoutErrorMessage(error, 'Checkout failed'), variant: 'destructive' });
     } finally { setLoading(false); }
   };
 
@@ -548,7 +557,7 @@ export default function Checkout() {
       clearCart();
       setStep('payment-instructions');
     } catch (error: unknown) {
-      toast({ title: t.checkout.error, description: error instanceof Error ? error.message : 'Checkout failed', variant: 'destructive' });
+      toast({ title: t.checkout.error, description: getCheckoutErrorMessage(error, 'Checkout failed'), variant: 'destructive' });
     } finally { setLoading(false); }
   };
 
