@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAiRequestBody } from '../../supabase/functions/_shared/ai-compat';
+import { buildAiRequestBody, isDeepSeekProvider } from '../../supabase/functions/_shared/ai-compat';
 
 describe('buildAiRequestBody', () => {
   it('disables DeepSeek thinking when a request uses tool calls', () => {
@@ -15,5 +15,11 @@ describe('buildAiRequestBody', () => {
     const payload = { model: 'gpt-4o-mini', tools: [{ type: 'function' }] };
 
     expect(buildAiRequestBody({ provider: 'openai', baseUrl: 'https://api.openai.com/v1' }, payload)).toEqual(payload);
+  });
+
+  it('recognizes DeepSeek by provider or compatible base URL', () => {
+    expect(isDeepSeekProvider({ provider: 'deepseek' })).toBe(true);
+    expect(isDeepSeekProvider({ baseUrl: 'https://api.deepseek.com' })).toBe(true);
+    expect(isDeepSeekProvider({ provider: 'openai', baseUrl: 'https://api.openai.com/v1' })).toBe(false);
   });
 });

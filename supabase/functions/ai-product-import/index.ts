@@ -2,7 +2,7 @@ import "https://deno.land/std@0.168.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { aiChatCompletionsUrl, aiHeaders, loadAiConfig } from "../_shared/ai-provider.ts";
-import { buildAiRequestBody } from "../_shared/ai-compat.ts";
+import { buildAiRequestBody, DEEPSEEK_IMAGE_LIMITATION, isDeepSeekProvider } from "../_shared/ai-compat.ts";
 import { getIntegrationSecret } from "../_shared/integration-secrets.ts";
 
 const corsHeaders = {
@@ -36,6 +36,14 @@ type ChatMessage = { role: "system" | "user" | "assistant"; content: string | Im
 
 function serializeAiRequest(ai: AiRuntime, body: Record<string, unknown>) {
   return JSON.stringify(buildAiRequestBody(ai, body));
+}
+
+function imageCapabilityError() {
+  return new Response(JSON.stringify({
+    success: false,
+    code: "AI_IMAGE_UNSUPPORTED",
+    error: DEEPSEEK_IMAGE_LIMITATION,
+  }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 // ── Phase 1: Generate optimized eBay search queries using AI ──
@@ -385,7 +393,13 @@ serve(async (req) => {
       }
 
       if (!scrapedContent) {
-        scrapedContent = `URL provided: ${url}. Unable to scrape content directly.`;
+        return new Response(JSON.stringify({
+          success: false,
+          code: FIRECRAWL_API_KEY ? "URL_NOT_READABLE" : "FIRECRAWL_NOT_CONFIGURED",
+          error: FIRECRAWL_API_KEY
+            ? "No se pudo leer el contenido de esa URL. Prueba otra fuente o verifica la configuración de Firecrawl."
+            : "Configura FIRECRAWL_API_KEY en Admin → Integrations para extraer datos reales de URLs. Sin Firecrawl no se genera una ficha inventada.",
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       // ── Multi-Strategy eBay Price Research ──
@@ -517,6 +531,7 @@ ${imageListForAI || "No images found."}`
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (isDeepSeekProvider(aiConfig)) return imageCapabilityError();
 
       const FRAMING_RULE = `CRITICAL FRAMING RULE:
 Show the entire physical product fully visible inside the frame. Do not crop any part of it. Keep clear margins on all sides, center the product, and use a premium ecommerce composition. Preserve the complete silhouette, packaging, labels, and visible details.`;
@@ -833,7 +848,7 @@ If the input name/description is already good, polish it slightly. If it's empty
         },
         {
           role: "user",
-          content: imageUrl
+          content: imageUrl && !isDeepSeekProvider(aiConfig)
             ? [
                 { type: "text", text: `Current name (ES): ${name_es || '(empty)'}\nCurrent description (ES): ${description_es || '(empty)'}` },
                 { type: "image_url", image_url: { url: imageUrl } }
@@ -900,6 +915,7 @@ If the input name/description is already good, polish it slightly. If it's empty
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (isDeepSeekProvider(aiConfig)) return imageCapabilityError();
 
       const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
 Preserve the exact same physical product from the source image. Do not redesign it or change its proportions, silhouette, color, packaging, labels, logos, texture, or visible details. Only change the camera angle. The final image must look like the same product photographed in a professional APERFY retail studio.`;
@@ -996,6 +1012,7 @@ Preserve the exact same physical product from the source image. Do not redesign 
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (isDeepSeekProvider(aiConfig)) return imageCapabilityError();
       const allowedCounts = [1, 4, 8];
       const variantCount = allowedCounts.includes(Number(count)) ? Number(count) : 1;
     BACKGROUND_PRESET_PROMPTS.system_workshop = `Empty APERFY retail product photography studio, graphite surface, soft neutral gradient background, controlled green accent light, clean premium ecommerce composition, generous negative space for the product, no people, no hands, no text, no logos, no watermark.`;

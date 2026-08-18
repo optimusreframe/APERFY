@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useBulkImport } from '@/contexts/BulkImportContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler, Check, Clipboard } from 'lucide-react';
 import { logActivity } from '@/lib/activity-log';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -28,6 +28,7 @@ import { getNextWizardStep, getPreviousWizardStep, getWizardStepError } from './
 import { toggleAllBulkSelection, toggleBulkSelection } from './productBulkSelection';
 import { partitionProductDeletion } from './productDeletion';
 import { getErrorMessage } from '@/lib/model-types';
+import { readClipboardImage } from '@/lib/image-clipboard';
 import type { Category, Material, Product } from '@/lib/model-types';
 
 // ── Types ──
@@ -970,6 +971,30 @@ export default function AdminProducts() {
     setAiSelectedSourceImage(null);
   };
 
+  const handleAiClipboardPaste = async () => {
+    const clipboard = navigator.clipboard;
+    if (!clipboard?.read) {
+      toast({ title: 'Portapapeles no disponible', description: 'Usa “Subir desde galería / archivos” para seleccionar la imagen.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const file = await readClipboardImage(() => clipboard.read());
+      if (!file) {
+        toast({ title: 'No hay una imagen en el portapapeles', description: 'Copia una imagen y vuelve a intentarlo.', variant: 'destructive' });
+        return;
+      }
+      const b64 = await fileToBase64(file);
+      setAiOriginalImage(b64);
+      setAiOriginalImageFile(file);
+      setAiSelectedSourceImage(null);
+      toast({ title: 'Imagen pegada', description: 'La imagen del portapapeles está lista para analizar.' });
+    } catch (error: unknown) {
+      console.error('Clipboard image read failed:', error);
+      toast({ title: 'No se pudo leer el portapapeles', description: 'Concede permiso al navegador o usa la selección desde galería / archivos.', variant: 'destructive' });
+    }
+  };
+
   const handleAiBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1403,10 +1428,15 @@ export default function AdminProducts() {
                       ) : (
                         <button onClick={() => aiOriginalInputRef.current?.click()} className="w-32 h-24 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors">
                           <Upload className="w-5 h-5 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">Subir</span>
+                          <span className="text-xs text-muted-foreground">Galería / archivos</span>
                         </button>
                       )}
-                       <input ref={aiOriginalInputRef} type="file" accept="image/*" capture="environment" onChange={handleAiOriginalUpload} className="hidden" />
+                       <input ref={aiOriginalInputRef} type="file" accept="image/*" onChange={handleAiOriginalUpload} className="hidden" />
+                       {!aiOriginalImage && (
+                         <Button type="button" variant="outline" onClick={handleAiClipboardPaste} className="w-full gap-2">
+                           <Clipboard className="h-4 w-4" /> PEGAR DESDE PORTAPAPELES
+                         </Button>
+                       )}
                        <Button type="button" variant="outline" onClick={handleAiPhotoAnalyze} disabled={!aiOriginalImage || aiLoading} className="w-full gap-2 uppercase"><Sparkles className="h-4 w-4" /> ANALYZE PHOTO &amp; SUGGEST PRICE</Button>
                     </div>
 
@@ -1558,7 +1588,10 @@ export default function AdminProducts() {
 
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => aiOriginalInputRef.current?.click()} className="text-xs gap-1">
-                            <Upload className="w-3 h-3" /> Subir Foto
+                            <Upload className="w-3 h-3" /> Galería / archivos
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={handleAiClipboardPaste} className="text-xs gap-1">
+                            <Clipboard className="w-3 h-3" /> Pegar imagen
                           </Button>
                         </div>
 

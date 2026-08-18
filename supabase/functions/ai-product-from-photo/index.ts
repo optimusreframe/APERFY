@@ -2,6 +2,7 @@ import "https://deno.land/std@0.168.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { aiChatCompletionsUrl, aiHeaders, loadAiConfig } from "../_shared/ai-provider.ts";
+import { DEEPSEEK_IMAGE_LIMITATION, isDeepSeekProvider } from "../_shared/ai-compat.ts";
 import { getIntegrationSecret } from "../_shared/integration-secrets.ts";
 
 const corsHeaders = {
@@ -29,6 +30,9 @@ serve(async (req) => {
 
     const aiConfig = await loadAiConfig(adminClient);
     if (!aiConfig) return json({ success: false, code: "AI_PROVIDER_NOT_CONFIGURED", error: "Configure the AI provider in Admin → Integrations." }, 503);
+    if (isDeepSeekProvider(aiConfig)) {
+      return json({ success: false, code: "AI_VISION_UNSUPPORTED", error: DEEPSEEK_IMAGE_LIMITATION });
+    }
 
     const response = await fetch(aiChatCompletionsUrl(aiConfig), {
       method: "POST",
