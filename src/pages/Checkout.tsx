@@ -538,9 +538,12 @@ export default function Checkout() {
       setWhatsappUrl(orderWhatsappUrl);
       clearCart();
       setStep('whatsapp-sent');
-      await supabase.from('orders').update({ whatsapp_opened_at: new Date().toISOString() }).eq('id', orderId);
       const redirectUrl = getCheckoutWhatsAppUrl(whatsappUrl, orderWhatsappUrl);
-      if (redirectUrl) window.open(redirectUrl, '_blank');
+      void supabase.from('orders').update({ whatsapp_opened_at: new Date().toISOString() }).eq('id', orderId)
+        .then(({ error }) => {
+          if (error) console.warn('Checkout WhatsApp tracking failed:', error);
+        });
+      if (redirectUrl) window.setTimeout(() => window.open(redirectUrl, '_blank'), 0);
     } catch (error: unknown) {
       toast({ title: t.checkout.error, description: getCheckoutErrorMessage(error, 'Checkout failed'), variant: 'destructive' });
     } finally { setLoading(false); }
