@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutWhatsAppUrl } from './checkout';
+import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutWhatsAppUrl, isWhatsAppCheckoutComplete } from './checkout';
 
 describe('checkout order contract', () => {
   it('keeps the selected payment method in the order payload', () => {
@@ -42,5 +42,9 @@ describe('checkout order contract', () => {
   it('opens the URL returned by the notification flow, not stale React state', () => {
     expect(getCheckoutWhatsAppUrl(null, 'https://wa.me/15555550123?text=order'))
       .toBe('https://wa.me/15555550123?text=order');
+  });
+
+  it('shows confirmation once the order and WhatsApp URL are available', () => {
+    expect(isWhatsAppCheckoutComplete('method', 'order-1', 'https://wa.me/15555550123?text=order')).toBe(true);
   });
 });

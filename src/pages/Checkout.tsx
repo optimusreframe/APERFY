@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Zap, Cog, Package } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
-import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutWhatsAppUrl } from '@/lib/checkout';
+import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutWhatsAppUrl, isWhatsAppCheckoutComplete } from '@/lib/checkout';
 
 type Step = 'shipping' | 'method' | 'payment-instructions' | 'whatsapp-sent';
 type Section = 'contact' | 'address' | 'shipping';
@@ -361,6 +361,7 @@ export default function Checkout() {
   const subtotal = getTotal();
   const discountAmount = getDiscountAmount();
   const orderTotal = Math.max(0, getFinalTotal() + shippingCost);
+  const whatsappCheckoutComplete = isWhatsAppCheckoutComplete(step, createdOrderId, whatsappUrl);
 
   const setF = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
 
@@ -676,7 +677,7 @@ export default function Checkout() {
     return (language === 'es' ? es : en)[s];
   };
 
-  const isInFlow = step === 'shipping' || step === 'method';
+  const isInFlow = (step === 'shipping' || step === 'method') && !whatsappCheckoutComplete;
 
   return (
     <div className="min-h-screen bg-background">
@@ -1058,7 +1059,7 @@ export default function Checkout() {
           )}
 
           {/* ── STEP 4: WHATSAPP SENT ── */}
-          {step === 'whatsapp-sent' && (
+          {whatsappCheckoutComplete && (
             <motion.div key="whatsapp-done" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto py-8 text-center">
               <motion.div
                 initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}

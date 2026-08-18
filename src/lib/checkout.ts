@@ -73,3 +73,11 @@ export function getCheckoutErrorMessage(error: unknown, fallback: string): strin
 export function getCheckoutWhatsAppUrl(currentUrl: string | null, returnedUrl: string | null): string | null {
   return returnedUrl || currentUrl;
 }
+
+export function isWhatsAppCheckoutComplete(
+  step: string,
+  orderId: string | null,
+  whatsappUrl: string | null,
+): boolean {
+  return step === 'whatsapp-sent' || Boolean(orderId && whatsappUrl);
+}
