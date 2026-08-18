@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, ShieldAlert } from 'lucide-react';
@@ -23,12 +23,17 @@ export default function Auth() {
   const [cooldown, setCooldown] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  if (user) {
-    navigate('/');
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate(isAdmin ? '/admin' : '/', { replace: true });
+    }
+  }, [authLoading, isAdmin, navigate, user]);
+
+  if (authLoading || user) {
     return null;
   }
 

@@ -1,6 +1,6 @@
 import { useRef, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Globe, Home, MessageCircle, ShoppingBag, ShoppingCart, UserRound } from 'lucide-react';
+import { Globe, Home, MessageCircle, ShieldCheck, ShoppingBag, ShoppingCart, UserRound } from 'lucide-react';
 import ScrollToTopButton from './ScrollToTopButton';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useCart } from '@/contexts/CartContext';
@@ -26,6 +26,7 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
     { to: '/ask', label: es ? 'Solicitar producto' : 'Request a product', icon: MessageCircle },
     { to: '/cart', label: es ? 'Carrito' : 'Cart', icon: ShoppingBag, count: itemCount },
   ];
+  const accountPath = user ? (authIsAdmin ? '/admin' : '/profile') : '/auth';
 
   return <MacShellProvider variant={variant}><div data-testid="mac-app-shell" data-aperfy-shell="macos" data-shell-variant={variant} className="mac-workspace relative h-[100dvh] overflow-hidden px-0 py-0 text-foreground sm:px-4 sm:py-4 lg:px-8 lg:py-8"><PointerGlow />
     <MacWindowIntro><div className="mac-window mx-auto flex h-full min-h-0 max-w-[1480px] overflow-hidden sm:rounded-[1.25rem] sm:border sm:border-white/[0.08] sm:shadow-[0_32px_100px_hsl(220_35%_2%/.7)]">
@@ -34,7 +35,7 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
         <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[.18em] text-muted-foreground">{es ? 'Tienda' : 'Shop'}</div>
         <nav className="space-y-1" aria-label={es ? 'Navegación de tienda' : 'Store navigation'}>{links.map(({ to, label, icon: Icon, count }) => <Link key={to} to={to} className={`mac-nav-item ${location.pathname === to ? 'is-active' : ''}`}><Icon className="h-4 w-4" /><span>{label}</span>{typeof count === 'number' && count > 0 && <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">{count}</span>}</Link>)}</nav>
         <div className="mb-2 mt-8 px-3 text-[10px] font-semibold uppercase tracking-[.18em] text-muted-foreground">{es ? 'Tu espacio' : 'Your space'}</div>
-        <nav><Link to="/profile" className={`mac-nav-item ${location.pathname === '/profile' ? 'is-active' : ''}`}><UserRound className="h-4 w-4" /><span>{es ? 'Cuenta' : 'Account'}</span></Link></nav>
+        <nav><Link to={accountPath} className={`mac-nav-item ${location.pathname === '/profile' ? 'is-active' : ''}`}><UserRound className="h-4 w-4" /><span>{es ? 'Cuenta' : 'Account'}</span></Link></nav>
         <div className="mt-auto rounded-xl border border-primary/20 bg-primary/[0.07] p-3"><p className="text-xs font-semibold">{es ? 'Nuevos productos cada día' : 'New products every day'}</p><p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{es ? 'Lo publicado es lo disponible.' : 'What is published is what is available.'}</p></div>
       </aside>}
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -45,7 +46,8 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
           {!isAdmin && <div className="ml-auto flex items-center gap-1">
             <button onClick={() => setLanguage(language === 'en' ? 'es' : 'en')} className="mac-toolbar-button" aria-label={es ? 'Cambiar idioma' : 'Toggle language'}><Globe className="h-3.5 w-3.5" /><span className="text-[10px] font-semibold uppercase">{language}</span></button>
             <Link to="/cart" className="mac-toolbar-button" aria-label={es ? 'Abrir carrito' : 'Open cart'}><ShoppingCart className="h-4 w-4" />{itemCount > 0 && <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">{itemCount}</span>}</Link>
-            <Link to={user ? (authIsAdmin ? '/admin' : '/profile') : '/auth'} className="mac-toolbar-button" aria-label={user ? (es ? 'Abrir cuenta' : 'Open account') : (es ? 'Iniciar sesión' : 'Sign in')}><UserRound className="h-4 w-4" /></Link>
+            {user && authIsAdmin && <Link to="/admin" className="mac-toolbar-button text-primary" aria-label={es ? 'Abrir panel de administración' : 'Open admin console'}><ShieldCheck className="h-4 w-4" /></Link>}
+            <Link to={accountPath} className="mac-toolbar-button" aria-label={user ? (es ? 'Abrir cuenta' : 'Open account') : (es ? 'Iniciar sesión' : 'Sign in')}><UserRound className="h-4 w-4" /></Link>
           </div>}
           {isAdmin && <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary))]" />{es ? 'En vivo' : 'Live'}</div>}
         </header>

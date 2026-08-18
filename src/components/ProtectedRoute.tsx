@@ -6,9 +6,10 @@ import { useEffect, useRef } from 'react';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  redirectAdmin?: boolean;
 }
 
-export default function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
+export default function ProtectedRoute({ children, requireAdmin = false, redirectAdmin = false }: ProtectedRouteProps) {
   const { user, isAdmin, loading } = useAuth();
   const { toast } = useToast();
   const toastShown = useRef(false);
@@ -33,6 +34,7 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
   }
 
   if (!user) return <Navigate to="/auth" replace />;
+  if (redirectAdmin && isAdmin) return <Navigate to="/admin" replace />;
   if (requireAdmin && !isAdmin) return <Navigate to="/" replace />;
 
   return <>{children}</>;
