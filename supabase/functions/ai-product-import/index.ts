@@ -2,6 +2,7 @@ import "https://deno.land/std@0.168.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { aiChatCompletionsUrl, aiHeaders, loadAiConfig } from "../_shared/ai-provider.ts";
+import { buildAiRequestBody } from "../_shared/ai-compat.ts";
 import { getIntegrationSecret } from "../_shared/integration-secrets.ts";
 
 const corsHeaders = {
@@ -29,9 +30,13 @@ function extractPricesFromText(text: string): number[] {
   return prices;
 }
 
-type AiRuntime = { endpoint: string; headers: Record<string, string>; model: string };
+type AiRuntime = { endpoint: string; headers: Record<string, string>; model: string; provider: string; baseUrl: string };
 type ImagePart = { type: string; image_url?: { url?: string }; url?: string; text?: string };
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string | ImagePart[] };
+
+function serializeAiRequest(ai: AiRuntime, body: Record<string, unknown>) {
+  return JSON.stringify(buildAiRequestBody(ai, body));
+}
 
 // ── Phase 1: Generate optimized eBay search queries using AI ──
 async function generateEbayQueries(
@@ -43,7 +48,7 @@ async function generateEbayQueries(
     const resp = await fetch(ai.endpoint, {
       method: "POST",
       headers: ai.headers,
-      body: JSON.stringify({
+      body: serializeAiRequest(ai, {
         model: ai.model,
         messages: [
           {
@@ -195,7 +200,7 @@ async function validateAndAveragePrices(
     const resp = await fetch(ai.endpoint, {
       method: "POST",
       headers: ai.headers,
-      body: JSON.stringify({
+      body: serializeAiRequest(ai, {
         model: ai.model,
         messages: [
           {
@@ -330,7 +335,7 @@ serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const aiConfig = await loadAiConfig(adminClient);
     if (!aiConfig) throw new Error("AI provider is not configured in Admin → Integrations");
-    const ai: AiRuntime = { endpoint: aiChatCompletionsUrl(aiConfig), headers: aiHeaders(aiConfig), model: aiConfig.model };
+    const ai: AiRuntime = { endpoint: aiChatCompletionsUrl(aiConfig), headers: aiHeaders(aiConfig), model: aiConfig.model, provider: aiConfig.provider, baseUrl: aiConfig.baseUrl };
     const FIRECRAWL_API_KEY = await getIntegrationSecret(adminClient, "FIRECRAWL_API_KEY");
 
 
@@ -356,7 +361,7 @@ serve(async (req) => {
               "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
+            body: serializeAiRequest(ai, {
               url: url.trim(),
               formats: ["markdown", "links"],
               onlyMainContent: true,
@@ -414,7 +419,7 @@ serve(async (req) => {
       const extractResp = await fetch(ai.endpoint, {
         method: "POST",
         headers: ai.headers,
-        body: JSON.stringify({
+        body: serializeAiRequest(ai, {
           model: ai.model,
           messages: [
             {
@@ -606,7 +611,7 @@ Luxury technology product display of the EXACT same physical product on a matte 
       const imgResp = await fetch(ai.endpoint, {
         method: "POST",
         headers: ai.headers,
-        body: JSON.stringify({
+        body: serializeAiRequest(ai, {
           model: ai.model,
           messages,
           modalities: ["image", "text"],
@@ -752,7 +757,7 @@ Luxury technology product display of the EXACT same physical product on a matte 
       const translateResp = await fetch(ai.endpoint, {
         method: "POST",
         headers: ai.headers,
-        body: JSON.stringify({
+        body: serializeAiRequest(ai, {
           model: ai.model,
           messages: [
             {
@@ -840,7 +845,7 @@ If the input name/description is already good, polish it slightly. If it's empty
       const enhanceResp = await fetch(ai.endpoint, {
         method: "POST",
         headers: ai.headers,
-        body: JSON.stringify({
+        body: serializeAiRequest(ai, {
           model: ai.model,
           messages,
           tools: [{
@@ -1022,7 +1027,7 @@ Preserve the exact same physical product from the source image. Do not redesign 
           const imgResp = await fetch(ai.endpoint, {
             method: "POST",
             headers: ai.headers,
-            body: JSON.stringify({
+            body: serializeAiRequest(ai, {
               model: ai.model,
               messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
               modalities: ["image", "text"],
