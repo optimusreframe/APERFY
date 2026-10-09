@@ -21,6 +21,8 @@ export function buildNominatimSearchUrl(query: string, countryCode?: string, fea
   url.searchParams.set('format', 'jsonv2');
   url.searchParams.set('addressdetails', '1');
   url.searchParams.set('limit', '5');
+  url.searchParams.set('email', 'aperfy@kpwr.dev');
+  url.searchParams.set('accept-language', 'es,en');
   if (countryCode) url.searchParams.set('countrycodes', countryCode.toLowerCase());
   if (featureType) url.searchParams.set('featuretype', featureType);
   return url.toString();

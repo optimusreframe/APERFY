@@ -13,7 +13,8 @@ export interface IncomingOrderMessageInput {
   items: IncomingOrderMessageItem[];
   total: number;
   language: 'es' | 'en';
-  whatsappNumber: string;
+  whatsappNumber?: string;
+  accountUrl?: string;
   shipping?: string;
   notes?: string;
   paymentMethod?: string;
@@ -47,7 +48,7 @@ const formatPaymentState = (paymentState: string, language: 'es' | 'en') => {
 export function buildIncomingOrderMessages(input: IncomingOrderMessageInput) {
   const language = input.language;
   const phone = normalizePhone(input.phone);
-  const whatsappNumber = normalizePhone(input.whatsappNumber);
+  const whatsappNumber = normalizePhone(input.whatsappNumber || '');
   const itemLines = input.items.map((item) => {
     const variation = item.variation ? ` (${item.variation})` : '';
     return `- ${item.quantity} x ${item.name}${variation} - ${formatMoney(item.total)}`;
@@ -98,6 +99,7 @@ export function buildIncomingOrderMessages(input: IncomingOrderMessageInput) {
     ...receiptDetails,
     '',
     language === 'es' ? 'Por favor confirmen mi pedido para continuar.' : 'Please confirm this order so we can continue.',
+    ...(input.accountUrl ? ['', language === 'es' ? `Ver mi cuenta: ${input.accountUrl}` : `View my account: ${input.accountUrl}`] : []),
     '',
     "APERFY | Andres' Perfect Finds",
   ].join('\n');
@@ -110,6 +112,7 @@ export function buildIncomingOrderMessages(input: IncomingOrderMessageInput) {
     ...receiptDetails,
     '',
     language === 'es' ? '¿Nos confirmas que podemos continuar con tu pedido?' : 'Can we continue with your order?',
+    ...(input.accountUrl ? ['', language === 'es' ? `Ver mi cuenta: ${input.accountUrl}` : `View my account: ${input.accountUrl}`] : []),
     '',
     "APERFY | Andres' Perfect Finds",
   ].join('\n');
@@ -130,9 +133,25 @@ export function buildIncomingOrderMessages(input: IncomingOrderMessageInput) {
   return {
     phone,
     whatsappMessage,
-    whatsappUrl: `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`,
+    whatsappUrl: whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}` : null,
     customerWhatsAppMessage,
     customerWhatsAppUrl: `https://wa.me/${phone}?text=${encodeURIComponent(customerWhatsAppMessage)}`,
     telegramText,
   };
+}
+
+export function buildTelegramCheckoutUrl(target: string | undefined, message: string, orderId: string): string {
+  const fallback = new URL('https://t.me/share/url');
+  fallback.searchParams.set('url', `https://aperfy.kpwr.dev/orders?order=${encodeURIComponent(orderId)}`);
+  fallback.searchParams.set('text', message);
+  if (!target?.trim()) return fallback.toString();
+
+  const value = target.trim();
+  if (/^\d+$/.test(value)) return fallback.toString();
+  const normalized = value.startsWith('@') ? value.slice(1) : value;
+  const destination = /^https?:\/\//i.test(normalized)
+    ? new URL(normalized)
+    : new URL(`https://t.me/${normalized.replace(/^\/+/, '')}`);
+  destination.searchParams.set('text', message);
+  return destination.toString();
 }

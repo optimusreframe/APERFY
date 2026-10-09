@@ -9,6 +9,7 @@ describe('OpenStreetMap address autocomplete', () => {
     expect(url.searchParams.get('limit')).toBe('5');
     expect(url.searchParams.get('countrycodes')).toBe('us');
     expect(url.searchParams.get('q')).toBe('11609 S Orange Blossom Tr');
+    expect(url.searchParams.get('email')).toBe('aperfy@kpwr.dev');
   });
 
   it('can narrow city lookup to the selected country', () => {

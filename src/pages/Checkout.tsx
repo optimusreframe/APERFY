@@ -10,22 +10,25 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Zap, Cog, Package, Search, MapPin, ChevronUp } from 'lucide-react';
+import { Loader2, MessageCircle, Send, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Zap, Cog, Package, Search, MapPin, ChevronUp } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
-import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutWhatsAppUrl, isWhatsAppCheckoutComplete } from '@/lib/checkout';
-import { buildIncomingOrderMessages } from '@/lib/incomingOrder';
-import { optimizeImageUrl } from '@/lib/image-url';
-import { getCitiesForState, getCountryName, getCountryOptions, getStatesForCountry } from '@/lib/location-data';
+import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutHandoffUrl } from '@/lib/checkout';
+import { CartThumbnailImage } from '@/components/CartThumbnailImage';
+import { getCountryName, getCountryOptions, getStatesForCountry } from '@/lib/location-data';
 import { detectCountryFromIp, getPhoneCountryOptions, isCheckoutPhoneValid, normalizePhoneForCountry } from '@/lib/phone';
-import { searchNominatim, type AddressSuggestion } from '@/lib/geocoding';
+import { searchAddress } from '@/lib/address-search';
+import type { AddressSuggestion } from '@/lib/geocoding';
+import { CHECKOUT_PAYMENT_KEYS, getPaymentChannelDescription, parsePaymentChannelSetting, paymentChannelFromKey, type CheckoutPaymentChannel } from '@/lib/payment-channels';
 
-type Step = 'shipping' | 'method' | 'payment-instructions' | 'whatsapp-sent';
+type Step = 'shipping' | 'method' | 'payment-instructions' | 'channel-sent';
 type Section = 'contact' | 'address' | 'shipping';
 
 interface PaymentConfig {
   active: boolean;
   label: string;
+  description_en?: string;
+  description_es?: string;
   info: string;
   instructions: string;
 }
@@ -42,6 +45,32 @@ interface ShippingProvider {
 }
 
 const ONLINE_PAYMENTS_ENABLED = false;
+const ONLINE_PAYMENT_KEYS = ['payment_zelle', 'payment_binance', 'payment_cashapp'] as const;
+const PAYMENT_SETTING_KEYS = [...CHECKOUT_PAYMENT_KEYS, ...ONLINE_PAYMENT_KEYS] as const;
+const CHECKOUT_HANDOFF_STORAGE_KEY = 'aperfy-checkout-handoff';
+
+interface PersistedCheckoutHandoff {
+  orderId: string;
+  channel: CheckoutPaymentChannel;
+  url: string;
+  createdAt: number;
+}
+
+function readPersistedCheckoutHandoff(): PersistedCheckoutHandoff | null {
+  try {
+    const raw = localStorage.getItem(CHECKOUT_HANDOFF_STORAGE_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Partial<PersistedCheckoutHandoff>;
+    if (!value.orderId || !value.url || (value.channel !== 'whatsapp' && value.channel !== 'telegram')) return null;
+    if (typeof value.createdAt !== 'number' || Date.now() - value.createdAt > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem(CHECKOUT_HANDOFF_STORAGE_KEY);
+      return null;
+    }
+    return value as PersistedCheckoutHandoff;
+  } catch {
+    return null;
+  }
+}
 
 // ─── Apple-style floating-label input ───
 interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> {
@@ -204,7 +233,7 @@ function AddressAutocomplete({
     const timer = window.setTimeout(async () => {
       setSearching(true);
       try {
-        const result = await searchNominatim(query, countryCode, controller.signal);
+        const result = await searchAddress(query, countryCode, controller.signal);
         setSuggestions(result);
         setOpen(result.length > 0);
       } catch { /* manual entry remains available when lookup is unavailable */ }
@@ -248,6 +277,7 @@ function AddressAutocomplete({
           <p className="px-4 py-2 text-[10px] text-muted-foreground">{language === 'es' ? 'Sugerencias de OpenStreetMap · también puedes escribir manualmente' : 'OpenStreetMap suggestions · manual entry is always available'}</p>
         </div>
       )}
+      {searching && !open && <div className="absolute z-40 mt-2 flex w-full items-center gap-2 rounded-xl border border-primary/20 bg-card px-4 py-3 text-xs text-muted-foreground shadow-2xl"><Loader2 className="h-4 w-4 animate-spin text-primary" />{language === 'es' ? 'Buscando direcciones…' : 'Searching addresses…'}</div>}
     </div>
   );
 }
@@ -269,7 +299,7 @@ function CityAutocomplete({
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       try {
-        const result = await searchNominatim(value, countryCode, controller.signal, 'city');
+        const result = await searchAddress(value, countryCode, controller.signal, 'city');
         setSuggestions(result);
         setOpen(result.length > 0);
       } catch { /* manual city entry is still available */ }
@@ -499,16 +529,20 @@ export default function Checkout() {
   const [addressCountryCode, setAddressCountryCode] = useState('US');
   const [addressStateCode, setAddressStateCode] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [step, setStep] = useState<Step>('shipping');
+  const persistedHandoff = useMemo(() => readPersistedCheckoutHandoff(), []);
+  const [step, setStep] = useState<Step>(persistedHandoff ? 'channel-sent' : 'shipping');
   const [section, setSection] = useState<Section>('contact');
   const [completed, setCompleted] = useState<Record<Section, boolean>>({ contact: false, address: false, shipping: false });
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const [selectedShipping, setSelectedShipping] = useState<string | null>(null);
-  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
-  const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(persistedHandoff?.orderId || null);
+  const [whatsappUrl, setWhatsappUrl] = useState<string | null>(persistedHandoff?.channel === 'whatsapp' ? persistedHandoff.url : null);
+  const [telegramUrl, setTelegramUrl] = useState<string | null>(persistedHandoff?.channel === 'telegram' ? persistedHandoff.url : null);
+  const [handoffChannel, setHandoffChannel] = useState<CheckoutPaymentChannel | null>(persistedHandoff?.channel || null);
   const [paymentConfigs, setPaymentConfigs] = useState<Record<string, PaymentConfig>>({});
   const [summaryOpen, setSummaryOpen] = useState(false);
   const whatsappIdempotencyKeyRef = useRef<string | null>(null);
+  const telegramIdempotencyKeyRef = useRef<string | null>(null);
 
   const countryOptions = useMemo(() => getCountryOptions(language === 'es' ? 'es' : 'en'), [language]);
   const phoneCountryOptions = useMemo(() => getPhoneCountryOptions(language === 'es' ? 'es' : 'en'), [language]);
@@ -531,17 +565,23 @@ export default function Checkout() {
     queryKey: ['payment-settings'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('admin_settings').select('*').in('setting_key', ['payment_zelle', 'payment_binance', 'payment_cashapp']);
+        .from('admin_settings').select('*').in('setting_key', [...PAYMENT_SETTING_KEYS]);
       if (error) throw error;
       return data;
     },
-    enabled: ONLINE_PAYMENTS_ENABLED && (step === 'method' || step === 'payment-instructions'),
+    enabled: step === 'method' || step === 'payment-instructions',
   });
 
   useEffect(() => {
     if (!paymentSettings) return;
     const map: Record<string, PaymentConfig> = {};
     for (const s of paymentSettings) {
+      const channel = paymentChannelFromKey(s.setting_key);
+      if (channel) {
+        const parsed = parsePaymentChannelSetting(s.setting_key, s.setting_value);
+        if (parsed.active) map[channel] = parsed;
+        continue;
+      }
       try {
         const parsed = JSON.parse(s.setting_value || '{}');
         if (parsed.active) map[s.setting_key.replace('payment_', '')] = parsed;
@@ -596,7 +636,18 @@ export default function Checkout() {
   const subtotal = getTotal();
   const discountAmount = getDiscountAmount();
   const orderTotal = Math.max(0, getFinalTotal() + shippingCost);
-  const whatsappCheckoutComplete = isWhatsAppCheckoutComplete(step, createdOrderId, whatsappUrl);
+  const handoffComplete = step === 'channel-sent' && Boolean(createdOrderId && handoffChannel && (whatsappUrl || telegramUrl));
+
+  useEffect(() => {
+    if (items.length > 0 && step === 'channel-sent') {
+      localStorage.removeItem(CHECKOUT_HANDOFF_STORAGE_KEY);
+      setStep('shipping');
+      setCreatedOrderId(null);
+      setWhatsappUrl(null);
+      setTelegramUrl(null);
+      setHandoffChannel(null);
+    }
+  }, [items.length, step]);
 
   const setF = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
 
@@ -619,47 +670,26 @@ export default function Checkout() {
   };
 
   const handleAddressSuggestion = (suggestion: AddressSuggestion) => {
+    const nextCountryCode = suggestion.countryCode || addressCountryCode;
     setForm((prev) => ({
       ...prev,
       address: suggestion.address || suggestion.label,
-      city: suggestion.city || prev.city,
-      state: suggestion.state || prev.state,
-      zipCode: suggestion.zipCode || prev.zipCode,
-      country: suggestion.country || prev.country,
+      city: suggestion.city || '',
+      state: suggestion.state || '',
+      zipCode: suggestion.zipCode || '',
+      country: suggestion.country || getCountryName(nextCountryCode, language === 'es' ? 'es' : 'en'),
     }));
+    setAddressStateCode('');
     if (suggestion.countryCode && countryOptions.some((country) => country.isoCode === suggestion.countryCode)) {
       setAddressCountryCode(suggestion.countryCode);
     }
-    getStatesForCountry(suggestion.countryCode || addressCountryCode).then((states) => {
-      const matchedState = states.find((state) => state.name.toLowerCase() === suggestion.state.toLowerCase());
+    getStatesForCountry(nextCountryCode).then((states) => {
+      const stateQuery = suggestion.state.trim().toLowerCase();
+      const matchedState = stateQuery
+        ? states.find((state) => state.name.toLowerCase() === stateQuery || state.isoCode.toLowerCase() === stateQuery)
+        : undefined;
       if (matchedState) setAddressStateCode(matchedState.isoCode);
     });
-  };
-
-  const buildFallbackWhatsAppUrl = (orderId: string): string => {
-    const shipping = [form.address, form.address2, form.city, form.state, form.zipCode, form.country]
-      .map(value => value.trim())
-      .filter(Boolean)
-      .join(', ');
-    return buildIncomingOrderMessages({
-      orderCode: orderId.slice(0, 8).toUpperCase(),
-      customerName: form.fullName,
-      phone: form.phone,
-      email: form.email,
-      items: items.map(item => ({
-        name: item.productName,
-        quantity: item.quantity,
-        total: (item.unitPrice + item.selectedVariations.reduce((sum, variation) => sum + variation.priceModifier, 0)) * item.quantity,
-        variation: item.selectedVariations.map(variation => variation.name).filter(Boolean).join(', '),
-      })),
-      total: orderTotal,
-      language: language === 'es' ? 'es' : 'en',
-      whatsappNumber: '14708469271',
-      shipping,
-      notes: form.notes,
-      paymentMethod: 'WhatsApp',
-      paymentState: 'pending',
-    }).whatsappUrl;
   };
 
   const validateContact = () => {
@@ -749,7 +779,9 @@ export default function Checkout() {
     const vf = formResult.data;
     const idempotencyKey = paymentMethod === 'whatsapp'
       ? (whatsappIdempotencyKeyRef.current ||= crypto.randomUUID())
-      : crypto.randomUUID();
+      : paymentMethod === 'telegram'
+        ? (telegramIdempotencyKeyRef.current ||= crypto.randomUUID())
+        : crypto.randomUUID();
     const orderInput = buildOrderInsert({
       userId: user.id,
       total: orderTotal,
@@ -824,60 +856,73 @@ export default function Checkout() {
     } catch (e) { console.error('Email send failed:', e); throw e; }
   };
 
-  const notifyTelegramOrder = async (orderId: string): Promise<string | null> => {
+  const notifyOrderChannel = async (orderId: string, channel: CheckoutPaymentChannel) => {
     try {
-      const { data, error } = await supabase.functions.invoke('notify-telegram-order', { body: { orderId } });
+      const { data, error } = await supabase.functions.invoke('notify-telegram-order', { body: { orderId, channel } });
       if (error) throw error;
       if (data?.ok === false) {
         toast({
           title: language === 'es' ? 'Pedido guardado' : 'Order saved',
-          description: language === 'es' ? 'Telegram no pudo recibir la alerta. Puedes continuar por WhatsApp.' : 'Telegram could not receive the alert. You can continue through WhatsApp.',
+          description: language === 'es' ? 'La alerta administrativa no pudo enviarse, pero tu pedido quedó registrado.' : 'The admin alert could not be sent, but your order was recorded.',
         });
       }
-      return typeof data?.whatsappUrl === 'string' ? data.whatsappUrl : buildFallbackWhatsAppUrl(orderId);
+      return {
+        ok: data?.ok !== false,
+        whatsappUrl: typeof data?.whatsappUrl === 'string' ? data.whatsappUrl : null,
+        telegramUrl: typeof data?.telegramUrl === 'string' ? data.telegramUrl : null,
+        handoffUrl: typeof data?.handoffUrl === 'string' ? data.handoffUrl : null,
+      };
     } catch (error) {
       console.error('Telegram order notification failed:', error);
       toast({
         title: language === 'es' ? 'Pedido guardado' : 'Order saved',
-        description: language === 'es' ? 'La alerta de Telegram no esta disponible, pero tu pedido quedo registrado.' : 'Telegram alerts are unavailable, but your order was recorded.',
+        description: language === 'es' ? 'La alerta administrativa no está disponible, pero tu pedido quedó registrado.' : 'Admin alerts are unavailable, but your order was recorded.',
       });
-      return buildFallbackWhatsAppUrl(orderId);
+      return { ok: false, whatsappUrl: null, telegramUrl: null, handoffUrl: null };
     }
   };
 
-  const handleWhatsApp = async () => {
+  const handleChannel = async (channel: CheckoutPaymentChannel) => {
     setLoading(true);
+    setSelectedPayment(channel);
     try {
-      const orderId = await createOrder('whatsapp');
+      const orderId = await createOrder(channel);
       if (!orderId) { setLoading(false); return; }
       setCreatedOrderId(orderId);
       try {
-        await sendOrderEmail(orderId, 'WhatsApp');
+        await sendOrderEmail(orderId, channel === 'whatsapp' ? 'WhatsApp' : 'Telegram');
       } catch (error) {
         console.error('Order email notification failed:', error);
         toast({
           title: language === 'es' ? 'Pedido guardado' : 'Order saved',
-          description: language === 'es' ? 'El correo no está disponible, pero continuaremos por WhatsApp.' : 'Email is unavailable, but we will continue through WhatsApp.',
+          description: language === 'es' ? 'El correo no está disponible, pero continuaremos con el canal seleccionado.' : 'Email is unavailable, but we will continue through the selected channel.',
         });
       }
-      const orderWhatsappUrl = await notifyTelegramOrder(orderId);
-      if (!orderWhatsappUrl) throw new Error(language === 'es' ? 'WhatsApp no está configurado en Admin → Integraciones.' : 'WhatsApp is not configured in Admin → Integrations.');
-      setWhatsappUrl(orderWhatsappUrl);
+      const handoff = await notifyOrderChannel(orderId, channel);
+      const redirectUrl = getCheckoutHandoffUrl(null, handoff.handoffUrl);
+      if (!redirectUrl) throw new Error(language === 'es' ? `Configura el destino de ${channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'} en Admin → Integraciones.` : `Configure the ${channel === 'whatsapp' ? 'WhatsApp' : 'Telegram'} destination in Admin → Integrations.`);
+      setWhatsappUrl(handoff.whatsappUrl);
+      setTelegramUrl(handoff.telegramUrl);
+      setHandoffChannel(channel);
       clearCart();
-      setStep('whatsapp-sent');
-      const redirectUrl = getCheckoutWhatsAppUrl(whatsappUrl, orderWhatsappUrl);
-      void supabase.from('orders').update({ whatsapp_opened_at: new Date().toISOString() }).eq('id', orderId)
+      setStep('channel-sent');
+      localStorage.setItem(CHECKOUT_HANDOFF_STORAGE_KEY, JSON.stringify({ orderId, channel, url: redirectUrl, createdAt: Date.now() } satisfies PersistedCheckoutHandoff));
+      if (channel === 'whatsapp') void supabase.from('orders').update({ whatsapp_opened_at: new Date().toISOString() }).eq('id', orderId)
         .then(({ error }) => {
           if (error) console.warn('Checkout WhatsApp tracking failed:', error);
         });
-      // Keep the navigation in the original checkout tab. iOS Safari and in-app
-      // browsers often block window.open after the async order/notification work,
-      // which previously left a black screen while the order had already been saved.
-      if (redirectUrl) window.location.assign(redirectUrl);
+      // Keep the APERFY confirmation page in this tab. Opening the external
+      // handoff in a new tab prevents iOS/in-app browsers from returning to a
+      // blank document after WhatsApp or Telegram closes.
+      const handoffWindow = window.open(redirectUrl, '_blank', 'noopener,noreferrer');
+      if (!handoffWindow) toast({ title: language === 'es' ? 'Pedido creado' : 'Order created', description: language === 'es' ? 'El navegador bloqueó la ventana externa. Usa el botón para abrir el canal.' : 'The browser blocked the external window. Use the button to open the channel.' });
     } catch (error: unknown) {
       toast({ title: t.checkout.error, description: getCheckoutErrorMessage(error, 'Checkout failed'), variant: 'destructive' });
     } finally { setLoading(false); }
   };
+
+  const handleWhatsApp = () => handleChannel('whatsapp');
+  const handleTelegram = () => handleChannel('telegram');
 
   const handleOnlinePayment = async (method: string) => {
     setLoading(true);
@@ -919,8 +964,16 @@ export default function Checkout() {
           const itemTotal = (item.unitPrice + varMod) * item.quantity;
           return (
             <div key={item.productId + JSON.stringify(item.selectedVariations)} className="flex gap-3 group">
-              <div className="relative w-14 h-14 rounded-xl bg-secondary overflow-hidden shrink-0 border border-white/[0.06]">
-                {item.productImage && <img src={optimizeImageUrl(item.productImage, { width: 128, quality: 70 })} alt="" width={56} height={56} decoding="async" className="h-full w-full object-cover" />}
+              <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.06] bg-white p-1">
+                <CartThumbnailImage
+                  source={item.productImage}
+                  alt={item.productName}
+                  width={168}
+                  height={168}
+                  quality={72}
+                  className="h-full w-full object-contain"
+                  fallback={<Package className="h-5 w-5 text-muted-foreground/40" />}
+                />
                 <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-mono font-bold tabular-nums flex items-center justify-center">
                   {item.quantity}
                 </span>
@@ -1006,7 +1059,7 @@ export default function Checkout() {
     return (language === 'es' ? es : en)[s];
   };
 
-  const isInFlow = (step === 'shipping' || step === 'method') && !whatsappCheckoutComplete;
+  const isInFlow = (step === 'shipping' || step === 'method') && !handoffComplete;
 
   return (
     <div className="min-h-full min-w-0 bg-background">
@@ -1305,31 +1358,30 @@ export default function Checkout() {
                           <h2 className="text-2xl font-semibold tracking-tight mb-1">{language === 'es' ? 'Método de pago' : 'Choose payment'}</h2>
                           <p className="text-sm text-muted-foreground mb-6">{language === 'es' ? 'Confirma tu pedido por WhatsApp; los pagos online se habilitarán más adelante.' : 'Confirm your order through WhatsApp; online payments will be enabled later.'}</p>
 
-                          {/* WhatsApp */}
-                          <motion.button
-                            onClick={handleWhatsApp}
-                            disabled={loading}
-                            whileHover={{ y: -2 }}
-                            whileTap={{ scale: 0.99 }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                            className="relative w-full p-5 rounded-2xl border border-white/[0.06] hover:border-green-500/40 bg-background/40 text-left transition-colors group disabled:opacity-50 mb-3 overflow-hidden"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0 border border-green-500/20">
-                                <MessageCircle className="w-6 h-6 text-green-500" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-semibold text-[15px] tracking-tight">WhatsApp</h3>
-                                  <span className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 border border-green-500/20">Instant</span>
+                          {(['whatsapp', 'telegram'] as const).map((channel) => {
+                            const cfg = paymentConfigs[channel];
+                            if (!cfg) return null;
+                            const isWhatsApp = channel === 'whatsapp';
+                            const Icon = isWhatsApp ? MessageCircle : Send;
+                            const isLoadingThis = loading && selectedPayment === channel;
+                            return (
+                              <motion.button
+                                key={channel}
+                                onClick={isWhatsApp ? handleWhatsApp : handleTelegram}
+                                disabled={loading}
+                                whileHover={{ y: -2 }}
+                                whileTap={{ scale: 0.99 }}
+                                transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                                className={`relative mb-3 w-full overflow-hidden rounded-2xl border bg-background/40 p-5 text-left transition-colors group disabled:opacity-50 ${isWhatsApp ? 'border-white/[0.06] hover:border-green-500/40' : 'border-white/[0.06] hover:border-sky-400/40'}`}
+                              >
+                                <div className="flex items-center gap-4">
+                                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border ${isWhatsApp ? 'border-green-500/20 bg-green-500/10 text-green-500' : 'border-sky-400/20 bg-sky-400/10 text-sky-300'}`}><Icon className="h-6 w-6" /></div>
+                                  <div className="min-w-0 flex-1"><h3 className="font-semibold text-[15px] tracking-tight">{cfg.label}</h3><p className="mt-1 text-xs text-muted-foreground">{getPaymentChannelDescription(cfg, language === 'es' ? 'es' : 'en')}</p></div>
+                                  {isLoadingThis ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <span className="text-muted-foreground transition-all group-hover:translate-x-1 group-hover:text-foreground">→</span>}
                                 </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">{language === 'es' ? 'Confirma tu orden por mensaje; el pago se coordina fuera del sitio' : 'Confirm your order by message; payment is coordinated off-site'}</p>
-                              </div>
-                              {loading && selectedPayment === null
-                                ? <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                                : <span className="text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all">→</span>}
-                            </div>
-                          </motion.button>
+                              </motion.button>
+                            );
+                          })}
 
                           {ONLINE_PAYMENTS_ENABLED && <div className="grid gap-2.5">
                             {Object.entries(paymentConfigs).map(([key, cfg]) => {
@@ -1430,29 +1482,30 @@ export default function Checkout() {
             </motion.div>
           )}
 
-          {/* ── STEP 4: WHATSAPP SENT ── */}
-          {whatsappCheckoutComplete && (
+          {/* ── STEP 4: EXTERNAL CHANNEL SENT ── */}
+          {handoffComplete && handoffChannel && (
             <motion.div key="whatsapp-done" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto py-8 text-center">
               <motion.div
                 initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 18 }}
                 className="w-24 h-24 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-6"
               >
-                <MessageCircle className="w-12 h-12 text-green-500" strokeWidth={1.5} />
+                {handoffChannel === 'whatsapp' ? <MessageCircle className="w-12 h-12 text-green-500" strokeWidth={1.5} /> : <Send className="w-12 h-12 text-sky-300" strokeWidth={1.5} />}
               </motion.div>
-              <h2 className="text-4xl font-semibold tracking-tight">{t.checkout.whatsappSent}</h2>
+              <h2 className="text-4xl font-semibold tracking-tight">{language === 'es' ? '¡Pedido enviado!' : 'Order sent!'}</h2>
               <p className="text-sm text-muted-foreground mt-3">
                 {language === 'es' ? 'Pedido' : 'Order'} <span className="font-mono font-semibold text-foreground">#{createdOrderId?.slice(0, 8).toUpperCase()}</span>
               </p>
-              <p className="text-sm text-muted-foreground mt-2 mb-8">{t.checkout.whatsappSentDesc}</p>
-              <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
-                <Button variant="outline" disabled={!whatsappUrl} onClick={() => whatsappUrl && window.open(whatsappUrl, '_blank')} className="h-12 rounded-full gap-2">
+              <p className="text-sm text-muted-foreground mt-2 mb-8">{language === 'es' ? `Tu pedido quedó registrado y se preparó el mensaje de ${handoffChannel === 'whatsapp' ? 'WhatsApp' : 'Telegram'}. Puedes volver a tu cuenta o continuar comprando.` : `Your order was recorded and the ${handoffChannel === 'whatsapp' ? 'WhatsApp' : 'Telegram'} message is ready. You can return to your account or continue shopping.`}</p>
+              <div className="grid gap-3 max-w-md mx-auto sm:grid-cols-2">
+                <Button variant="outline" onClick={() => { const url = handoffChannel === 'whatsapp' ? whatsappUrl : telegramUrl; if (url) window.open(url, '_blank', 'noopener,noreferrer'); }} className="h-12 rounded-full gap-2">
                   <ExternalLink className="w-4 h-4" />
-                  {t.checkout.openWhatsApp}
+                  {handoffChannel === 'whatsapp' ? t.checkout.openWhatsApp : (language === 'es' ? 'Abrir Telegram' : 'Open Telegram')}
                 </Button>
-                <Button onClick={() => navigate('/orders')} className="h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 font-semibold">
-                  {t.checkout.viewOrders}
+                <Button onClick={() => { localStorage.removeItem(CHECKOUT_HANDOFF_STORAGE_KEY); navigate('/orders'); }} className="h-12 rounded-full bg-foreground text-background hover:bg-foreground/90 font-semibold">
+                  {language === 'es' ? 'Ver mi cuenta' : 'View my account'}
                 </Button>
+                <Button variant="ghost" onClick={() => { localStorage.removeItem(CHECKOUT_HANDOFF_STORAGE_KEY); navigate('/'); }} className="h-12 rounded-full sm:col-span-2">{language === 'es' ? 'Seguir comprando' : 'Continue shopping'}</Button>
               </div>
             </motion.div>
           )}

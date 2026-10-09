@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildIncomingOrderMessages, normalizePhone } from './incomingOrder';
+import { buildIncomingOrderMessages, buildTelegramCheckoutUrl, normalizePhone } from './incomingOrder';
 
 describe('incoming order messaging', () => {
   it('normalizes a phone number for WhatsApp links', () => {
@@ -114,5 +114,20 @@ describe('incoming order messaging', () => {
     expect(result.whatsappMessage).not.toContain('Payment method:');
     expect(result.whatsappMessage).not.toContain('Payment status:');
     expect(result.whatsappUrl).toContain('https://wa.me/14708469271?text=');
+  });
+
+  it('builds a Telegram handoff for a configured username or share target', () => {
+    const result = buildIncomingOrderMessages({
+      orderCode: 'AP-11', customerName: 'Taylor', phone: '4075550199', email: '',
+      items: [{ name: 'Keychain', quantity: 1, total: 5 }], total: 5,
+      language: 'en', whatsappNumber: '', accountUrl: 'https://aperfy.kpwr.dev/orders',
+    });
+
+    expect(result.whatsappUrl).toBeNull();
+    expect(result.whatsappMessage).toContain('https://aperfy.kpwr.dev/orders');
+    expect(buildTelegramCheckoutUrl('@aperfy_orders_bot', result.whatsappMessage, 'order-1'))
+      .toContain('https://t.me/aperfy_orders_bot?text=');
+    expect(buildTelegramCheckoutUrl('https://t.me/share/url', result.whatsappMessage, 'order-1'))
+      .toContain('https://t.me/share/url?text=');
   });
 });

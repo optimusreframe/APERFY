@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { buildIncomingOrderMessages } from '../../../src/lib/incomingOrder.ts'
+import { buildIncomingOrderMessages, buildTelegramCheckoutUrl } from '../../../src/lib/incomingOrder.ts'
 import { getIntegrationSecret } from '../_shared/integration-secrets.ts'
 import { getNotificationTemplate, renderNotificationTemplate } from '../_shared/notification-templates.ts'
 
@@ -12,7 +12,6 @@ const corsHeaders = {
 const json = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
-const APERFY_WHATSAPP_NUMBER = '14708469271'
 const ADMIN_ORDERS_URL = 'https://aperfy.kpwr.dev/admin/orders'
 
 type Variation = { name?: unknown }
@@ -34,6 +33,7 @@ type OrderData = {
   payment_method: string | null
   payment_status?: string | null
 }
+type CheckoutChannel = 'whatsapp' | 'telegram'
 
 const itemLines = (items: OrderItem[]) => items.map((item) => {
   const variations = Array.isArray(item.selected_variations)
@@ -46,7 +46,7 @@ const itemLines = (items: OrderItem[]) => items.map((item) => {
   return `- ${item.quantity} x ${name}${variations ? ` (${variations})` : ''} - $${(Number(item.unit_price) * item.quantity).toFixed(2)}`
 })
 
-const telegramMessage = (order: OrderData, items: OrderItem[]) => {
+const telegramMessage = (order: OrderData, items: OrderItem[], channel: CheckoutChannel) => {
   const shipping = order.shipping_address && typeof order.shipping_address === 'object' ? order.shipping_address as ShippingAddress : {}
   const english = shipping.language === 'en'
   const address = [shipping.address, shipping.address2, shipping.city, shipping.state, shipping.zip_code, shipping.country]
@@ -62,7 +62,9 @@ const telegramMessage = (order: OrderData, items: OrderItem[]) => {
     ...itemLines(items), '',
     `${english ? 'Estimated total' : 'Total estimado'}: $${Number(order.total).toFixed(2)}`,
     order.notes ? `${english ? 'Notes' : 'Notas'}: ${order.notes}` : '', '',
-    english ? 'Status: Pending WhatsApp confirmation' : 'Estado: Pendiente de confirmación por WhatsApp',
+    english
+      ? `Status: Pending ${channel === 'telegram' ? 'Telegram' : 'WhatsApp'} confirmation`
+      : `Estado: Pendiente de confirmación por ${channel === 'telegram' ? 'Telegram' : 'WhatsApp'}`,
   ].filter(Boolean).join('\n')
 }
 
@@ -81,7 +83,12 @@ Deno.serve(async (req) => {
   if (!authorization) return json({ error: 'Authentication required' }, 401)
 
   let orderId = ''
-  try { orderId = String((await req.json()).orderId || '') } catch { return json({ error: 'Invalid JSON' }, 400) }
+  let channel: CheckoutChannel = 'whatsapp'
+  try {
+    const body = await req.json() as { orderId?: unknown; channel?: unknown }
+    orderId = String(body.orderId || '')
+    channel = body.channel === 'telegram' ? 'telegram' : 'whatsapp'
+  } catch { return json({ error: 'Invalid JSON' }, 400) }
   if (!orderId) return json({ error: 'orderId is required' }, 400)
 
   const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } })
@@ -91,7 +98,8 @@ Deno.serve(async (req) => {
   const adminClient = createClient(supabaseUrl, serviceRoleKey)
   const telegramToken = await getIntegrationSecret(adminClient, 'TELEGRAM_BOT_TOKEN')
   const telegramChatId = await getIntegrationSecret(adminClient, 'TELEGRAM_CHAT_ID')
-  const whatsappNumber = APERFY_WHATSAPP_NUMBER
+  const whatsappNumber = await getIntegrationSecret(adminClient, 'WHATSAPP_BUSINESS_NUMBER')
+  const telegramCheckoutTarget = await getIntegrationSecret(adminClient, 'TELEGRAM_CHECKOUT_TARGET')
 
   const { data: order, error: orderError } = await adminClient.from('orders').select('*').eq('id', orderId).maybeSingle()
   if (orderError) return json({ error: orderError.message }, 500)
@@ -146,13 +154,15 @@ Deno.serve(async (req) => {
     }),
     total: Number(orderData.total),
     language: locale,
-    whatsappNumber,
+    whatsappNumber: whatsappNumber || undefined,
+    accountUrl: 'https://aperfy.kpwr.dev/orders',
     shipping: shippingAddress,
     notes: orderData.notes || undefined,
     paymentMethod,
     paymentState: orderData.payment_status || 'pending',
   })
   const waUrl = messages.whatsappUrl
+  const telegramUrl = buildTelegramCheckoutUrl(telegramCheckoutTarget || undefined, messages.whatsappMessage, orderId)
   const templateData = {
     order_code: String(order.id).slice(0, 8).toUpperCase(),
     customer_name: shipping.full_name || '',
@@ -174,10 +184,27 @@ Deno.serve(async (req) => {
     ? `https://wa.me/${customerNumber}?text=${encodeURIComponent(customerMessage)}`
     : null
   const english = shipping.language === 'en'
-  if (order.telegram_status === 'sent') return json({ ok: true, telegramStatus: 'sent', duplicate: true, whatsappUrl: waUrl })
+  if (order.telegram_status === 'sent') {
+    return json({
+      ok: true,
+      telegramStatus: 'sent',
+      duplicate: true,
+      channel,
+      whatsappUrl: waUrl,
+      telegramUrl,
+      handoffUrl: channel === 'telegram' ? telegramUrl : waUrl,
+    })
+  }
   if (!telegramToken || !telegramChatId) {
     await adminClient.from('orders').update({ telegram_status: 'failed', telegram_error: 'Telegram notification is not configured' }).eq('id', orderId)
-    return json({ ok: false, telegramStatus: 'failed', whatsappUrl: waUrl })
+    return json({
+      ok: false,
+      telegramStatus: 'failed',
+      channel,
+      whatsappUrl: waUrl,
+      telegramUrl,
+      handoffUrl: channel === 'telegram' ? telegramUrl : waUrl,
+    })
   }
 
   await adminClient.from('orders').update({ telegram_status: 'sending', telegram_error: null }).eq('id', orderId)
@@ -188,7 +215,7 @@ Deno.serve(async (req) => {
       chat_id: telegramChatId,
       text: telegramTemplate
         ? renderNotificationTemplate(telegramTemplate.body_text, templateData)
-        : telegramMessage(orderData, orderItems),
+        : telegramMessage(orderData, orderItems, channel),
       reply_markup: { inline_keyboard: [[
         ...(customerWaUrl ? [{ text: english ? 'Contact customer on WhatsApp' : 'Contactar cliente por WhatsApp', url: customerWaUrl }] : []),
         { text: english ? 'Open admin orders' : 'Abrir pedidos en admin', url: `${ADMIN_ORDERS_URL}?order=${encodeURIComponent(orderId)}` },
@@ -199,10 +226,24 @@ Deno.serve(async (req) => {
   if (!telegramResponse.ok) {
     const errorText = await telegramResponse.text()
     await adminClient.from('orders').update({ telegram_status: 'failed', telegram_error: errorText.slice(0, 500) }).eq('id', orderId)
-    return json({ ok: false, telegramStatus: 'failed', whatsappUrl: waUrl })
+    return json({
+      ok: false,
+      telegramStatus: 'failed',
+      channel,
+      whatsappUrl: waUrl,
+      telegramUrl,
+      handoffUrl: channel === 'telegram' ? telegramUrl : waUrl,
+    })
   }
 
   const telegramResult = await telegramResponse.json()
   await adminClient.from('orders').update({ telegram_status: 'sent', telegram_message_id: telegramResult.result?.message_id || null, telegram_error: null }).eq('id', orderId)
-  return json({ ok: true, telegramStatus: 'sent', whatsappUrl: waUrl })
+  return json({
+    ok: true,
+    telegramStatus: 'sent',
+    channel,
+    whatsappUrl: waUrl,
+    telegramUrl,
+    handoffUrl: channel === 'telegram' ? telegramUrl : waUrl,
+  })
 })
