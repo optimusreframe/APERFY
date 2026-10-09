@@ -41,10 +41,26 @@ function imageExtension(fileName: string): { extension: string; contentType: str
 }
 
 function hasImageSignature(bytes: Uint8Array, extension: string): boolean {
-  if (extension === 'jpg' || extension === 'jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-  if (extension === 'png') return [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((value, index) => bytes[index] === value);
-  if (extension === 'webp') return [0x52, 0x49, 0x46, 0x46].every((value, index) => bytes[index] === value)
-    && [0x57, 0x45, 0x42, 0x50].every((value, index) => bytes[index + 8] === value);
+  if (extension === 'jpg' || extension === 'jpeg') {
+    return bytes.length >= 4
+      && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+      && bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9;
+  }
+  if (extension === 'png') {
+    const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    const end = [0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82];
+    return bytes.length >= 33
+      && signature.every((value, index) => bytes[index] === value)
+      && end.every((value, index) => bytes[bytes.length - end.length + index] === value);
+  }
+  if (extension === 'webp') {
+    const riff = [0x52, 0x49, 0x46, 0x46].every((value, index) => bytes[index] === value);
+    const webp = [0x57, 0x45, 0x42, 0x50].every((value, index) => bytes[index + 8] === value);
+    const declaredSize = bytes.length >= 8
+      ? new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(4, true) + 8
+      : Number.POSITIVE_INFINITY;
+    return bytes.length >= 16 && riff && webp && declaredSize <= bytes.length;
+  }
   return false;
 }
 

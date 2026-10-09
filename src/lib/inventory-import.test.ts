@@ -63,7 +63,7 @@ function resetSupabaseState() {
 
 async function archiveWithPhoto() {
   const zip = new JSZip();
-  zip.file('cable.jpg', new Uint8Array([0xff, 0xd8, 0xff]));
+  zip.file('cable.jpg', new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x00, 0xff, 0xd9]));
   return zip;
 }
 
