@@ -513,7 +513,7 @@ export default function ProductDetail() {
         </div>
       </div>
 
-      <div className="pt-8 pb-24 lg:pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="pt-8 pb-[calc(10rem+env(safe-area-inset-bottom,0px))] lg:pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* ═══ HERO GRID: thumb rail | hero | info rail ═══ */}
         <div className="grid lg:grid-cols-[72px_minmax(0,1fr)_360px] gap-6 lg:gap-8">

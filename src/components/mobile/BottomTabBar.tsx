@@ -35,7 +35,8 @@ export default function BottomTabBar() {
     <>
       <div aria-hidden className="md:hidden h-[calc(64px+env(safe-area-inset-bottom))]" />
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50"
+        aria-label="Navegación principal"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[70]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div
@@ -59,7 +60,7 @@ export default function BottomTabBar() {
                 <li key={tab.to} className="flex-1">
                   <Link
                     to={tab.to}
-                    className="relative h-full flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-transform"
+                    className="relative h-full flex flex-col items-center justify-center gap-0.5 touch-manipulation active:scale-95 transition-transform"
                   >
                     {active && (
                       <motion.span

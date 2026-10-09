@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getScrollToTopMobileBottom, shouldShowScrollToTop } from './scrollToTop';
+import {
+  getScrollToTopMobileBottom,
+  MOBILE_BOTTOM_NAV_OFFSET,
+  MOBILE_PRODUCT_DOCK_SCROLL_OFFSET,
+  shouldShowScrollToTop,
+} from './scrollToTop';
 
 describe('scroll to top visibility', () => {
   it('appears after the content has moved beyond the comfortable return distance', () => {
@@ -9,8 +14,10 @@ describe('scroll to top visibility', () => {
   });
 
   it('keeps the control above the mobile add-to-cart dock on product pages', () => {
-    expect(getScrollToTopMobileBottom(false)).toContain('72px');
-    expect(getScrollToTopMobileBottom(true)).toContain('132px');
+    expect(MOBILE_BOTTOM_NAV_OFFSET).toBe('calc(env(safe-area-inset-bottom, 0px) + 64px)');
+    expect(MOBILE_PRODUCT_DOCK_SCROLL_OFFSET).toBe('calc(env(safe-area-inset-bottom, 0px) + 64px + 64px + 12px)');
+    expect(getScrollToTopMobileBottom(false)).toBe(MOBILE_BOTTOM_NAV_OFFSET);
+    expect(getScrollToTopMobileBottom(true)).toBe(MOBILE_PRODUCT_DOCK_SCROLL_OFFSET);
     expect(getScrollToTopMobileBottom(true)).not.toBe(getScrollToTopMobileBottom(false));
   });
 });

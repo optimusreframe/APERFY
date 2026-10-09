@@ -89,10 +89,11 @@ export default function ProductCard({
             )}
           </div>
         </Link>
-        {/* Hover actions */}
-        <div className="absolute top-2 right-2 flex flex-col gap-1.5">
+        {/* Secondary actions stay outside the navigation link so touch targets never hijack card taps. */}
+        <div className="absolute top-2 right-2 z-10 flex flex-col gap-1.5">
           {onToggleFavorite && (
             <button
+              type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite(product.id); }}
               className="h-11 w-11 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/20"
               aria-label={isFavorite ? `Quitar ${name} de favoritos` : `Agregar ${name} a favoritos`}
@@ -100,9 +101,11 @@ export default function ProductCard({
               <Heart className={`w-4 h-4 ${isFavorite ? 'fill-primary text-primary' : 'text-foreground'}`} />
             </button>
           )}
-          <div className="h-11 w-11 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <ShareMenu slug={product.slug} productName={name} />
-          </div>
+          <ShareMenu
+            slug={product.slug}
+            productName={name}
+            className="catalog-share-button min-h-11 min-w-11 rounded-full border border-white/[0.14] bg-background/60 text-foreground/80 shadow-sm backdrop-blur-md transition-colors hover:border-primary/40 hover:bg-background/85 hover:text-primary"
+          />
         </div>
         {/* Card info */}
         <div className="p-3">
