@@ -37,6 +37,7 @@ interface ProductForm {
   description_es: string;
   slug: string;
   base_price: number;
+  condition_status: 'new' | 'used';
   category_id: string;
   is_active: boolean;
   is_featured: boolean;
@@ -73,7 +74,7 @@ interface AiProductData {
 
 const empty: ProductForm = {
   name_en: '', name_es: '', description_en: '', description_es: '',
-  slug: '', base_price: 0, category_id: '', is_active: true, is_featured: false,
+  slug: '', base_price: 0, condition_status: 'new', category_id: '', is_active: true, is_featured: false,
   inventory_enabled: false, stock_quantity: 0, low_stock_threshold: 3,
 };
 
@@ -348,7 +349,7 @@ export default function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name_en, name_es, slug, base_price, is_active, is_featured, category_id, images, created_at, description_en, description_es, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
+        .select('id, name_en, name_es, slug, base_price, condition_status, is_active, is_featured, category_id, images, created_at, description_en, description_es, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -652,6 +653,7 @@ export default function AdminProducts() {
       name_en: p.name_en, name_es: p.name_es,
       description_en: p.description_en || '', description_es: p.description_es || '',
       slug: p.slug, base_price: p.base_price,
+      condition_status: p.condition_status === 'used' ? 'used' : 'new',
       category_id: p.category_id || '', is_active: p.is_active, is_featured: p.is_featured,
       inventory_enabled: p.inventory_enabled, stock_quantity: p.stock_quantity, low_stock_threshold: p.low_stock_threshold,
     });
@@ -1245,6 +1247,7 @@ export default function AdminProducts() {
       description_es: aiData.description_es || '',
       slug: aiData.slug || slugify(aiData.name_es || ''),
       base_price: aiData.suggested_price || 0,
+      condition_status: 'new',
       category_id: matchedCat?.id || '',
       is_active: true,
       is_featured: false,
@@ -2243,6 +2246,17 @@ export default function AdminProducts() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Condición</Label>
+                    <Select value={form.condition_status} onValueChange={(value: 'new' | 'used') => setForm({ ...form, condition_status: value })}>
+                      <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">NEW · Nuevo</SelectItem>
+                        <SelectItem value="used">USED · Usado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Se muestra como badge en la tienda.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-6">

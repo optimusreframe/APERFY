@@ -175,6 +175,7 @@ describe('inventory taxonomy', () => {
       category_id: 'cat-electronics',
       images: ['https://storage.test/inventory-import/2-usb-c-charging-cable.jpg'],
       inventory_source_key: 'inventory:inventory.xlsx:2:cable.jpg',
+      condition_status: 'new',
     });
     expect(result.uploadedPaths).toEqual(['inventory-import/2-usb-c-charging-cable.jpg']);
   });

@@ -8,6 +8,7 @@ export interface InventorySourceRow {
   Qty?: InventoryCellValue;
   Unit?: InventoryCellValue;
   Status?: InventoryCellValue;
+  Condition?: InventoryCellValue;
   'AI %'?: InventoryCellValue;
   'Unit price'?: InventoryCellValue;
   'Total value'?: InventoryCellValue;
@@ -32,6 +33,7 @@ export interface InventoryImportRow {
   unitPrice: number | null;
   currency: string;
   status: string;
+  conditionStatus: 'new' | 'used';
   photoFileName: string;
   categorySource: string;
   categorySlug: string;
