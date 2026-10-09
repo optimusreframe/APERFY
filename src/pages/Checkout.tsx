@@ -432,13 +432,18 @@ export default function Checkout() {
     }
     const productIds = items.map(i => i.productId);
     const { data: currentProducts, error: priceError } = await supabase
-      .from('products').select('id, base_price, is_active').in('id', productIds);
+      .from('products').select('id, base_price, is_active, inventory_enabled, stock_quantity').in('id', productIds);
     if (priceError) throw priceError;
     const productMap = new Map(currentProducts?.map(p => [p.id, p]) || []);
     for (const item of items) {
       const dbProduct = productMap.get(item.productId);
       if (!dbProduct) throw new Error('Product not found');
       if (!dbProduct.is_active) throw new Error('Product is no longer available');
+      if (dbProduct.inventory_enabled && item.quantity > dbProduct.stock_quantity) {
+        throw new Error(language === 'es'
+          ? `Solo quedan ${dbProduct.stock_quantity} unidades de ${item.productName}.`
+          : `Only ${dbProduct.stock_quantity} units of ${item.productName} remain.`);
+      }
     }
     const formResult = checkoutSchema.safeParse(form);
     if (!formResult.success) {
@@ -482,6 +487,17 @@ export default function Checkout() {
     }));
     const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
     if (itemsError) throw itemsError;
+    const { data: stockResult, error: stockError } = await supabase.rpc('reserve_order_stock', { p_order_id: order.id });
+    if (stockError) {
+      await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id).eq('status', 'pending');
+      throw stockError;
+    }
+    const stockResponse = (stockResult && typeof stockResult === 'object' ? stockResult : {}) as { ok?: boolean; code?: string };
+    if (!stockResponse.ok) {
+      throw new Error(stockResponse.code === 'INSUFFICIENT_STOCK'
+        ? (language === 'es' ? 'El producto se agotó mientras completabas el pedido.' : 'The product sold out while you were checking out.')
+        : (language === 'es' ? 'No pudimos reservar el inventario.' : 'We could not reserve inventory.'));
+    }
     return order.id;
   };
 

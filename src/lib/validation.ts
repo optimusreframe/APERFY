@@ -60,6 +60,9 @@ export const productSchema = z.object({
   category_id: z.string().optional().or(z.literal('')),
   is_active: z.boolean(),
   is_featured: z.boolean(),
+  inventory_enabled: z.boolean(),
+  stock_quantity: z.number().int().min(0, 'Must be zero or greater').max(999999),
+  low_stock_threshold: z.number().int().min(0, 'Must be zero or greater').max(999999),
 });
 
 // ── Admin: Categories ──

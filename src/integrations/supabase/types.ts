@@ -726,11 +726,14 @@ export type Database = {
           description_es: string | null
           id: string
           images: Json | null
+          inventory_enabled: boolean
           is_active: boolean
           is_featured: boolean
+          low_stock_threshold: number
           model_3d_url: string | null
           name_en: string
           name_es: string
+          stock_quantity: number
           slug: string
           updated_at: string
         }
@@ -742,11 +745,14 @@ export type Database = {
           description_es?: string | null
           id?: string
           images?: Json | null
+          inventory_enabled?: boolean
           is_active?: boolean
           is_featured?: boolean
+          low_stock_threshold?: number
           model_3d_url?: string | null
           name_en: string
           name_es: string
+          stock_quantity?: number
           slug: string
           updated_at?: string
         }
@@ -758,11 +764,14 @@ export type Database = {
           description_es?: string | null
           id?: string
           images?: Json | null
+          inventory_enabled?: boolean
           is_active?: boolean
           is_featured?: boolean
+          low_stock_threshold?: number
           model_3d_url?: string | null
           name_en?: string
           name_es?: string
+          stock_quantity?: number
           slug?: string
           updated_at?: string
         }
@@ -1005,6 +1014,7 @@ export type Database = {
         Returns: boolean
       }
       increment_discount_usage: { Args: { _id: string }; Returns: undefined }
+      reserve_order_stock: { Args: { p_order_id: string }; Returns: Json }
       move_to_dlq: {
         Args: {
           dlq_name: string
