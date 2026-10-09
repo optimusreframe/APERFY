@@ -37,6 +37,7 @@ import AdminShipping from "./pages/admin/AdminShipping";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminDiscounts from "./pages/admin/AdminDiscounts";
 import AdminBackgroundQA from "./pages/admin/AdminBackgroundQA";
+import AdminHomepage from "./pages/admin/AdminHomepage";
 import RequestModel from "./pages/RequestModel";
 import Contact from "./pages/Contact";
 import EmailUnsubscribe from "./pages/EmailUnsubscribe";
@@ -87,6 +88,7 @@ const AppContent = () => {
             <Route path="discounts" element={<AdminDiscounts />} />
             <Route path="logs" element={<AdminLogs />} />
           <Route path="background-qa" element={<AdminBackgroundQA />} />
+          <Route path="homepage" element={<AdminHomepage />} />
           <Route path="ai-settings" element={<AdminAISettings />} />
           <Route path="integrations" element={<AdminIntegrations />} />
           </Route>

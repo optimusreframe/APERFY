@@ -19,6 +19,7 @@ const routeLabels: Record<string, string> = {
   '/admin/ai-settings': 'AI PRODUCT INTELLIGENCE',
   '/admin/integrations': 'SECURE INTEGRATIONS',
   '/admin/background-qa': 'BACKGROUND QA',
+  '/admin/homepage': 'HOME PAGE',
 };
 
 export default function AdminLayout() {
