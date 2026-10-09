@@ -24,6 +24,7 @@ describe('checkout order contract', () => {
       shippingCost: 0,
       discountId: null,
       discountAmount: 0,
+      language: 'es',
     });
 
     expect(payload).toMatchObject({
@@ -41,6 +42,7 @@ describe('checkout order contract', () => {
       state: 'FL',
       zip_code: '33101',
       country: 'United States',
+      language: 'es',
     });
   });
 
