@@ -11,6 +11,7 @@ const supabaseState = vi.hoisted(() => ({
   uploaded: new Set<string>(),
   removed: [] as string[][],
   insertError: null as { message: string } | null,
+  commitOnInsertError: false,
 }));
 
 vi.mock('@/integrations/supabase/client', () => ({
@@ -28,6 +29,7 @@ vi.mock('@/integrations/supabase/client', () => ({
         }),
         insert: async (payload: Record<string, unknown>) => {
           supabaseState.inserted.push(payload);
+          if (supabaseState.commitOnInsertError) supabaseState.existingSourceKeys.add(String(payload.inventory_source_key));
           return { error: supabaseState.insertError };
         },
       };
@@ -59,6 +61,7 @@ function resetSupabaseState() {
   supabaseState.uploaded.clear();
   supabaseState.removed.length = 0;
   supabaseState.insertError = null;
+  supabaseState.commitOnInsertError = false;
 }
 
 async function archiveWithPhoto() {
@@ -83,6 +86,32 @@ describe('inventory taxonomy', () => {
       .toBe('automotive');
     expect(classifyInventoryRow(row({ Item: 'Wash and Cure Station' })).slug)
       .toBe('3d-printing');
+  });
+
+  it('keeps real inventory edge cases in shopper-purpose categories', () => {
+    const cases: Array<[string, string]> = [
+      ['Model car', 'toys-games'],
+      ['Wet/Dry Utility Shop Vacuum', 'home-kitchen'],
+      ['Indoor Security Camera', 'electronics'],
+      ['Blink Mini 2 Security Camera', 'electronics'],
+      ['Dog Grooming Vacuum Kit', 'pet-supplies'],
+      ['OnePlus 10R 5G Smartphone', 'cell-phones-accessories'],
+      ['iPhone Protective Case with Card Holder and Ring Stand', 'cell-phones-accessories'],
+      ['Smart Wi-Fi Light Switch', 'electronics'],
+      ['Portable Label Maker', 'office-products'],
+      ['Toddler Straw Cup', 'home-kitchen'],
+      ['Insulated Tumbler', 'home-kitchen'],
+      ['Propeller Holder Guard', 'electronics'],
+      ['Baby oil', 'beauty-personal-care'],
+      ['Flashlight', 'electronics'],
+      ['Heat Gun', 'tools-home-improvement'],
+      ['Smart Plug Outlet Extender', 'electronics'],
+      ['Survival Gear and First Aid Kit', 'health-household'],
+      ['Small Desk', 'home-kitchen'],
+    ];
+    for (const [item, expected] of cases) {
+      expect(classifyInventoryRow(row({ Item: item, Description: item })).slug, item).toBe(expected);
+    }
   });
 
   it('reports missing photo and category fallback in the preview', () => {
@@ -118,6 +147,17 @@ describe('inventory taxonomy', () => {
     ]));
     expect(preview.slugConflicts).toHaveLength(1);
     expect(preview.canImport).toBe(false);
+  });
+
+  it('allows a previously imported source key to resume after preview reload', () => {
+    const sourceKey = 'inventory:inventory.xlsx:2:cable.jpg';
+    const preview = buildImportPreview(
+      [row()],
+      new Set(['cable.jpg']),
+      [{ slug: 'usb-c-charging-cable', inventory_source_key: sourceKey }],
+    );
+    expect(preview.rows[0].issues).not.toContain('existing_slug_conflict');
+    expect(preview.canImport).toBe(true);
   });
 
   it('creates a product with inventory fields and source key', async () => {
@@ -169,6 +209,18 @@ describe('inventory taxonomy', () => {
     expect(result).toMatchObject({ created: 0, skipped: 0, failed: 1 });
     expect(result.failures).toEqual([{ sourceRowNumber: 2, name: 'USB-C charging cable', message: 'insert failed' }]);
     expect(supabaseState.removed).toEqual([['inventory-import/2-usb-c-charging-cable.jpg']]);
+  });
+
+  it('keeps the image when an ambiguous insert is confirmed by source-key reconciliation', async () => {
+    resetSupabaseState();
+    supabaseState.insertError = { message: 'network response lost' };
+    supabaseState.commitOnInsertError = true;
+    const preview = buildImportPreview([row()], new Set(['cable.jpg']), new Set());
+    const result = await persistInventoryImport(preview, await archiveWithPhoto(), [{ id: 'cat-electronics', slug: 'electronics' }]);
+
+    expect(result).toMatchObject({ created: 0, skipped: 1, failed: 0 });
+    expect(supabaseState.removed).toHaveLength(0);
+    expect(result.uploadedPaths).toEqual(['inventory-import/2-usb-c-charging-cable.jpg']);
   });
 
   it('rejects an image extension whose content is not an image', async () => {

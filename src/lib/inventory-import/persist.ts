@@ -102,6 +102,7 @@ export async function persistInventoryImport(
     if (!reportProgress(onProgress, { completed: index, total: preview.rows.length, currentName: row.name, phase: 'image' })) break;
 
     let uploadedPath: string | null = null;
+    let preserveUploadedPath = false;
     try {
       const { data: existing, error: lookupError } = await supabase
         .from('products')
@@ -159,11 +160,24 @@ export async function persistInventoryImport(
         inventory_source_key: row.sourceKey,
       };
       const { error: insertError } = await supabase.from('products').insert(productPayload);
-      if (insertError) throw insertError;
+      if (insertError) {
+        const { data: committed, error: reconciliationError } = await supabase
+          .from('products')
+          .select('id')
+          .eq('inventory_source_key', row.sourceKey)
+          .maybeSingle();
+        if (committed) {
+          result.skipped += 1;
+          uploadedPath = null;
+          continue;
+        }
+        if (reconciliationError) preserveUploadedPath = true;
+        throw insertError;
+      }
       result.created += 1;
       reportProgress(onProgress, { completed: index + 1, total: preview.rows.length, currentName: row.name, phase: 'product' });
     } catch (error) {
-      if (uploadedPath) {
+      if (uploadedPath && !preserveUploadedPath) {
         await supabase.storage.from('product-images').remove([uploadedPath]);
         result.uploadedPaths = result.uploadedPaths.filter((candidate) => candidate !== uploadedPath);
       }

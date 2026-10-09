@@ -24,7 +24,25 @@ const rules: Array<{ slug: InventoryCategorySlug; patterns: RegExp[] }> = [
     slug: '3d-printing',
     patterns: [
       /\b3d\s*(print|printer|printing|printer(?:s)?|filament|resin)\b/,
-      /\bfilament\b/, /\bresin\s+printer\b/, /\bhotend\b/, /\bnozzle\b/, /\bbuild\s*plate\b/, /\bfep\s*film\b/, /\bfilament\s*(dryer|drying|storage)\b/, /\bwash\s+and\s+cure\b/,
+      /\bfilament\b/, /\bresin\s+printer\b/, /\bhotend\b/, /\b3d\s*printer\s*nozzle\b/, /\bbuild\s*plate\b/, /\bfep\s*film\b/, /\bfilament\s*(dryer|drying|storage)\b/, /\bwash\s+and\s+cure\b/,
+    ],
+  },
+  {
+    slug: 'health-household',
+    patterns: [
+      /\bfirst\s*aid\b/, /\bemergency\s+survival\s+kit\b/,
+    ],
+  },
+  {
+    slug: 'home-kitchen',
+    patterns: [
+      /\b(?:small|computer|workstation|l-shaped)\s+desk\b/,
+    ],
+  },
+  {
+    slug: 'electronics',
+    patterns: [
+      /\bsecurity\s+camera\b/, /\bpropeller\b/, /\blight\s+switch\b/, /\bflashlight\b/, /\bportable\s+power\s+station\b/, /\bcamera\s+tripod\b/, /\bradar\s+detector\b/, /\bsmart\s+plug\b/, /\bpower\s+strip\b/, /\bspeaker\s+(?:storage|carrying)\s+case\b/,
     ],
   },
   {
@@ -42,13 +60,13 @@ const rules: Array<{ slug: InventoryCategorySlug; patterns: RegExp[] }> = [
   {
     slug: 'video-games-consoles',
     patterns: [
-      /\bplaystation\b/, /\b(?:ps[345]|xbox|nintendo\s*switch|switch\s*(?:lite|oled)?)\b/, /\bvideo\s*game\b/, /\bgame\s*(?:controller|console|pad)\b/, /\bjoy\s*con\b/,
+      /\bplaystation\b/, /\b(?:ps[345]|xbox|nintendo\s*switch|switch\s+(?:lite|oled|controller|game))\b/, /\bvideo\s*game\b/, /\bgame\s*(?:controller|console|pad)\b/, /\bjoy\s*con\b/,
     ],
   },
   {
     slug: 'automotive',
     patterns: [
-      /\bautomotive\b/, /\bcar\b/, /\bvehicle\b/, /\bobd\b/, /\bdash\s*cam\b/, /\btire\b/, /\bwindshield\b/, /\bcar\s*(?:charger|mount|holder)\b/, /\bjump\s*starter\b/, /\btrolley\s*jack\b/, /\bjack\s*stand\b/, /\bhigh\s*pressure\s*inflator\b/, /\becho\s*auto\b/,
+      /\bautomotive\b/, /\bvehicle\b/, /\bobd\b/, /\bdash\s*cam\b/, /\btire\b/, /\bwindshield\b/, /\bcar\s*(?:charger|mount|holder|vacuum|phone|interior|atmosphere)\b/, /\bjump\s*starter\b/, /\btrolley\s*jack\b/, /\bjack\s*stand\b/, /\bhigh\s*pressure\s*inflator\b/, /\becho\s*auto\b/,
     ],
   },
   {
@@ -60,7 +78,7 @@ const rules: Array<{ slug: InventoryCategorySlug; patterns: RegExp[] }> = [
   {
     slug: 'toys-games',
     patterns: [
-      /\btoy\b/, /\bpuzzle\b/, /\bboard\s*game\b/, /\bdoll\b/, /\bstuffed\s*animal\b/, /\bbuilding\s*blocks?\b/, /\blego\b/, /\buno\b/, /\bdominoes?\b/, /\bactivity\s*selector\b/,
+      /\btoy\b/, /\bmodel\s+car\b/, /\bpuzzle\b/, /\bboard\s*game\b/, /\bdoll\b/, /\bstuffed\s*animal\b/, /\bbuilding\s*blocks?\b/, /\blego\b/, /\buno\b/, /\bdominoes?\b/, /\bactivity\s*selector\b/,
     ],
   },
   {
@@ -70,9 +88,15 @@ const rules: Array<{ slug: InventoryCategorySlug; patterns: RegExp[] }> = [
     ],
   },
   {
+    slug: 'pet-supplies',
+    patterns: [
+      /\bdog\b/, /\bcat\b/, /\baquarium\b/, /\bleash\b/, /\bpet\s*(?:bed|food|bowl|toy|grooming|supplies?)\b/,
+    ],
+  },
+  {
     slug: 'beauty-personal-care',
     patterns: [
-      /\bmakeup\b/, /\bcosmetic\b/, /\bskincare\b/, /\bshampoo\b/, /\bconditioner\b/, /\bhair\s*(?:dryer|brush|straightener)\b/, /\bfacial\b/, /\bnail\b/, /\brazor\b/,
+      /\bmakeup\b/, /\bcosmetic\b/, /\bskincare\b/, /\bshampoo\b/, /\bconditioner\b/, /\bhair\s*(?:dryer|brush|straightener)\b/, /\bfacial\b/, /\bnail\b/, /\brazor\b/, /\bbaby\s*oil\b/,
     ],
   },
   {
@@ -84,7 +108,7 @@ const rules: Array<{ slug: InventoryCategorySlug; patterns: RegExp[] }> = [
   {
     slug: 'pet-supplies',
     patterns: [
-      /\bpet\b/, /\bdog\b/, /\bcat\b/, /\baquarium\b/, /\bleash\b/, /\bpet\s*(?:bed|food|bowl|toy)\b/,
+      /\bdog\b/, /\bcat\b/, /\baquarium\b/, /\bleash\b/, /\bpet\s*(?:bed|food|bowl|toy|grooming|supplies?)\b/,
     ],
   },
   {
@@ -96,13 +120,13 @@ const rules: Array<{ slug: InventoryCategorySlug; patterns: RegExp[] }> = [
   {
     slug: 'tools-home-improvement',
     patterns: [
-      /\bdrill\b/, /\bscrewdriver\b/, /\bwrench\b/, /\btool\b/, /\bhardware\b/, /\bsolder(?:ing|ing iron)\b/, /\bmultimeter\b/, /\bmeasure(?:ment|ring)?\b/, /\btape\s*measure\b/, /\bworkshop\b/, /\bladder\b/, /\bsaw\b/, /\bchainsaw\b/, /\bstud\s*finder\b/, /\btagging\s*gun\b/, /\bepoxy\b/, /\bblower\b/, /\bwall\s*mount\b/,
+      /\bdrill\b/, /\bscrewdriver\b/, /\bwrench\b/, /\btool\b/, /\bhardware\b/, /\bsolder(?:ing|ing iron)\b/, /\bmultimeter\b/, /\btape\s*measure\b/, /\bheat\s*gun\b/, /\bworkshop\b/, /\bladder\b/, /\bsaw\b/, /\bchainsaw\b/, /\bstud\s*finder\b/, /\btagging\s*gun\b/, /\bepoxy\b/, /\bblower\b/, /\bwall\s*mount\b/,
     ],
   },
   {
     slug: 'home-kitchen',
     patterns: [
-      /\bkitchen\b/, /\bhome\b/, /\bhousehold\b/, /\bappliance\b/, /\bcookware\b/, /\bdrinkware\b/, /\bbottle\b/, /\bmug\b/, /\bcup\b/, /\bspoons?\b/, /\bportion\s*cups?\b/, /\bfood\s*containers?\b/, /\bplastic\s*bucket\b/, /\bmilkshake\s*maker\b/, /\bair\s*fryer\b/, /\bblender\b/, /\bice\s*cream\s*maker\b/, /\bcoffee\s*maker\b/, /\bespresso\b/, /\bkeurig\b/, /\blamp\b/, /\blighting\b/, /\blight\s*fixture\b/, /\bfurniture\b/, /\bchair\b/, /\btable\b/, /\bstorage\b/, /\bcontainers?\b/, /\bvase\b/, /\bvacuum\b/,
+      /\bkitchen\b/, /\bhome\b/, /\bhousehold\b/, /\bappliance\b/, /\bcookware\b/, /\bdrinkware\b/, /\btumbler\b/, /\bstraw\s+cup\b/, /\bbottle\b/, /\bmug\b/, /\bcup\b/, /\bspoons?\b/, /\bportion\s*cups?\b/, /\bfood\s*containers?\b/, /\bplastic\s*bucket\b/, /\bmilkshake\s*maker\b/, /\bair\s*fryer\b/, /\bblender\b/, /\bice\s*cream\s*maker\b/, /\bcoffee\s*maker\b/, /\bespresso\b/, /\bkeurig\b/, /\blamp\b/, /\blighting\b/, /\blight\s*fixture\b/, /\bfurniture\b/, /\bchair\b/, /\btable\b/, /\bstorage\b/, /\bcontainers?\b/, /\bvase\b/, /\bshop\s+vacuum\b/, /\bvacuum\b/,
     ],
   },
   {

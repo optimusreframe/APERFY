@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { buildImportPreview } from '@/lib/inventory-import/preview';
 import { persistInventoryImport, type InventoryImportProgress, type InventoryImportResult } from '@/lib/inventory-import/persist';
 import { INVENTORY_CATEGORIES } from '@/lib/inventory-import/taxonomy';
-import type { ImportPreview, InventorySourceRow } from '@/lib/inventory-import/types';
+import type { ExistingInventoryProduct, ImportPreview, InventorySourceRow } from '@/lib/inventory-import/types';
 import type { Category } from '@/lib/model-types';
 
 export interface ParsedInventoryArchive {
@@ -19,8 +19,8 @@ export interface ParsedInventoryArchive {
   preview: ImportPreview;
 }
 
-export function isImportButtonDisabled(preview: ImportPreview | null, archiveReady: boolean): boolean {
-  return !archiveReady || !preview?.canImport;
+export function isImportButtonDisabled(preview: ImportPreview | null, archiveReady: boolean, lookupReady = true): boolean {
+  return !lookupReady || !archiveReady || !preview?.canImport;
 }
 
 export function getImportStockStatus(quantity: number | null): string {
@@ -34,7 +34,7 @@ function isImagePath(path: string): boolean {
   return /\.(?:jpe?g|png|webp)$/i.test(path) && !path.endsWith('/');
 }
 
-export async function parseInventoryArchive(file: File, existingSlugs: Set<string>): Promise<ParsedInventoryArchive> {
+export async function parseInventoryArchive(file: File, existingProducts: ExistingInventoryProduct[]): Promise<ParsedInventoryArchive> {
   const zip = await JSZip.loadAsync(file);
   const entries = Object.values(zip.files);
   const workbookEntries = entries.filter((entry) => !entry.dir && /(?:^|\/)inventory\.xlsx$/i.test(entry.name));
@@ -53,7 +53,7 @@ export async function parseInventoryArchive(file: File, existingSlugs: Set<strin
   if (rows.length === 0) throw new Error('La hoja Inventory no contiene filas de productos.');
 
   const photoNames = new Set(entries.filter((entry) => isImagePath(entry.name)).map((entry) => entry.name));
-  return { zip, preview: buildImportPreview(rows, photoNames, existingSlugs) };
+  return { zip, preview: buildImportPreview(rows, photoNames, existingProducts) };
 }
 
 function Metric({ label, value, tone = 'text-foreground' }: { label: string; value: string | number; tone?: string }) {
@@ -77,17 +77,17 @@ export default function AdminInventoryImport() {
   const [error, setError] = useState<string | null>(null);
   const cancelRef = useRef(false);
 
-  const { data: existingSlugs = new Set<string>(), isLoading: loadingSlugs } = useQuery({
+  const { data: existingProducts = [], isLoading: loadingSlugs, isError: slugsError, refetch: refetchSlugs } = useQuery<ExistingInventoryProduct[]>({
     queryKey: ['inventory-import-existing-slugs'],
     queryFn: async () => {
-      const { data, error: queryError } = await supabase.from('products').select('slug');
+      const { data, error: queryError } = await supabase.from('products').select('slug, inventory_source_key');
       if (queryError) throw queryError;
-      return new Set((data ?? []).map((row) => row.slug));
+      return data ?? [];
     },
   });
 
   const { data: categories = [], isLoading: loadingCategories } = useQuery<Pick<Category, 'id' | 'slug'>[]>({
-    queryKey: ['admin-categories'],
+    queryKey: ['inventory-import-active-categories'],
     queryFn: async () => {
       const { data, error: queryError } = await supabase.from('categories').select('id, slug').eq('is_active', true);
       if (queryError) throw queryError;
@@ -103,7 +103,7 @@ export default function AdminInventoryImport() {
     setArchive(null);
     setSummary(null);
     try {
-      const parsed = await parseInventoryArchive(file, existingSlugs);
+      const parsed = await parseInventoryArchive(file, existingProducts);
       setArchive(parsed);
       setPreview(parsed.preview);
       toast({ title: 'Preview listo', description: `${parsed.preview.totalRows} filas analizadas.` });
@@ -117,7 +117,8 @@ export default function AdminInventoryImport() {
   };
 
   const categoriesReady = Boolean(preview) && (preview?.rows.every((row) => categories.some((category) => category.slug === row.categorySlug)) ?? false);
-  const canImport = !isImportButtonDisabled(preview, Boolean(archive)) && !loadingCategories && categoriesReady;
+  const lookupReady = !loadingSlugs && !slugsError;
+  const canImport = !isImportButtonDisabled(preview, Boolean(archive), lookupReady) && !loadingCategories && categoriesReady;
   const issueRows = preview?.rows.filter((row) => row.issues.length > 0) ?? [];
   const handleImport = async () => {
     if (!canImport || !preview || !archive) return;
@@ -181,6 +182,12 @@ export default function AdminInventoryImport() {
           {error && (
             <div className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}
+            </div>
+          )}
+          {slugsError && (
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              <span>No se pudo comprobar si ya existen productos importados.</span>
+              <Button variant="outline" size="sm" onClick={() => { void refetchSlugs(); }}>Retry</Button>
             </div>
           )}
         </AdminSurface>
@@ -267,6 +274,14 @@ export default function AdminInventoryImport() {
                 </div>
               )}
               {!categoriesReady && preview && !loadingCategories && <p className="mt-4 text-sm text-destructive">Some preview categories are not available as active categories. Resolve the category setup before importing.</p>}
+              {issueRows.length > 0 && (
+                <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm">
+                  <div className="font-medium text-destructive">All rows needing review</div>
+                  <ul className="mt-2 space-y-1 text-xs text-destructive/90">
+                    {issueRows.map((row) => <li key={row.sourceRowNumber}>row {row.sourceRowNumber}: {row.name || 'Unnamed'} — {row.issues.join(', ')}</li>)}
+                  </ul>
+                </div>
+              )}
               <Button className="mt-5 w-full gap-2" disabled={!canImport || persisting} onClick={() => { void handleImport(); }} title="Import products sequentially without overwriting existing source keys">
                 {persisting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}{persisting ? 'Importing…' : 'Import products'}
               </Button>

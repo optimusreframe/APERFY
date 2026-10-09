@@ -41,6 +41,11 @@ export interface InventoryImportRow {
   issues: string[];
 }
 
+export interface ExistingInventoryProduct {
+  slug: string;
+  inventory_source_key: string | null;
+}
+
 export interface ImportPreview {
   rows: InventoryImportRow[];
   totalRows: number;

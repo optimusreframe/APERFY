@@ -29,6 +29,7 @@ describe('AdminInventoryImport', () => {
     expect(isImportButtonDisabled(null, false)).toBe(true);
     expect(isImportButtonDisabled(preview(false), true)).toBe(true);
     expect(isImportButtonDisabled(preview(true), false)).toBe(true);
+    expect(isImportButtonDisabled(preview(true), true, false)).toBe(true);
     expect(isImportButtonDisabled(preview(true), true)).toBe(false);
   });
 

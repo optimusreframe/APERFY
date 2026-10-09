@@ -1,5 +1,5 @@
 import { classifyInventoryRow, normalizeInventoryText } from './classify';
-import type { ImportPreview, InventoryCellValue, InventoryImportRow, InventorySourceRow } from './types';
+import type { ExistingInventoryProduct, ImportPreview, InventoryCellValue, InventoryImportRow, InventorySourceRow } from './types';
 
 function asText(value: InventoryCellValue): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value).trim() : '';
@@ -50,8 +50,14 @@ export function createUniqueInventorySlug(name: string, sourceRowNumber: number,
 export function buildImportPreview(
   rows: InventorySourceRow[],
   photoNames: Set<string>,
-  existingSlugs: Set<string>,
+  existingProducts: Set<string> | ExistingInventoryProduct[],
 ): ImportPreview {
+  const existingSlugs = existingProducts instanceof Set
+    ? existingProducts
+    : new Set(existingProducts.map((product) => product.slug));
+  const existingSourceKeys = existingProducts instanceof Set
+    ? new Set<string>()
+    : new Set(existingProducts.map((product) => product.inventory_source_key).filter((key): key is string => Boolean(key)));
   const usedSlugs = new Set<string>();
   const categoryCounts: Record<string, number> = {};
   const missingFields: Record<string, number> = {};
@@ -72,6 +78,7 @@ export function buildImportPreview(
     const categorySource = asText(source.Category);
     const classified = classifyInventoryRow(source);
     const slug = createUniqueInventorySlug(name, sourceRowNumber, usedSlugs);
+    const sourceKey = `inventory:inventory.xlsx:${sourceRowNumber}:${photoFileName}`;
     const issues: string[] = [];
 
     if (!name) issues.push('missing_name');
@@ -82,7 +89,7 @@ export function buildImportPreview(
     if (status !== 'approved') issues.push('not_approved');
     if (!categorySource) issues.push('missing_category');
     if (!photoFileName || !hasPhoto(photoFileName, photoNames)) issues.push('missing_photo');
-    if (existingSlugs.has(slug)) {
+    if (existingSlugs.has(slug) && !existingSourceKeys.has(sourceKey)) {
       issues.push('existing_slug_conflict');
       slugConflicts.push({ slug, rowNumber: sourceRowNumber });
     }
@@ -97,7 +104,7 @@ export function buildImportPreview(
 
     return {
       sourceRowNumber,
-      sourceKey: `inventory:inventory.xlsx:${sourceRowNumber}:${photoFileName}`,
+      sourceKey,
       source,
       name,
       brand,
