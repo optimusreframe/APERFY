@@ -95,8 +95,26 @@ export default function AdminInventoryImport() {
     },
   });
 
+  const lookupReady = !loadingSlugs && !slugsError;
+
+  const handleRetrySlugs = async () => {
+    setPreview(null);
+    setArchive(null);
+    setSummary(null);
+    setError(null);
+    await refetchSlugs();
+  };
+
   const handleArchive = async (file: File | undefined) => {
     if (!file) return;
+    if (!lookupReady) {
+      const message = slugsError
+        ? 'No se puede generar el preview hasta recuperar el lookup de productos existentes.'
+        : 'Espera a que termine la comprobación de productos existentes.';
+      setError(message);
+      toast({ title: 'Lookup no disponible', description: message, variant: 'destructive' });
+      return;
+    }
     setParsing(true);
     setError(null);
     setPreview(null);
@@ -117,7 +135,6 @@ export default function AdminInventoryImport() {
   };
 
   const categoriesReady = Boolean(preview) && (preview?.rows.every((row) => categories.some((category) => category.slug === row.categorySlug)) ?? false);
-  const lookupReady = !loadingSlugs && !slugsError;
   const canImport = !isImportButtonDisabled(preview, Boolean(archive), lookupReady) && !loadingCategories && categoriesReady;
   const issueRows = preview?.rows.filter((row) => row.issues.length > 0) ?? [];
   const handleImport = async () => {
@@ -187,7 +204,7 @@ export default function AdminInventoryImport() {
           {slugsError && (
             <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               <span>No se pudo comprobar si ya existen productos importados.</span>
-              <Button variant="outline" size="sm" onClick={() => { void refetchSlugs(); }}>Retry</Button>
+              <Button variant="outline" size="sm" onClick={() => { void handleRetrySlugs(); }}>Retry</Button>
             </div>
           )}
         </AdminSurface>

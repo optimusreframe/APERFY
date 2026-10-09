@@ -208,7 +208,8 @@ describe('inventory taxonomy', () => {
 
     expect(result).toMatchObject({ created: 0, skipped: 0, failed: 1 });
     expect(result.failures).toEqual([{ sourceRowNumber: 2, name: 'USB-C charging cable', message: 'insert failed' }]);
-    expect(supabaseState.removed).toEqual([['inventory-import/2-usb-c-charging-cable.jpg']]);
+    expect(supabaseState.removed).toHaveLength(0);
+    expect(result.uploadedPaths).toEqual(['inventory-import/2-usb-c-charging-cable.jpg']);
   });
 
   it('keeps the image when an ambiguous insert is confirmed by source-key reconciliation', async () => {

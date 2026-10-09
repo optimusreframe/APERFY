@@ -161,7 +161,12 @@ export async function persistInventoryImport(
       };
       const { error: insertError } = await supabase.from('products').insert(productPayload);
       if (insertError) {
-        const { data: committed, error: reconciliationError } = await supabase
+        // Once the product write was attempted, the response is ambiguous: a
+        // network failure can hide a committed row or a concurrent writer can
+        // still be finishing the same source key. Keep the image rather than
+        // deleting an object another product may already reference.
+        preserveUploadedPath = true;
+        const { data: committed } = await supabase
           .from('products')
           .select('id')
           .eq('inventory_source_key', row.sourceKey)
@@ -171,7 +176,6 @@ export async function persistInventoryImport(
           uploadedPath = null;
           continue;
         }
-        if (reconciliationError) preserveUploadedPath = true;
         throw insertError;
       }
       result.created += 1;
