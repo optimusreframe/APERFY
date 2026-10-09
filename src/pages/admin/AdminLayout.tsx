@@ -37,7 +37,7 @@ export default function AdminLayout() {
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* Command bar */}
           <header className="mac-admin-toolbar sticky top-0 z-30 h-14 flex items-center gap-3 border-b border-white/[0.08] px-4 bg-[hsl(220_18%_9%/.82)] backdrop-blur-2xl">
-            <SidebarTrigger className="text-foreground/80 hover:text-foreground" />
+            <SidebarTrigger className="h-11 w-11 text-foreground/80 hover:text-foreground" />
             <div className="hidden md:flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
               <span>APERFY</span>
               <span className="text-border">/</span>
@@ -58,7 +58,7 @@ export default function AdminLayout() {
               <NotificationBell />
             </div>
           </header>
-          <main className="mac-admin-main min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8">
+          <main className="mac-admin-main min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-4 md:p-6 lg:p-8">
             <Outlet />
           </main>
         </div>

@@ -3,7 +3,6 @@ import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Download, X, Share, Plus } from "lucide-react";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useLanguage } from "@/i18n/LanguageContext";
 import IOSSheet from "@/components/mobile/IOSSheet";
 
@@ -13,15 +12,14 @@ const MIN_VISITS = 2;
 const COOLDOWN_MS = 1000 * 60 * 60 * 24 * 3; // 3 days between popups
 
 /**
- * Occasional install-PWA popup. Soft floating card (bottom-right desktop,
- * above the BottomTabBar on mobile). Triggers native prompt on Android/Chrome
+ * Occasional install-PWA popup. Soft floating card above the shell tab row on
+ * phone and tablet. Triggers native prompt on Android/Chrome
  * or opens an IOSSheet with Add-to-Home-Screen steps on iOS.
  */
 export default function InstallPWAPopup() {
   const { canPrompt, isIOS, installed, shouldShow, promptInstall, dismiss } =
     useInstallPrompt();
   const location = useLocation();
-  const isMobile = useIsMobile();
   const { language } = useLanguage();
   const [visible, setVisible] = useState(false);
   const [iosSheet, setIosSheet] = useState(false);
@@ -112,11 +110,7 @@ export default function InstallPWAPopup() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 320, damping: 30 }}
-            className={`fixed z-[70] ${
-              isMobile
-                ? "left-3 right-3 bottom-[calc(72px+env(safe-area-inset-bottom))]"
-                : "right-6 bottom-6 max-w-sm"
-            }`}
+            className="fixed bottom-[calc(144px+env(safe-area-inset-bottom,0px))] left-3 right-3 z-[70] md:bottom-[calc(80px+env(safe-area-inset-bottom,0px))] md:left-auto md:right-6 md:w-[calc(100vw_-_3rem)] md:max-w-sm lg:bottom-6"
             role="dialog"
             aria-label={t.title}
           >
@@ -130,7 +124,7 @@ export default function InstallPWAPopup() {
               <button
                 onClick={close}
                 aria-label="Close"
-                className="absolute top-2 right-2 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+                className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground hover:bg-white/5"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -150,13 +144,13 @@ export default function InstallPWAPopup() {
               <div className="flex items-center gap-2 mt-3">
                 <button
                   onClick={onInstall}
-                  className="flex-1 h-10 rounded-xl bg-gradient-gold text-primary-foreground text-sm font-semibold tracking-tight active:scale-[0.98] transition-transform"
+                  className="min-h-11 flex-1 rounded-xl bg-gradient-gold text-primary-foreground text-sm font-semibold tracking-tight active:scale-[0.98] transition-transform"
                 >
                   {t.install}
                 </button>
                 <button
                   onClick={onLater}
-                  className="h-10 px-3 rounded-xl text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="min-h-11 px-3 rounded-xl text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {t.later}
                 </button>

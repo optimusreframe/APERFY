@@ -11,7 +11,6 @@ import { BulkImportProvider } from "@/contexts/BulkImportContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BulkImportBanner from "@/components/BulkImportBanner";
 import PageTransition from "@/components/motion/PageTransition";
-import BottomTabBar from "@/components/mobile/BottomTabBar";
 import InstallPWAPopup from "@/components/InstallPWAPopup";
 import CartAddedToast from "./components/CartAddedToast";
 import MacAppShell from "@/components/layout/MacAppShell";
@@ -114,7 +113,6 @@ const AppContent = () => {
         </Suspense>
       </PageTransition>
       {!isAdmin && <CartAddedToast />}
-      <BottomTabBar />
       {!isAdmin && <InstallPWAPopup />}
     </>
   );

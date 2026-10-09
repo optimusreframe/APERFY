@@ -75,7 +75,11 @@ export default function MobileStickyAddToCart({
       transition={{ type: 'spring', stiffness: 320, damping: 28 }}
       data-testid="mobile-add-to-cart-dock"
       className="fixed inset-x-0 z-[60] md:hidden"
-      style={{ bottom: MOBILE_BOTTOM_NAV_OFFSET }}
+      style={{
+        bottom: MOBILE_BOTTOM_NAV_OFFSET,
+        left: 'env(safe-area-inset-left, 0px)',
+        right: 'env(safe-area-inset-right, 0px)',
+      }}
     >
       <div className="relative flex min-h-16 items-center gap-2 border-t border-white/[0.1] bg-background/95 px-3 py-2 shadow-[0_-12px_32px_-18px_hsl(0_0%_0%/0.8)] backdrop-blur-xl">
         <div

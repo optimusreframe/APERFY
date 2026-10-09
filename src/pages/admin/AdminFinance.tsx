@@ -124,7 +124,7 @@ function FinanceActivityRow({ item }: { item: FinanceActivity }) {
   const method = item.paymentMethod?.trim() || 'Payment method unavailable';
   const provider = item.provider?.trim() || 'Manual';
   return (
-    <li className="grid min-w-0 gap-3 border-b border-white/[0.06] px-4 py-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center md:px-5">
+    <li className="grid min-w-0 gap-3 border-b border-white/[0.06] px-4 py-4 last:border-b-0 md:px-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
       <div className="min-w-0 space-y-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <ActivityLabel type={item.type} />
@@ -144,9 +144,9 @@ function FinanceActivityRow({ item }: { item: FinanceActivity }) {
           {item.currency}
         </p>
       </div>
-      <div className="min-w-0 sm:text-right">
+      <div className="min-w-0 lg:text-right">
         <p className="break-words font-mono text-sm font-semibold tabular-nums text-foreground">{formatMoney(item.amount, item.currency)}</p>
-        <time className="mt-1 block text-[10px] font-mono text-muted-foreground/70" dateTime={item.occurredAt}>{formatDate(item.occurredAt)}</time>
+        <time className="mt-1 block break-words text-[10px] font-mono text-muted-foreground/70" dateTime={item.occurredAt}>{formatDate(item.occurredAt)}</time>
       </div>
     </li>
   );
@@ -161,7 +161,7 @@ export default function AdminFinance() {
 
   if (isError) {
     return (
-      <div className="mx-auto max-w-[1400px] space-y-6">
+      <div className="mx-auto min-w-0 max-w-[1400px] space-y-6">
         <AdminPageHeader eyebrow="OPERATIONS · FINANCE" title="Finance" meta="ORDER AND PAYMENT ACTIVITY" />
         <AdminSurface className="mx-auto max-w-2xl p-0 text-center">
           <div role="alert" className="flex flex-col items-center gap-3 p-6 md:p-8">
@@ -189,7 +189,7 @@ export default function AdminFinance() {
   const hasActivity = (data?.activity.length ?? 0) > 0;
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6">
+    <div className="mx-auto min-w-0 max-w-[1400px] space-y-6">
       <AdminPageHeader
         eyebrow="OPERATIONS · FINANCE"
         title="Finance"
@@ -202,7 +202,7 @@ export default function AdminFinance() {
         }
       />
 
-      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-5">
         {stats.map((stat) => <FinanceStat key={stat.title} {...stat} loading={isLoading} />)}
       </div>
 

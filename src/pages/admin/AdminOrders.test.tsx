@@ -117,9 +117,12 @@ describe('AdminOrders', () => {
   });
 
   it('requires confirmation before archiving and provides a restore action in the archive view', async () => {
-    renderOrders();
+    const { container } = renderOrders();
 
-    const archiveAction = await screen.findByRole('button', { name: /archive order active-1/i });
+    const activeOrderTexts = await screen.findAllByText('#ACTIVE-1');
+    const activeOrderRow = activeOrderTexts.find((element) => element.closest('tr'))?.closest('tr');
+    expect(activeOrderRow).not.toBeNull();
+    const archiveAction = within(activeOrderRow as HTMLElement).getByRole('button', { name: /archive order active-1/i });
     fireEvent.click(archiveAction);
     expect(state.updates).toHaveLength(0);
     expect(await screen.findByText(/move this order to the archive/i)).toBeInTheDocument();
@@ -132,13 +135,14 @@ describe('AdminOrders', () => {
     })));
 
     fireEvent.click(screen.getByRole('button', { name: /archived/i }));
-    const archivedOrder = await screen.findByText('#ARCHIVED');
-    const archivedRow = archivedOrder.closest('tr');
+    const archivedOrderTexts = await screen.findAllByText('#ARCHIVED');
+    const archivedRow = archivedOrderTexts.find((element) => element.closest('tr'))?.closest('tr');
     expect(archivedRow).not.toBeNull();
     fireEvent.click(within(archivedRow as HTMLElement).getByRole('button', { name: /restore order archived-1/i }));
     await waitFor(() => expect(state.updates).toContainEqual(expect.objectContaining({
       table: 'orders', id: 'archived-1', payload: { archived_at: null, archived_by: null },
     })));
+    expect(container.querySelector('ul[aria-label="Orders card list"]')).toHaveClass('2xl:hidden');
   });
 
   it('provides a keyboard-accessible status control on Kanban cards', async () => {
@@ -156,11 +160,16 @@ describe('AdminOrders', () => {
 
   it('uploads a private proof and records received status through the audit function', async () => {
     vi.stubGlobal('crypto', { randomUUID: () => 'proof-key' });
-    renderOrders();
+    const { container } = renderOrders();
 
-    const orderText = await screen.findByText('#ACTIVE-1');
-    fireEvent.click(orderText.closest('tr') as HTMLElement);
-    const fileInput = await screen.findByLabelText('Upload payment proof for active-1');
+    const cardList = await waitFor(() => {
+      const element = container.querySelector('ul[aria-label="Orders card list"]');
+      expect(element).not.toBeNull();
+      return element as HTMLElement;
+    });
+    const detailsButton = await within(cardList).findByRole('button', { name: 'Show details for order active-1' });
+    fireEvent.click(detailsButton);
+    const fileInput = await within(cardList).findByLabelText('Upload payment proof for active-1');
     const file = new File(['payment proof'], 'receipt.pdf', { type: 'application/pdf' });
     fireEvent.change(fileInput, { target: { files: [file] } });
 
@@ -171,10 +180,30 @@ describe('AdminOrders', () => {
     })));
     expect(state.uploads[0].path).toMatch(/^active-1\/proof-/);
 
-    fireEvent.click(screen.getByRole('button', { name: /mark received/i }));
+    fireEvent.click(within(cardList).getByRole('button', { name: /mark received/i }));
     await waitFor(() => expect(state.rpcCalls).toContainEqual(expect.objectContaining({
       name: 'record_order_payment_event',
       args: expect.objectContaining({ p_order_id: 'active-1', p_event_type: 'received' }),
     })));
+  });
+
+  it('shows narrow-screen order cards with labeled, touch-sized controls', async () => {
+    const { container } = renderOrders();
+    const cardList = await waitFor(() => {
+      const element = container.querySelector('ul[aria-label="Orders card list"]');
+      expect(element).not.toBeNull();
+      return element as HTMLElement;
+    });
+    const card = within(cardList);
+    const detailsButton = await card.findByRole('button', { name: 'Show details for order active-1' });
+
+    expect(cardList).toHaveClass('2xl:hidden');
+    expect(detailsButton).toHaveAttribute('aria-expanded', 'false');
+    expect(card.getByRole('combobox', { name: 'Order status active-1' })).toHaveClass('min-h-11');
+    expect(card.getByRole('button', { name: /archive order active-1/i })).toHaveClass('min-h-11');
+    expect(card.getByRole('button', { name: 'Payment' })).toHaveClass('min-h-11');
+
+    fireEvent.click(detailsButton);
+    expect(await card.findByRole('region', { name: 'Order details active-1' })).toBeInTheDocument();
   });
 });

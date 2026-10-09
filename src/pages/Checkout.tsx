@@ -1009,14 +1009,14 @@ export default function Checkout() {
   const isInFlow = (step === 'shipping' || step === 'method') && !whatsappCheckoutComplete;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-full min-w-0 bg-background">
       <Navbar />
 
       {/* ═══ Top Command Bar (sticky, only during flow) ═══ */}
       {isInFlow && (
         <div className="sticky top-16 z-30 border-b border-white/[0.05] bg-background/80 backdrop-blur-xl">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center justify-between gap-4">
-            <button onClick={() => navigate('/cart')} className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={() => navigate('/cart')} className="inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-md px-2 text-[12px] text-muted-foreground transition-colors hover:text-foreground touch-manipulation">
               <ArrowLeft className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{language === 'es' ? 'Volver al carrito' : 'Back to cart'}</span>
             </button>
@@ -1036,7 +1036,7 @@ export default function Checkout() {
         </div>
       )}
 
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-8 lg:pt-10 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="min-w-0 pt-8 xl:pt-10 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         <AnimatePresence mode="wait">
 
@@ -1045,12 +1045,12 @@ export default function Checkout() {
             <motion.div key="flow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 
               {/* Mobile horizontal step indicator */}
-              <div className="lg:hidden mb-6">
+              <div className="xl:hidden mb-6">
                 <StepRail current={['contact', 'address', 'shipping-method', 'payment'].indexOf(activeStage)} labels={allStages.map(stageLabel)} />
               </div>
 
               {/* Mobile collapsible summary */}
-              <div className="lg:hidden mb-6">
+              <div className="xl:hidden mb-6">
                 <button
                   onClick={() => setSummaryOpen(o => !o)}
                   className="w-full flex items-center justify-between p-4 rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-sm"
@@ -1073,10 +1073,10 @@ export default function Checkout() {
                 </AnimatePresence>
               </div>
 
-              <div className="grid lg:grid-cols-[220px_minmax(0,1fr)_340px] gap-6 lg:gap-10">
+              <div className="grid min-w-0 xl:grid-cols-[220px_minmax(0,1fr)_340px] gap-6 xl:gap-10">
 
                 {/* ─── LEFT NAV RAIL (desktop) ─── */}
-                <aside className="hidden lg:block">
+                <aside className="hidden xl:block">
                   <div className="sticky top-32 space-y-1">
                     <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground/70 px-3 mb-3">Stages</div>
                     {allStages.map((s, i) => {
@@ -1372,7 +1372,7 @@ export default function Checkout() {
                 </main>
 
                 {/* ─── RIGHT SUMMARY (sticky) ─── */}
-                <aside className="hidden lg:block">
+                <aside className="hidden xl:block">
                   <div className="sticky top-32">{SummaryPanel}</div>
                 </aside>
               </div>

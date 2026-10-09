@@ -99,7 +99,7 @@ export default function Cart() {
             </Link>
           </motion.div>
         ) : (
-          <div className="grid lg:grid-cols-[1fr_380px] gap-6 lg:gap-8">
+          <div className="grid xl:grid-cols-[minmax(0,1fr)_380px] gap-6 xl:gap-8">
             {/* ─── Items list ─── */}
             <div className="space-y-3">
               <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground/80 px-1">
@@ -152,7 +152,7 @@ export default function Cart() {
                           </div>
                           <button
                             onClick={() => removeFromCart(item.productId)}
-                            className="shrink-0 p-1.5 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/[0.08] transition-colors"
+                            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:text-destructive hover:bg-destructive/[0.08]"
                             aria-label="Remove"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -179,7 +179,7 @@ export default function Cart() {
                           <div className="inline-flex items-center gap-0.5 rounded-full bg-white/[0.03] border border-white/[0.06] p-1">
                             <button
                               onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                              className="w-7 h-7 rounded-full hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                              className="h-11 w-11 rounded-full hover:bg-white/[0.06] flex items-center justify-center transition-colors touch-manipulation"
                             >
                               <Minus className="w-3 h-3" />
                             </button>
@@ -195,7 +195,7 @@ export default function Cart() {
                             </AnimatePresence>
                             <button
                               onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                              className="w-7 h-7 rounded-full hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                              className="h-11 w-11 rounded-full hover:bg-white/[0.06] flex items-center justify-center transition-colors touch-manipulation"
                             >
                               <Plus className="w-3 h-3" />
                             </button>
@@ -222,7 +222,7 @@ export default function Cart() {
               <div className="pt-2 px-1">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <button className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground hover:text-destructive transition-colors inline-flex items-center gap-1.5">
+                    <button className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-destructive">
                       <Trash2 className="w-3 h-3" />
                       {t.cart.clearAll}
                     </button>
@@ -252,7 +252,7 @@ export default function Cart() {
             {/* ─── Summary rail ─── */}
             <motion.aside
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-              className="lg:sticky lg:top-32 lg:self-start space-y-4"
+              className="xl:sticky xl:top-32 xl:self-start space-y-4"
             >
               <div className="rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-xl p-5">
                 <div className="flex items-center justify-between mb-4">
@@ -314,7 +314,7 @@ export default function Cart() {
                 </motion.div>
 
                 <Link to="/" className="block mt-3">
-                  <button className="w-full font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center justify-center gap-1.5 py-2">
+                  <button className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-md py-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
                     <ArrowLeft className="w-3 h-3" />
                     {t.cart.continueShopping}
                   </button>

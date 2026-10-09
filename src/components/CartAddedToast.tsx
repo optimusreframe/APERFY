@@ -47,7 +47,7 @@ export default function CartAddedToast() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
           transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-          className="fixed bottom-4 right-4 left-4 sm:left-auto sm:bottom-6 sm:right-6 z-[100] w-auto sm:w-[380px] pointer-events-auto"
+          className="fixed bottom-[calc(144px+env(safe-area-inset-bottom,0px))] left-4 right-4 z-[100] w-auto pointer-events-auto md:bottom-[calc(80px+env(safe-area-inset-bottom,0px))] md:left-auto md:right-6 md:w-[380px] lg:bottom-6"
         >
           <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-card/95 backdrop-blur-xl shadow-2xl">
             <div className="absolute top-0 left-0 right-0 h-0.5 bg-border/30">
@@ -94,7 +94,7 @@ export default function CartAddedToast() {
 
                 <button
                   onClick={dismissLastAdded}
-                  className="shrink-0 p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                   aria-label="Close"
                 >
                   <X className="w-4 h-4" />
@@ -106,7 +106,7 @@ export default function CartAddedToast() {
                   variant="outline"
                   size="sm"
                   onClick={dismissLastAdded}
-                  className="rounded-lg"
+                  className="min-h-11 rounded-lg"
                 >
                   {t.continue}
                 </Button>
@@ -114,7 +114,7 @@ export default function CartAddedToast() {
                   asChild
                   size="sm"
                   onClick={dismissLastAdded}
-                  className="rounded-lg bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:opacity-90"
+                  className="min-h-11 rounded-lg bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:opacity-90"
                 >
                   <Link to="/cart">{t.viewCart}</Link>
                 </Button>
