@@ -33,12 +33,20 @@ export function buildIncomingOrderMessages(input: IncomingOrderMessageInput) {
   const notesLine = input.notes ? `\nNotes: ${input.notes}` : '';
   const whatsappMessage = input.language === 'es'
     ? [
-        `Hola ${input.customerName}, hemos recibido tu pedido:`, '',
+        `Hola ${input.customerName}, hemos recibido tu pedido:`,
+        `Orden: #${input.orderCode}`,
+        `Teléfono: ${input.phone}`,
+        `Email: ${input.email}`,
+        input.shipping ? `Dirección: ${input.shipping}` : '', '',
         ...itemLines, '', `Total estimado: $${input.total.toFixed(2)}`, shippingLine, notesLine, '',
         'Continuamos con el pedido?', '', "APERFY | Andres' Perfect Finds",
       ].join('\n')
     : [
-        `Hi ${input.customerName}, we received your order:`, '',
+        `Hi ${input.customerName}, we received your order:`,
+        `Order: #${input.orderCode}`,
+        `Phone: ${input.phone}`,
+        `Email: ${input.email}`,
+        input.shipping ? `Address: ${input.shipping}` : '', '',
         ...itemLines, '', `Estimated total: $${input.total.toFixed(2)}`, shippingLine, notesLine, '',
         'Shall we continue with the order?', '', "APERFY | Andres' Perfect Finds",
       ].join('\n');

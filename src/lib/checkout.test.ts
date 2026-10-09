@@ -32,6 +32,16 @@ describe('checkout order contract', () => {
       source: 'whatsapp',
       idempotency_key: 'checkout-1',
     });
+    expect(payload.shipping_address).toMatchObject({
+      full_name: 'Checkout Test',
+      email: 'test@example.com',
+      phone: '+15555550123',
+      address: '123 Test Avenue',
+      city: 'Miami',
+      state: 'FL',
+      zip_code: '33101',
+      country: 'United States',
+    });
   });
 
   it('surfaces structured Supabase errors instead of collapsing them to a generic message', () => {

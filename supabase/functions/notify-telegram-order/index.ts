@@ -10,7 +10,7 @@ const corsHeaders = {
 const json = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
-const normalizePhone = (phone: string) => phone.replace(/\D/g, '')
+const APERFY_WHATSAPP_NUMBER = '14708469271'
 
 type Variation = { name?: unknown }
 type ProductReference = { name_es?: string | null; name_en?: string | null } | null
@@ -43,12 +43,20 @@ const itemLines = (items: OrderItem[]) => items.map((item) => {
 
 const whatsappMessage = (order: OrderData, items: OrderItem[]) => {
   const shipping = order.shipping_address && typeof order.shipping_address === 'object' ? order.shipping_address as ShippingAddress : {}
+  const address = [shipping.address, shipping.address2, shipping.city, shipping.state, shipping.zip_code, shipping.country]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .join(', ')
   return [
     `Hola ${shipping.full_name || 'cliente'}, hemos recibido tu pedido:`, '',
+    `Orden: #${String(order.id).slice(0, 8).toUpperCase()}`,
+    `Teléfono: ${shipping.phone || 'Sin teléfono'}`,
+    `Email: ${shipping.email || 'Sin email'}`,
+    address ? `Dirección: ${address}` : '', '',
     ...itemLines(items), '',
     `Total estimado: $${Number(order.total).toFixed(2)}`, '',
-    'Continuamos con el pedido?', '', "APERFY | Andres' Perfect Finds",
-  ].join('\n')
+    order.notes ? `Notas: ${order.notes}` : '',
+    '', 'Continuamos con el pedido?', '', "APERFY | Andres' Perfect Finds",
+  ].filter(Boolean).join('\n')
 }
 
 const telegramMessage = (order: OrderData, items: OrderItem[]) => {
@@ -92,8 +100,7 @@ Deno.serve(async (req) => {
   const adminClient = createClient(supabaseUrl, serviceRoleKey)
   const telegramToken = await getIntegrationSecret(adminClient, 'TELEGRAM_BOT_TOKEN')
   const telegramChatId = await getIntegrationSecret(adminClient, 'TELEGRAM_CHAT_ID')
-  const whatsappNumber = normalizePhone(await getIntegrationSecret(adminClient, 'WHATSAPP_BUSINESS_NUMBER') || '')
-  if (!telegramToken || !telegramChatId || !whatsappNumber) return json({ error: 'Server notification configuration is incomplete' }, 503)
+  const whatsappNumber = APERFY_WHATSAPP_NUMBER
 
   const { data: order, error: orderError } = await adminClient.from('orders').select('*').eq('id', orderId).maybeSingle()
   if (orderError) return json({ error: orderError.message }, 500)
@@ -101,9 +108,6 @@ Deno.serve(async (req) => {
 
   const { data: role } = await adminClient.from('user_roles').select('role').eq('user_id', userData.user.id).eq('role', 'admin').maybeSingle()
   if (order.user_id !== userData.user.id && !role) return json({ error: 'Not allowed' }, 403)
-  if (order.telegram_status === 'sent') return json({ ok: true, telegramStatus: 'sent', duplicate: true })
-
-  await adminClient.from('orders').update({ telegram_status: 'sending', telegram_error: null }).eq('id', orderId)
   const { data: items, error: itemsError } = await adminClient
     .from('order_items')
     .select('quantity, unit_price, selected_variations, products(name_es, name_en)')
@@ -114,6 +118,13 @@ Deno.serve(async (req) => {
   const orderItems = (items || []) as OrderItem[]
   const waMessage = whatsappMessage(orderData, orderItems)
   const waUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(waMessage)}`
+  if (order.telegram_status === 'sent') return json({ ok: true, telegramStatus: 'sent', duplicate: true, whatsappUrl: waUrl })
+  if (!telegramToken || !telegramChatId) {
+    await adminClient.from('orders').update({ telegram_status: 'failed', telegram_error: 'Telegram notification is not configured' }).eq('id', orderId)
+    return json({ ok: false, telegramStatus: 'failed', whatsappUrl: waUrl })
+  }
+
+  await adminClient.from('orders').update({ telegram_status: 'sending', telegram_error: null }).eq('id', orderId)
   const telegramResponse = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
