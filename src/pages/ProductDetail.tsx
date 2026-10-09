@@ -22,6 +22,7 @@ import MobileStickyAddToCart from '@/components/mobile/MobileStickyAddToCart';
 import { productCommandBarClassName } from './productDetailLayout';
 import { getInventoryLabel, getInventoryState, getInventoryStock } from '@/lib/inventory';
 import { optimizeImageUrl } from '@/lib/image-url';
+import { filterEmptySpecifications } from '@/lib/product-specifications';
 import type { Category, Material, Product } from '@/lib/model-types';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -468,6 +469,21 @@ export default function ProductDetail() {
     );
   }
 
+  const specifications = filterEmptySpecifications([
+    { k: 'Condition', v: product.condition_status === 'used' ? 'USED' : 'NEW' },
+    { k: 'Category', v: product.categories ? (language === 'es' ? product.categories.name_es : product.categories.name_en) : null },
+    { k: 'Weight', v: selectedWeight && selectedWeight > 0 ? `${selectedWeight}${t.product.grams}` : null },
+    { k: 'Dimensions', v: selectedDimensions?.trim() ? `${selectedDimensions.trim()}mm` : null },
+    {
+      k: 'Variants',
+      v: productMaterialsList.length > 0
+        ? productMaterialsList.map((pm) => language === 'es' ? pm.materials?.name_es : pm.materials?.name_en).filter(Boolean).join(' · ')
+        : null,
+    },
+    { k: 'Variations', v: variations.length > 0 ? `${variations.length} ${language === 'es' ? 'opciones' : 'options'}` : null },
+    { k: 'SKU', v: `PRD-${product.id.slice(0, 8).toUpperCase()}` },
+  ]);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -873,16 +889,8 @@ export default function ProductDetail() {
           >
             <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-5">Specifications</div>
             <dl className="divide-y divide-white/[0.05]">
-              {[
-                { k: 'Condition', v: product.condition_status === 'used' ? 'USED' : 'NEW' },
-                { k: 'Category', v: product.categories ? (language === 'es' ? product.categories.name_es : product.categories.name_en) : '—' },
-                { k: 'Weight', v: selectedWeight ? `${selectedWeight}${t.product.grams}` : '—' },
-                { k: 'Dimensions', v: selectedDimensions ? `${selectedDimensions}mm` : '—' },
-                { k: 'Variants', v: productMaterialsList.length > 0 ? productMaterialsList.map((pm) => language === 'es' ? pm.materials?.name_es : pm.materials?.name_en).filter(Boolean).join(' · ') : '—' },
-                { k: 'Variations', v: variations.length > 0 ? `${variations.length} ${language === 'es' ? 'opciones' : 'options'}` : '—' },
-                { k: 'SKU', v: `PRD-${product.id.slice(0, 8).toUpperCase()}` },
-              ].map((row, i) => (
-                <div key={i} className="flex items-baseline justify-between gap-4 py-3 first:pt-0 last:pb-0">
+              {specifications.map((row, i) => (
+                <div key={row.k} className="flex items-baseline justify-between gap-4 py-3 first:pt-0 last:pb-0">
                   <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground shrink-0">{row.k}</dt>
                   <dd className="font-mono text-[12px] text-foreground text-right truncate">{row.v}</dd>
                 </div>
