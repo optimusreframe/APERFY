@@ -42,7 +42,22 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/, /^\/admin/, /^\/auth/, /^\/api/],
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webp,woff2}"],
+        globIgnores: [
+          "**/assets/AdminInventoryImport-*.js",
+          "**/assets/jszip*.js",
+          "**/assets/xlsx-*.js",
+        ],
         runtimeCaching: [
+          {
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith("/data/location-states/") ||
+              url.pathname.startsWith("/data/location-cities/"),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "location-data",
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
           {
             urlPattern: ({ request }) => request.mode === "navigate",
             handler: "NetworkFirst",

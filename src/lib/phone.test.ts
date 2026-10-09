@@ -14,6 +14,6 @@ describe('checkout phone helpers', () => {
   });
 
   it('exposes country options for a selector', () => {
-    expect(getPhoneCountryOptions('en').some((country) => country.isoCode === 'ES')).toBe(true);
+    expect(getPhoneCountryOptions('en').map((country) => country.isoCode)).toEqual(['US', 'VE']);
   });
 });

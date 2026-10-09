@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 import { describe, expect, it, vi } from 'vitest';
 import AdminInventoryImport, { isImportButtonDisabled } from './AdminInventoryImport';
+import { loadInventoryImportParsers } from '@/lib/inventory-import/parsers';
 import type { ImportPreview } from '@/lib/inventory-import/types';
 
 vi.mock('@/integrations/supabase/client', () => ({
@@ -25,6 +26,13 @@ const preview = (canImport: boolean): ImportPreview => ({
 });
 
 describe('AdminInventoryImport', () => {
+  it('loads archive parsers through the lazy runtime boundary', async () => {
+    const parsers = await loadInventoryImportParsers();
+
+    expect(typeof parsers.JSZip.loadAsync).toBe('function');
+    expect(typeof parsers.XLSX.read).toBe('function');
+  });
+
   it('blocks import until the archive is loaded and the preview is valid', () => {
     expect(isImportButtonDisabled(null, false)).toBe(true);
     expect(isImportButtonDisabled(preview(false), true)).toBe(true);

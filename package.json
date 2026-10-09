@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:report": "npm run build && node scripts/report-bundle.mjs",
+    "generate:location-data": "node scripts/generate-location-data.mjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",

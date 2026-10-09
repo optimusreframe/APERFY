@@ -15,7 +15,7 @@ import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
 import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutHandoffUrl } from '@/lib/checkout';
 import { CartThumbnailImage } from '@/components/CartThumbnailImage';
-import { getCountryName, getCountryOptions, getStatesForCountry } from '@/lib/location-data';
+import { getCitiesForState, getCountryName, getCountryOptions, getStatesForCountry, type CheckoutCity } from '@/lib/location-data';
 import { detectCountryFromIp, getPhoneCountryOptions, isCheckoutPhoneValid, normalizePhoneForCountry } from '@/lib/phone';
 import { searchAddress } from '@/lib/address-search';
 import type { AddressSuggestion } from '@/lib/geocoding';
@@ -289,19 +289,59 @@ function AddressAutocomplete({
 }
 
 function CityAutocomplete({
-  label, value, countryCode, onChange, language, error,
+  label, value, countryCode, stateCode, onChange, language, error,
 }: {
   label: string;
   value: string;
   countryCode: string;
+  stateCode: string;
   onChange: (value: string) => void;
   language: 'es' | 'en';
   error?: string;
 }) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [localCities, setLocalCities] = useState<CheckoutCity[]>([]);
   const [open, setOpen] = useState(false);
+  const [loadingLocalCities, setLoadingLocalCities] = useState(false);
+
   useEffect(() => {
-    if (value.trim().length < 2) { setSuggestions([]); setOpen(false); return undefined; }
+    let active = true;
+    if (!stateCode) {
+      setLocalCities([]);
+      setLoadingLocalCities(false);
+      return undefined;
+    }
+    setLoadingLocalCities(true);
+    getCitiesForState(countryCode, stateCode).then((cities) => {
+      if (active) setLocalCities(cities);
+    }).finally(() => {
+      if (active) setLoadingLocalCities(false);
+    });
+    return () => { active = false; };
+  }, [countryCode, stateCode]);
+
+  useEffect(() => {
+    const query = value.trim().toLowerCase();
+    if (query.length < 2) { setSuggestions([]); setOpen(false); return undefined; }
+
+    if (stateCode) {
+      const matches = localCities
+        .filter((city) => city.name.toLowerCase().includes(query))
+        .slice(0, 8)
+        .map((city) => ({
+          label: city.name,
+          address: '',
+          city: city.name,
+          state: '',
+          zipCode: '',
+          country: '',
+          countryCode,
+        }));
+      setSuggestions(matches);
+      setOpen(matches.length > 0);
+      return undefined;
+    }
+
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       try {
@@ -311,11 +351,12 @@ function CityAutocomplete({
       } catch { /* manual city entry is still available */ }
     }, 500);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [value, countryCode]);
+  }, [countryCode, localCities, stateCode, value]);
 
   return (
     <div className="relative">
       <Field label={label} value={value} onChange={onChange} error={error} maxLength={100} autoComplete="address-level2" />
+      {loadingLocalCities && value.trim().length >= 2 && <div className="absolute right-4 top-1/2 -translate-y-1/2"><Loader2 className="h-4 w-4 animate-spin text-primary" /></div>}
       {open && suggestions.length > 0 && (
         <div role="listbox" className="absolute z-40 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-primary/20 bg-card shadow-2xl">
           {suggestions.map((suggestion, index) => (
@@ -1281,6 +1322,7 @@ export default function Checkout() {
                               label={language === 'es' ? 'Ciudad' : 'City'}
                               value={form.city}
                               countryCode={addressCountryCode}
+                              stateCode={addressStateCode}
                               onChange={(value) => setF('city', value)}
                               language={language === 'es' ? 'es' : 'en'}
                               error={fieldErrors.city}

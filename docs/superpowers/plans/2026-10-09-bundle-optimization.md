@@ -81,6 +81,7 @@ Aunque `state-*.js` ya se solicita mediante `import()` cuando se selecciona un p
 - Create: `public/data/location-cities/US/<state>.json` (archivos generados por estado)
 - Create: `public/data/location-cities/VE/<state>.json` (archivos generados por estado)
 - Modify: `src/lib/location-data.ts`
+- Modify: `src/pages/Checkout.tsx`
 - Modify: `vite.config.ts` solamente si hace falta una regla de runtime caching para esos JSON
 - Test: `src/lib/address-search.test.ts` y un nuevo test de carga de estados por país si el helper actual lo requiere
 

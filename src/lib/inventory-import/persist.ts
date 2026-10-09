@@ -1,7 +1,7 @@
-import JSZip from 'jszip';
 import { supabase } from '@/integrations/supabase/client';
 import type { Category } from '@/lib/model-types';
 import type { ImportPreview, InventoryImportRow } from './types';
+import type { InventoryZipArchive, InventoryZipEntry } from './parsers';
 import { assertSafeImageSize } from './safety';
 
 export type InventoryImportProgress = {
@@ -65,7 +65,7 @@ function hasImageSignature(bytes: Uint8Array, extension: string): boolean {
   return false;
 }
 
-function getPhotoEntry(zip: JSZip, fileName: string): JSZip.JSZipObject | null {
+function getPhotoEntry(zip: InventoryZipArchive, fileName: string): InventoryZipEntry | null {
   const normalized = fileName.replaceAll('\\', '/');
   return Object.values(zip.files).find((entry) => {
     if (entry.dir) return false;
@@ -89,7 +89,7 @@ function reportProgress(onProgress: ProgressCallback, progress: InventoryImportP
 
 export async function persistInventoryImport(
   preview: ImportPreview,
-  files: JSZip,
+  files: InventoryZipArchive,
   categories: InventoryCategory[],
   onProgress: ProgressCallback = () => undefined,
 ): Promise<InventoryImportResult> {

@@ -1,7 +1,5 @@
 import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import JSZip from 'jszip';
-import * as XLSX from 'xlsx';
 import { AlertCircle, CheckCircle2, FileArchive, FileUp, Loader2, PackageCheck, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -11,12 +9,13 @@ import { useToast } from '@/hooks/use-toast';
 import { buildImportPreview } from '@/lib/inventory-import/preview';
 import { persistInventoryImport, type InventoryImportProgress, type InventoryImportResult } from '@/lib/inventory-import/persist';
 import { assertSafeArchiveEntryName, validateInventoryArchiveLimits } from '@/lib/inventory-import/safety';
+import { loadInventoryImportParsers, type InventoryZipArchive } from '@/lib/inventory-import/parsers';
 import { INVENTORY_CATEGORIES } from '@/lib/inventory-import/taxonomy';
 import type { ExistingInventoryProduct, ImportPreview, InventorySourceRow } from '@/lib/inventory-import/types';
 import type { Category } from '@/lib/model-types';
 
 export interface ParsedInventoryArchive {
-  zip: JSZip;
+  zip: InventoryZipArchive;
   preview: ImportPreview;
 }
 
@@ -36,6 +35,7 @@ function isImagePath(path: string): boolean {
 }
 
 export async function parseInventoryArchive(file: File, existingProducts: ExistingInventoryProduct[]): Promise<ParsedInventoryArchive> {
+  const { JSZip, XLSX } = await loadInventoryImportParsers();
   validateInventoryArchiveLimits({ archiveBytes: file.size });
   const zip = await JSZip.loadAsync(file);
   const entries = Object.values(zip.files);
