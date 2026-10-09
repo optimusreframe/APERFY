@@ -15,6 +15,7 @@ import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
 import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutWhatsAppUrl, isWhatsAppCheckoutComplete } from '@/lib/checkout';
 import { buildIncomingOrderMessages } from '@/lib/incomingOrder';
+import { optimizeImageUrl } from '@/lib/image-url';
 
 type Step = 'shipping' | 'method' | 'payment-instructions' | 'whatsapp-sent';
 type Section = 'contact' | 'address' | 'shipping';
@@ -643,7 +644,7 @@ export default function Checkout() {
           return (
             <div key={item.productId + JSON.stringify(item.selectedVariations)} className="flex gap-3 group">
               <div className="relative w-14 h-14 rounded-xl bg-secondary overflow-hidden shrink-0 border border-white/[0.06]">
-                {item.productImage && <img src={item.productImage} alt="" className="w-full h-full object-cover" />}
+                {item.productImage && <img src={optimizeImageUrl(item.productImage, { width: 128, quality: 70 })} alt="" width={56} height={56} decoding="async" className="h-full w-full object-cover" />}
                 <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-mono font-bold tabular-nums flex items-center justify-center">
                   {item.quantity}
                 </span>

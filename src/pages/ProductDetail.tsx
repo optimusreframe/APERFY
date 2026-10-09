@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import MobileStickyAddToCart from '@/components/mobile/MobileStickyAddToCart';
 import { productCommandBarClassName } from './productDetailLayout';
 import { getInventoryLabel, getInventoryState, getInventoryStock } from '@/lib/inventory';
+import { optimizeImageUrl } from '@/lib/image-url';
 import type { Category, Material, Product } from '@/lib/model-types';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -164,7 +165,7 @@ function ImageLightbox({
               onClick={() => { setIndex(i); resetZoom(); }}
               className={`w-14 h-14 rounded-lg overflow-hidden border-2 shrink-0 transition-all ${i === index ? 'border-primary shadow-[0_0_12px_hsl(var(--primary)/0.4)]' : 'border-transparent opacity-60 hover:opacity-100'}`}
             >
-              <img src={img} alt="" className="w-full h-full object-cover" />
+                  <img src={optimizeImageUrl(img, { width: 112, quality: 70 })} alt="" width={56} height={56} decoding="async" className="w-full h-full object-cover" />
             </button>
           ))}
         </div>
@@ -532,7 +533,7 @@ export default function ProductDetail() {
                   onClick={() => setSelectedImage(i)}
                   className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/[0.06] hover:border-primary/40 transition-colors group"
                 >
-                  <img src={img} alt="" className={`w-full h-full object-cover transition-opacity ${i === selectedImage ? 'opacity-100' : 'opacity-50 group-hover:opacity-80'}`} />
+                    <img src={optimizeImageUrl(img, { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className={`w-full h-full object-cover transition-opacity ${i === selectedImage ? 'opacity-100' : 'opacity-50 group-hover:opacity-80'}`} />
                   {i === selectedImage && (
                     <motion.span
                       layoutId="pdp-thumb-active"
@@ -561,7 +562,7 @@ export default function ProductDetail() {
                   {/* Blurred background fill */}
                   {images.length > 0 && (
                     <img
-                      src={images[selectedImage]}
+                      src={optimizeImageUrl(images[selectedImage], { width: 960, quality: 72 })}
                       alt=""
                       aria-hidden
                       className="absolute inset-0 w-full h-full object-cover opacity-30 blur-2xl scale-110 pointer-events-none"
@@ -571,7 +572,7 @@ export default function ProductDetail() {
                     {images.length > 0 ? (
                       <motion.img
                         key={selectedImage}
-                        src={images[selectedImage]}
+                        src={optimizeImageUrl(images[selectedImage], { width: 1200, quality: 80 })}
                         alt={language === 'es' ? product.name_es : product.name_en}
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         transition={{ duration: 0.25 }}
@@ -631,7 +632,7 @@ export default function ProductDetail() {
                       i === selectedImage ? 'border-primary' : 'border-white/[0.06] opacity-60'
                     }`}
                   >
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <img src={optimizeImageUrl(img, { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -745,7 +746,7 @@ export default function ProductDetail() {
                                 )}
                                 {v.image_url && (
                                   <span className="w-5 h-5 rounded overflow-hidden border border-white/10 shrink-0">
-                                    <img src={v.image_url} alt="" className="w-full h-full object-cover" />
+                                    <img src={optimizeImageUrl(v.image_url, { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className="w-full h-full object-cover" />
                                   </span>
                                 )}
                                 <span className="font-medium">{language === 'es' ? v.name_es : v.name_en}</span>
