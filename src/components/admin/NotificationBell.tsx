@@ -78,7 +78,7 @@ export default function NotificationBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="relative w-9 h-9 rounded-lg border border-border/60 bg-card/40 hover:bg-card/60 flex items-center justify-center transition-colors"
+        className="relative h-11 w-11 rounded-lg border border-border/60 bg-card/40 hover:bg-card/60 flex items-center justify-center transition-colors touch-manipulation"
         aria-label="Notifications"
       >
         <Bell className="w-4 h-4 text-foreground/80" strokeWidth={1.5} />
@@ -95,7 +95,7 @@ export default function NotificationBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-11 w-[360px] max-h-[480px] rounded-xl border border-border/60 bg-background/95 backdrop-blur-xl shadow-2xl overflow-hidden z-50"
+            className="absolute right-0 top-12 w-[min(360px,calc(100vw-1rem))] max-h-[min(480px,calc(100dvh-5rem))] rounded-xl border border-border/60 bg-background/95 backdrop-blur-xl shadow-2xl overflow-hidden z-50"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-border/60">
               <div>
@@ -103,7 +103,7 @@ export default function NotificationBell() {
                 <div className="text-sm font-semibold">Notifications</div>
               </div>
               {unread > 0 && (
-                <button onClick={markAllRead} className="text-[11px] font-mono uppercase tracking-wider text-primary hover:text-primary/80">
+                <button onClick={markAllRead} className="min-h-11 rounded-md px-2 text-[11px] font-mono uppercase tracking-wider text-primary hover:text-primary/80">
                   Mark all read
                 </button>
               )}
@@ -127,19 +127,19 @@ export default function NotificationBell() {
                         </span>
                         {n.link && (
                           <Link to={n.link} onClick={() => { markRead(n.id); setOpen(false); }}
-                                className="font-mono text-[10px] uppercase tracking-wider text-primary hover:text-primary/80">
+                                className="inline-flex min-h-11 items-center rounded-md px-2 font-mono text-[10px] uppercase tracking-wider text-primary hover:text-primary/80">
                             Open →
                           </Link>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-100 transition-opacity [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100">
                       {!n.is_read && (
-                        <button onClick={() => markRead(n.id)} className="p-1 rounded hover:bg-muted/40" title="Mark read">
+                        <button onClick={() => markRead(n.id)} className="flex h-11 w-11 items-center justify-center rounded hover:bg-muted/40" title="Mark read" aria-label="Mark notification read">
                           <Check className="w-3 h-3 text-muted-foreground" />
                         </button>
                       )}
-                      <button onClick={() => dismiss(n.id)} className="p-1 rounded hover:bg-destructive/10">
+                      <button onClick={() => dismiss(n.id)} className="flex h-11 w-11 items-center justify-center rounded hover:bg-destructive/10" aria-label="Dismiss notification">
                         <X className="w-3 h-3 text-muted-foreground hover:text-destructive" />
                       </button>
                     </div>

@@ -66,9 +66,10 @@ export default function ShareMenu({ slug, productName, className, size = 'sm' }:
 
   const triggerBtn = (
     <button
+      type="button"
       onClick={handleClick}
       aria-label={language === 'es' ? 'Compartir' : 'Share'}
-      className={cn('text-muted-foreground hover:text-primary transition-colors', className)}
+      className={cn('inline-flex min-h-11 min-w-11 items-center justify-center touch-manipulation cursor-pointer text-muted-foreground hover:text-primary transition-colors', className)}
     >
       <Share2 className={iconSize} />
     </button>

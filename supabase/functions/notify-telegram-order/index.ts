@@ -1,5 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { buildIncomingOrderMessages } from '../../../src/lib/incomingOrder.ts'
 import { getIntegrationSecret } from '../_shared/integration-secrets.ts'
+import { getNotificationTemplate, renderNotificationTemplate } from '../_shared/notification-templates.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,7 +12,6 @@ const corsHeaders = {
 const json = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
-const normalizePhone = (phone: string) => phone.replace(/\D/g, '')
 const APERFY_WHATSAPP_NUMBER = '14708469271'
 const ADMIN_ORDERS_URL = 'https://aperfy.kpwr.dev/admin/orders'
 
@@ -30,6 +31,8 @@ type OrderData = {
   notes: string | null
   user_id: string
   telegram_status: string | null
+  payment_method: string | null
+  payment_status?: string | null
 }
 
 const itemLines = (items: OrderItem[]) => items.map((item) => {
@@ -42,44 +45,6 @@ const itemLines = (items: OrderItem[]) => items.map((item) => {
   const name = item.products?.name_es || item.products?.name_en || 'Producto'
   return `- ${item.quantity} x ${name}${variations ? ` (${variations})` : ''} - $${(Number(item.unit_price) * item.quantity).toFixed(2)}`
 })
-
-const whatsappMessage = (order: OrderData, items: OrderItem[]) => {
-  const shipping = order.shipping_address && typeof order.shipping_address === 'object' ? order.shipping_address as ShippingAddress : {}
-  const english = shipping.language === 'en'
-  const address = [shipping.address, shipping.address2, shipping.city, shipping.state, shipping.zip_code, shipping.country]
-    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    .join(', ')
-  return [
-    english ? `Hi APERFY, I am ${shipping.full_name || 'a customer'} and I want to coordinate this order:` : `Hola APERFY, soy ${shipping.full_name || 'un cliente'} y quiero coordinar este pedido:`, '',
-    `${english ? 'Order' : 'Orden'}: #${String(order.id).slice(0, 8).toUpperCase()}`,
-    `${english ? 'Phone' : 'Teléfono'}: ${shipping.phone || (english ? 'Not provided' : 'Sin teléfono')}`,
-    `Email: ${shipping.email || (english ? 'Not provided' : 'Sin email')}`,
-    address ? `${english ? 'Address' : 'Dirección'}: ${address}` : '', '',
-    ...itemLines(items), '',
-    `${english ? 'Estimated total' : 'Total estimado'}: $${Number(order.total).toFixed(2)}`, '',
-    order.notes ? `${english ? 'Notes' : 'Notas'}: ${order.notes}` : '',
-    '', english ? 'Please confirm my order.' : 'Por favor confirmen mi pedido.', '', "APERFY | Andres' Perfect Finds",
-  ].filter(Boolean).join('\n')
-}
-
-const customerWhatsAppMessage = (order: OrderData, items: OrderItem[]) => {
-  const shipping = order.shipping_address && typeof order.shipping_address === 'object' ? order.shipping_address as ShippingAddress : {}
-  const english = shipping.language === 'en'
-  const address = [shipping.address, shipping.address2, shipping.city, shipping.state, shipping.zip_code, shipping.country]
-    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    .join(', ')
-  return [
-    english ? `Hi ${shipping.full_name || 'there'}, we received your new order.` : `Hola ${shipping.full_name || 'cliente'}, hemos recibido tu nuevo pedido.`,
-    `${english ? 'Order' : 'Orden'}: #${String(order.id).slice(0, 8).toUpperCase()}`,
-    `${english ? 'Phone' : 'Teléfono'}: ${shipping.phone || (english ? 'Not provided' : 'Sin teléfono')}`,
-    `Email: ${shipping.email || (english ? 'Not provided' : 'Sin email')}`,
-    address ? `${english ? 'Address' : 'Dirección'}: ${address}` : '', '',
-    ...itemLines(items), '',
-    `${english ? 'Total' : 'Total'}: $${Number(order.total).toFixed(2)}`,
-    order.notes ? `${english ? 'Notes' : 'Notas'}: ${order.notes}` : '', '',
-    english ? 'Shall we continue with your order?' : '¿Continuamos con tu pedido?', '', "APERFY | Andres' Perfect Finds",
-  ].filter(Boolean).join('\n')
-}
 
 const telegramMessage = (order: OrderData, items: OrderItem[]) => {
   const shipping = order.shipping_address && typeof order.shipping_address === 'object' ? order.shipping_address as ShippingAddress : {}
@@ -142,12 +107,71 @@ Deno.serve(async (req) => {
 
   const orderData = order as OrderData
   const orderItems = (items || []) as OrderItem[]
-  const waMessage = whatsappMessage(orderData, orderItems)
-  const waUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(waMessage)}`
   const shipping = orderData.shipping_address && typeof orderData.shipping_address === 'object' ? orderData.shipping_address as ShippingAddress : {}
-  const customerNumber = normalizePhone(typeof shipping.phone === 'string' ? shipping.phone : '')
+  const locale = shipping.language === 'en' ? 'en' : 'es'
+  const shippingAddress = [shipping.address, shipping.address2, shipping.city, shipping.state, shipping.zip_code, shipping.country]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .join(', ')
+  const paymentMethods: Record<string, string> = {
+    whatsapp: 'WhatsApp',
+    zelle: 'Zelle',
+    cashapp: 'Cash App',
+    binance: 'Binance Pay',
+  }
+  const paymentMethod = typeof orderData.payment_method === 'string'
+    ? paymentMethods[orderData.payment_method.toLowerCase()] || orderData.payment_method
+    : undefined
+  const messages = buildIncomingOrderMessages({
+    orderCode: String(orderData.id).slice(0, 8).toUpperCase(),
+    customerName: typeof shipping.full_name === 'string' ? shipping.full_name : '',
+    phone: typeof shipping.phone === 'string' ? shipping.phone : '',
+    email: typeof shipping.email === 'string' ? shipping.email : '',
+    items: orderItems.map((item) => {
+      const variations = Array.isArray(item.selected_variations)
+        ? item.selected_variations
+          .filter((variation): variation is Variation => Boolean(variation && typeof variation === 'object'))
+          .map((variation) => typeof variation.name === 'string' ? variation.name : '')
+          .filter(Boolean)
+          .join(', ')
+        : ''
+      const name = locale === 'es'
+        ? item.products?.name_es || item.products?.name_en || 'Producto'
+        : item.products?.name_en || item.products?.name_es || 'Product'
+      return {
+        name,
+        quantity: item.quantity,
+        total: Number(item.unit_price) * item.quantity,
+        variation: variations,
+      }
+    }),
+    total: Number(orderData.total),
+    language: locale,
+    whatsappNumber,
+    shipping: shippingAddress,
+    notes: orderData.notes || undefined,
+    paymentMethod,
+    paymentState: orderData.payment_status || 'pending',
+  })
+  const waUrl = messages.whatsappUrl
+  const templateData = {
+    order_code: String(order.id).slice(0, 8).toUpperCase(),
+    customer_name: shipping.full_name || '',
+    phone: shipping.phone || '',
+    email: shipping.email || '',
+    shipping_address: shippingAddress,
+    items_summary: itemLines(orderItems).join('\n'),
+    total: `$${Number(order.total).toFixed(2)}`,
+    payment_method: paymentMethod || '',
+    payment_state: orderData.payment_status || 'pending',
+  }
+  const telegramTemplate = await getNotificationTemplate(adminClient, 'order.new', 'telegram', locale)
+  const customerWhatsAppTemplate = await getNotificationTemplate(adminClient, 'order.received', 'whatsapp', locale)
+  const customerNumber = messages.phone
+  const customerMessage = customerWhatsAppTemplate
+    ? renderNotificationTemplate(customerWhatsAppTemplate.body_text, templateData)
+    : messages.customerWhatsAppMessage
   const customerWaUrl = customerNumber
-    ? `https://wa.me/${customerNumber}?text=${encodeURIComponent(customerWhatsAppMessage(orderData, orderItems))}`
+    ? `https://wa.me/${customerNumber}?text=${encodeURIComponent(customerMessage)}`
     : null
   const english = shipping.language === 'en'
   if (order.telegram_status === 'sent') return json({ ok: true, telegramStatus: 'sent', duplicate: true, whatsappUrl: waUrl })
@@ -162,7 +186,9 @@ Deno.serve(async (req) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: telegramChatId,
-      text: telegramMessage(orderData, orderItems),
+      text: telegramTemplate
+        ? renderNotificationTemplate(telegramTemplate.body_text, templateData)
+        : telegramMessage(orderData, orderItems),
       reply_markup: { inline_keyboard: [[
         ...(customerWaUrl ? [{ text: english ? 'Contact customer on WhatsApp' : 'Contactar cliente por WhatsApp', url: customerWaUrl }] : []),
         { text: english ? 'Open admin orders' : 'Abrir pedidos en admin', url: `${ADMIN_ORDERS_URL}?order=${encodeURIComponent(orderId)}` },

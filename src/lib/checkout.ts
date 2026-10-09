@@ -22,6 +22,9 @@ interface BuildOrderInsertParams {
   discountId: string | null;
   discountAmount: number;
   language?: 'es' | 'en';
+  countryCode?: string;
+  phoneCountryCode?: string;
+  stateCode?: string;
 }
 
 export function buildOrderInsert({
@@ -35,6 +38,9 @@ export function buildOrderInsert({
   discountId,
   discountAmount,
   language = 'es',
+  countryCode,
+  phoneCountryCode,
+  stateCode,
 }: BuildOrderInsertParams) {
   return {
     user_id: userId,
@@ -53,6 +59,9 @@ export function buildOrderInsert({
       state: form.state || '',
       zip_code: form.zipCode || '',
       country: form.country || '',
+      country_code: countryCode || '',
+      phone_country_code: phoneCountryCode || '',
+      state_code: stateCode || '',
       language,
     },
     shipping_provider_id: selectedShipping,

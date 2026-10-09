@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, Sparkles, FlaskConical, Settings2, FileUp, LayoutTemplate } from 'lucide-react';
+import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, Sparkles, FlaskConical, Settings2, FileUp, LayoutTemplate, BellRing, DollarSign } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -34,6 +34,7 @@ const groups = [
     label: 'OPERATIONS',
     items: [
       { title: 'ORDERS', url: '/admin/orders', icon: ClipboardList },
+      { title: 'FINANCE', url: '/admin/finance', icon: DollarSign },
       { title: 'REQUESTS', url: '/admin/requests', icon: MessageSquare },
       { title: 'DISCOUNTS', url: '/admin/discounts', icon: Percent },
       { title: 'SHIPPING', url: '/admin/shipping', icon: Truck },
@@ -48,6 +49,7 @@ const groups = [
       { title: 'HOME PAGE', url: '/admin/homepage', icon: LayoutTemplate },
       { title: 'AI SETTINGS', url: '/admin/ai-settings', icon: Settings2 },
       { title: 'INTEGRATIONS', url: '/admin/integrations', icon: Settings2 },
+      { title: 'NOTIFICATIONS', url: '/admin/notifications', icon: BellRing },
     ],
   },
 ];
@@ -79,7 +81,7 @@ export default function AdminSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="min-h-0 overflow-hidden px-2 py-3">
+      <SidebarContent className="min-h-0 overflow-y-auto overscroll-contain px-2 py-3">
         {groups.map((group) => (
           <SidebarGroup key={group.label} className="mb-1">
             {!collapsed && (
@@ -91,11 +93,11 @@ export default function AdminSidebar() {
               <SidebarMenu>
                 {group.items.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild className="h-9 group/item">
+                    <SidebarMenuButton asChild className="h-11 min-h-11 group/item">
                       <NavLink
                         to={item.url}
                         end
-                        className="relative flex items-center gap-2.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-colors"
+                        className="relative flex min-h-11 items-center gap-2.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-colors"
                         activeClassName="!text-foreground !bg-sidebar-accent/70 [&_.bar]:opacity-100"
                       >
                         <span className="bar absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-gradient-to-b from-primary to-primary/40 opacity-0 transition-opacity" />
@@ -116,7 +118,7 @@ export default function AdminSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={handleLogout}
-              className="h-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              className="h-11 min-h-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             >
               <LogOut className="h-4 w-4" strokeWidth={1.5} />
               {!collapsed && <span className="text-sm">SIGN OUT</span>}

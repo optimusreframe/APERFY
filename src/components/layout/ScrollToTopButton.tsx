@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUp } from 'lucide-react';
 import { shouldShowScrollToTop } from './scrollToTop';
 
-export default function ScrollToTopButton({ targetRef, mobileBottomOffset }: { targetRef: RefObject<HTMLElement>; mobileBottomOffset: string }) {
+export default function ScrollToTopButton({ targetRef, mobileBottomOffset, tabletBottomOffset = '24px' }: { targetRef: RefObject<HTMLElement>; mobileBottomOffset: string; tabletBottomOffset?: string }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -30,8 +30,8 @@ export default function ScrollToTopButton({ targetRef, mobileBottomOffset }: { t
           onClick={scrollToTop}
           aria-label="Volver arriba"
           title="Volver arriba"
-          className="absolute bottom-[var(--scroll-to-top-mobile-bottom)] right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.14] bg-background/80 text-foreground shadow-[0_12px_35px_hsl(220_35%_2%/.4)] backdrop-blur-xl transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary md:bottom-6 md:right-6"
-          style={{ '--scroll-to-top-mobile-bottom': mobileBottomOffset } as CSSProperties}
+          className="absolute bottom-[var(--scroll-to-top-mobile-bottom)] right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.14] bg-background/80 text-foreground shadow-[0_12px_35px_hsl(220_35%_2%/.4)] backdrop-blur-xl transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary md:bottom-[var(--scroll-to-top-tablet-bottom)] md:right-6 lg:bottom-6"
+          style={{ '--scroll-to-top-mobile-bottom': mobileBottomOffset, '--scroll-to-top-tablet-bottom': tabletBottomOffset } as CSSProperties}
         >
           <ArrowUp className="h-4 w-4" />
         </motion.button>

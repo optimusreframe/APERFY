@@ -36,7 +36,7 @@ export default function BulkImportBanner() {
         initial={{ opacity: 0, y: 80, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 80, scale: 0.95 }}
-        className="fixed bottom-4 right-4 z-50 w-[380px] max-w-[calc(100vw-2rem)]"
+        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-4 z-50 w-[380px] max-w-[calc(100vw-2rem)]"
       >
         <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-xl shadow-2xl shadow-black/20 overflow-hidden">
           {/* Header */}
@@ -69,12 +69,12 @@ export default function BulkImportBanner() {
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               {!isComplete && (
-                <button onClick={() => setMinimized(v => !v)} className="p-1 rounded-md hover:bg-secondary transition-colors">
+                <button onClick={() => setMinimized(v => !v)} aria-label={minimized ? 'Expand import status' : 'Minimize import status'} className="flex h-11 w-11 items-center justify-center rounded-md hover:bg-secondary transition-colors">
                   {minimized ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
               )}
               {isComplete && (
-                <button onClick={dismiss} className="p-1 rounded-md hover:bg-secondary transition-colors">
+                <button onClick={dismiss} aria-label="Dismiss import status" className="flex h-11 w-11 items-center justify-center rounded-md hover:bg-secondary transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               )}

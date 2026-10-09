@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Heart, Box } from 'lucide-react';
+import { Heart, Box, Flame } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,7 +48,7 @@ export default function ProductCard({
   const imageSources = images[0] ? buildResponsiveImageSources(images[0], [320, 480, 640], 74) : undefined;
 
   return (
-    <div className="group catalog-product-card">
+    <div className="group catalog-product-card min-w-0">
       <div className="relative rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
         <Link to={`/products/${product.slug}`} className="block" aria-label={name}>
           <div className="aspect-[4/3] bg-secondary relative overflow-hidden">
@@ -78,31 +78,34 @@ export default function ProductCard({
                 </Badge>
               )}
               {isTrending && (
-                <Badge className="bg-primary/90 text-primary-foreground border-0 text-[10px] px-1.5 py-0">🔥 HOT</Badge>
+                <Badge className="inline-flex items-center gap-1 border-0 bg-primary/90 px-1.5 py-0 text-[10px] text-primary-foreground"><Flame className="h-3 w-3" aria-hidden="true" />HOT</Badge>
               )}
             </div>
             {/* Category tag */}
             {product.categories && (
-              <div className="absolute bottom-2 left-2 rounded-md bg-background/90 px-2 py-0.5 text-[10px] font-medium text-foreground sm:text-xs">
+              <div className="absolute bottom-2 left-2 max-w-[calc(100%-1rem)] truncate rounded-md bg-background/90 px-2 py-0.5 text-[10px] font-medium text-foreground sm:text-xs">
                 {language === 'es' ? product.categories.name_es : product.categories.name_en}
               </div>
             )}
           </div>
         </Link>
-        {/* Hover actions */}
-        <div className="absolute top-2 right-2 flex flex-col gap-1.5">
+        {/* Secondary actions stay outside the navigation link so touch targets never hijack card taps. */}
+        <div className="absolute top-2 right-2 z-10 flex flex-col gap-1.5">
           {onToggleFavorite && (
             <button
+              type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite(product.id); }}
-              className="h-11 w-11 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/20"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-background/80 opacity-100 backdrop-blur-sm transition-opacity hover:bg-primary/20 [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100"
               aria-label={isFavorite ? `Quitar ${name} de favoritos` : `Agregar ${name} a favoritos`}
             >
               <Heart className={`w-4 h-4 ${isFavorite ? 'fill-primary text-primary' : 'text-foreground'}`} />
             </button>
           )}
-          <div className="h-11 w-11 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <ShareMenu slug={product.slug} productName={name} />
-          </div>
+          <ShareMenu
+            slug={product.slug}
+            productName={name}
+            className="catalog-share-button min-h-11 min-w-11 rounded-full border border-white/[0.14] bg-background/60 text-foreground/80 shadow-sm backdrop-blur-md transition-colors hover:border-primary/40 hover:bg-background/85 hover:text-primary"
+          />
         </div>
         {/* Card info */}
         <div className="p-3">

@@ -3,6 +3,7 @@ import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 import { getIntegrationSecret } from '../_shared/integration-secrets.ts'
+import { getNotificationTemplate, renderNotificationTemplate } from '../_shared/notification-templates.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -279,20 +280,39 @@ Deno.serve(async (req) => {
     )
   }
 
-  // 4. Render React Email template to HTML and plain text
-  const html = await renderAsync(
-        React.createElement(template.component, templateData as never)
-  )
-  const plainText = await renderAsync(
-    React.createElement(template.component, templateData as never),
-    { plainText: true }
-  )
-
-  // Resolve subject — supports static string or dynamic function
-  const resolvedSubject =
-    typeof template.subject === 'function'
+  // 4. Render the admin-managed template when one exists. The code registry
+  // remains the safe fallback so a missing migration or disabled template
+  // never breaks transactional email delivery.
+  const locale = templateData.language === 'en' ? 'en' : 'es'
+  const customTemplate = await getNotificationTemplate(supabase, templateName, 'email', locale)
+  const derivedTemplateData = {
+    ...templateData,
+    customer_name: templateData.customer_name ?? templateData.customerName ?? '',
+    payment_method: templateData.payment_method ?? templateData.paymentMethod ?? '',
+    items_summary: templateData.items_summary ?? templateData.itemsSummary ?? '',
+    shipping_address: templateData.shipping_address ?? templateData.shippingAddress ?? '',
+    phone: templateData.phone ?? '',
+    email: templateData.email ?? recipientEmail ?? '',
+    order_code: String(templateData.orderId || '').slice(0, 8).toUpperCase(),
+    logo_url: 'https://aperfy.kpwr.dev/logo.png',
+  }
+  let html: string
+  let plainText: string
+  let resolvedSubject: string
+  if (customTemplate) {
+    html = renderNotificationTemplate(customTemplate.body_html || customTemplate.body_text, derivedTemplateData, true)
+    plainText = renderNotificationTemplate(customTemplate.body_text, derivedTemplateData)
+    resolvedSubject = renderNotificationTemplate(customTemplate.subject || `APERFY · #${derivedTemplateData.order_code}`, derivedTemplateData)
+  } else {
+    html = await renderAsync(React.createElement(template.component, templateData as never))
+    plainText = await renderAsync(
+      React.createElement(template.component, templateData as never),
+      { plainText: true }
+    )
+    resolvedSubject = typeof template.subject === 'function'
       ? template.subject(templateData)
       : template.subject
+  }
 
   // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
   // The dispatcher (process-email-queue) handles sending, retries, and rate-limit backoff.

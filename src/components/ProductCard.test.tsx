@@ -6,7 +6,11 @@ import ProductCard from './ProductCard';
 
 vi.mock('@/components/LikeButton', () => ({ default: () => <button type="button">Like</button> }));
 vi.mock('@/components/FavoriteCount', () => ({ default: ({ count }: { count: number }) => <span>{count}</span> }));
-vi.mock('@/components/ShareMenu', () => ({ default: () => <button type="button">Share</button> }));
+vi.mock('@/components/ShareMenu', () => ({
+  default: ({ className }: { className?: string }) => (
+    <button type="button" aria-label="Share" className={className}>Share</button>
+  ),
+}));
 
 describe('ProductCard', () => {
   it('keeps the price and condition inside the product navigation target', () => {
@@ -28,5 +32,9 @@ describe('ProductCard', () => {
 
     expect(screen.getByText('$25.00').closest('a')).toHaveAttribute('href', '/products/used-camera');
     expect(screen.getByText('USED')).toBeInTheDocument();
+
+    const shareButton = screen.getByRole('button', { name: 'Share' });
+    expect(shareButton).toHaveClass('catalog-share-button');
+    expect(shareButton).not.toHaveClass('opacity-0');
   });
 });

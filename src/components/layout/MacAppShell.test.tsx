@@ -11,6 +11,7 @@ const authState = vi.hoisted(() => ({
 
 vi.mock('@/contexts/AuthContext', () => ({
   useOptionalAuth: () => authState.current,
+  useAuth: () => authState.current,
 }));
 
 describe('MacAppShell', () => {
@@ -27,9 +28,11 @@ describe('MacAppShell', () => {
 
     expect(screen.getByRole('banner', { name: /^aperfy$/i })).toBeInTheDocument();
     expect(screen.getByTestId('mac-app-shell')).toHaveAttribute('data-aperfy-shell', 'macos');
-    expect(screen.getByTestId('mac-content-scroll')).toHaveClass('overscroll-contain');
+    expect(screen.getByTestId('mac-content-scroll')).toHaveClass('min-w-0', 'overflow-x-hidden', 'overscroll-contain');
     expect(screen.getByRole('navigation', { name: /store navigation/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /request a product/i })).toHaveAttribute('href', '/ask');
+    expect(screen.getByRole('navigation', { name: /navegación principal/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByText(/available now/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/how it works/i)).not.toBeInTheDocument();
     expect(screen.getByText('Store content')).toBeInTheDocument();

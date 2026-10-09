@@ -62,8 +62,8 @@ export default function MobileStickyAddToCart({
   const ctaLabel = !inStock
     ? (language === 'es' ? 'Agotado' : 'Out of stock')
     : needsVariation
-      ? (language === 'es' ? 'Selecciona variante' : 'Select variant')
-      : (language === 'es' ? 'Agregar al carrito' : 'Add to cart');
+      ? (language === 'es' ? 'Seleccionar' : 'Select')
+      : (language === 'es' ? 'Agregar' : 'Add');
 
   return (
     <motion.div
@@ -73,104 +73,99 @@ export default function MobileStickyAddToCart({
         opacity: 1,
       }}
       transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-      className="fixed left-2 right-2 z-50 md:hidden"
-      style={{ bottom: MOBILE_BOTTOM_NAV_OFFSET }}
+      data-testid="mobile-add-to-cart-dock"
+      className="fixed inset-x-0 z-[60] md:hidden"
+      style={{
+        bottom: MOBILE_BOTTOM_NAV_OFFSET,
+        left: 'env(safe-area-inset-left, 0px)',
+        right: 'env(safe-area-inset-right, 0px)',
+      }}
     >
-      <div className="relative rounded-2xl border border-primary/25 bg-background/85 backdrop-blur-2xl shadow-[0_18px_50px_-12px_hsl(var(--primary)/0.45),0_0_0_1px_hsl(var(--primary)/0.08)_inset] overflow-hidden">
-        {/* gold sheen */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/[0.05] to-primary/0" />
-
-        {/* ─── Row 1 · info ─── */}
-        <div className="flex items-center gap-3 px-3 pt-2.5 pb-2">
-          <motion.div
-            ref={previewRef}
-            whileTap={{ rotateY: 180 }}
-            transition={{ duration: 0.5 }}
-            className="relative w-11 h-11 rounded-xl overflow-hidden bg-card border border-white/[0.08] shrink-0"
-            style={{ transformStyle: 'preserve-3d' }}
-          >
-            {image ? (
-              <img src={image} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Box className="w-5 h-5 text-muted-foreground/40" />
-              </div>
-            )}
-          </motion.div>
-
-          <div className="flex-1 min-w-0 leading-tight">
-            <div className="text-[12px] font-medium text-foreground truncate">
-              {productName ? `${productName}` : (language === 'es' ? 'Producto' : 'Product')}
-              {variationLabel ? <span className="text-muted-foreground"> · {variationLabel}</span> : null}
+      <div className="relative flex min-h-16 items-center gap-2 border-t border-white/[0.1] bg-background/95 px-3 py-2 shadow-[0_-12px_32px_-18px_hsl(0_0%_0%/0.8)] backdrop-blur-xl">
+        <div
+          ref={previewRef}
+          className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-white/[0.1] bg-card"
+        >
+          {image ? (
+            <img src={image} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <Box className="h-5 w-5 text-muted-foreground/40" />
             </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={totalPrice.toFixed(2)}
-                  initial={{ opacity: 0, y: -2 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 2 }}
-                  transition={{ duration: 0.15 }}
-                  className="text-[16px] font-bold text-gradient-gold tabular-nums tracking-tight"
-                >
-                  ${totalPrice.toFixed(2)}
-                </motion.span>
-              </AnimatePresence>
-              {quantity > 1 && (
-                <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
-                  ${unitPrice.toFixed(2)} × {quantity}
-                </span>
-              )}
-            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate text-[11px] font-medium text-foreground">
+            {productName ? `${productName}` : (language === 'es' ? 'Producto' : 'Product')}
+            {variationLabel ? <span className="text-muted-foreground"> · {variationLabel}</span> : null}
           </div>
-
-          <div className={`font-mono text-[9px] uppercase tracking-[0.18em] shrink-0 ${inStock ? 'text-emerald-400/90' : 'text-destructive/90'}`}>
-            <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle ${inStock ? 'bg-emerald-400' : 'bg-destructive'}`} />
-            {inStock ? (language === 'es' ? 'En stock' : 'In stock') : (language === 'es' ? 'Agotado' : 'Sold out')}
+          <div className="flex items-center gap-1.5">
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={totalPrice.toFixed(2)}
+                initial={{ opacity: 0, y: -2 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 2 }}
+                transition={{ duration: 0.15 }}
+                className="text-[15px] font-bold text-gradient-gold tabular-nums tracking-tight"
+              >
+                ${totalPrice.toFixed(2)}
+              </motion.span>
+            </AnimatePresence>
+            {quantity > 1 && (
+              <span className="hidden font-mono text-[9px] text-muted-foreground tabular-nums min-[430px]:inline">
+                ${unitPrice.toFixed(2)} × {quantity}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* divider */}
-        <div className="h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
-
-        {/* ─── Row 2 · action ─── */}
-        <div className="flex items-center gap-2 px-3 py-2.5">
-          <div className="inline-flex items-center gap-0.5 rounded-full bg-white/[0.05] border border-white/[0.07] p-0.5 shrink-0">
-            <button
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="w-9 h-9 rounded-full hover:bg-white/[0.08] flex items-center justify-center transition-colors"
-              aria-label="decrease"
-            >
-              <Minus className="w-3.5 h-3.5" />
-            </button>
-            <span className="font-mono font-semibold text-[13px] w-6 text-center tabular-nums">
-              {String(quantity).padStart(2, '0')}
-            </span>
-            <button
-              onClick={() => setQuantity(quantity + 1)}
-              className="w-9 h-9 rounded-full hover:bg-white/[0.08] flex items-center justify-center transition-colors"
-              aria-label="increase"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={handleAdd}
-            className={`group flex-1 h-11 rounded-full flex items-center justify-center gap-2 font-bold text-[13px] transition-all ${
-              disabled
-                ? 'bg-white/[0.06] text-muted-foreground border border-white/[0.06]'
-                : 'bg-gradient-gold text-primary-foreground shadow-[0_0_24px_hsl(var(--primary)/0.4)]'
-            }`}
-          >
-            <ShoppingCart className="w-4 h-4" />
-            <span>{ctaLabel}</span>
-            {!disabled && (
-              <ArrowRight className="w-4 h-4 transition-transform group-active:translate-x-1" />
-            )}
-          </motion.button>
+        <div
+          className={`shrink-0 ${inStock ? 'text-emerald-400/90' : 'text-destructive/90'}`}
+          aria-label={inStock ? (language === 'es' ? 'En stock' : 'In stock') : (language === 'es' ? 'Agotado' : 'Sold out')}
+        >
+          <span className={`block h-2 w-2 rounded-full ${inStock ? 'bg-emerald-400' : 'bg-destructive'}`} />
         </div>
+
+        <div className="inline-flex shrink-0 items-center rounded-full border border-white/[0.08] bg-white/[0.05] p-0.5">
+          <button
+            type="button"
+            onClick={() => setQuantity(Math.max(1, quantity - 1))}
+            className="flex h-11 w-11 items-center justify-center rounded-full touch-manipulation transition-colors hover:bg-white/[0.08]"
+            aria-label="decrease"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <span className="w-5 text-center font-mono text-[12px] font-semibold tabular-nums">
+            {String(quantity).padStart(2, '0')}
+          </span>
+          <button
+            type="button"
+            onClick={() => setQuantity(quantity + 1)}
+            className="flex h-11 w-11 items-center justify-center rounded-full touch-manipulation transition-colors hover:bg-white/[0.08]"
+            aria-label="increase"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.97 }}
+          onClick={handleAdd}
+          className={`group flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 font-bold text-[12px] touch-manipulation transition-all ${
+            disabled
+              ? 'bg-white/[0.06] text-muted-foreground border border-white/[0.06]'
+              : 'bg-gradient-gold text-primary-foreground shadow-[0_0_18px_hsl(var(--primary)/0.28)]'
+          }`}
+        >
+          <ShoppingCart className="h-4 w-4 shrink-0" />
+          <span className="truncate">{ctaLabel}</span>
+          {!disabled && (
+            <ArrowRight className="hidden h-4 w-4 shrink-0 transition-transform group-active:translate-x-1 min-[430px]:block" />
+          )}
+        </motion.button>
 
         {/* flying clone */}
         <AnimatePresence>

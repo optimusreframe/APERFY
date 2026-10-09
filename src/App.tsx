@@ -11,7 +11,6 @@ import { BulkImportProvider } from "@/contexts/BulkImportContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BulkImportBanner from "@/components/BulkImportBanner";
 import PageTransition from "@/components/motion/PageTransition";
-import BottomTabBar from "@/components/mobile/BottomTabBar";
 import InstallPWAPopup from "@/components/InstallPWAPopup";
 import CartAddedToast from "./components/CartAddedToast";
 import MacAppShell from "@/components/layout/MacAppShell";
@@ -33,7 +32,9 @@ const AdminCategories = lazy(() => import('./pages/admin/AdminCategories'));
 const AdminMaterials = lazy(() => import('./pages/admin/AdminMaterials'));
 const AdminAISettings = lazy(() => import('./pages/admin/AdminAISettings'));
 const AdminIntegrations = lazy(() => import('./pages/admin/AdminIntegrations'));
+const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications'));
 const AdminOrders = lazy(() => import('./pages/admin/AdminOrders'));
+const AdminFinance = lazy(() => import('./pages/admin/AdminFinance'));
 const AdminRequests = lazy(() => import('./pages/admin/AdminRequests'));
 const AdminPaymentSettings = lazy(() => import('./pages/admin/AdminPaymentSettings'));
 const AdminShipping = lazy(() => import('./pages/admin/AdminShipping'));
@@ -92,6 +93,7 @@ const AppContent = () => {
                 <Route path="variants" element={<AdminMaterials />} />
                 <Route path="materials" element={<Navigate to="/admin/variants" replace />} />
                 <Route path="orders" element={<AdminOrders />} />
+                <Route path="finance" element={<AdminFinance />} />
                 <Route path="requests" element={<AdminRequests />} />
                 <Route path="payments" element={<AdminPaymentSettings />} />
                 <Route path="shipping" element={<AdminShipping />} />
@@ -101,6 +103,7 @@ const AppContent = () => {
                 <Route path="homepage" element={<AdminHomepage />} />
                 <Route path="ai-settings" element={<AdminAISettings />} />
                 <Route path="integrations" element={<AdminIntegrations />} />
+                <Route path="notifications" element={<AdminNotifications />} />
               </Route>
             </Route>
             <Route element={<MacAppShell><Outlet /></MacAppShell>}>
@@ -110,7 +113,6 @@ const AppContent = () => {
         </Suspense>
       </PageTransition>
       {!isAdmin && <CartAddedToast />}
-      <BottomTabBar />
       {!isAdmin && <InstallPWAPopup />}
     </>
   );

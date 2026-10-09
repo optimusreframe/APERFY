@@ -22,6 +22,7 @@ import MobileStickyAddToCart from '@/components/mobile/MobileStickyAddToCart';
 import { productCommandBarClassName } from './productDetailLayout';
 import { getInventoryLabel, getInventoryState, getInventoryStock } from '@/lib/inventory';
 import { optimizeImageUrl } from '@/lib/image-url';
+import { filterEmptySpecifications } from '@/lib/product-specifications';
 import type { Category, Material, Product } from '@/lib/model-types';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -191,7 +192,7 @@ function GlassSection({ children, className = '', delay = 0 }: { children: React
 // ─── Skeleton ───
 function ProductDetailSkeleton() {
   return (
-    <div className="grid lg:grid-cols-2 gap-10">
+    <div className="grid xl:grid-cols-2 gap-10">
       <div>
         <Skeleton className="aspect-square w-full rounded-2xl" />
         <div className="flex gap-2 mt-3">
@@ -468,6 +469,21 @@ export default function ProductDetail() {
     );
   }
 
+  const specifications = filterEmptySpecifications([
+    { k: 'Condition', v: product.condition_status === 'used' ? 'USED' : 'NEW' },
+    { k: 'Category', v: product.categories ? (language === 'es' ? product.categories.name_es : product.categories.name_en) : null },
+    { k: 'Weight', v: selectedWeight && selectedWeight > 0 ? `${selectedWeight}${t.product.grams}` : null },
+    { k: 'Dimensions', v: selectedDimensions?.trim() ? `${selectedDimensions.trim()}mm` : null },
+    {
+      k: 'Variants',
+      v: productMaterialsList.length > 0
+        ? productMaterialsList.map((pm) => language === 'es' ? pm.materials?.name_es : pm.materials?.name_en).filter(Boolean).join(' · ')
+        : null,
+    },
+    { k: 'Variations', v: variations.length > 0 ? `${variations.length} ${language === 'es' ? 'opciones' : 'options'}` : null },
+    { k: 'SKU', v: `PRD-${product.id.slice(0, 8).toUpperCase()}` },
+  ]);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -513,16 +529,16 @@ export default function ProductDetail() {
         </div>
       </div>
 
-      <div className="pt-8 pb-24 lg:pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full min-w-0 pt-8 pb-[calc(10rem+env(safe-area-inset-bottom,0px))] md:pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* ═══ HERO GRID: thumb rail | hero | info rail ═══ */}
-        <div className="grid lg:grid-cols-[72px_minmax(0,1fr)_360px] gap-6 lg:gap-8">
+        <div className="grid min-w-0 xl:grid-cols-[72px_minmax(0,1fr)_360px] gap-6 xl:gap-8">
 
           {/* ─── Vertical Thumbnail Rail (desktop) ─── */}
           {images.length > 1 && (
             <motion.div
               initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-              className="hidden lg:flex flex-col gap-2 sticky top-32 self-start max-h-[calc(100vh-10rem)] overflow-y-auto scrollbar-hide"
+              className="hidden xl:flex flex-col gap-2 sticky top-32 self-start max-h-[calc(100vh-10rem)] overflow-y-auto scrollbar-hide"
             >
               <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground/60 px-1 mb-1">
                 {String(selectedImage + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
@@ -546,12 +562,12 @@ export default function ProductDetail() {
             </motion.div>
           )}
           {/* Spacer when no thumbnails for grid alignment */}
-          {images.length <= 1 && <div className="hidden lg:block" />}
+          {images.length <= 1 && <div className="hidden xl:block" />}
 
           {/* ─── Hero Image ─── */}
           <motion.div
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-            className="lg:sticky lg:top-32 lg:self-start"
+            className="xl:sticky xl:top-32 xl:self-start"
           >
             <div
               className="aspect-square rounded-2xl overflow-hidden relative group border border-white/[0.06] bg-card/30 backdrop-blur-sm"
@@ -623,7 +639,7 @@ export default function ProductDetail() {
 
             {/* Mobile horizontal thumbnails */}
             {images.length > 1 && (
-              <div className="flex lg:hidden gap-2 mt-3 overflow-x-auto scrollbar-hide pb-1">
+              <div className="flex xl:hidden gap-2 mt-3 overflow-x-auto scrollbar-hide pb-1">
                 {images.map((img, i) => (
                   <button
                     key={i}
@@ -640,7 +656,7 @@ export default function ProductDetail() {
           </motion.div>
 
           {/* ─── Right Info Rail (sticky, decision-only) ─── */}
-          <div className="lg:sticky lg:top-32 lg:self-start space-y-5">
+          <div className="xl:sticky xl:top-32 xl:self-start space-y-5">
             {/* Identity */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -817,7 +833,7 @@ export default function ProductDetail() {
             </motion.div>
 
             {/* CTA */}
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="hidden lg:block">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="hidden md:block">
               <motion.div whileTap={{ scale: 0.99 }}>
                 <Button
                   onClick={handleAddToCart}
@@ -840,7 +856,7 @@ export default function ProductDetail() {
         {/* (Top spec strip removed — specs live in the lower Specifications panel) */}
 
         {/* ═══ Overview + Details ═══ */}
-        <div className="mt-12 lg:mt-16 grid lg:grid-cols-[1fr_400px] gap-10 lg:gap-16">
+        <div className="mt-12 xl:mt-16 grid min-w-0 xl:grid-cols-[minmax(0,1fr)_400px] gap-10 xl:gap-16">
           {/* Overview */}
           <motion.section
             initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
@@ -873,16 +889,8 @@ export default function ProductDetail() {
           >
             <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-5">Specifications</div>
             <dl className="divide-y divide-white/[0.05]">
-              {[
-                { k: 'Condition', v: product.condition_status === 'used' ? 'USED' : 'NEW' },
-                { k: 'Category', v: product.categories ? (language === 'es' ? product.categories.name_es : product.categories.name_en) : '—' },
-                { k: 'Weight', v: selectedWeight ? `${selectedWeight}${t.product.grams}` : '—' },
-                { k: 'Dimensions', v: selectedDimensions ? `${selectedDimensions}mm` : '—' },
-                { k: 'Variants', v: productMaterialsList.length > 0 ? productMaterialsList.map((pm) => language === 'es' ? pm.materials?.name_es : pm.materials?.name_en).filter(Boolean).join(' · ') : '—' },
-                { k: 'Variations', v: variations.length > 0 ? `${variations.length} ${language === 'es' ? 'opciones' : 'options'}` : '—' },
-                { k: 'SKU', v: `PRD-${product.id.slice(0, 8).toUpperCase()}` },
-              ].map((row, i) => (
-                <div key={i} className="flex items-baseline justify-between gap-4 py-3 first:pt-0 last:pb-0">
+              {specifications.map((row, i) => (
+                <div key={row.k} className="flex items-baseline justify-between gap-4 py-3 first:pt-0 last:pb-0">
                   <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground shrink-0">{row.k}</dt>
                   <dd className="font-mono text-[12px] text-foreground text-right truncate">{row.v}</dd>
                 </div>

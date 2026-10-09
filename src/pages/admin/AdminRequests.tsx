@@ -7,12 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ExternalLink, Eye, Mail, Phone, User } from 'lucide-react';
+import { Archive, ExternalLink, Eye, Mail, Phone, RotateCcw, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { AdminPageHeader } from './_shared';
 import type { Database } from '@/integrations/supabase/types';
 import type { Product } from '@/lib/model-types';
+import { makeArchiveUpdate } from '@/lib/order-operations';
 
 type ModelRequest = Database['public']['Tables']['model_requests']['Row'];
 
@@ -29,13 +31,19 @@ export default function AdminRequests() {
   const queryClient = useQueryClient();
   const [selectedRequest, setSelectedRequest] = useState<ModelRequest | null>(null);
   const [fulfillProductId, setFulfillProductId] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<{ id: string; archive: boolean } | null>(null);
 
   const { data: requests = [], isLoading } = useQuery({
-    queryKey: ['admin-model-requests'],
+    queryKey: ['admin-model-requests', showArchived ? 'archived' : 'active'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const requestsQuery = supabase
         .from('model_requests')
-        .select('*')
+        .select('*');
+      const filteredQuery = showArchived
+        ? requestsQuery.not('archived_at', 'is', null)
+        : requestsQuery.is('archived_at', null);
+      const { data, error } = await filteredQuery
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -63,6 +71,30 @@ export default function AdminRequests() {
       toast({ title: 'Status updated' });
       setSelectedRequest(null);
     },
+    onError: (error: unknown) => {
+      toast({ title: 'Could not update request', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
+    },
+  });
+
+  const archiveRequest = useMutation({
+    mutationFn: async ({ id, archive }: { id: string; archive: boolean }) => {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error('Sign in again before changing the request archive.');
+      const update: Database['public']['Tables']['model_requests']['Update'] = makeArchiveUpdate(archive, user.id);
+      const { error } = await supabase.from('model_requests').update(update).eq('id', id);
+      if (error) throw error;
+      return archive;
+    },
+    onSuccess: (archived) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-model-requests'] });
+      setArchiveTarget(null);
+      setSelectedRequest(null);
+      toast({ title: archived ? 'Request archived' : 'Request restored' });
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Could not update request archive', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
+    },
   });
 
   const handleFulfill = (request: ModelRequest) => {
@@ -74,12 +106,22 @@ export default function AdminRequests() {
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto">
-      <AdminPageHeader eyebrow="operations · requests" title={t.admin.requests.title} meta={`${requests.length} total`} />
+      <AdminPageHeader
+        eyebrow="operations · requests"
+        title={t.admin.requests.title}
+        meta={`${requests.length} ${showArchived ? 'archived' : 'active'}`}
+        actions={
+          <div className="inline-flex rounded-lg border border-border/60 bg-card/40 p-0.5" aria-label="Request archive filter">
+            <Button type="button" size="sm" variant={showArchived ? 'ghost' : 'secondary'} className="min-h-11" aria-pressed={!showArchived} onClick={() => setShowArchived(false)}>Active</Button>
+            <Button type="button" size="sm" variant={showArchived ? 'secondary' : 'ghost'} className="min-h-11" aria-pressed={showArchived} onClick={() => setShowArchived(true)}>Archived</Button>
+          </div>
+        }
+      />
 
       {isLoading ? (
         <p className="text-muted-foreground">Loading...</p>
       ) : requests.length === 0 ? (
-        <p className="text-muted-foreground">{t.admin.requests.empty}</p>
+        <p className="text-muted-foreground">{showArchived ? 'No archived requests' : t.admin.requests.empty}</p>
       ) : (
         <div className="rounded-xl border border-border/50 overflow-hidden">
           <Table>
@@ -111,9 +153,33 @@ export default function AdminRequests() {
                     {format(new Date(req.created_at), 'MMM dd, yyyy')}
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm" onClick={() => setSelectedRequest(req)}>
-                      <Eye className="w-4 h-4 mr-1" /> {t.admin.requests.viewDetails}
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button variant="ghost" size="sm" className="min-h-11" onClick={() => setSelectedRequest(req)}>
+                        <Eye className="w-4 h-4 mr-1" /> {t.admin.requests.viewDetails}
+                      </Button>
+                      {showArchived ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="min-h-11 gap-1.5"
+                          aria-label={`Restore request ${req.id}`}
+                          disabled={archiveRequest.isPending}
+                          onClick={() => archiveRequest.mutate({ id: req.id, archive: false })}
+                        >
+                          <RotateCcw className="h-4 w-4" /> Restore
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-11 gap-1.5"
+                          aria-label={`Archive request ${req.id}`}
+                          onClick={() => setArchiveTarget({ id: req.id, archive: true })}
+                        >
+                          <Archive className="h-4 w-4" /> Archive
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -217,6 +283,42 @@ export default function AdminRequests() {
           )}
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!archiveTarget} onOpenChange={(open) => { if (!open) setArchiveTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language === 'es'
+              ? (archiveTarget?.archive ? '¿Archivar solicitud?' : '¿Restaurar solicitud?')
+              : (archiveTarget?.archive ? 'Archive request?' : 'Restore request?')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {archiveTarget?.archive
+                ? (language === 'es'
+                  ? 'La solicitud se moverá al archivo y podrás restaurarla después. No se eliminarán sus datos.'
+                  : 'Move this request to the archive? It stays in APERFY and can be restored later.')
+                : (language === 'es'
+                  ? 'La solicitud volverá a la lista activa.'
+                  : 'Restore this request to the active request list?')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="min-h-11" disabled={archiveRequest.isPending}>{language === 'es' ? 'Cancelar' : 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={archiveRequest.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                if (archiveTarget) archiveRequest.mutate(archiveTarget);
+              }}
+            >
+              {archiveRequest.isPending
+                ? (language === 'es'
+                  ? (archiveTarget?.archive ? 'Archivando…' : 'Restaurando…')
+                  : (archiveTarget?.archive ? 'Archiving…' : 'Restoring…'))
+                : (language === 'es'
+                  ? (archiveTarget?.archive ? 'Archivar solicitud' : 'Restaurar solicitud')
+                  : (archiveTarget?.archive ? 'Archive request' : 'Restore request'))}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
