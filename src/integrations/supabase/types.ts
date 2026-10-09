@@ -727,6 +727,7 @@ export type Database = {
           id: string
           images: Json | null
           inventory_enabled: boolean
+          inventory_source_key: string | null
           is_active: boolean
           is_featured: boolean
           low_stock_threshold: number
@@ -746,6 +747,7 @@ export type Database = {
           id?: string
           images?: Json | null
           inventory_enabled?: boolean
+          inventory_source_key?: string | null
           is_active?: boolean
           is_featured?: boolean
           low_stock_threshold?: number
@@ -765,6 +767,7 @@ export type Database = {
           id?: string
           images?: Json | null
           inventory_enabled?: boolean
+          inventory_source_key?: string | null
           is_active?: boolean
           is_featured?: boolean
           low_stock_threshold?: number
