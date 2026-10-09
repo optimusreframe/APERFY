@@ -9,12 +9,20 @@ ALTER TABLE public.orders
   ADD COLUMN IF NOT EXISTS payment_received_at timestamptz,
   ADD COLUMN IF NOT EXISTS payment_received_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
 
-ALTER TABLE public.orders
-  DROP CONSTRAINT IF EXISTS orders_payment_status_check;
-
-ALTER TABLE public.orders
-  ADD CONSTRAINT orders_payment_status_check
-  CHECK (payment_status IN ('pending', 'submitted', 'received', 'rejected'));
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'orders_payment_status_check'
+      AND conrelid = 'public.orders'::regclass
+  ) THEN
+    ALTER TABLE public.orders
+      ADD CONSTRAINT orders_payment_status_check
+      CHECK (payment_status IN ('pending', 'submitted', 'received', 'rejected'));
+  END IF;
+END;
+$$;
 
 ALTER TABLE public.model_requests
   ADD COLUMN IF NOT EXISTS archived_at timestamptz,
@@ -29,7 +37,7 @@ CREATE INDEX IF NOT EXISTS model_requests_archived_created_at_idx
 CREATE TABLE IF NOT EXISTS public.payment_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE RESTRICT,
-  event_type text NOT NULL CHECK (event_type IN ('proof_uploaded', 'received', 'rejected')),
+  event_type text NOT NULL CHECK (event_type IN ('pending', 'proof_uploaded', 'received', 'rejected')),
   payment_method text,
   provider text NOT NULL DEFAULT 'manual',
   reference text,
@@ -37,9 +45,11 @@ CREATE TABLE IF NOT EXISTS public.payment_events (
   currency text NOT NULL DEFAULT 'USD' CHECK (currency ~ '^[A-Z]{3}$'),
   proof_path text,
   note text,
-  actor_id uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE RESTRICT,
+  actor_id uuid DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE SET NULL,
   occurred_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  updated_by uuid DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE SET NULL,
   CONSTRAINT payment_events_proof_order_path_check
     CHECK (proof_path IS NULL OR proof_path LIKE order_id::text || '/%')
 );
@@ -49,10 +59,32 @@ CREATE INDEX IF NOT EXISTS payment_events_order_created_idx
 CREATE INDEX IF NOT EXISTS payment_events_type_created_idx
   ON public.payment_events (event_type, created_at DESC);
 
+-- Existing orders have no recorded verification history. Seed a pending event
+-- for each row while keeping its original order timestamp and total.
+INSERT INTO public.payment_events (
+  order_id, event_type, payment_method, provider, amount, currency,
+  actor_id, updated_by, occurred_at, created_at, updated_at
+)
+SELECT
+  o.id,
+  'pending',
+  o.payment_method,
+  COALESCE(NULLIF(o.payment_method, ''), 'manual'),
+  o.total,
+  'USD',
+  NULL,
+  NULL,
+  o.created_at,
+  o.created_at,
+  o.created_at
+FROM public.orders o;
+
 ALTER TABLE public.payment_events ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON public.payment_events FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT ON public.payment_events TO authenticated;
+GRANT UPDATE (event_type, payment_method, provider, reference, amount, currency, proof_path, note)
+  ON public.payment_events TO authenticated;
 
 CREATE POLICY "Admins can view payment events"
   ON public.payment_events FOR SELECT TO authenticated
@@ -63,21 +95,29 @@ CREATE POLICY "Admins can insert payment events"
   WITH CHECK (
     public.has_role(auth.uid(), 'admin')
     AND actor_id = auth.uid()
+    AND (updated_by IS NULL OR updated_by = auth.uid())
   );
 
-CREATE OR REPLACE FUNCTION public.prevent_payment_event_mutation()
+CREATE POLICY "Admins can update payment events"
+  ON public.payment_events FOR UPDATE TO authenticated
+  USING (public.has_role(auth.uid(), 'admin'))
+  WITH CHECK (public.has_role(auth.uid(), 'admin') AND updated_by = auth.uid());
+
+CREATE OR REPLACE FUNCTION public.set_payment_event_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = public
 AS $$
 BEGIN
-  RAISE EXCEPTION 'payment_events is append-only';
+  NEW.updated_at = now();
+  NEW.updated_by = auth.uid();
+  RETURN NEW;
 END;
 $$;
 
-CREATE TRIGGER payment_events_append_only
-  BEFORE UPDATE OR DELETE ON public.payment_events
-  FOR EACH ROW EXECUTE FUNCTION public.prevent_payment_event_mutation();
+CREATE TRIGGER payment_events_updated_at
+  BEFORE UPDATE ON public.payment_events
+  FOR EACH ROW EXECUTE FUNCTION public.set_payment_event_updated_at();
 
 CREATE OR REPLACE FUNCTION public.record_order_payment_event(
   p_order_id uuid,
