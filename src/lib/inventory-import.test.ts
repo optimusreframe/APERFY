@@ -37,6 +37,11 @@ describe('inventory taxonomy', () => {
     expect(createUniqueInventorySlug('Desk Lamp', 3, used)).toBe('desk-lamp-inventory-3');
   });
 
+  it('keeps probing when the base and first suffix are already used', () => {
+    const used = new Set(['desk-lamp', 'desk-lamp-inventory-3']);
+    expect(createUniqueInventorySlug('Desk Lamp', 3, used)).toBe('desk-lamp-inventory-3-2');
+  });
+
   it('blocks invalid quantity, price, currency, status and existing slugs', () => {
     const preview = buildImportPreview(
       [row({ Qty: 1.5, 'Unit price': -1, Currency: 'CAD', Status: 'pending', 'Photo file': 'cable.jpg' })],

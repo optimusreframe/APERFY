@@ -35,7 +35,14 @@ function slugify(value: string): string {
 
 export function createUniqueInventorySlug(name: string, sourceRowNumber: number, usedSlugs: Set<string>): string {
   const base = slugify(name) || `inventory-item-${sourceRowNumber}`;
-  const candidate = usedSlugs.has(base) ? `${base}-inventory-${sourceRowNumber}` : base;
+  let candidate = base;
+  let suffix = 0;
+  while (usedSlugs.has(candidate)) {
+    suffix += 1;
+    candidate = suffix === 1
+      ? `${base}-inventory-${sourceRowNumber}`
+      : `${base}-inventory-${sourceRowNumber}-${suffix}`;
+  }
   usedSlugs.add(candidate);
   return candidate;
 }
