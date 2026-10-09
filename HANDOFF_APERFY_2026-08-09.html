@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>APERFY — Handoff completo · 2026-08-09</title>
+  <style>
+    :root { color-scheme: dark; --bg:#090d12; --panel:#111820; --panel2:#16212a; --text:#eef4f1; --muted:#a9b7b1; --green:#22c55e; --lime:#a3e635; --line:#2a3a42; --warn:#f5c451; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at 80% 0%,#173326 0,transparent 36rem),var(--bg); color:var(--text); font:16px/1.65 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1100px; margin:0 auto; padding:42px 24px 80px; }
+    header { border:1px solid var(--line); border-radius:24px; padding:32px; background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(17,24,32,.92)); box-shadow:0 24px 80px rgba(0,0,0,.28); }
+    .eyebrow { color:var(--green); font:700 11px/1.2 ui-monospace,SFMono-Regular,monospace; letter-spacing:.22em; text-transform:uppercase; }
+    h1 { margin:10px 0 8px; font-size:clamp(34px,6vw,64px); line-height:1.02; letter-spacing:-.055em; }
+    h2 { margin:42px 0 14px; font-size:28px; line-height:1.15; letter-spacing:-.03em; }
+    h3 { margin:26px 0 8px; font-size:19px; }
+    p { color:var(--muted); margin:8px 0 14px; }
+    a { color:var(--lime); text-decoration:none; border-bottom:1px solid rgba(163,230,53,.35); }
+    a:hover { color:#d5f99b; border-bottom-color:currentColor; }
+    code { color:#d9f99d; background:#0a1115; border:1px solid #23333a; border-radius:6px; padding:2px 6px; font:13px ui-monospace,SFMono-Regular,monospace; }
+    pre { overflow:auto; padding:16px; border:1px solid var(--line); border-radius:12px; background:#070b0f; color:#d9f99d; font:13px/1.6 ui-monospace,SFMono-Regular,monospace; }
+    section, .card { border:1px solid var(--line); border-radius:16px; background:rgba(17,24,32,.82); padding:22px; margin-top:18px; }
+    ul, ol { color:var(--muted); padding-left:24px; }
+    li { margin:6px 0; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; }
+    .stat { padding:16px; border:1px solid var(--line); border-radius:12px; background:rgba(22,33,42,.72); }
+    .stat strong { display:block; color:var(--text); font-size:22px; }
+    .ok { color:#76e49b; } .warn { color:var(--warn); } .bad { color:#ff9b9b; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; color:var(--muted); }
+    th,td { text-align:left; vertical-align:top; border-bottom:1px solid var(--line); padding:10px 8px; }
+    th { color:var(--text); font-size:13px; text-transform:uppercase; letter-spacing:.08em; }
+    .small { font-size:13px; }
+    footer { margin-top:42px; color:#80918a; font-size:13px; }
+    @media (max-width:650px) { main { padding:22px 14px 50px; } header,section,.card { padding:17px; } table { display:block; overflow:auto; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">APERFY · SESSION HANDOFF</div>
+    <h1>Reframing completo de APERFY</h1>
+    <p>Documento de continuidad para iniciar una nueva sesión sin depender del historial del chat. Fecha de corte: <strong>2026-08-09</strong>, zona horaria America/New_York.</p>
+    <p><strong>Regla para la nueva sesión:</strong> leer este documento, <a href="README.md">README.md</a>, <a href="PRODUCT.md">PRODUCT.md</a>, <a href="APERFY-PENDINGS.md">APERFY-PENDINGS.md</a> y el estado Git antes de tocar código.</p>
+  </header>
+
+  <section>
+    <h2>1. Estado actual de Git</h2>
+    <div class="grid">
+      <div class="stat"><span class="eyebrow">RAMA ACTIVA</span><strong>main</strong><span class="small">HEAD: <code>440a139</code></span></div>
+      <div class="stat"><span class="eyebrow">REMOTO</span><strong>origin</strong><span class="small">github.com/optimusreframe/APERFY</span></div>
+      <div class="stat"><span class="eyebrow">SYNC</span><strong class="ok">Limpio</strong><span class="small">main sigue origin/main</span></div>
+      <div class="stat"><span class="eyebrow">ÚLTIMO MERGE</span><strong>PR #21</strong><span class="small">incoming orders + Telegram</span></div>
+    </div>
+    <p>El remoto antiguo <code>upstream-3dtoprint</code> fue eliminado de la configuración local. La rama <code>feat/aperfy-rebrand</code> sigue existiendo en origin y contiene los commits de documentación posteriores al merge de PR #21.</p>
+    <p class="warn"><strong>Atención:</strong> <code>main</code> contiene el producto fusionado hasta <code>440a139</code>. Los commits <code>4ccca1d</code>, <code>01bb6da</code> y <code>d3ab1b3</code> son posteriores y están en <code>feat/aperfy-rebrand</code>, no en main. Compararlos antes de decidir si deben integrarse.</p>
+    <pre>git status --short --branch
+git remote -v
+git branch -vv
+git log --oneline --decorate -15</pre>
+  </section>
+
+  <section>
+    <h2>2. Qué se desarrolló</h2>
+    <h3>Rebranding y posicionamiento</h3>
+    <ul>
+      <li>Se transformó el storefront heredado de 3D printing en APERFY: tienda general de oportunidades y productos reales con stock limitado.</li>
+      <li>Se eliminaron/reformularon referencias públicas a 3D printing, materiales, FDM, impresoras, STL y servicios de impresión.</li>
+      <li>La home es el catálogo principal. Las rutas auxiliares de catálogo/proceso/materiales redirigen o fueron convertidas.</li>
+      <li>Se aplicó el logo APERFY y favicon de <code>public/logo.png</code> y <code>public/favicon.png</code>.</li>
+    </ul>
+    <h3>Experiencia APERFY macOS</h3>
+    <ul>
+      <li>Shell visual tipo ventana de macOS con dark default, glass surfaces, sidebar contenida, top bar estática y viewport interno con scroll.</li>
+      <li>Se unificaron storefront, producto, carrito, checkout, perfil, contacto, solicitudes y admin bajo el shell.</li>
+      <li>Se corrigieron contraste, breadcrumb de producto, altura de sidebar, diálogos, step wizard de producto y botón de scroll-to-top.</li>
+      <li>Se añadieron motion/Framer Motion, cursor glow y contrato de movimiento respetando reduced motion.</li>
+    </ul>
+    <h3>Comercio y administración</h3>
+    <ul>
+      <li>Home con búsqueda, filtros, tarjetas de productos, detalle, variantes, carrito y checkout protegido.</li>
+      <li>Ruta <code>/ask</code> para solicitar productos de cualquier categoría.</li>
+      <li>Panel de usuario con pedidos, favoritos, referidos y experiencia APERFY macOS.</li>
+      <li>Admin con dashboard, productos, categorías, variantes, órdenes, solicitudes, descuentos, shipping, pagos, logs, Background QA y AI Settings.</li>
+      <li>Editor/creador de producto convertido en wizard real por pasos: Media, Identidad, Precio, Variants y Publicar.</li>
+      <li>Selección y eliminación masiva de productos; eliminación individual protegida para conservar historial de órdenes.</li>
+      <li>AI Import Studio con entrada por URL/foto, generación de imágenes y configuración de AI preparada, aún dependiente de credenciales externas.</li>
+    </ul>
+    <h3>Pedidos entrantes</h3>
+    <ul>
+      <li>El checkout crea primero la orden en Supabase y luego abre WhatsApp.</li>
+      <li>Clave idempotente para evitar duplicados durante el handoff.</li>
+      <li>Edge Function <code>notify-telegram-order</code> notifica Telegram antes de abrir WhatsApp, con botón directo de contacto.</li>
+      <li>Estados de notificación: <code>pending</code>, <code>sending</code>, <code>sent</code>, <code>failed</code>.</li>
+      <li>Admin recibe source, teléfono y estado Telegram; comprador ve la orden en su panel.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>3. Arquitectura y puntos de entrada</h2>
+    <table>
+      <tr><th>Área</th><th>Fuente principal</th><th>Continuación</th></tr>
+      <tr><td>Routing</td><td><a href="src/App.tsx">src/App.tsx</a></td><td>Revisar rutas y redirects antes de añadir nuevas pantallas.</td></tr>
+      <tr><td>Shell macOS</td><td><a href="src/components/layout/MacAppShell.tsx">MacAppShell.tsx</a>, <a href="src/components/layout/MacShellContext.tsx">MacShellContext.tsx</a></td><td>Todo contenido nuevo debe usar el viewport interno y la misma jerarquía visual.</td></tr>
+      <tr><td>Storefront</td><td><a href="src/pages/Index.tsx">Index.tsx</a>, <a href="src/pages/ProductDetail.tsx">ProductDetail.tsx</a>, <a href="src/components/ProductCard.tsx">ProductCard.tsx</a></td><td>No reintroducir lenguaje de 3D printing ni claims de ahorro sin evidencia.</td></tr>
+      <tr><td>Checkout</td><td><a href="src/pages/Checkout.tsx">Checkout.tsx</a>, <a href="src/lib/incomingOrder.ts">incomingOrder.ts</a></td><td>Probar persistencia, Telegram y WhatsApp cuando Supabase esté conectado.</td></tr>
+      <tr><td>Admin</td><td><a href="src/pages/admin/AdminProducts.tsx">AdminProducts.tsx</a>, <a href="src/pages/admin/AdminOrders.tsx">AdminOrders.tsx</a></td><td>Conservar variantes y estados de pedido.</td></tr>
+      <tr><td>Supabase</td><td><a href="supabase/config.toml">config.toml</a>, <a href="supabase/migrations/20260806000000_incoming_orders_telegram.sql">incoming orders migration</a></td><td>Aplicar migraciones y desplegar Edge Functions en el proyecto correcto.</td></tr>
+      <tr><td>Edge Functions</td><td><a href="supabase/functions/">supabase/functions/</a></td><td>AI y Telegram requieren secrets server-side.</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. Rutas actuales</h2>
+    <p>La definición canónica está en <a href="src/App.tsx">src/App.tsx</a>.</p>
+    <ul>
+      <li>Públicas: <code>/</code>, <code>/products/:slug</code>, <code>/ask</code>, <code>/contact</code>, <code>/cart</code>, <code>/auth</code>, <code>/reset-password</code>, <code>/unsubscribe</code>.</li>
+      <li>Protegidas: <code>/checkout</code>, <code>/orders</code>, <code>/profile</code>, <code>/favorites</code>.</li>
+      <li>Admin: <code>/admin</code>, <code>/admin/products</code>, <code>/admin/categories</code>, <code>/admin/variants</code>, <code>/admin/orders</code>, <code>/admin/requests</code>, <code>/admin/payments</code>, <code>/admin/shipping</code>, <code>/admin/discounts</code>, <code>/admin/logs</code>, <code>/admin/background-qa</code>, <code>/admin/ai-settings</code>.</li>
+      <li>Compatibilidad: <code>/catalog</code>, <code>/request-product</code>, <code>/request-model</code>, <code>/our-process</code>, <code>/materials</code> redirigen hacia la experiencia APERFY actual.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>5. Validación conocida</h2>
+    <div class="grid">
+      <div class="stat"><strong class="ok">25/25</strong><span>tests aprobados en 18 archivos</span></div>
+      <div class="stat"><strong class="ok">PASS</strong><span><code>npm run build</code></span></div>
+      <div class="stat"><strong class="bad">FAIL</strong><span><code>npm run lint</code>: deuda legacy, 213 errores y 27 warnings en la última auditoría</span></div>
+      <div class="stat"><strong class="warn">NO CONFIRMADO</strong><span>deploy Vercel/Supabase y DNS productivo</span></div>
+    </div>
+    <p>Scripts disponibles en <a href="package.json">package.json</a>: <code>npm run dev</code>, <code>npm test</code>, <code>npm run build</code>, <code>npm run lint</code>, <code>npm run preview</code>.</p>
+  </section>
+
+  <section>
+    <h2>6. Pendientes bloqueados por configuración externa</h2>
+    <ol>
+      <li>Confirmar proyecto Supabase de producción y aplicar migraciones.</li>
+      <li>Configurar <code>VITE_SUPABASE_URL</code>, <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> y <code>VITE_SITE_URL</code> en Vercel.</li>
+      <li>Configurar secrets de Edge Functions: <code>SUPABASE_SERVICE_ROLE_KEY</code>, <code>SUPABASE_URL</code>, proveedor AI, <code>TELEGRAM_BOT_TOKEN</code>, <code>TELEGRAM_CHAT_ID</code> y <code>WHATSAPP_BUSINESS_NUMBER</code>.</li>
+      <li>Desplegar y probar <code>ai-product-import</code>, <code>ai-product-from-url</code>, <code>ai-product-from-photo</code> y <code>notify-telegram-order</code>.</li>
+      <li>Confirmar buckets, RLS, Auth redirect URLs y rol admin de <code>andresperniaj@gmail.com</code>.</li>
+      <li>Conectar Vercel, configurar <code>aperfy.kpwr.dev</code> y verificar DNS/HTTPS.</li>
+      <li>Verificar proveedor de email transaccional y probar el flujo real de pedido.</li>
+    </ol>
+    <p>La lista operativa completa está en <a href="APERFY-PENDINGS.md">APERFY-PENDINGS.md</a>.</p>
+  </section>
+
+  <section>
+    <h2>7. Pendientes de desarrollo sin bloqueo externo</h2>
+    <ol>
+      <li>Reducir deuda de ESLint, priorizando Checkout, admin y Edge Functions.</li>
+      <li>Añadir pruebas de integración con mocks de Supabase/Telegram para idempotencia y estados.</li>
+      <li>Hacer auditoría final autenticada de todas las rutas admin y modales.</li>
+      <li>Revisar y re-scopear identificadores legacy de base de datos como <code>model_3d_url</code>, <code>model_requests</code> y <code>ai-3d</code> únicamente después de backup y migración coordinada.</li>
+      <li>Finalizar taxonomía, política de shipping y reglas de reserva de inventario.</li>
+      <li>Ejecutar QA visual desktop/móvil y accesibilidad con producción conectada.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>8. Documentos fuente, guía, roadmap y evidencia</h2>
+    <ul>
+      <li><a href="README.md">README.md</a> — instalación, validación, marca y notas de comercio.</li>
+      <li><a href="PRODUCT.md">PRODUCT.md</a> — product brief, posicionamiento, usuarios, constraints, principios y evidencia.</li>
+      <li><a href="docs/aperfy-design-system.md">docs/aperfy-design-system.md</a> — tokens, tipografía, motion, superficies y reglas de confianza.</li>
+      <li><a href="docs/audits/aperfy-legacy-content-audit.md">docs/audits/aperfy-legacy-content-audit.md</a> — auditoría de contenido legacy y excepciones técnicas 3D.</li>
+      <li><a href="APERFY-PENDINGS.md">APERFY-PENDINGS.md</a> — checklist de Supabase, AI, Vercel, dominio, comunicación y QA.</li>
+      <li><a href="docs/superpowers/plans/2026-08-02-aperfy-home-store-routes-plan.md">Plan home/store routes</a> y <a href="docs/superpowers/specs/2026-08-02-aperfy-home-store-routes-design.md">spec home/store routes</a>.</li>
+      <li><a href="docs/superpowers/plans/2026-08-02-aperfy-macos-deal-store.md">Plan macOS deal store</a> y <a href="docs/superpowers/specs/2026-08-02-aperfy-macos-deal-store-design.md">spec macOS deal store</a>.</li>
+      <li><a href="docs/superpowers/specs/2026-08-02-aperfy-profile-settings-design.md">Spec profile/settings</a> — cuenta, perfil y experiencia de settings.</li>
+      <li><a href="docs/superpowers/plans/2026-08-02-aperfy-intelligence-layer.md">Plan intelligence layer</a> y <a href="docs/superpowers/specs/2026-08-02-aperfy-intelligence-layer-design.md">spec intelligence layer</a>.</li>
+      <li><a href="docs/superpowers/plans/2026-08-02-aperfy-admin-product-intelligence.md">Plan admin product intelligence</a> y <a href="docs/superpowers/specs/2026-08-02-aperfy-admin-product-intelligence-design.md">spec admin product intelligence</a>.</li>
+      <li><a href="docs/superpowers/plans/2026-08-05-aperfy-macos-polish.md">Plan macOS polish</a> y <a href="docs/superpowers/specs/2026-08-05-aperfy-macos-design.md">spec macOS design</a>.</li>
+      <li><a href="docs/superpowers/plans/2026-08-06-incoming-orders-telegram-whatsapp.md">Plan incoming orders Telegram/WhatsApp</a> — persistencia, idempotencia, Edge Function y handoff.</li>
+      <li><a href="src/lib/brand-audit.test.ts">brand-audit.test.ts</a>, <a href="src/lib/incomingOrder.test.ts">incomingOrder.test.ts</a>, <a href="src/pages/admin/productWizard.test.ts">productWizard.test.ts</a>, <a href="src/pages/admin/productBulkSelection.test.ts">productBulkSelection.test.ts</a>, <a href="src/pages/admin/productDeletion.test.ts">productDeletion.test.ts</a>, <a href="src/pages/productDetailLayout.test.ts">productDetailLayout.test.ts</a> y <a href="src/components/layout/scrollToTop.test.ts">scrollToTop.test.ts</a> — evidencia automatizada de features clave.</li>
+      <li><a href="supabase/migrations/20260806000000_incoming_orders_telegram.sql">Migration incoming orders</a> y <a href="supabase/functions/notify-telegram-order/index.ts">Edge Function notify-telegram-order</a> — implementación de pedidos entrantes.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>9. Secuencia recomendada para la nueva sesión</h2>
+    <ol>
+      <li>Ejecutar <code>git status --short --branch</code>, confirmar <code>main -> origin/main</code> y revisar si se integran los commits posteriores de <code>feat/aperfy-rebrand</code>.</li>
+      <li>Leer este handoff, <a href="PRODUCT.md">PRODUCT.md</a>, <a href="docs/aperfy-design-system.md">design system</a> y <a href="APERFY-PENDINGS.md">pendings</a>.</li>
+      <li>Confirmar credenciales y proyecto Supabase de producción antes de aplicar cualquier migración.</li>
+      <li>Aplicar migraciones, desplegar Edge Functions y probar un pedido real de prueba.</li>
+      <li>Configurar Vercel/DNS y verificar producción.</li>
+      <li>Después, abordar lint, integración y QA visual.</li>
+    </ol>
+    <pre>git switch main
+git pull --ff-only
+npm install --include=dev
+copy .env.example .env.local
+npm test
+npm run build
+npm run lint</pre>
+  </section>
+
+  <footer>Handoff generado para APERFY el 2026-08-09. No contiene secretos ni valores de entorno reales.</footer>
+</main>
+</body>
+</html>

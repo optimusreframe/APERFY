@@ -38,6 +38,7 @@ import AdminLogs from "./pages/admin/AdminLogs";
 import AdminDiscounts from "./pages/admin/AdminDiscounts";
 import AdminBackgroundQA from "./pages/admin/AdminBackgroundQA";
 import AdminHomepage from "./pages/admin/AdminHomepage";
+import AdminInventoryImport from "./pages/admin/AdminInventoryImport";
 import RequestModel from "./pages/RequestModel";
 import Contact from "./pages/Contact";
 import EmailUnsubscribe from "./pages/EmailUnsubscribe";
@@ -79,6 +80,7 @@ const AppContent = () => {
             <Route index element={<AdminDashboard />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="categories" element={<AdminCategories />} />
+            <Route path="inventory-import" element={<AdminInventoryImport />} />
           <Route path="variants" element={<AdminMaterials />} />
           <Route path="materials" element={<Navigate to="/admin/variants" replace />} />
             <Route path="orders" element={<AdminOrders />} />

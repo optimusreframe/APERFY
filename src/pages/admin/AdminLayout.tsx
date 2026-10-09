@@ -8,6 +8,7 @@ const routeLabels: Record<string, string> = {
   '/admin': 'DASHBOARD',
   '/admin/products': 'PRODUCTS',
   '/admin/categories': 'CATEGORIES',
+  '/admin/inventory-import': 'INVENTORY IMPORT',
   '/admin/variants': 'VARIANTS',
   '/admin/materials': 'VARIANTS',
   '/admin/orders': 'ORDERS',
