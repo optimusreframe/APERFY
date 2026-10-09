@@ -12,7 +12,7 @@ export function AdminPageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {eyebrow && (
           <div className="text-[11px] font-mono uppercase tracking-[0.22em] text-muted-foreground mb-2">
@@ -24,7 +24,7 @@ export function AdminPageHeader({
         </h1>
         {meta && <p className="text-[11px] font-mono uppercase tracking-[0.12em] text-muted-foreground/70 mt-1.5">{meta}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+      {actions && <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">{actions}</div>}
     </div>
   );
 }

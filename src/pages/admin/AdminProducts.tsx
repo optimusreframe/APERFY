@@ -1,10 +1,9 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useBulkImport } from '@/contexts/BulkImportContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler, Check, Clipboard } from 'lucide-react';
+import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, LayoutGrid, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler, Check, Clipboard } from 'lucide-react';
 import { logActivity } from '@/lib/activity-log';
 import { supabase } from '@/integrations/supabase/client';
-import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +11,6 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -29,8 +27,7 @@ import { toggleAllBulkSelection, toggleBulkSelection } from './productBulkSelect
 import { partitionProductDeletion } from './productDeletion';
 import { getErrorMessage } from '@/lib/model-types';
 import { readClipboardImage } from '@/lib/image-clipboard';
-import { getInventoryLabel, getInventoryState } from '@/lib/inventory';
-import type { Category, Material, Product } from '@/lib/model-types';
+import ProductCatalogViews, { type AdminProduct, type BulkEdit, type BulkField, type ProductViewMode } from '@/components/admin/ProductCatalogViews';
 
 // ── Types ──
 interface ProductForm {
@@ -73,15 +70,6 @@ interface AiProductData {
   search_queries_used?: string[];
   [key: string]: unknown;
 }
-
-type AdminProduct = Pick<Product, 'id' | 'name_en' | 'name_es' | 'description_en' | 'description_es' | 'slug' | 'base_price' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
-  inventory_enabled: Product['inventory_enabled'];
-  stock_quantity: Product['stock_quantity'];
-  low_stock_threshold: Product['low_stock_threshold'];
-  categories: Pick<Category, 'name_en' | 'name_es'> | null;
-};
-type BulkField = 'name_es' | 'base_price' | 'category_id' | 'is_active';
-type BulkEdit = Partial<Pick<AdminProduct, BulkField>>;
 
 const empty: ProductForm = {
   name_en: '', name_es: '', description_en: '', description_es: '',
@@ -295,6 +283,11 @@ export default function AdminProducts() {
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [deleteFromEditOpen, setDeleteFromEditOpen] = useState(false);
+  const [productViewMode, setProductViewMode] = useState<ProductViewMode>(() => {
+    if (typeof window === 'undefined') return 'list';
+    return window.localStorage.getItem('admin-products-view') === 'grid' ? 'grid' : 'list';
+  });
 
   const bulkEditCount = Object.keys(bulkEdits).length;
 
@@ -349,7 +342,6 @@ export default function AdminProducts() {
 
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { language } = useLanguage();
 
   const { data: products = [] } = useQuery({
     queryKey: ['admin-products'],
@@ -619,6 +611,20 @@ export default function AdminProducts() {
       toast({ title: '✓', description: 'Producto eliminado.' });
     },
   });
+
+  const handleDeleteFromEdit = () => {
+    if (!editId) return;
+    del.mutate(editId, {
+      onSuccess: () => {
+        setDeleteFromEditOpen(false);
+        setOpen(false);
+        setEditId(null);
+        setForm(empty);
+        setMediaFiles([]);
+        setProductVariations([]);
+      },
+    });
+  };
 
   const quickToggle = useMutation({
     mutationFn: async ({ id, field, value }: { id: string; field: 'is_active' | 'is_featured'; value: boolean }) => {
@@ -944,6 +950,11 @@ export default function AdminProducts() {
     } finally {
       setBulkDeleting(false);
     }
+  };
+
+  const handleProductViewChange = (mode: ProductViewMode) => {
+    setProductViewMode(mode);
+    window.localStorage.setItem('admin-products-view', mode);
   };
 
   const handleAiPhotoAnalyze = async () => {
@@ -1318,11 +1329,11 @@ export default function AdminProducts() {
         eyebrow="catalog · products"
         title="Productos"
         actions={
-        <div className="flex gap-2">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           {/* AI Import Studio Button */}
           <Dialog open={aiOpen} onOpenChange={(o) => { setAiOpen(o); if (!o) resetAi(); }}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2 border-primary/30 text-primary hover:bg-primary/10">
+              <Button variant="outline" className="min-h-11 flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10 sm:flex-none">
                 <Sparkles className="w-4 h-4" />
                 AI Import Studio
               </Button>
@@ -1891,9 +1902,9 @@ export default function AdminProducts() {
           </Dialog>
 
           {/* ── ADD/EDIT PRODUCT DIALOG ── */}
-          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); setEditAiImageOpen(false); setEditAiSourceImage(null); setEditAiCustomBg(null); setWizardStep(0); } else { setWizardStep(0); } }}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); setEditAiImageOpen(false); setEditAiSourceImage(null); setEditAiCustomBg(null); setDeleteFromEditOpen(false); setWizardStep(0); } else { setWizardStep(0); } }}>
             <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2"><Plus className="w-4 h-4" />Agregar Producto</Button>
+              <Button className="min-h-11 flex-1 gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground sm:flex-none"><Plus className="w-4 h-4" />Agregar Producto</Button>
             </DialogTrigger>
             <DialogContent className="flex h-[min(920px,92vh)] max-h-[92vh] w-[95vw] max-w-6xl flex-col gap-0 overflow-hidden bg-card border-border p-0">
               <DialogHeader className="sr-only"><DialogTitle>{editId ? 'Editar' : 'Agregar'} Producto</DialogTitle></DialogHeader>
@@ -1920,14 +1931,14 @@ export default function AdminProducts() {
                 return (
               <form onSubmit={(e) => { e.preventDefault(); save.mutate(form); }} className="flex flex-col flex-1 min-h-0">
                 {/* Sticky header */}
-                <div className="border-b border-border bg-card/80 backdrop-blur-sm px-6 py-4 flex items-center justify-between gap-4 shrink-0">
+                <div className="border-b border-border bg-card/80 px-4 py-3 backdrop-blur-sm sm:px-6 sm:py-4 flex items-center justify-between gap-3 shrink-0">
                   <div className="min-w-0">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{editId ? 'Editar producto' : 'Nuevo producto'}</p>
                     <h2 className="text-lg font-semibold tracking-tight truncate">{liveTitle}</h2>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)} className="text-muted-foreground">Cancelar</Button>
-                    <Button type="submit" disabled={save.isPending} size="sm" className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-1.5">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)} className="min-h-10 text-muted-foreground">Cancelar</Button>
+                    <Button type="submit" disabled={save.isPending} size="sm" className="min-h-10 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-1.5">
                       {save.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                       {editId ? 'Guardar' : 'Publicar'}
                     </Button>
@@ -1992,7 +2003,7 @@ export default function AdminProducts() {
                   </div>
 
                   {/* Content */}
-                  <div className="flex-1 min-h-0 overflow-y-auto p-6 md:p-8">
+                  <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 md:p-8">
                     <div className="max-w-3xl mx-auto space-y-6">
 
                 {wizardStep <= 2 && (
@@ -2639,6 +2650,18 @@ export default function AdminProducts() {
                   </div>
                 </div>}
 
+                {editId && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/[0.06] p-3 lg:hidden">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-destructive">Zona de peligro</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">Eliminar este producto de forma permanente.</p>
+                    </div>
+                    <Button type="button" variant="ghost" onClick={() => setDeleteFromEditOpen(true)} className="min-h-11 shrink-0 gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive">
+                      <Trash2 className="h-4 w-4" /> Eliminar
+                    </Button>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between pt-6 border-t border-border/40 mt-6">
                   <Button type="button" variant="ghost" onClick={() => setWizardStep(getPreviousWizardStep(wizardStep))} disabled={wizardStep === 0}>
                     ← Anterior
@@ -2695,171 +2718,74 @@ export default function AdminProducts() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Bulk Edit Toggle */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          {bulkEditMode && bulkEditCount > 0 && (
-            <span className="text-sm text-muted-foreground">{bulkEditCount} producto(s) modificado(s)</span>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {bulkEditMode ? (
-            <>
-              <Button variant="outline" size="sm" onClick={() => { setBulkEditMode(false); setBulkEdits({}); }} className="gap-1">
-                <XCircle className="w-4 h-4" /> Cancelar
+      <AlertDialog open={deleteFromEditOpen} onOpenChange={setDeleteFromEditOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este producto?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer. Si el producto tiene historial de pedidos, se archivará en lugar de eliminarse.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={del.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(event) => { event.preventDefault(); handleDeleteFromEdit(); }} disabled={del.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {del.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              {del.isPending ? 'Eliminando...' : 'Eliminar producto'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="mb-4 rounded-2xl border border-border/70 bg-card/50 p-3 sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="flex min-h-11 items-center gap-2 rounded-lg border border-border/70 bg-background/30 px-2.5">
+              <Checkbox checked={allProductsSelected} onCheckedChange={(checked) => setSelectedProductIds(toggleAllBulkSelection(selectedProductIds, visibleProductIds, checked === true))} aria-label={allProductsSelected ? 'Deseleccionar todos' : 'Seleccionar todos'} />
+              <span className="hidden text-xs text-muted-foreground sm:inline">Seleccionar todos</span>
+            </span>
+            {bulkEditMode && bulkEditCount > 0 && <span className="text-xs text-muted-foreground">{bulkEditCount} modificados</span>}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex min-h-11 flex-1 items-center rounded-lg border border-border/70 bg-background/30 p-1 sm:flex-none">
+              <Button type="button" variant={productViewMode === 'list' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleProductViewChange('list')} aria-pressed={productViewMode === 'list'} className="min-h-9 flex-1 gap-2 sm:flex-none">
+                <List className="h-4 w-4" /> <span>Lista</span>
               </Button>
-              <Button size="sm" onClick={handleBulkSave} disabled={bulkSaving || bulkEditCount === 0} className="gap-1 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-                <Save className="w-4 h-4" /> {bulkSaving ? 'Guardando...' : 'Guardar Cambios'}
+              <Button type="button" variant={productViewMode === 'grid' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleProductViewChange('grid')} aria-pressed={productViewMode === 'grid'} className="min-h-9 flex-1 gap-2 sm:flex-none">
+                <LayoutGrid className="h-4 w-4" /> <span>Grid</span>
               </Button>
-            </>
-          ) : (
-            <Button variant="outline" size="sm" onClick={() => setBulkEditMode(true)} className="gap-1">
-              <Pencil className="w-3 h-3" /> Editar en Bulk
-            </Button>
-          )}
+            </div>
+            {bulkEditMode ? (
+              <>
+                <Button variant="outline" size="sm" onClick={() => { setBulkEditMode(false); setBulkEdits({}); }} className="min-h-11 gap-1">
+                  <XCircle className="h-4 w-4" /> Cancelar
+                </Button>
+                <Button size="sm" onClick={handleBulkSave} disabled={bulkSaving || bulkEditCount === 0} className="min-h-11 gap-1 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
+                  <Save className="h-4 w-4" /> {bulkSaving ? 'Guardando...' : 'Guardar cambios'}
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setBulkEditMode(true)} className="min-h-11 gap-1">
+                <Pencil className="h-4 w-4" /> Editar en lote
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ── PRODUCTS TABLE ── */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border">
-              <TableHead className="w-12">
-                <Checkbox checked={allProductsSelected} onCheckedChange={(checked) => setSelectedProductIds(toggleAllBulkSelection(selectedProductIds, visibleProductIds, checked === true))} aria-label={allProductsSelected ? 'Deseleccionar todos' : 'Seleccionar todos'} />
-              </TableHead>
-              <TableHead>Producto</TableHead>
-              <TableHead>Categoría</TableHead>
-              <TableHead>Precio</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {products.map((p) => (
-              <TableRow key={p.id} className={`border-border ${selectedProductIds.includes(p.id) ? 'bg-destructive/[0.05]' : bulkEdits[p.id] ? 'bg-primary/5' : ''}`}>
-                <TableCell className="w-12">
-                  <Checkbox checked={selectedProductIds.includes(p.id)} onCheckedChange={(checked) => setSelectedProductIds(toggleBulkSelection(selectedProductIds, p.id, checked === true))} aria-label={`Seleccionar ${p.name_es}`} />
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    {(p.images as string[])?.length > 0 ? (
-                      <img src={(p.images as string[])[0]} className="w-10 h-10 rounded-lg object-cover" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center"><Image className="w-4 h-4 text-muted-foreground" /></div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      {bulkEditMode ? (
-                        <Input
-                          value={getBulkValue(p.id, 'name_es', p.name_es)}
-                          onChange={(e) => setBulkField(p.id, 'name_es', e.target.value, p.name_es)}
-                          className="bg-secondary text-sm h-8"
-                        />
-                      ) : (
-                        <>
-                          <p className="font-medium">{p.name_es}</p>
-                          <p className="text-xs text-muted-foreground">{p.slug}</p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {bulkEditMode ? (
-                    <Select
-                      value={getBulkValue(p.id, 'category_id', p.category_id || '') || ''}
-                      onValueChange={(v) => setBulkField(p.id, 'category_id', v || null, p.category_id || '')}
-                    >
-                      <SelectTrigger className="bg-secondary text-sm h-8 w-[140px]"><SelectValue placeholder="—" /></SelectTrigger>
-                      <SelectContent>
-                        {categories.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.name_es}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span className="text-muted-foreground">{p.categories ? p.categories.name_es : '—'}</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {bulkEditMode ? (
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={getBulkValue(p.id, 'base_price', p.base_price)}
-                      onChange={(e) => setBulkField(p.id, 'base_price', parseFloat(e.target.value) || 0, p.base_price)}
-                      className="bg-secondary text-sm h-8 w-[100px]"
-                    />
-                  ) : (
-                    <span className="font-medium">${Number(p.base_price).toFixed(2)}</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {(() => {
-                    const inventoryState = getInventoryState(p);
-                    const stockLabel = inventoryState === 'untracked'
-                      ? 'Sin control'
-                      : getInventoryLabel(inventoryState, p.stock_quantity, language === 'es' ? 'es' : 'en');
-                    const stockClass = inventoryState === 'sold_out'
-                      ? 'text-destructive'
-                      : inventoryState === 'low'
-                        ? 'text-amber-400'
-                        : inventoryState === 'available'
-                          ? 'text-emerald-400'
-                          : 'text-muted-foreground';
-                    return (
-                      <div className="text-xs">
-                        <span className={`font-medium ${stockClass}`}>{stockLabel}</span>
-                        {inventoryState !== 'untracked' && <p className="text-muted-foreground mt-0.5">{p.stock_quantity} uds.</p>}
-                      </div>
-                    );
-                  })()}
-                </TableCell>
-                <TableCell>
-                  {bulkEditMode ? (
-                    <Switch
-                      checked={getBulkValue(p.id, 'is_active', p.is_active)}
-                      onCheckedChange={(c) => setBulkField(p.id, 'is_active', c, p.is_active)}
-                    />
-                 ) : (
-                   <div className="flex items-center gap-3">
-                     <div className="flex items-center gap-1.5" title="Activo">
-                       <Switch
-                         checked={p.is_active}
-                         onCheckedChange={(c) => quickToggle.mutate({ id: p.id, field: 'is_active', value: c })}
-                       />
-                       <span className={`text-xs ${p.is_active ? 'text-primary' : 'text-muted-foreground'}`}>
-                         {p.is_active ? 'Activo' : 'Inactivo'}
-                       </span>
-                     </div>
-                     <div className="flex items-center gap-1.5" title="Destacado">
-                       <Switch
-                         checked={p.is_featured}
-                         onCheckedChange={(c) => quickToggle.mutate({ id: p.id, field: 'is_featured', value: c })}
-                       />
-                       <span className={`text-xs ${p.is_featured ? 'text-primary' : 'text-muted-foreground'}`}>★</span>
-                     </div>
-                   </div>
-                 )}
-                </TableCell>
-                <TableCell className="text-right">
-                  {!bulkEditMode && (
-                    <>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => del.mutate(p.id)} className="text-destructive"><Trash2 className="w-4 h-4" /></Button>
-                    </>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-            {products.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No hay productos aún.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <ProductCatalogViews
+        products={products as AdminProduct[]}
+        categories={categories as Pick<{ id: string; name_es: string }, 'id' | 'name_es'>[]}
+        viewMode={productViewMode}
+        bulkEditMode={bulkEditMode}
+        bulkEdits={bulkEdits}
+        selectedProductIds={selectedProductIds}
+        allProductsSelected={allProductsSelected}
+        onToggleAll={(checked) => setSelectedProductIds(toggleAllBulkSelection(selectedProductIds, visibleProductIds, checked))}
+        onToggleSelected={(productId, checked) => setSelectedProductIds(toggleBulkSelection(selectedProductIds, productId, checked))}
+        getBulkValue={getBulkValue}
+        onBulkFieldChange={setBulkField}
+        onToggle={(id, field, value) => quickToggle.mutate({ id, field, value })}
+        onEdit={openEdit}
+        onDelete={(id) => del.mutate(id)}
+      />
     </div>
   );
 }
