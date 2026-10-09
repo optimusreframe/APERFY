@@ -889,6 +889,9 @@ export default function Checkout() {
   };
 
   const handleChannel = async (channel: CheckoutPaymentChannel) => {
+    // Reserve the external tab from the user's click gesture. Mobile Safari
+    // can block a window opened only after the async order/network work ends.
+    const handoffWindow = window.open('about:blank', '_blank');
     setLoading(true);
     setSelectedPayment(channel);
     try {
@@ -920,9 +923,14 @@ export default function Checkout() {
       // Keep the APERFY confirmation page in this tab. Opening the external
       // handoff in a new tab prevents iOS/in-app browsers from returning to a
       // blank document after WhatsApp or Telegram closes.
-      const handoffWindow = window.open(redirectUrl, '_blank', 'noopener,noreferrer');
-      if (!handoffWindow) toast({ title: language === 'es' ? 'Pedido creado' : 'Order created', description: language === 'es' ? 'El navegador bloqueó la ventana externa. Usa el botón para abrir el canal.' : 'The browser blocked the external window. Use the button to open the channel.' });
+      if (handoffWindow) {
+        handoffWindow.location.href = redirectUrl;
+      } else {
+        const fallbackWindow = window.open(redirectUrl, '_blank', 'noopener,noreferrer');
+        if (!fallbackWindow) toast({ title: language === 'es' ? 'Pedido creado' : 'Order created', description: language === 'es' ? 'El navegador bloqueó la ventana externa. Usa el botón para abrir el canal.' : 'The browser blocked the external window. Use the button to open the channel.' });
+      }
     } catch (error: unknown) {
+      handoffWindow?.close();
       toast({ title: t.checkout.error, description: getCheckoutErrorMessage(error, 'Checkout failed'), variant: 'destructive' });
     } finally { setLoading(false); }
   };
