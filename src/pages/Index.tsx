@@ -9,11 +9,9 @@ import ProductCard from '@/components/ProductCard';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { getHomepageCopy } from './homepage-copy';
 export { getHomepageCopy } from './homepage-copy';
-import type { Product } from '@/lib/model-types';
-import type { ProductCardProduct } from '@/components/ProductCard';
 import { DEFAULT_HOMEPAGE_HERO_CONFIG, HOMEPAGE_HERO_SETTING_KEY, parseHomepageHeroConfig } from '@/lib/homepage-settings';
+import { fetchActiveStorefrontProducts } from '@/lib/storefront-products';
 
-type ProductWithCategory = ProductCardProduct & { categories?: ProductCardProduct['categories'] & { slug?: string } };
 const reveal = { initial: { opacity: 0, y: 18 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '-10% 0px' }, transition: { duration: .4, ease: [0.2, 0, 0, 1] } } as const;
 
 export default function Index() {
@@ -33,11 +31,7 @@ export default function Index() {
   const [price, setPrice] = useState('all');
   const { data: products = [], isLoading, isError } = useQuery({
     queryKey: ['aperfy-products'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('products').select('*, categories(id, name_en, name_es, slug)').eq('is_active', true).order('created_at', { ascending: false }).limit(48);
-      if (error) throw error;
-      return (data ?? []) as ProductWithCategory[];
-    },
+    queryFn: fetchActiveStorefrontProducts,
   });
   const es = language === 'es';
   const categories = useMemo(() => Array.from(new Map<string, string>(products.map(product => {
