@@ -11,13 +11,23 @@ import { getHomepageCopy } from './homepage-copy';
 export { getHomepageCopy } from './homepage-copy';
 import type { Product } from '@/lib/model-types';
 import type { ProductCardProduct } from '@/components/ProductCard';
+import { DEFAULT_HOMEPAGE_HERO_CONFIG, HOMEPAGE_HERO_SETTING_KEY, parseHomepageHeroConfig } from '@/lib/homepage-settings';
 
 type ProductWithCategory = ProductCardProduct & { categories?: ProductCardProduct['categories'] & { slug?: string } };
 const reveal = { initial: { opacity: 0, y: 18 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '-10% 0px' }, transition: { duration: .4, ease: [0.2, 0, 0, 1] } } as const;
 
 export default function Index() {
   const { language } = useLanguage();
-  const copy = getHomepageCopy(language);
+  const { data: homepageHero = DEFAULT_HOMEPAGE_HERO_CONFIG } = useQuery({
+    queryKey: ['homepage-hero-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('admin_settings').select('setting_value').eq('setting_key', HOMEPAGE_HERO_SETTING_KEY).maybeSingle();
+      if (error) throw error;
+      return parseHomepageHeroConfig(data?.setting_value);
+    },
+    staleTime: 60_000,
+  });
+  const copy = getHomepageCopy(language, homepageHero);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [price, setPrice] = useState('all');
@@ -47,12 +57,12 @@ export default function Index() {
 
   return <>
     <main>
-      <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .35 }} className="border-b border-border/70 bg-card/45">
+      {homepageHero.enabled && <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .35 }} className="border-b border-border/70 bg-card/45">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-7 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-12">
-          <div className="min-w-0 flex-1 lg:max-w-4xl"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[.2em] text-primary">APERFY · {es ? 'oportunidades activas' : 'live opportunities'}</p><h1 className="aperfy-display-title max-w-none text-4xl font-semibold leading-[.98] tracking-[-.06em] sm:text-6xl">{copy.title} <span className="text-primary">{copy.highlight}</span></h1><p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">{copy.description}</p></div>
-          <div className="flex shrink-0 flex-wrap gap-2"><Link to="#deals" className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-gold transition-transform hover:-translate-y-0.5">{copy.primaryCta}<ArrowRight className="h-4 w-4" /></Link><Link to="/ask" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold transition-colors hover:border-primary/50">{copy.secondaryCta}</Link></div>
+          <div className="min-w-0 flex-1 lg:max-w-4xl"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[.2em] text-primary">{copy.eyebrow}</p><h1 className="aperfy-display-title max-w-none text-4xl font-semibold leading-[.98] tracking-[-.06em] sm:text-6xl">{copy.title} <span className="text-primary">{copy.highlight}</span></h1><p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">{copy.description}</p></div>
+          <div className="flex shrink-0 flex-wrap gap-2"><Link to="#deals" className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-gold transition-transform hover:-translate-y-0.5">{copy.heroPrimaryCta}<ArrowRight className="h-4 w-4" /></Link><Link to="/ask" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold transition-colors hover:border-primary/50">{copy.heroSecondaryCta}</Link></div>
         </div>
-      </motion.section>
+      </motion.section>}
       <motion.section {...reveal} id="deals" className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:px-12">
         <div className="mb-6 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"><div><div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.16em] text-primary"><ShoppingBag className="h-4 w-4" />{es ? 'Tienda en vivo' : 'Live storefront'}</div><h2 className="text-3xl font-semibold tracking-[-.045em] sm:text-5xl">{copy.catalogTitle}</h2><p className="mt-3 max-w-xl text-muted-foreground">{copy.catalogDescription}</p></div><div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto"><div className="relative w-full sm:w-80"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder={copy.searchPlaceholder} aria-label={copy.searchPlaceholder} className="h-11 w-full rounded-xl border border-border bg-card pl-10 pr-4 outline-none transition-shadow focus:ring-2 focus:ring-primary/30" /></div><div className="flex gap-2"><label className="sr-only" htmlFor="home-category-filter">{es ? 'Categoría' : 'Category'}</label><select id="home-category-filter" value={category} onChange={event => setCategory(event.target.value)} className="h-11 min-w-36 rounded-xl border border-border bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"><option value="all">{es ? 'Categorías' : 'Categories'}</option>{categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select><label className="sr-only" htmlFor="home-price-filter">{es ? 'Precio' : 'Price'}</label><select id="home-price-filter" value={price} onChange={event => setPrice(event.target.value)} className="h-11 min-w-32 rounded-xl border border-border bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"><option value="all">{es ? 'Precio' : 'Price'}</option><option value="under-25">{es ? 'Menos de $25' : 'Under $25'}</option><option value="25-75">$25–$75</option><option value="over-75">{es ? 'Más de $75' : 'Over $75'}</option></select></div></div></div>
         {isLoading && <div className="grid grid-cols-2 gap-4 md:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <div key={index} className="aspect-[4/5] animate-pulse rounded-2xl bg-muted" />)}</div>}
