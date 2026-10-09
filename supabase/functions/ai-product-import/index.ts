@@ -1,8 +1,8 @@
 import "https://deno.land/std@0.168.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { aiChatCompletionsUrl, aiHeaders, loadAiConfig } from "../_shared/ai-provider.ts";
-import { buildAiRequestBody, DEEPSEEK_IMAGE_LIMITATION, isDeepSeekProvider } from "../_shared/ai-compat.ts";
+import { aiChatCompletionsUrl, aiHeaders, loadAiConfig, loadAiImageConfig } from "../_shared/ai-provider.ts";
+import { buildAiRequestBody, DEEPSEEK_IMAGE_LIMITATION, isDeepSeekProvider, isImageProviderUsable } from "../_shared/ai-compat.ts";
 import { getIntegrationSecret } from "../_shared/integration-secrets.ts";
 
 const corsHeaders = {
@@ -38,11 +38,14 @@ function serializeAiRequest(ai: AiRuntime, body: Record<string, unknown>) {
   return JSON.stringify(buildAiRequestBody(ai, body));
 }
 
-function imageCapabilityError() {
+function imageCapabilityError(config?: AiRuntime | null) {
+  const unsupported = Boolean(config && isDeepSeekProvider(config));
   return new Response(JSON.stringify({
     success: false,
-    code: "AI_IMAGE_UNSUPPORTED",
-    error: DEEPSEEK_IMAGE_LIMITATION,
+    code: unsupported ? "AI_IMAGE_PROVIDER_UNSUPPORTED" : "AI_IMAGE_PROVIDER_NOT_CONFIGURED",
+    error: unsupported
+      ? DEEPSEEK_IMAGE_LIMITATION
+      : "Configura AI Image Provider API Key, base URL, proveedor y modelo en Admin → Integrations / AI Settings.",
   }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
@@ -531,7 +534,10 @@ ${imageListForAI || "No images found."}`
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (isDeepSeekProvider(aiConfig)) return imageCapabilityError();
+      const imageConfig = await loadAiImageConfig(adminClient);
+      if (!imageConfig) return imageCapabilityError();
+      const imageAi: AiRuntime = { endpoint: aiChatCompletionsUrl(imageConfig), headers: aiHeaders(imageConfig), model: imageConfig.model, provider: imageConfig.provider, baseUrl: imageConfig.baseUrl };
+      if (!isImageProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
 
       const FRAMING_RULE = `CRITICAL FRAMING RULE:
 Show the entire physical product fully visible inside the frame. Do not crop any part of it. Keep clear margins on all sides, center the product, and use a premium ecommerce composition. Preserve the complete silhouette, packaging, labels, and visible details.`;
@@ -623,11 +629,11 @@ Luxury technology product display of the EXACT same physical product on a matte 
 
       const messages = [{ role: "user", content: contentParts }];
 
-      const imgResp = await fetch(ai.endpoint, {
+      const imgResp = await fetch(imageAi.endpoint, {
         method: "POST",
-        headers: ai.headers,
-        body: serializeAiRequest(ai, {
-          model: ai.model,
+        headers: imageAi.headers,
+        body: serializeAiRequest(imageAi, {
+          model: imageAi.model,
           messages,
           modalities: ["image", "text"],
         }),
@@ -915,7 +921,10 @@ If the input name/description is already good, polish it slightly. If it's empty
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (isDeepSeekProvider(aiConfig)) return imageCapabilityError();
+      const imageConfig = await loadAiImageConfig(adminClient);
+      if (!imageConfig) return imageCapabilityError();
+      const imageAi: AiRuntime = { endpoint: aiChatCompletionsUrl(imageConfig), headers: aiHeaders(imageConfig), model: imageConfig.model, provider: imageConfig.provider, baseUrl: imageConfig.baseUrl };
+      if (!isImageProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
 
       const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
 Preserve the exact same physical product from the source image. Do not redesign it or change its proportions, silhouette, color, packaging, labels, logos, texture, or visible details. Only change the camera angle. The final image must look like the same product photographed in a professional APERFY retail studio.`;
@@ -936,11 +945,11 @@ Preserve the exact same physical product from the source image. Do not redesign 
       const framingRule = `CRITICAL FRAMING RULE: Show the entire physical product fully visible inside the frame with at least 10-15% negative space on all sides. Do not crop it. Keep the complete silhouette, packaging, labels, and visible details.`;
       const promptText = `${framingRule}\n\n${fidelityRule}\n\n${anglePrompt}\n\nThe output MUST be a single photorealistic image of the identical object — never reinterpret or restyle it. No people, no hands, no text, no watermark, no extra logos.`;
 
-      const imgResp = await fetch(ai.endpoint, {
+      const imgResp = await fetch(imageAi.endpoint, {
         method: "POST",
-        headers: ai.headers,
+        headers: imageAi.headers,
         body: JSON.stringify({
-          model: ai.model,
+          model: imageAi.model,
           messages: [{
             role: "user",
             content: [
@@ -1012,7 +1021,10 @@ Preserve the exact same physical product from the source image. Do not redesign 
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (isDeepSeekProvider(aiConfig)) return imageCapabilityError();
+      const imageConfig = await loadAiImageConfig(adminClient);
+      if (!imageConfig) return imageCapabilityError();
+      const imageAi: AiRuntime = { endpoint: aiChatCompletionsUrl(imageConfig), headers: aiHeaders(imageConfig), model: imageConfig.model, provider: imageConfig.provider, baseUrl: imageConfig.baseUrl };
+      if (!isImageProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
       const allowedCounts = [1, 4, 8];
       const variantCount = allowedCounts.includes(Number(count)) ? Number(count) : 1;
     BACKGROUND_PRESET_PROMPTS.system_workshop = `Empty APERFY retail product photography studio, graphite surface, soft neutral gradient background, controlled green accent light, clean premium ecommerce composition, generous negative space for the product, no people, no hands, no text, no logos, no watermark.`;
@@ -1041,11 +1053,11 @@ Preserve the exact same physical product from the source image. Do not redesign 
 
       for (let i = 0; i < variantCount; i++) {
         try {
-          const imgResp = await fetch(ai.endpoint, {
+          const imgResp = await fetch(imageAi.endpoint, {
             method: "POST",
-            headers: ai.headers,
-            body: serializeAiRequest(ai, {
-              model: ai.model,
+            headers: imageAi.headers,
+            body: serializeAiRequest(imageAi, {
+              model: imageAi.model,
               messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
               modalities: ["image", "text"],
             }),

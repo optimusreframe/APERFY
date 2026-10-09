@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAiRequestBody, isDeepSeekProvider } from '../../supabase/functions/_shared/ai-compat';
+import { buildAiRequestBody, isDeepSeekProvider, isImageProviderUsable } from '../../supabase/functions/_shared/ai-compat';
 
 describe('buildAiRequestBody', () => {
   it('disables DeepSeek thinking when a request uses tool calls', () => {
@@ -21,5 +21,11 @@ describe('buildAiRequestBody', () => {
     expect(isDeepSeekProvider({ provider: 'deepseek' })).toBe(true);
     expect(isDeepSeekProvider({ baseUrl: 'https://api.deepseek.com' })).toBe(true);
     expect(isDeepSeekProvider({ provider: 'openai', baseUrl: 'https://api.openai.com/v1' })).toBe(false);
+  });
+
+  it('requires a separate non-DeepSeek provider for image capabilities', () => {
+    expect(isImageProviderUsable({ apiKey: 'sk-deepseek', provider: 'deepseek', model: 'deepseek-v4-flash' })).toBe(false);
+    expect(isImageProviderUsable({ apiKey: 'sk-image', provider: 'openai-compatible', model: 'vision-image-model' })).toBe(true);
+    expect(isImageProviderUsable({ apiKey: '', provider: 'openai-compatible', model: 'vision-image-model' })).toBe(false);
   });
 });
