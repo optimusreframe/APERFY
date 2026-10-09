@@ -27,7 +27,7 @@
 
 ---
 
-### Tarea 1: Añadir el parser y el clasificador deterministas
+### Task 1: Añadir el parser y el clasificador deterministas
 
 **Archivos:**
 - Crear: `src/lib/inventory-import/types.ts`
@@ -122,7 +122,7 @@ git commit -m "feat: add inventory import taxonomy and preview rules"
 
 ---
 
-### Tarea 2: Sembrar las categorías limpias y la clave de importación
+### Task 2: Sembrar las categorías limpias y la clave de importación
 
 **Archivos:**
 - Crear: `supabase/migrations/20261009040000_seed_inventory_taxonomy.sql`
@@ -169,7 +169,7 @@ git commit -m "feat: seed inventory taxonomy and source keys"
 
 ---
 
-### Tarea 3: Crear la pantalla administrativa de selección y vista previa
+### Task 3: Crear la pantalla administrativa de selección y vista previa
 
 **Archivos:**
 - Crear: `src/pages/admin/AdminInventoryImport.tsx`
@@ -221,7 +221,7 @@ git commit -m "feat: add inventory import preview screen"
 
 ---
 
-### Tarea 4: Implementar la escritura segura de imágenes, categorías y productos
+### Task 4: Implementar la escritura segura de imágenes, categorías y productos
 
 **Archivos:**
 - Modificar: `src/pages/admin/AdminInventoryImport.tsx`
@@ -267,7 +267,7 @@ git commit -m "feat: persist inventory products with resumable imports"
 
 ---
 
-### Tarea 5: Ejecutar el preview real del ZIP y la importación aprobada
+### Task 5: Ejecutar el preview real del ZIP y la importación aprobada
 
 **Archivos:**
 - Fuente: `/Users/kong/Downloads/inventory-2026-10-08.zip`
@@ -300,7 +300,7 @@ Abrir una ficha con stock mayor a 3, una con stock 1–3 y una con stock 0; comp
 
 ---
 
-### Tarea 6: Verificación final y entrega
+### Task 6: Verificación final y entrega
 
 **Archivos:**
 - Sin nuevos archivos; revisar todos los commits y cambios pendientes.
