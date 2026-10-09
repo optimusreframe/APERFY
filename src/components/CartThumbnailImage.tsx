@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { optimizeImageUrl } from '@/lib/image-url';
+import { getOriginalImageUrl, optimizeImageUrl } from '@/lib/image-url';
 
 interface CartThumbnailImageProps {
   source: string;
@@ -24,14 +24,15 @@ export function CartThumbnailImage({
   className,
   fallback,
 }: CartThumbnailImageProps) {
-  const optimizedSource = optimizeImageUrl(source, { width, quality });
+  const originalSource = getOriginalImageUrl(source);
+  const optimizedSource = optimizeImageUrl(originalSource, { width, quality });
   const [src, setSrc] = useState(optimizedSource);
-  const [failed, setFailed] = useState(!source);
+  const [failed, setFailed] = useState(!originalSource);
 
   useEffect(() => {
     setSrc(optimizedSource);
-    setFailed(!source);
-  }, [optimizedSource, source]);
+    setFailed(!originalSource);
+  }, [optimizedSource, originalSource]);
 
   if (failed || !src) return <>{fallback}</>;
 
@@ -45,8 +46,8 @@ export function CartThumbnailImage({
       loading="lazy"
       className={className}
       onError={() => {
-        if (src !== source && source) {
-          setSrc(source);
+        if (src !== originalSource && originalSource) {
+          setSrc(originalSource);
           return;
         }
         setFailed(true);

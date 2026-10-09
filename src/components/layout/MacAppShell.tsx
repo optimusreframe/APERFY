@@ -55,7 +55,7 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
           </div>}
           {isAdmin && <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary))]" />{es ? 'En vivo' : 'Live'}</div>}
         </header>
-        <div ref={contentScrollRef} data-testid="mac-content-scroll" className="mac-content-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain">{children}</div>
+        <div ref={contentScrollRef} data-testid="mac-content-scroll" className={`mac-content-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain ${hasMobileTabs ? 'mac-store-content' : ''}`}>{children}</div>
         {!isAdmin && <BottomTabBar />}
         <ScrollToTopButton
           targetRef={contentScrollRef}

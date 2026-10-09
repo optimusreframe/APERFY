@@ -447,7 +447,7 @@ export default function ProductDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-full bg-background">
         <Navbar />
         <div className="pt-24 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <ProductDetailSkeleton />
@@ -458,7 +458,7 @@ export default function ProductDetail() {
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-full bg-background">
         <Navbar />
         <div className="pt-24 text-center py-20">
           <Box className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
@@ -485,7 +485,7 @@ export default function ProductDetail() {
   ]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-full bg-background">
       <Navbar />
 
       {/* Lightbox */}
@@ -529,7 +529,7 @@ export default function ProductDetail() {
         </div>
       </div>
 
-      <div className="w-full min-w-0 pt-8 pb-[calc(10rem+env(safe-area-inset-bottom,0px))] md:pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full min-w-0 pt-8 pb-[calc(10rem+env(safe-area-inset-bottom,0px))] lg:pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* ═══ HERO GRID: thumb rail | hero | info rail ═══ */}
         <div className="grid min-w-0 xl:grid-cols-[72px_minmax(0,1fr)_360px] gap-6 xl:gap-8">
@@ -549,7 +549,7 @@ export default function ProductDetail() {
                   onClick={() => setSelectedImage(i)}
                   className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/[0.06] hover:border-primary/40 transition-colors group"
                 >
-                    <img src={optimizeImageUrl(img, { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className={`w-full h-full object-cover transition-opacity ${i === selectedImage ? 'opacity-100' : 'opacity-50 group-hover:opacity-80'}`} />
+                    <img src={optimizeImageUrl(img, { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className={`w-full h-full object-contain bg-white p-0.5 transition-opacity ${i === selectedImage ? 'opacity-100' : 'opacity-50 group-hover:opacity-80'}`} />
                   {i === selectedImage && (
                     <motion.span
                       layoutId="pdp-thumb-active"
@@ -648,7 +648,7 @@ export default function ProductDetail() {
                       i === selectedImage ? 'border-primary' : 'border-white/[0.06] opacity-60'
                     }`}
                   >
-                    <img src={optimizeImageUrl(img, { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className="w-full h-full object-cover" />
+                    <img src={optimizeImageUrl(img, { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className="w-full h-full object-contain bg-white p-0.5" />
                   </button>
                 ))}
               </div>
@@ -833,7 +833,7 @@ export default function ProductDetail() {
             </motion.div>
 
             {/* CTA */}
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="hidden md:block">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="hidden lg:block">
               <motion.div whileTap={{ scale: 0.99 }}>
                 <Button
                   onClick={handleAddToCart}
