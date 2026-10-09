@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Minus, Plus, Box, ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { MOBILE_BOTTOM_NAV_OFFSET } from '@/components/layout/scrollToTop';
 
 interface Props {
   image: string | null;
@@ -73,7 +74,7 @@ export default function MobileStickyAddToCart({
       }}
       transition={{ type: 'spring', stiffness: 320, damping: 28 }}
       className="fixed left-2 right-2 z-50 md:hidden"
-      style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)' }}
+      style={{ bottom: MOBILE_BOTTOM_NAV_OFFSET }}
     >
       <div className="relative rounded-2xl border border-primary/25 bg-background/85 backdrop-blur-2xl shadow-[0_18px_50px_-12px_hsl(var(--primary)/0.45),0_0_0_1px_hsl(var(--primary)/0.08)_inset] overflow-hidden">
         {/* gold sheen */}

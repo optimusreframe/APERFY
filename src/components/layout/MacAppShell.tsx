@@ -2,6 +2,7 @@ import { useRef, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Globe, Home, MessageCircle, ShieldCheck, ShoppingBag, ShoppingCart, UserRound } from 'lucide-react';
 import ScrollToTopButton from './ScrollToTopButton';
+import { getScrollToTopMobileBottom } from './scrollToTop';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useCart } from '@/contexts/CartContext';
 import { useOptionalAuth } from '@/contexts/AuthContext';
@@ -21,6 +22,7 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
   const location = useLocation();
   const es = language === 'es';
   const isAdmin = variant === 'admin';
+  const isProductDetail = location.pathname.startsWith('/products/');
   const links = [
     { to: '/', label: es ? 'Inicio' : 'Home', icon: Home },
     { to: '/ask', label: es ? 'Solicitar producto' : 'Request a product', icon: MessageCircle },
@@ -52,7 +54,7 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
           {isAdmin && <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary))]" />{es ? 'En vivo' : 'Live'}</div>}
         </header>
         <div ref={contentScrollRef} data-testid="mac-content-scroll" className="mac-content-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">{children}</div>
-        <ScrollToTopButton targetRef={contentScrollRef} />
+        <ScrollToTopButton targetRef={contentScrollRef} mobileBottomOffset={isAdmin ? '24px' : getScrollToTopMobileBottom(isProductDetail)} />
       </div>
     </div></MacWindowIntro>
   </div></MacShellProvider>;
