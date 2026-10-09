@@ -657,6 +657,8 @@ export default function Checkout() {
       whatsappNumber: '14708469271',
       shipping,
       notes: form.notes,
+      paymentMethod: 'WhatsApp',
+      paymentState: 'pending',
     }).whatsappUrl;
   };
 

@@ -16,59 +16,104 @@ export interface IncomingOrderMessageInput {
   whatsappNumber: string;
   shipping?: string;
   notes?: string;
+  paymentMethod?: string;
+  paymentState?: string;
 }
 
 export function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, '');
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('011')) return digits.slice(3);
+  return digits.startsWith('00') ? digits.slice(2) : digits;
 }
 
+const formatMoney = (amount: number) => `$${(Math.round(amount * 100) / 100).toFixed(2)}`;
+
+const formatPaymentState = (paymentState: string, language: 'es' | 'en') => {
+  const key = paymentState.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const labels: Record<string, { es: string; en: string }> = {
+    pending: { es: 'Pendiente', en: 'Pending' },
+    pending_payment: { es: 'Pendiente de pago', en: 'Payment pending' },
+    awaiting_payment: { es: 'Pendiente de pago', en: 'Awaiting payment' },
+    awaiting_confirmation: { es: 'Pendiente de confirmación', en: 'Awaiting confirmation' },
+    paid: { es: 'Pagado', en: 'Paid' },
+    received: { es: 'Recibido', en: 'Received' },
+    confirmed: { es: 'Confirmado', en: 'Confirmed' },
+    failed: { es: 'Fallido', en: 'Failed' },
+    refunded: { es: 'Reembolsado', en: 'Refunded' },
+  };
+  return labels[key]?.[language] ?? paymentState.trim();
+};
+
 export function buildIncomingOrderMessages(input: IncomingOrderMessageInput) {
+  const language = input.language;
   const phone = normalizePhone(input.phone);
   const whatsappNumber = normalizePhone(input.whatsappNumber);
   const itemLines = input.items.map((item) => {
     const variation = item.variation ? ` (${item.variation})` : '';
-    return `- ${item.quantity} x ${item.name}${variation} - $${item.total.toFixed(2)}`;
+    return `- ${item.quantity} x ${item.name}${variation} - ${formatMoney(item.total)}`;
   });
-  const shippingLine = input.shipping ? `\nShipping: ${input.shipping}` : '';
-  const notesLine = input.notes ? `\nNotes: ${input.notes}` : '';
-  const customerWhatsAppMessage = input.language === 'es'
-    ? [
-        `Hola ${input.customerName}, hemos recibido tu nuevo pedido.`,
-        `Orden: #${input.orderCode}`,
-        `Teléfono: ${input.phone}`,
-        `Email: ${input.email}`,
-        input.shipping ? `Dirección: ${input.shipping}` : '', '',
-        ...itemLines, '', `Total: $${input.total.toFixed(2)}`, notesLine,
-        '¿Continuamos con tu pedido?', '', "APERFY | Andres' Perfect Finds",
-      ].filter(Boolean).join('\n')
-    : [
-        `Hi ${input.customerName}, we received your new order.`,
-        `Order: #${input.orderCode}`,
-        `Phone: ${input.phone}`,
-        `Email: ${input.email}`,
-        input.shipping ? `Address: ${input.shipping}` : '', '',
-        ...itemLines, '', `Total: $${input.total.toFixed(2)}`, notesLine,
-        'Shall we continue with your order?', '', "APERFY | Andres' Perfect Finds",
-      ].filter(Boolean).join('\n');
-  const whatsappMessage = input.language === 'es'
-    ? [
-        `Hola ${input.customerName}, hemos recibido tu pedido:`,
-        `Orden: #${input.orderCode}`,
-        `Teléfono: ${input.phone}`,
-        `Email: ${input.email}`,
-        input.shipping ? `Dirección: ${input.shipping}` : '', '',
-        ...itemLines, '', `Total estimado: $${input.total.toFixed(2)}`, shippingLine, notesLine, '',
-        'Continuamos con el pedido?', '', "APERFY | Andres' Perfect Finds",
-      ].join('\n')
-    : [
-        `Hi ${input.customerName}, we received your order:`,
-        `Order: #${input.orderCode}`,
-        `Phone: ${input.phone}`,
-        `Email: ${input.email}`,
-        input.shipping ? `Address: ${input.shipping}` : '', '',
-        ...itemLines, '', `Estimated total: $${input.total.toFixed(2)}`, shippingLine, notesLine, '',
-        'Shall we continue with the order?', '', "APERFY | Andres' Perfect Finds",
-      ].join('\n');
+  const receiptItemLines = input.items.map((item) => {
+    const variation = item.variation ? ` (${item.variation})` : '';
+    return `• ${item.quantity} × ${item.name}${variation} — ${formatMoney(item.total)}`;
+  });
+  const itemsTotal = input.items.reduce((sum, item) => sum + Math.round(item.total * 100), 0) / 100;
+  const shipping = input.shipping?.trim();
+  const notes = input.notes?.trim();
+  const paymentMethod = input.paymentMethod?.trim();
+  const paymentState = input.paymentState?.trim();
+  const labels = language === 'es'
+    ? {
+        order: 'Orden', customer: 'Cliente', phone: 'Teléfono', items: 'Productos',
+        subtotal: 'Subtotal de productos', total: 'Total del pedido', method: 'Método de pago',
+        state: 'Estado del pago', notes: 'Notas', address: 'Dirección',
+      }
+    : {
+        order: 'Order', customer: 'Customer', phone: 'Phone', items: 'Items',
+        subtotal: 'Items subtotal', total: 'Order total', method: 'Payment method',
+        state: 'Payment status', notes: 'Notes', address: 'Address',
+      };
+
+  const receiptDetails = [
+    `${labels.order}: #${input.orderCode}`,
+    `${labels.customer}: ${input.customerName}`,
+    `${labels.phone}: ${input.phone}`,
+    ...(input.email ? [`Email: ${input.email}`] : []),
+    ...(shipping ? [`${labels.address}: ${shipping}`] : []),
+    '',
+    `${labels.items}:`,
+    ...receiptItemLines,
+    '',
+    `${labels.subtotal}: ${formatMoney(itemsTotal)}`,
+    `${labels.total}: ${formatMoney(input.total)}`,
+    ...(paymentMethod ? [`${labels.method}: ${paymentMethod}`] : []),
+    ...(paymentState ? [`${labels.state}: ${formatPaymentState(paymentState, language)}`] : []),
+    ...(notes ? [`${labels.notes}: ${notes}`] : []),
+  ];
+
+  const whatsappMessage = [
+    language === 'es'
+      ? `Hola APERFY, soy ${input.customerName || 'un cliente'} y quiero coordinar este pedido.`
+      : `Hi APERFY, I'm ${input.customerName || 'a customer'} and I want to coordinate this order.`,
+    '',
+    ...receiptDetails,
+    '',
+    language === 'es' ? 'Por favor confirmen mi pedido para continuar.' : 'Please confirm this order so we can continue.',
+    '',
+    "APERFY | Andres' Perfect Finds",
+  ].join('\n');
+
+  const customerWhatsAppMessage = [
+    language === 'es'
+      ? `Hola ${input.customerName}, hemos recibido tu nuevo pedido.`
+      : `Hi ${input.customerName}, we received your new order.`,
+    '',
+    ...receiptDetails,
+    '',
+    language === 'es' ? '¿Nos confirmas que podemos continuar con tu pedido?' : 'Can we continue with your order?',
+    '',
+    "APERFY | Andres' Perfect Finds",
+  ].join('\n');
+
   const telegramText = [
     'NUEVO PEDIDO APERFY', '',
     `Orden: #${input.orderCode}`,
@@ -76,7 +121,7 @@ export function buildIncomingOrderMessages(input: IncomingOrderMessageInput) {
     `Telefono: ${phone}`,
     `Email: ${input.email}`, '',
     ...itemLines, '',
-    `Total estimado: $${input.total.toFixed(2)}`,
+    `Total estimado: ${formatMoney(input.total)}`,
     input.shipping ? `Shipping: ${input.shipping}` : '',
     input.notes ? `Notes: ${input.notes}` : '', '',
     'Estado: Pendiente de confirmacion por WhatsApp',
