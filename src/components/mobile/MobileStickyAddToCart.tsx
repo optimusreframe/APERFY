@@ -74,7 +74,7 @@ export default function MobileStickyAddToCart({
       }}
       transition={{ type: 'spring', stiffness: 320, damping: 28 }}
       data-testid="mobile-add-to-cart-dock"
-      className="fixed inset-x-0 z-[60] md:hidden"
+      className="fixed inset-x-0 z-[60] lg:hidden"
       style={{
         bottom: MOBILE_BOTTOM_NAV_OFFSET,
         left: 'env(safe-area-inset-left, 0px)',
@@ -87,7 +87,7 @@ export default function MobileStickyAddToCart({
           className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-white/[0.1] bg-card"
         >
           {image ? (
-            <img src={image} alt="" className="h-full w-full object-cover" />
+            <img src={image} alt="" className="h-full w-full object-contain bg-white p-0.5" />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               <Box className="h-5 w-5 text-muted-foreground/40" />
@@ -185,7 +185,7 @@ export default function MobileStickyAddToCart({
                 scale: 0.3,
               }}
               transition={{ duration: 0.65, ease: [0.4, 0, 0.2, 1] }}
-              className="pointer-events-none rounded-xl object-cover z-50"
+              className="pointer-events-none rounded-xl object-contain bg-white p-0.5 z-50"
               style={{ position: 'fixed', width: 44, height: 44, left: 0, top: 0 }}
             />
           )}

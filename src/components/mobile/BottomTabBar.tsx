@@ -30,7 +30,7 @@ export default function BottomTabBar() {
   return (
     <nav
       aria-label="Navegación principal"
-      className="mac-bottom-tabs relative z-[70] shrink-0 lg:hidden"
+      className="mac-bottom-tabs fixed inset-x-0 bottom-0 z-[70] lg:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
         <div

@@ -15,7 +15,7 @@ describe('BottomTabBar', () => {
     );
 
     const nav = screen.getByRole('navigation');
-    expect(nav).toHaveClass('z-[70]', 'shrink-0', 'lg:hidden');
+    expect(nav).toHaveClass('z-[70]', 'fixed', 'inset-x-0', 'bottom-0', 'lg:hidden');
     expect(nav).toHaveStyle({ paddingBottom: 'env(safe-area-inset-bottom, 0px)' });
     expect(screen.getByRole('link', { name: 'Inicio' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Carrito' })).toBeVisible();

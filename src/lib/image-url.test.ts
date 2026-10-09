@@ -1,12 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { buildResponsiveImageSources, optimizeImageUrl } from './image-url';
+import { buildResponsiveImageSources, getOriginalImageUrl, optimizeImageUrl } from './image-url';
 
 const sourceImage = 'https://xftxyvgplghnelawkhvl.supabase.co/storage/v1/object/public/product-images/catalog/phone.jpg';
 
 describe('image URL optimization', () => {
+  it('recovers the original public object from an existing render URL', () => {
+    const rendered = `${sourceImage.replace('/object/public/', '/render/image/public/')}?width=96&height=96&resize=cover`;
+
+    expect(getOriginalImageUrl(rendered)).toBe(sourceImage);
+    expect(optimizeImageUrl(rendered, { width: 192, quality: 72 })).toBe(
+      'https://xftxyvgplghnelawkhvl.supabase.co/storage/v1/render/image/public/product-images/catalog/phone.jpg?width=192&quality=72&format=webp&resize=contain',
+    );
+  });
+
   it('uses Supabase image transformations for public storage objects', () => {
     expect(optimizeImageUrl(sourceImage, { width: 640, quality: 72 })).toBe(
-      'https://xftxyvgplghnelawkhvl.supabase.co/storage/v1/render/image/public/product-images/catalog/phone.jpg?width=640&quality=72&format=webp',
+      'https://xftxyvgplghnelawkhvl.supabase.co/storage/v1/render/image/public/product-images/catalog/phone.jpg?width=640&quality=72&format=webp&resize=contain',
     );
   });
 
@@ -17,7 +26,7 @@ describe('image URL optimization', () => {
 
   it('builds a responsive source set only from transformable URLs', () => {
     expect(buildResponsiveImageSources(sourceImage, [320, 640], 72)).toBe(
-      'https://xftxyvgplghnelawkhvl.supabase.co/storage/v1/render/image/public/product-images/catalog/phone.jpg?width=320&quality=72&format=webp 320w, https://xftxyvgplghnelawkhvl.supabase.co/storage/v1/render/image/public/product-images/catalog/phone.jpg?width=640&quality=72&format=webp 640w',
+      'https://xftxyvgplghnelawkhvl.supabase.co/storage/v1/render/image/public/product-images/catalog/phone.jpg?width=320&quality=72&format=webp&resize=contain 320w, https://xftxyvgplghnelawkhvl.supabase.co/storage/v1/render/image/public/product-images/catalog/phone.jpg?width=640&quality=72&format=webp&resize=contain 640w',
     );
     expect(buildResponsiveImageSources('https://cdn.example.com/phone.jpg', [320, 640], 72)).toBeUndefined();
   });

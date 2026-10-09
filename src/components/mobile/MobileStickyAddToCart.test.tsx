@@ -23,7 +23,7 @@ describe('MobileStickyAddToCart', () => {
 
     const dock = screen.getByTestId('mobile-add-to-cart-dock');
     expect(dock).toHaveStyle({ bottom: MOBILE_BOTTOM_NAV_OFFSET });
-    expect(dock).toHaveClass('z-[60]', 'inset-x-0');
+    expect(dock).toHaveClass('z-[60]', 'inset-x-0', 'lg:hidden');
     expect(screen.getByRole('button', { name: /agregar|add/i })).toHaveAttribute('type', 'button');
   });
 });

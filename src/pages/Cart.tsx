@@ -41,7 +41,7 @@ export default function Cart() {
   const finalTotal = getFinalTotal();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-full bg-background">
       <Navbar />
 
       {/* ═══ Top Command Bar ═══ */}
