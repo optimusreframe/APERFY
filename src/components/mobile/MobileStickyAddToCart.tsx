@@ -62,8 +62,8 @@ export default function MobileStickyAddToCart({
   const ctaLabel = !inStock
     ? (language === 'es' ? 'Agotado' : 'Out of stock')
     : needsVariation
-      ? (language === 'es' ? 'Selecciona variante' : 'Select variant')
-      : (language === 'es' ? 'Agregar al carrito' : 'Add to cart');
+      ? (language === 'es' ? 'Seleccionar' : 'Select')
+      : (language === 'es' ? 'Agregar' : 'Add');
 
   return (
     <motion.div

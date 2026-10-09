@@ -24,6 +24,6 @@ describe('MobileStickyAddToCart', () => {
     const dock = screen.getByTestId('mobile-add-to-cart-dock');
     expect(dock).toHaveStyle({ bottom: MOBILE_BOTTOM_NAV_OFFSET });
     expect(dock).toHaveClass('z-[60]', 'inset-x-0');
-    expect(screen.getByRole('button', { name: /agregar al carrito|add to cart/i })).toHaveAttribute('type', 'button');
+    expect(screen.getByRole('button', { name: /agregar|add/i })).toHaveAttribute('type', 'button');
   });
 });
