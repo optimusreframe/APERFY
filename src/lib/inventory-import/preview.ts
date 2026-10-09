@@ -1,4 +1,5 @@
 import { classifyInventoryRow, normalizeInventoryText } from './classify';
+import { inferProductCondition } from '../product-condition';
 import type { ExistingInventoryProduct, ImportPreview, InventoryCellValue, InventoryImportRow, InventorySourceRow } from './types';
 
 function asText(value: InventoryCellValue): string {
@@ -74,6 +75,7 @@ export function buildImportPreview(
     const unitPrice = asNumber(source['Unit price']);
     const currency = asText(source.Currency).toUpperCase();
     const status = asText(source.Status).toLowerCase();
+    const conditionStatus = inferProductCondition(source);
     const photoFileName = normalizePhotoName(source['Photo file']);
     const categorySource = asText(source.Category);
     const classified = classifyInventoryRow(source);
@@ -114,6 +116,7 @@ export function buildImportPreview(
       unitPrice,
       currency,
       status,
+      conditionStatus,
       photoFileName,
       categorySource,
       categorySlug: classified.slug,

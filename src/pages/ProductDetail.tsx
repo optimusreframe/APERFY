@@ -643,11 +643,16 @@ export default function ProductDetail() {
           <div className="lg:sticky lg:top-32 lg:self-start space-y-5">
             {/* Identity */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              {product.categories && (
-                <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-2">
-                  {language === 'es' ? product.categories.name_es : product.categories.name_en}
-                </div>
-              )}
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                {product.categories && (
+                  <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80">
+                    {language === 'es' ? product.categories.name_es : product.categories.name_en}
+                  </div>
+                )}
+                <span className={`rounded-full px-2 py-1 text-[10px] font-bold tracking-wide ${product.condition_status === 'used' ? 'bg-amber-400/15 text-amber-300' : 'bg-primary/15 text-primary'}`}>
+                  {product.condition_status === 'used' ? 'USED' : 'NEW'}
+                </span>
+              </div>
               <h1 className="font-display font-bold text-[2rem] lg:text-[2.25rem] text-foreground leading-[1.05] tracking-[-0.02em]">
                 {language === 'es' ? product.name_es : product.name_en}
               </h1>
@@ -869,6 +874,7 @@ export default function ProductDetail() {
             <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80 mb-5">Specifications</div>
             <dl className="divide-y divide-white/[0.05]">
               {[
+                { k: 'Condition', v: product.condition_status === 'used' ? 'USED' : 'NEW' },
                 { k: 'Category', v: product.categories ? (language === 'es' ? product.categories.name_es : product.categories.name_en) : '—' },
                 { k: 'Weight', v: selectedWeight ? `${selectedWeight}${t.product.grams}` : '—' },
                 { k: 'Dimensions', v: selectedDimensions ? `${selectedDimensions}mm` : '—' },
@@ -909,7 +915,7 @@ export default function ProductDetail() {
             <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 scrollbar-hide -mx-4 px-4 lg:-mx-0 lg:px-0">
               {relatedProducts.map((rp, i) => (
                 <div key={rp.id} className="snap-start shrink-0 w-[260px] lg:w-[280px]">
-                  <ProductCard product={rp} index={i} showBadges={false} />
+                  <ProductCard product={rp} index={i} showBadges />
                 </div>
               ))}
             </div>

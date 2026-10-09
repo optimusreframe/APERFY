@@ -161,6 +161,7 @@ export async function persistInventoryImport(
         stock_quantity: row.quantity ?? 0,
         low_stock_threshold: 3,
         inventory_source_key: row.sourceKey,
+        condition_status: row.conditionStatus,
       };
       const { error: insertError } = await supabase.from('products').insert(productPayload);
       if (insertError) {

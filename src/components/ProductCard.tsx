@@ -41,8 +41,7 @@ export default function ProductCard({
     ? null
     : getInventoryLabel(inventoryState, product.stock_quantity, language === 'es' ? 'es' : 'en');
 
-  // Check if product is new (less than 7 days old)
-  const isNew = showBadges && (Date.now() - new Date(product.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
+  const condition = product.condition_status === 'used' ? 'used' : 'new';
   const isTrending = showBadges && likeCount >= 5;
 
   const imageSource = images[0] ? optimizeImageUrl(images[0], { width: 640, quality: 74 }) : '';
@@ -51,7 +50,7 @@ export default function ProductCard({
   return (
     <div className="group catalog-product-card">
       <div className="relative rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
-        <Link to={`/products/${product.slug}`}>
+        <Link to={`/products/${product.slug}`} className="block" aria-label={name}>
           <div className="aspect-[4/3] bg-secondary relative overflow-hidden">
             {images.length > 0 ? (
               <img
@@ -73,8 +72,10 @@ export default function ProductCard({
             )}
             {/* Badges */}
             <div className="absolute top-2 left-2 flex flex-col gap-1">
-              {isNew && (
-                <Badge className="bg-accent/90 text-accent-foreground border-0 text-[10px] px-1.5 py-0">NEW</Badge>
+              {showBadges && (
+                <Badge className={`border-0 text-[10px] px-1.5 py-0 font-bold ${condition === 'used' ? 'bg-amber-400/95 text-amber-950' : 'bg-accent/90 text-accent-foreground'}`}>
+                  {condition === 'used' ? 'USED' : 'NEW'}
+                </Badge>
               )}
               {isTrending && (
                 <Badge className="bg-primary/90 text-primary-foreground border-0 text-[10px] px-1.5 py-0">🔥 HOT</Badge>
@@ -93,34 +94,35 @@ export default function ProductCard({
           {onToggleFavorite && (
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite(product.id); }}
-              className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/20"
+              className="h-11 w-11 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/20"
+              aria-label={isFavorite ? `Quitar ${name} de favoritos` : `Agregar ${name} a favoritos`}
             >
               <Heart className={`w-4 h-4 ${isFavorite ? 'fill-primary text-primary' : 'text-foreground'}`} />
             </button>
           )}
-          <div className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="h-11 w-11 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             <ShareMenu slug={product.slug} productName={name} />
           </div>
         </div>
         {/* Card info */}
         <div className="p-3">
-          <Link to={`/products/${product.slug}`}>
+          <Link to={`/products/${product.slug}`} className="block min-w-0">
             <h3 className="font-display font-semibold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate">
               {name}
             </h3>
-          </Link>
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-base sm:text-lg font-bold text-gradient-gold">
-              ${Number(product.base_price).toFixed(2)}
-            </span>
-          </div>
-          {inventoryLabel && (
-            <div className={`mt-1 text-[10px] font-mono uppercase tracking-wider ${
-              inventoryState === 'sold_out' ? 'text-destructive' : inventoryState === 'low' ? 'text-amber-400' : 'text-emerald-400'
-            }`}>
-              {inventoryLabel}
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-base sm:text-lg font-bold text-gradient-gold">
+                ${Number(product.base_price).toFixed(2)}
+              </span>
             </div>
-          )}
+            {inventoryLabel && (
+              <div className={`mt-1 text-[10px] font-mono uppercase tracking-wider ${
+                inventoryState === 'sold_out' ? 'text-destructive' : inventoryState === 'low' ? 'text-amber-400' : 'text-emerald-400'
+              }`}>
+                {inventoryLabel}
+              </div>
+            )}
+          </Link>
           <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border/30">
             <LikeButton productId={product.id} countOnly externalCount={likeCount} size="sm" />
             <FavoriteCount count={favCount} />

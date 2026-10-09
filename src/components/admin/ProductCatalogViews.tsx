@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import type { Category, Product } from '@/lib/model-types';
 
-export type AdminProduct = Pick<Product, 'id' | 'name_en' | 'name_es' | 'slug' | 'base_price' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
+export type AdminProduct = Pick<Product, 'id' | 'name_en' | 'name_es' | 'slug' | 'base_price' | 'condition_status' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
   inventory_enabled: Product['inventory_enabled'];
   stock_quantity: Product['stock_quantity'];
   low_stock_threshold: Product['low_stock_threshold'];
@@ -164,7 +164,12 @@ function ProductListView({ products, selectedProductIds, allProductsSelected, on
             <div className="flex min-w-0 items-center gap-3">
               <ProductImage product={product} />
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-foreground sm:text-base">{product.name_es || product.name_en}</p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="truncate text-sm font-semibold text-foreground sm:text-base">{product.name_es || product.name_en}</p>
+                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide ${product.condition_status === 'used' ? 'bg-amber-400/15 text-amber-300' : 'bg-primary/15 text-primary'}`}>
+                    {product.condition_status === 'used' ? 'USED' : 'NEW'}
+                  </span>
+                </div>
                 <p className="mt-1 font-mono text-sm font-semibold text-primary">${Number(product.base_price).toFixed(2)}</p>
               </div>
             </div>
@@ -192,7 +197,12 @@ function ProductGridView({ products, selectedProductIds, onToggleSelected, onTog
           </div>
           <div className="space-y-3 p-3 sm:p-4">
             <div className="min-w-0">
-              <h3 className="truncate text-sm font-semibold text-foreground sm:text-base">{product.name_es || product.name_en}</h3>
+              <div className="flex min-w-0 items-center gap-2">
+                <h3 className="truncate text-sm font-semibold text-foreground sm:text-base">{product.name_es || product.name_en}</h3>
+                <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide ${product.condition_status === 'used' ? 'bg-amber-400/15 text-amber-300' : 'bg-primary/15 text-primary'}`}>
+                  {product.condition_status === 'used' ? 'USED' : 'NEW'}
+                </span>
+              </div>
               <p className="mt-1 font-mono text-sm font-semibold text-primary">${Number(product.base_price).toFixed(2)}</p>
             </div>
             <ProductActions product={product} compact onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />

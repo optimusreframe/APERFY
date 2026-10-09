@@ -329,13 +329,14 @@ export default function AdminInventoryImport() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-secondary/30 text-[10px] font-mono uppercase tracking-wider text-muted-foreground"><tr><th className="px-5 py-3">Row</th><th className="px-5 py-3">Product</th><th className="px-5 py-3">Category</th><th className="px-5 py-3">Price</th><th className="px-5 py-3">Qty</th><th className="px-5 py-3">Photo</th><th className="px-5 py-3">Status</th></tr></thead>
+                  <thead className="bg-secondary/30 text-[10px] font-mono uppercase tracking-wider text-muted-foreground"><tr><th className="px-5 py-3">Row</th><th className="px-5 py-3">Product</th><th className="px-5 py-3">Category</th><th className="px-5 py-3">Condition</th><th className="px-5 py-3">Price</th><th className="px-5 py-3">Qty</th><th className="px-5 py-3">Photo</th><th className="px-5 py-3">Status</th></tr></thead>
                   <tbody>
                     {preview.rows.slice(0, 20).map((row) => (
                       <tr key={row.sourceRowNumber} className="border-t border-border/50 align-top">
                         <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{row.sourceRowNumber}</td>
                         <td className="max-w-[260px] px-5 py-3"><div className="truncate font-medium">{row.name || '—'}</div><div className="truncate text-xs text-muted-foreground">{row.brand} {row.model}</div></td>
                         <td className="px-5 py-3"><div>{row.categorySlug}</div><div className="max-w-[260px] text-xs text-muted-foreground">{row.categoryReason}</div></td>
+                        <td className="px-5 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${row.conditionStatus === 'used' ? 'bg-amber-400/15 text-amber-300' : 'bg-primary/15 text-primary'}`}>{row.conditionStatus === 'used' ? 'USED' : 'NEW'}</span></td>
                         <td className="px-5 py-3 font-mono">{row.unitPrice === null ? '—' : `$${row.unitPrice.toFixed(2)}`}</td>
                         <td className="px-5 py-3 font-mono"><div>{row.quantity ?? '—'}</div><div className="text-[10px] font-sans uppercase tracking-wide text-muted-foreground">{getImportStockStatus(row.quantity)}</div></td>
                         <td className="px-5 py-3 text-xs">{row.photoFileName || '—'}</td>
