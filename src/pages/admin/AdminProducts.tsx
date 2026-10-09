@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useBulkImport } from '@/contexts/BulkImportContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler, Check, Clipboard } from 'lucide-react';
 import { logActivity } from '@/lib/activity-log';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -28,6 +28,8 @@ import { getNextWizardStep, getPreviousWizardStep, getWizardStepError } from './
 import { toggleAllBulkSelection, toggleBulkSelection } from './productBulkSelection';
 import { partitionProductDeletion } from './productDeletion';
 import { getErrorMessage } from '@/lib/model-types';
+import { readClipboardImage } from '@/lib/image-clipboard';
+import { getInventoryLabel, getInventoryState } from '@/lib/inventory';
 import type { Category, Material, Product } from '@/lib/model-types';
 
 // ── Types ──
@@ -41,6 +43,9 @@ interface ProductForm {
   category_id: string;
   is_active: boolean;
   is_featured: boolean;
+  inventory_enabled: boolean;
+  stock_quantity: number;
+  low_stock_threshold: number;
 }
 
 interface MediaItem {
@@ -70,6 +75,9 @@ interface AiProductData {
 }
 
 type AdminProduct = Pick<Product, 'id' | 'name_en' | 'name_es' | 'description_en' | 'description_es' | 'slug' | 'base_price' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
+  inventory_enabled: Product['inventory_enabled'];
+  stock_quantity: Product['stock_quantity'];
+  low_stock_threshold: Product['low_stock_threshold'];
   categories: Pick<Category, 'name_en' | 'name_es'> | null;
 };
 type BulkField = 'name_es' | 'base_price' | 'category_id' | 'is_active';
@@ -78,6 +86,7 @@ type BulkEdit = Partial<Pick<AdminProduct, BulkField>>;
 const empty: ProductForm = {
   name_en: '', name_es: '', description_en: '', description_es: '',
   slug: '', base_price: 0, category_id: '', is_active: true, is_featured: false,
+  inventory_enabled: false, stock_quantity: 0, low_stock_threshold: 3,
 };
 
 const MAX_MEDIA = 5;
@@ -347,7 +356,7 @@ export default function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name_en, name_es, slug, base_price, is_active, is_featured, category_id, images, created_at, description_en, description_es, categories(name_en, name_es)')
+        .select('id, name_en, name_es, slug, base_price, is_active, is_featured, category_id, images, created_at, description_en, description_es, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -638,6 +647,7 @@ export default function AdminProducts() {
       description_en: p.description_en || '', description_es: p.description_es || '',
       slug: p.slug, base_price: p.base_price,
       category_id: p.category_id || '', is_active: p.is_active, is_featured: p.is_featured,
+      inventory_enabled: p.inventory_enabled, stock_quantity: p.stock_quantity, low_stock_threshold: p.low_stock_threshold,
     });
     const existingImages = Array.isArray(p.images) ? p.images.filter((url): url is string => typeof url === 'string') : [];
     setMediaFiles(existingImages.map((url, i) => ({
@@ -970,6 +980,30 @@ export default function AdminProducts() {
     setAiSelectedSourceImage(null);
   };
 
+  const handleAiClipboardPaste = async () => {
+    const clipboard = navigator.clipboard;
+    if (!clipboard?.read) {
+      toast({ title: 'Portapapeles no disponible', description: 'Usa “Subir desde galería / archivos” para seleccionar la imagen.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const file = await readClipboardImage(() => clipboard.read());
+      if (!file) {
+        toast({ title: 'No hay una imagen en el portapapeles', description: 'Copia una imagen y vuelve a intentarlo.', variant: 'destructive' });
+        return;
+      }
+      const b64 = await fileToBase64(file);
+      setAiOriginalImage(b64);
+      setAiOriginalImageFile(file);
+      setAiSelectedSourceImage(null);
+      toast({ title: 'Imagen pegada', description: 'La imagen del portapapeles está lista para analizar.' });
+    } catch (error: unknown) {
+      console.error('Clipboard image read failed:', error);
+      toast({ title: 'No se pudo leer el portapapeles', description: 'Concede permiso al navegador o usa la selección desde galería / archivos.', variant: 'destructive' });
+    }
+  };
+
   const handleAiBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1203,6 +1237,9 @@ export default function AdminProducts() {
       category_id: matchedCat?.id || '',
       is_active: true,
       is_featured: false,
+      inventory_enabled: false,
+      stock_quantity: 0,
+      low_stock_threshold: 3,
     });
 
     // Build media list: primary AI image + generated angles (cap respect handled downstream)
@@ -1403,10 +1440,15 @@ export default function AdminProducts() {
                       ) : (
                         <button onClick={() => aiOriginalInputRef.current?.click()} className="w-32 h-24 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors">
                           <Upload className="w-5 h-5 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">Subir</span>
+                          <span className="text-xs text-muted-foreground">Galería / archivos</span>
                         </button>
                       )}
-                       <input ref={aiOriginalInputRef} type="file" accept="image/*" capture="environment" onChange={handleAiOriginalUpload} className="hidden" />
+                       <input ref={aiOriginalInputRef} type="file" accept="image/*" onChange={handleAiOriginalUpload} className="hidden" />
+                       {!aiOriginalImage && (
+                         <Button type="button" variant="outline" onClick={handleAiClipboardPaste} className="w-full gap-2">
+                           <Clipboard className="h-4 w-4" /> PEGAR DESDE PORTAPAPELES
+                         </Button>
+                       )}
                        <Button type="button" variant="outline" onClick={handleAiPhotoAnalyze} disabled={!aiOriginalImage || aiLoading} className="w-full gap-2 uppercase"><Sparkles className="h-4 w-4" /> ANALYZE PHOTO &amp; SUGGEST PRICE</Button>
                     </div>
 
@@ -1558,7 +1600,10 @@ export default function AdminProducts() {
 
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => aiOriginalInputRef.current?.click()} className="text-xs gap-1">
-                            <Upload className="w-3 h-3" /> Subir Foto
+                            <Upload className="w-3 h-3" /> Galería / archivos
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={handleAiClipboardPaste} className="text-xs gap-1">
+                            <Clipboard className="w-3 h-3" /> Pegar imagen
                           </Button>
                         </div>
 
@@ -2194,6 +2239,44 @@ export default function AdminProducts() {
                   <div className="flex items-center gap-2"><Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} /><Label>Destacado</Label></div>
                 </div>
 
+                <div className="rounded-xl border border-border bg-secondary/40 p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <Label className="font-semibold">Controlar inventario</Label>
+                      <p className="text-xs text-muted-foreground mt-1">El checkout reservará unidades y mostrará disponible, pocas unidades o agotado.</p>
+                    </div>
+                    <Switch checked={form.inventory_enabled} onCheckedChange={(checked) => setForm({ ...form, inventory_enabled: checked })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Unidades disponibles</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={form.stock_quantity}
+                        disabled={!form.inventory_enabled}
+                        onChange={(e) => setForm({ ...form, stock_quantity: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                        className="bg-background"
+                      />
+                      {fieldErrors.stock_quantity && <p className="text-xs text-destructive">{fieldErrors.stock_quantity}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Umbral de pocas unidades</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={form.low_stock_threshold}
+                        disabled={!form.inventory_enabled}
+                        onChange={(e) => setForm({ ...form, low_stock_threshold: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                        className="bg-background"
+                      />
+                      {fieldErrors.low_stock_threshold && <p className="text-xs text-destructive">{fieldErrors.low_stock_threshold}</p>}
+                    </div>
+                  </div>
+                </div>
+
                 {/* ── VARIATIONS (Size/Weight) ── */}
                 </>}
                 {wizardStep === 3 && <>
@@ -2648,6 +2731,7 @@ export default function AdminProducts() {
               <TableHead>Producto</TableHead>
               <TableHead>Categoría</TableHead>
               <TableHead>Precio</TableHead>
+              <TableHead>Stock</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -2713,6 +2797,27 @@ export default function AdminProducts() {
                   )}
                 </TableCell>
                 <TableCell>
+                  {(() => {
+                    const inventoryState = getInventoryState(p);
+                    const stockLabel = inventoryState === 'untracked'
+                      ? 'Sin control'
+                      : getInventoryLabel(inventoryState, p.stock_quantity, language === 'es' ? 'es' : 'en');
+                    const stockClass = inventoryState === 'sold_out'
+                      ? 'text-destructive'
+                      : inventoryState === 'low'
+                        ? 'text-amber-400'
+                        : inventoryState === 'available'
+                          ? 'text-emerald-400'
+                          : 'text-muted-foreground';
+                    return (
+                      <div className="text-xs">
+                        <span className={`font-medium ${stockClass}`}>{stockLabel}</span>
+                        {inventoryState !== 'untracked' && <p className="text-muted-foreground mt-0.5">{p.stock_quantity} uds.</p>}
+                      </div>
+                    );
+                  })()}
+                </TableCell>
+                <TableCell>
                   {bulkEditMode ? (
                     <Switch
                       checked={getBulkValue(p.id, 'is_active', p.is_active)}
@@ -2750,7 +2855,7 @@ export default function AdminProducts() {
               </TableRow>
             ))}
             {products.length === 0 && (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No hay productos aún.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No hay productos aún.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

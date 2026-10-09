@@ -20,6 +20,7 @@ import ProductReviews from '@/components/ProductReviews';
 import { Badge } from '@/components/ui/badge';
 import MobileStickyAddToCart from '@/components/mobile/MobileStickyAddToCart';
 import { productCommandBarClassName } from './productDetailLayout';
+import { getInventoryLabel, getInventoryState, getInventoryStock } from '@/lib/inventory';
 import type { Category, Material, Product } from '@/lib/model-types';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -344,6 +345,23 @@ export default function ProductDetail() {
     .map(varId => variations.find((vr) => vr.id === varId))
     .find((variation) => variation?.image_url)?.image_url || null, [selectedVariations, variations]);
   const images = useMemo(() => variationImage ? [variationImage, ...baseImages.filter(i => i !== variationImage)] : baseImages, [baseImages, variationImage]);
+  const inventoryState = getInventoryState(product ?? {});
+  const inventoryStock = getInventoryStock(product ?? {});
+  const quantityLimit = inventoryStock === null ? 99 : Math.max(1, inventoryStock);
+  const inventoryLabel = inventoryState === 'sold_out'
+    ? t.product.outOfStock
+    : inventoryState === 'low'
+      ? getInventoryLabel(inventoryState, inventoryStock ?? 0, language === 'es' ? 'es' : 'en')
+      : t.product.inStock;
+  const inventoryStatusClass = inventoryState === 'sold_out'
+    ? 'text-destructive/90'
+    : inventoryState === 'low'
+      ? 'text-amber-400/90'
+      : 'text-emerald-400/90';
+
+  useEffect(() => {
+    setQuantity((current) => Math.min(current, quantityLimit));
+  }, [quantityLimit]);
 
   // When the user picks a variation that has its own image, jump to it.
   useEffect(() => {
@@ -384,17 +402,26 @@ export default function ProductDetail() {
     ld.text = JSON.stringify({
       '@context': 'https://schema.org', '@type': 'Product',
       name, description: desc, image: baseImages, sku: product.slug, url,
-      offers: { '@type': 'Offer', price: Number(product.base_price || 0), priceCurrency: 'USD', availability: 'https://schema.org/InStock' },
+      offers: {
+        '@type': 'Offer',
+        price: Number(product.base_price || 0),
+        priceCurrency: 'USD',
+        availability: inventoryState === 'sold_out' ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+      },
     });
 
     return () => { document.title = 'APERFY'; };
-  }, [product, language, baseImages]);
+  }, [product, language, baseImages, inventoryState]);
 
 
 
 
   const handleAddToCart = useCallback(() => {
     if (!product) return;
+    if (inventoryState === 'sold_out') {
+      toast({ title: language === 'es' ? 'Producto agotado' : 'Product sold out', variant: 'destructive' });
+      return;
+    }
     addToCart({
       productId: product.id,
       productName: language === 'es' ? product.name_es : product.name_en,
@@ -414,7 +441,7 @@ export default function ProductDetail() {
       dimensions: selectedDimensions || undefined,
     });
     toast({ title: language === 'es' ? 'Agregado al carrito' : 'Added to cart' });
-  }, [product, language, images, quantity, unitPrice, selectedVariations, variations, notes, selectedWeight, selectedDimensions, addToCart, toast]);
+  }, [product, language, images, quantity, unitPrice, selectedVariations, variations, notes, selectedWeight, selectedDimensions, addToCart, toast, inventoryState]);
 
   if (isLoading) {
     return (
@@ -649,9 +676,9 @@ export default function ProductDetail() {
               </div>
 
               <div className="flex items-center gap-2 mt-2">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-400/90">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  {t.product.inStock}
+                <span className={`inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.2em] ${inventoryStatusClass}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${inventoryState === 'sold_out' ? 'bg-destructive' : inventoryState === 'low' ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`} />
+                  {inventoryLabel}
                 </span>
                 <span className="text-border">·</span>
                 <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
@@ -773,8 +800,9 @@ export default function ProductDetail() {
                     </motion.span>
                   </AnimatePresence>
                   <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-8 h-8 rounded-full hover:bg-white/[0.05] flex items-center justify-center transition-colors"
+                    onClick={() => setQuantity(Math.min(quantityLimit, quantity + 1))}
+                    disabled={quantity >= quantityLimit || inventoryState === 'sold_out'}
+                    className="w-8 h-8 rounded-full hover:bg-white/[0.05] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
                   >
                     <Plus className="w-3 h-3" />
                   </button>
@@ -787,6 +815,7 @@ export default function ProductDetail() {
               <motion.div whileTap={{ scale: 0.99 }}>
                 <Button
                   onClick={handleAddToCart}
+                  disabled={inventoryState === 'sold_out'}
                   className="w-full bg-gradient-gold text-primary-foreground font-bold gap-2 h-12 text-[14px] shadow-[0_0_30px_hsl(var(--primary)/0.25)] hover:shadow-[0_0_50px_hsl(var(--primary)/0.5)] transition-all rounded-full tracking-tight"
                 >
                   <ShoppingCart className="w-4 h-4" />
@@ -910,7 +939,7 @@ export default function ProductDetail() {
         }
         onAdd={handleAddToCart}
         productName={language === 'es' ? product.name_es : product.name_en}
-        inStock={true}
+        inStock={inventoryState !== 'sold_out'}
       />
 
 

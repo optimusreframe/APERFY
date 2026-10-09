@@ -9,6 +9,7 @@ import LikeButton from '@/components/LikeButton';
 import FavoriteCount from '@/components/FavoriteCount';
 import ShareMenu from '@/components/ShareMenu';
 import { Badge } from '@/components/ui/badge';
+import { getInventoryLabel, getInventoryState } from '@/lib/inventory';
 import type { Category, Product } from '@/lib/model-types';
 
 export type ProductCardProduct = Product & { categories?: Pick<Category, 'name_en' | 'name_es'> | null };
@@ -35,6 +36,10 @@ export default function ProductCard({
   const { language } = useLanguage();
   const images = Array.isArray(product.images) ? product.images.filter((image): image is string => typeof image === 'string') : [];
   const name = language === 'es' ? product.name_es : product.name_en;
+  const inventoryState = getInventoryState(product);
+  const inventoryLabel = inventoryState === 'untracked'
+    ? null
+    : getInventoryLabel(inventoryState, product.stock_quantity, language === 'es' ? 'es' : 'en');
 
   // Check if product is new (less than 7 days old)
   const isNew = showBadges && (Date.now() - new Date(product.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
@@ -105,6 +110,13 @@ export default function ProductCard({
               ${Number(product.base_price).toFixed(2)}
             </span>
           </div>
+          {inventoryLabel && (
+            <div className={`mt-1 text-[10px] font-mono uppercase tracking-wider ${
+              inventoryState === 'sold_out' ? 'text-destructive' : inventoryState === 'low' ? 'text-amber-400' : 'text-emerald-400'
+            }`}>
+              {inventoryLabel}
+            </div>
+          )}
           <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border/30">
             <LikeButton productId={product.id} countOnly externalCount={likeCount} size="sm" />
             <FavoriteCount count={favCount} />

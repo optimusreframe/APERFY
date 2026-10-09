@@ -1,7 +1,8 @@
 import "https://deno.land/std@0.168.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { aiChatCompletionsUrl, aiHeaders, loadAiConfig } from "../_shared/ai-provider.ts";
+import { aiChatCompletionsUrl, aiHeaders, loadAiConfig, loadAiImageConfig } from "../_shared/ai-provider.ts";
+import { buildAiRequestBody, DEEPSEEK_IMAGE_LIMITATION, isDeepSeekProvider, isImageProviderUsable } from "../_shared/ai-compat.ts";
 import { getIntegrationSecret } from "../_shared/integration-secrets.ts";
 
 const corsHeaders = {
@@ -29,9 +30,24 @@ function extractPricesFromText(text: string): number[] {
   return prices;
 }
 
-type AiRuntime = { endpoint: string; headers: Record<string, string>; model: string };
+type AiRuntime = { endpoint: string; headers: Record<string, string>; model: string; provider: string; baseUrl: string };
 type ImagePart = { type: string; image_url?: { url?: string }; url?: string; text?: string };
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string | ImagePart[] };
+
+function serializeAiRequest(ai: AiRuntime, body: Record<string, unknown>) {
+  return JSON.stringify(buildAiRequestBody(ai, body));
+}
+
+function imageCapabilityError(config?: AiRuntime | null) {
+  const unsupported = Boolean(config && isDeepSeekProvider(config));
+  return new Response(JSON.stringify({
+    success: false,
+    code: unsupported ? "AI_IMAGE_PROVIDER_UNSUPPORTED" : "AI_IMAGE_PROVIDER_NOT_CONFIGURED",
+    error: unsupported
+      ? DEEPSEEK_IMAGE_LIMITATION
+      : "Configura AI Image Provider API Key, base URL, proveedor y modelo en Admin → Integrations / AI Settings.",
+  }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
 
 // ── Phase 1: Generate optimized eBay search queries using AI ──
 async function generateEbayQueries(
@@ -43,7 +59,7 @@ async function generateEbayQueries(
     const resp = await fetch(ai.endpoint, {
       method: "POST",
       headers: ai.headers,
-      body: JSON.stringify({
+      body: serializeAiRequest(ai, {
         model: ai.model,
         messages: [
           {
@@ -195,7 +211,7 @@ async function validateAndAveragePrices(
     const resp = await fetch(ai.endpoint, {
       method: "POST",
       headers: ai.headers,
-      body: JSON.stringify({
+      body: serializeAiRequest(ai, {
         model: ai.model,
         messages: [
           {
@@ -330,7 +346,7 @@ serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const aiConfig = await loadAiConfig(adminClient);
     if (!aiConfig) throw new Error("AI provider is not configured in Admin → Integrations");
-    const ai: AiRuntime = { endpoint: aiChatCompletionsUrl(aiConfig), headers: aiHeaders(aiConfig), model: aiConfig.model };
+    const ai: AiRuntime = { endpoint: aiChatCompletionsUrl(aiConfig), headers: aiHeaders(aiConfig), model: aiConfig.model, provider: aiConfig.provider, baseUrl: aiConfig.baseUrl };
     const FIRECRAWL_API_KEY = await getIntegrationSecret(adminClient, "FIRECRAWL_API_KEY");
 
 
@@ -356,7 +372,7 @@ serve(async (req) => {
               "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
+            body: serializeAiRequest(ai, {
               url: url.trim(),
               formats: ["markdown", "links"],
               onlyMainContent: true,
@@ -380,7 +396,13 @@ serve(async (req) => {
       }
 
       if (!scrapedContent) {
-        scrapedContent = `URL provided: ${url}. Unable to scrape content directly.`;
+        return new Response(JSON.stringify({
+          success: false,
+          code: FIRECRAWL_API_KEY ? "URL_NOT_READABLE" : "FIRECRAWL_NOT_CONFIGURED",
+          error: FIRECRAWL_API_KEY
+            ? "No se pudo leer el contenido de esa URL. Prueba otra fuente o verifica la configuración de Firecrawl."
+            : "Configura FIRECRAWL_API_KEY en Admin → Integrations para extraer datos reales de URLs. Sin Firecrawl no se genera una ficha inventada.",
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       // ── Multi-Strategy eBay Price Research ──
@@ -414,7 +436,7 @@ serve(async (req) => {
       const extractResp = await fetch(ai.endpoint, {
         method: "POST",
         headers: ai.headers,
-        body: JSON.stringify({
+        body: serializeAiRequest(ai, {
           model: ai.model,
           messages: [
             {
@@ -512,6 +534,10 @@ ${imageListForAI || "No images found."}`
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      const imageConfig = await loadAiImageConfig(adminClient);
+      if (!imageConfig) return imageCapabilityError();
+      const imageAi: AiRuntime = { endpoint: aiChatCompletionsUrl(imageConfig), headers: aiHeaders(imageConfig), model: imageConfig.model, provider: imageConfig.provider, baseUrl: imageConfig.baseUrl };
+      if (!isImageProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
 
       const FRAMING_RULE = `CRITICAL FRAMING RULE:
 Show the entire physical product fully visible inside the frame. Do not crop any part of it. Keep clear margins on all sides, center the product, and use a premium ecommerce composition. Preserve the complete silhouette, packaging, labels, and visible details.`;
@@ -603,11 +629,11 @@ Luxury technology product display of the EXACT same physical product on a matte 
 
       const messages = [{ role: "user", content: contentParts }];
 
-      const imgResp = await fetch(ai.endpoint, {
+      const imgResp = await fetch(imageAi.endpoint, {
         method: "POST",
-        headers: ai.headers,
-        body: JSON.stringify({
-          model: ai.model,
+        headers: imageAi.headers,
+        body: serializeAiRequest(imageAi, {
+          model: imageAi.model,
           messages,
           modalities: ["image", "text"],
         }),
@@ -752,7 +778,7 @@ Luxury technology product display of the EXACT same physical product on a matte 
       const translateResp = await fetch(ai.endpoint, {
         method: "POST",
         headers: ai.headers,
-        body: JSON.stringify({
+        body: serializeAiRequest(ai, {
           model: ai.model,
           messages: [
             {
@@ -828,7 +854,7 @@ If the input name/description is already good, polish it slightly. If it's empty
         },
         {
           role: "user",
-          content: imageUrl
+          content: imageUrl && !isDeepSeekProvider(aiConfig)
             ? [
                 { type: "text", text: `Current name (ES): ${name_es || '(empty)'}\nCurrent description (ES): ${description_es || '(empty)'}` },
                 { type: "image_url", image_url: { url: imageUrl } }
@@ -840,7 +866,7 @@ If the input name/description is already good, polish it slightly. If it's empty
       const enhanceResp = await fetch(ai.endpoint, {
         method: "POST",
         headers: ai.headers,
-        body: JSON.stringify({
+        body: serializeAiRequest(ai, {
           model: ai.model,
           messages,
           tools: [{
@@ -895,6 +921,10 @@ If the input name/description is already good, polish it slightly. If it's empty
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      const imageConfig = await loadAiImageConfig(adminClient);
+      if (!imageConfig) return imageCapabilityError();
+      const imageAi: AiRuntime = { endpoint: aiChatCompletionsUrl(imageConfig), headers: aiHeaders(imageConfig), model: imageConfig.model, provider: imageConfig.provider, baseUrl: imageConfig.baseUrl };
+      if (!isImageProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
 
       const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
 Preserve the exact same physical product from the source image. Do not redesign it or change its proportions, silhouette, color, packaging, labels, logos, texture, or visible details. Only change the camera angle. The final image must look like the same product photographed in a professional APERFY retail studio.`;
@@ -915,11 +945,11 @@ Preserve the exact same physical product from the source image. Do not redesign 
       const framingRule = `CRITICAL FRAMING RULE: Show the entire physical product fully visible inside the frame with at least 10-15% negative space on all sides. Do not crop it. Keep the complete silhouette, packaging, labels, and visible details.`;
       const promptText = `${framingRule}\n\n${fidelityRule}\n\n${anglePrompt}\n\nThe output MUST be a single photorealistic image of the identical object — never reinterpret or restyle it. No people, no hands, no text, no watermark, no extra logos.`;
 
-      const imgResp = await fetch(ai.endpoint, {
+      const imgResp = await fetch(imageAi.endpoint, {
         method: "POST",
-        headers: ai.headers,
+        headers: imageAi.headers,
         body: JSON.stringify({
-          model: ai.model,
+          model: imageAi.model,
           messages: [{
             role: "user",
             content: [
@@ -991,6 +1021,10 @@ Preserve the exact same physical product from the source image. Do not redesign 
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      const imageConfig = await loadAiImageConfig(adminClient);
+      if (!imageConfig) return imageCapabilityError();
+      const imageAi: AiRuntime = { endpoint: aiChatCompletionsUrl(imageConfig), headers: aiHeaders(imageConfig), model: imageConfig.model, provider: imageConfig.provider, baseUrl: imageConfig.baseUrl };
+      if (!isImageProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
       const allowedCounts = [1, 4, 8];
       const variantCount = allowedCounts.includes(Number(count)) ? Number(count) : 1;
     BACKGROUND_PRESET_PROMPTS.system_workshop = `Empty APERFY retail product photography studio, graphite surface, soft neutral gradient background, controlled green accent light, clean premium ecommerce composition, generous negative space for the product, no people, no hands, no text, no logos, no watermark.`;
@@ -1019,11 +1053,11 @@ Preserve the exact same physical product from the source image. Do not redesign 
 
       for (let i = 0; i < variantCount; i++) {
         try {
-          const imgResp = await fetch(ai.endpoint, {
+          const imgResp = await fetch(imageAi.endpoint, {
             method: "POST",
-            headers: ai.headers,
-            body: JSON.stringify({
-              model: ai.model,
+            headers: imageAi.headers,
+            body: serializeAiRequest(imageAi, {
+              model: imageAi.model,
               messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
               modalities: ["image", "text"],
             }),

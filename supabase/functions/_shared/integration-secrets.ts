@@ -3,6 +3,8 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 export const INTEGRATION_SECRET_NAMES = [
   'AI_PROVIDER_API_KEY',
   'AI_PROVIDER_BASE_URL',
+  'AI_IMAGE_PROVIDER_API_KEY',
+  'AI_IMAGE_PROVIDER_BASE_URL',
   'FIRECRAWL_API_KEY',
   'TELEGRAM_BOT_TOKEN',
   'TELEGRAM_CHAT_ID',

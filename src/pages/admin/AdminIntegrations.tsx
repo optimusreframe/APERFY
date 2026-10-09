@@ -11,6 +11,8 @@ import { AdminPageHeader, AdminSurface } from './_shared'
 const FIELDS = [
   { key: 'AI_PROVIDER_API_KEY', label: 'AI provider API key', placeholder: 'Paste the provider key', group: 'AI' },
   { key: 'AI_PROVIDER_BASE_URL', label: 'AI compatible API base URL', placeholder: 'https://api.openai.com/v1', group: 'AI' },
+  { key: 'AI_IMAGE_PROVIDER_API_KEY', label: 'AI image / vision provider API key', placeholder: 'Paste the image provider key', group: 'AI' },
+  { key: 'AI_IMAGE_PROVIDER_BASE_URL', label: 'AI image / vision compatible base URL', placeholder: 'https://api.openai.com/v1', group: 'AI' },
   { key: 'FIRECRAWL_API_KEY', label: 'Firecrawl API key (optional)', placeholder: 'Optional market-search key', group: 'AI' },
   { key: 'RESEND_API_KEY', label: 'Resend API key', placeholder: 're_...', group: 'EMAIL' },
   { key: 'RESEND_FROM_EMAIL', label: 'Resend sender email', placeholder: 'orders@aperfy.kpwr.dev', group: 'EMAIL' },
@@ -25,7 +27,7 @@ type FieldKey = typeof FIELDS[number]['key']
 type Status = { name: FieldKey; configured: boolean }
 
 const GROUP_META = {
-  AI: { title: 'AI PRODUCT INTELLIGENCE', icon: Sparkles, description: 'Compatible with OpenAI-style chat completion providers. Select the provider and model in AI Settings.' },
+  AI: { title: 'AI PRODUCT INTELLIGENCE', icon: Sparkles, description: 'Text extraction and image generation use separate OpenAI-compatible providers. Select both providers and models in AI Settings.' },
   EMAIL: { title: 'RESEND EMAIL', icon: Send, description: 'Transactional email uses Resend directly and stays within the provider account limits.' },
   MESSAGING: { title: 'ORDER NOTIFICATIONS', icon: Smartphone, description: 'WhatsApp checkout and Telegram order alerts activate as soon as their values are present.' },
 } as const

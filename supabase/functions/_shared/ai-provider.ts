@@ -28,6 +28,26 @@ export async function loadAiConfig(adminClient: SupabaseClient): Promise<AiConfi
   }
 }
 
+export async function loadAiImageConfig(adminClient: SupabaseClient): Promise<AiConfig | null> {
+  const apiKey = await getIntegrationSecret(adminClient, 'AI_IMAGE_PROVIDER_API_KEY')
+  if (!apiKey) return null
+
+  const { data: settings } = await adminClient
+    .from('admin_settings')
+    .select('setting_key, setting_value')
+    .in('setting_key', ['ai_image_provider', 'ai_image_model'])
+
+  const setting = (key: string) => settings?.find((row) => row.setting_key === key)?.setting_value?.trim()
+  const baseUrl = await getIntegrationSecret(adminClient, 'AI_IMAGE_PROVIDER_BASE_URL')
+
+  return {
+    apiKey,
+    baseUrl: (baseUrl || 'https://api.openai.com/v1').replace(/\/$/, ''),
+    model: setting('ai_image_model') || Deno.env.get('AI_IMAGE_MODEL') || '',
+    provider: setting('ai_image_provider') || Deno.env.get('AI_IMAGE_PROVIDER') || 'openai-compatible',
+  }
+}
+
 export function aiChatCompletionsUrl(config: AiConfig) {
   return `${config.baseUrl}/chat/completions`
 }

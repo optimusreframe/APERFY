@@ -11,6 +11,8 @@ const settingsRows = vi.hoisted(() => ({
     { setting_key: 'ai_search_enabled', setting_value: 'true' },
     { setting_key: 'ai_discount_percent', setting_value: '20' },
     { setting_key: 'ai_provider_key_status', setting_value: 'not_configured' },
+    { setting_key: 'ai_image_provider', setting_value: 'openai-compatible' },
+    { setting_key: 'ai_image_model', setting_value: 'vision-image-model' },
   ],
 }));
 
@@ -23,7 +25,7 @@ vi.mock('@/integrations/supabase/client', () => ({
     }),
     functions: {
       invoke: async () => ({
-        data: { statuses: [{ name: 'AI_PROVIDER_API_KEY', configured: true }] },
+        data: { statuses: [{ name: 'AI_PROVIDER_API_KEY', configured: true }, { name: 'AI_IMAGE_PROVIDER_API_KEY', configured: true }] },
         error: null,
       }),
     },
@@ -55,7 +57,23 @@ describe('AdminAISettings', () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue('deepseek')).toBeInTheDocument();
       expect(screen.getByDisplayValue('deepseek-v4-flash')).toBeInTheDocument();
-      expect(screen.getByText('READY')).toBeInTheDocument();
+      expect(screen.getAllByText('READY').length).toBeGreaterThanOrEqual(1);
     });
+  });
+
+  it('loads a separate image provider and model', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <AdminAISettings />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByDisplayValue('openai-compatible')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('vision-image-model')).toBeInTheDocument();
+    expect(screen.getAllByText('READY').length).toBeGreaterThanOrEqual(2);
   });
 });
