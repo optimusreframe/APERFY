@@ -16,10 +16,14 @@ describe('incoming order messaging', () => {
       total: 18.5,
       language: 'es',
       whatsappNumber: '14708469271',
+      shipping: '123 Main St, Miami, FL 33101, United States',
     });
 
     expect(result.whatsappUrl).toContain('https://wa.me/14708469271?text=');
     expect(result.whatsappMessage).toContain('Hola Juan Pérez');
+    expect(result.whatsappMessage).toContain('Teléfono: +1 (407) 555-0199');
+    expect(result.whatsappMessage).toContain('Email: juan@example.com');
+    expect(result.whatsappMessage).toContain('Dirección: 123 Main St, Miami, FL 33101, United States');
     expect(result.telegramText).toContain('NUEVO PEDIDO APERFY');
     expect(result.telegramText).toContain('14075550199');
     expect(result.telegramText).toContain('Figura APERFY');

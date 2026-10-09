@@ -14,6 +14,7 @@ import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, 
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
 import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutWhatsAppUrl, isWhatsAppCheckoutComplete } from '@/lib/checkout';
+import { buildIncomingOrderMessages } from '@/lib/incomingOrder';
 
 type Step = 'shipping' | 'method' | 'payment-instructions' | 'whatsapp-sent';
 type Section = 'contact' | 'address' | 'shipping';
@@ -35,6 +36,8 @@ interface ShippingProvider {
   estimated_days_min: number;
   estimated_days_max: number;
 }
+
+const ONLINE_PAYMENTS_ENABLED = false;
 
 // ─── Apple-style floating-label input ───
 interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> {
@@ -325,7 +328,7 @@ export default function Checkout() {
       if (error) throw error;
       return data;
     },
-    enabled: step === 'method' || step === 'payment-instructions',
+    enabled: ONLINE_PAYMENTS_ENABLED && (step === 'method' || step === 'payment-instructions'),
   });
 
   useEffect(() => {
@@ -364,6 +367,30 @@ export default function Checkout() {
   const whatsappCheckoutComplete = isWhatsAppCheckoutComplete(step, createdOrderId, whatsappUrl);
 
   const setF = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
+
+  const buildFallbackWhatsAppUrl = (orderId: string): string => {
+    const shipping = [form.address, form.address2, form.city, form.state, form.zipCode, form.country]
+      .map(value => value.trim())
+      .filter(Boolean)
+      .join(', ');
+    return buildIncomingOrderMessages({
+      orderCode: orderId.slice(0, 8).toUpperCase(),
+      customerName: form.fullName,
+      phone: form.phone,
+      email: form.email,
+      items: items.map(item => ({
+        name: item.productName,
+        quantity: item.quantity,
+        total: (item.unitPrice + item.selectedVariations.reduce((sum, variation) => sum + variation.priceModifier, 0)) * item.quantity,
+        variation: item.selectedVariations.map(variation => variation.name).filter(Boolean).join(', '),
+      })),
+      total: orderTotal,
+      language: language === 'es' ? 'es' : 'en',
+      whatsappNumber: '14708469271',
+      shipping,
+      notes: form.notes,
+    }).whatsappUrl;
+  };
 
   const validateContact = () => {
     const errs: Record<string, string> = {};
@@ -532,14 +559,14 @@ export default function Checkout() {
           description: language === 'es' ? 'Telegram no pudo recibir la alerta. Puedes continuar por WhatsApp.' : 'Telegram could not receive the alert. You can continue through WhatsApp.',
         });
       }
-      return typeof data?.whatsappUrl === 'string' ? data.whatsappUrl : null;
+      return typeof data?.whatsappUrl === 'string' ? data.whatsappUrl : buildFallbackWhatsAppUrl(orderId);
     } catch (error) {
       console.error('Telegram order notification failed:', error);
       toast({
         title: language === 'es' ? 'Pedido guardado' : 'Order saved',
         description: language === 'es' ? 'La alerta de Telegram no esta disponible, pero tu pedido quedo registrado.' : 'Telegram alerts are unavailable, but your order was recorded.',
       });
-      return null;
+      return buildFallbackWhatsAppUrl(orderId);
     }
   };
 
@@ -549,7 +576,15 @@ export default function Checkout() {
       const orderId = await createOrder('whatsapp');
       if (!orderId) { setLoading(false); return; }
       setCreatedOrderId(orderId);
-      await sendOrderEmail(orderId, 'WhatsApp');
+      try {
+        await sendOrderEmail(orderId, 'WhatsApp');
+      } catch (error) {
+        console.error('Order email notification failed:', error);
+        toast({
+          title: language === 'es' ? 'Pedido guardado' : 'Order saved',
+          description: language === 'es' ? 'El correo no está disponible, pero continuaremos por WhatsApp.' : 'Email is unavailable, but we will continue through WhatsApp.',
+        });
+      }
       const orderWhatsappUrl = await notifyTelegramOrder(orderId);
       if (!orderWhatsappUrl) throw new Error(language === 'es' ? 'WhatsApp no está configurado en Admin → Integraciones.' : 'WhatsApp is not configured in Admin → Integrations.');
       setWhatsappUrl(orderWhatsappUrl);
@@ -947,7 +982,7 @@ export default function Checkout() {
                             {String(allStages.indexOf('payment') + 1).padStart(2, '0')} / Payment method
                           </div>
                           <h2 className="text-2xl font-semibold tracking-tight mb-1">{language === 'es' ? 'Método de pago' : 'Choose payment'}</h2>
-                          <p className="text-sm text-muted-foreground mb-6">{language === 'es' ? 'Elige cómo quieres pagar' : 'Choose how you want to pay'}</p>
+                          <p className="text-sm text-muted-foreground mb-6">{language === 'es' ? 'Confirma tu pedido por WhatsApp; los pagos online se habilitarán más adelante.' : 'Confirm your order through WhatsApp; online payments will be enabled later.'}</p>
 
                           {/* WhatsApp */}
                           <motion.button
@@ -975,7 +1010,7 @@ export default function Checkout() {
                             </div>
                           </motion.button>
 
-                          <div className="grid gap-2.5">
+                          {ONLINE_PAYMENTS_ENABLED && <div className="grid gap-2.5">
                             {Object.entries(paymentConfigs).map(([key, cfg]) => {
                               const isLoadingThis = loading && selectedPayment === key;
                               return (
@@ -1004,7 +1039,7 @@ export default function Checkout() {
                             {Object.keys(paymentConfigs).length === 0 && (
                               <p className="text-sm text-muted-foreground text-center py-2">{t.checkout.noPaymentMethods}</p>
                             )}
-                          </div>
+                          </div>}
 
                           <button onClick={() => { setStep('shipping'); setSection(shippingProviders.length > 0 ? 'shipping' : 'address'); }} className="mt-6 text-sm font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
                             ← {language === 'es' ? 'Volver' : 'Back'}

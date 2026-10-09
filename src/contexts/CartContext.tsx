@@ -81,6 +81,18 @@ function loadDiscount(): AppliedDiscount | null {
   catch { return null; }
 }
 
+export function mergeCartItem(items: CartItem[], item: CartItem): CartItem[] {
+  const existing = items.find(i => i.productId === item.productId);
+  if (existing) {
+    return items.map(i =>
+      i.productId === item.productId
+        ? { ...item, quantity: Math.min(i.quantity + item.quantity, 100) }
+        : i
+    );
+  }
+  return [...items, item];
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(loadCart);
   const [lastAdded, setLastAdded] = useState<{ item: CartItem; at: number } | null>(null);
@@ -95,17 +107,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addToCart = (item: CartItem) => {
     const result = cartItemSchema.safeParse(item);
     if (!result.success) return;
-    setItems(prev => {
-      const existing = prev.find(i => i.productId === item.productId);
-      if (existing) {
-        return prev.map(i =>
-          i.productId === item.productId
-            ? { ...item, quantity: Math.min(i.quantity + item.quantity, 100) }
-            : i
-        );
-      }
-      return [...prev, item];
-    });
+    setItems(prev => mergeCartItem(prev, item));
     setLastAdded({ item, at: Date.now() });
   };
 
