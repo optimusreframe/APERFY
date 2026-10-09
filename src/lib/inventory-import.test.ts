@@ -224,6 +224,22 @@ describe('inventory taxonomy', () => {
     expect(result.uploadedPaths).toEqual(['inventory-import/2-usb-c-charging-cable.jpg']);
   });
 
+  it('keeps the image when the import is cancelled after upload', async () => {
+    resetSupabaseState();
+    const preview = buildImportPreview([row()], new Set(['cable.jpg']), new Set());
+    const result = await persistInventoryImport(
+      preview,
+      await archiveWithPhoto(),
+      [{ id: 'cat-electronics', slug: 'electronics' }],
+      (progress) => progress.phase !== 'product',
+    );
+
+    expect(result).toMatchObject({ created: 0, skipped: 0, failed: 0 });
+    expect(result.uploadedPaths).toEqual(['inventory-import/2-usb-c-charging-cable.jpg']);
+    expect(supabaseState.removed).toHaveLength(0);
+    expect(supabaseState.inserted).toHaveLength(0);
+  });
+
   it('rejects an image extension whose content is not an image', async () => {
     resetSupabaseState();
     const zip = new JSZip();

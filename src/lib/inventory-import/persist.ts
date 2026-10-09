@@ -136,8 +136,9 @@ export async function persistInventoryImport(
       }
 
       if (!reportProgress(onProgress, { completed: index, total: preview.rows.length, currentName: row.name, phase: 'product' })) {
-        if (uploadedPath) await supabase.storage.from('product-images').remove([uploadedPath]);
-        result.uploadedPaths = result.uploadedPaths.filter((candidate) => candidate !== uploadedPath);
+        // Keep the uploaded object on cancellation. A concurrent importer may
+        // have observed the same path after its 409 response and may still
+        // commit a product that references it.
         cancelled = true;
         break;
       }
