@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import DiscountCodeInput from '@/components/DiscountCodeInput';
+import { optimizeImageUrl } from '@/lib/image-url';
 
 export default function Cart() {
   const { items, removeFromCart, updateQuantity, getTotal, clearCart, itemCount, discount, getDiscountAmount, getFinalTotal } = useCart();
@@ -119,7 +120,14 @@ export default function Cart() {
                       <Link to={`/products/${item.slug}`} className="shrink-0">
                         <div className="w-24 h-24 rounded-xl overflow-hidden bg-white/[0.02] border border-white/[0.06]">
                           {item.productImage ? (
-                            <img src={item.productImage} alt={item.productName} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" />
+                            <img
+                              src={optimizeImageUrl(item.productImage, { width: 192, quality: 72 })}
+                              alt={item.productName}
+                              width={96}
+                              height={96}
+                              decoding="async"
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                            />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <ShoppingCart className="w-6 h-6 text-muted-foreground/30" />

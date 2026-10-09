@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { Heart, Box } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +9,7 @@ import FavoriteCount from '@/components/FavoriteCount';
 import ShareMenu from '@/components/ShareMenu';
 import { Badge } from '@/components/ui/badge';
 import { getInventoryLabel, getInventoryState } from '@/lib/inventory';
+import { buildResponsiveImageSources, optimizeImageUrl } from '@/lib/image-url';
 import type { Category, Product } from '@/lib/model-types';
 
 export type ProductCardProduct = Product & { categories?: Pick<Category, 'name_en' | 'name_es'> | null };
@@ -45,22 +45,26 @@ export default function ProductCard({
   const isNew = showBadges && (Date.now() - new Date(product.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
   const isTrending = showBadges && likeCount >= 5;
 
+  const imageSource = images[0] ? optimizeImageUrl(images[0], { width: 640, quality: 74 }) : '';
+  const imageSources = images[0] ? buildResponsiveImageSources(images[0], [320, 480, 640], 74) : undefined;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.4 }}
-      className="group"
-    >
+    <div className="group catalog-product-card">
       <div className="relative rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
         <Link to={`/products/${product.slug}`}>
           <div className="aspect-[4/3] bg-secondary relative overflow-hidden">
             {images.length > 0 ? (
               <img
-                src={images[0]}
+                src={imageSource}
+                srcSet={imageSources}
+                sizes="(max-width: 639px) calc((100vw - 36px) / 2), (max-width: 1023px) 30vw, 240px"
                 alt={name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                loading="lazy"
+                width={640}
+                height={480}
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                loading={index < 4 ? 'eager' : 'lazy'}
+                fetchPriority={index < 4 ? 'high' : 'low'}
+                decoding="async"
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -78,7 +82,7 @@ export default function ProductCard({
             </div>
             {/* Category tag */}
             {product.categories && (
-              <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-background/80 backdrop-blur-sm text-[10px] sm:text-xs font-medium text-foreground">
+              <div className="absolute bottom-2 left-2 rounded-md bg-background/90 px-2 py-0.5 text-[10px] font-medium text-foreground sm:text-xs">
                 {language === 'es' ? product.categories.name_es : product.categories.name_en}
               </div>
             )}
@@ -123,6 +127,6 @@ export default function ProductCard({
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

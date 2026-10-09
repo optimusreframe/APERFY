@@ -5,6 +5,7 @@ import { Check, X, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
+import { optimizeImageUrl } from '@/lib/image-url';
 
 const AUTO_DISMISS_MS = 6000;
 
@@ -61,9 +62,12 @@ export default function CartAddedToast() {
                 <div className="relative shrink-0">
                   {lastAdded.item.productImage ? (
                     <img
-                      src={lastAdded.item.productImage}
+                      src={optimizeImageUrl(lastAdded.item.productImage, { width: 128, quality: 70 })}
                       alt=""
-                      className="w-14 h-14 rounded-xl object-cover bg-muted"
+                      width={56}
+                      height={56}
+                      decoding="async"
+                      className="h-14 w-14 rounded-xl object-cover bg-muted"
                       loading="lazy"
                     />
                   ) : (
