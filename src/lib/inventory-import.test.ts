@@ -162,4 +162,16 @@ describe('inventory taxonomy', () => {
     expect(result.failures).toEqual([{ sourceRowNumber: 2, name: 'USB-C charging cable', message: 'insert failed' }]);
     expect(supabaseState.removed).toEqual([['inventory-import/2-usb-c-charging-cable.jpg']]);
   });
+
+  it('rejects an image extension whose content is not an image', async () => {
+    resetSupabaseState();
+    const zip = new JSZip();
+    zip.file('cable.jpg', new Uint8Array([1, 2, 3]));
+    const preview = buildImportPreview([row()], new Set(['cable.jpg']), new Set());
+    const result = await persistInventoryImport(preview, zip, [{ id: 'cat-electronics', slug: 'electronics' }]);
+
+    expect(result).toMatchObject({ created: 0, skipped: 0, failed: 1 });
+    expect(result.failures[0].message).toContain('no contiene una imagen válida');
+    expect(supabaseState.uploaded.size).toBe(0);
+  });
 });

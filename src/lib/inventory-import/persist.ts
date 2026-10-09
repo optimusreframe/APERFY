@@ -40,6 +40,14 @@ function imageExtension(fileName: string): { extension: string; contentType: str
     : null;
 }
 
+function hasImageSignature(bytes: Uint8Array, extension: string): boolean {
+  if (extension === 'jpg' || extension === 'jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (extension === 'png') return [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((value, index) => bytes[index] === value);
+  if (extension === 'webp') return [0x52, 0x49, 0x46, 0x46].every((value, index) => bytes[index] === value)
+    && [0x57, 0x45, 0x42, 0x50].every((value, index) => bytes[index + 8] === value);
+  return false;
+}
+
 function getPhotoEntry(zip: JSZip, fileName: string): JSZip.JSZipObject | null {
   const normalized = fileName.replaceAll('\\', '/');
   return Object.values(zip.files).find((entry) => {
@@ -97,6 +105,7 @@ export async function persistInventoryImport(
       const image = imageExtension(row.photoFileName);
       if (!photo || !image) throw new Error(`No se encontró una imagen compatible para ${row.name}.`);
       const imageBytes = await photo.async('uint8array');
+      if (!hasImageSignature(imageBytes, image.extension)) throw new Error(`El archivo ${row.photoFileName} no contiene una imagen válida.`);
       const blob = new Blob([imageBytes], { type: image.contentType });
       const path = `inventory-import/${row.sourceRowNumber}-${row.slug}.${image.extension}`;
       const { error: uploadError } = await supabase.storage.from('product-images').upload(path, blob, {
