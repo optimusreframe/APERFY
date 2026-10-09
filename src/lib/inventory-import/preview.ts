@@ -80,6 +80,7 @@ export function buildImportPreview(
     if (unitPrice === null || unitPrice < 0) issues.push('invalid_price');
     if (currency !== 'USD') issues.push('invalid_currency');
     if (status !== 'approved') issues.push('not_approved');
+    if (!categorySource) issues.push('missing_category');
     if (!photoFileName || !hasPhoto(photoFileName, photoNames)) issues.push('missing_photo');
     if (existingSlugs.has(slug)) {
       issues.push('existing_slug_conflict');

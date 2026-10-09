@@ -21,6 +21,13 @@ export function isImportButtonDisabled(preview: ImportPreview | null, archiveRea
   return !archiveReady || !preview?.canImport;
 }
 
+export function getImportStockStatus(quantity: number | null): string {
+  if (quantity === null) return 'Invalid stock';
+  if (quantity === 0) return 'Sold out';
+  if (quantity <= 3) return 'Low stock';
+  return 'In stock';
+}
+
 function isImagePath(path: string): boolean {
   return /\.(?:jpe?g|png|webp)$/i.test(path) && !path.endsWith('/');
 }
@@ -28,13 +35,17 @@ function isImagePath(path: string): boolean {
 export async function parseInventoryArchive(file: File, existingSlugs: Set<string>): Promise<ParsedInventoryArchive> {
   const zip = await JSZip.loadAsync(file);
   const entries = Object.values(zip.files);
-  const workbookEntry = entries.find((entry) => !entry.dir && /(?:^|\/)inventory\.xlsx$/i.test(entry.name));
-  if (!workbookEntry) throw new Error('El ZIP debe contener un archivo inventory.xlsx.');
+  const workbookEntries = entries.filter((entry) => !entry.dir && /(?:^|\/)inventory\.xlsx$/i.test(entry.name));
+  if (workbookEntries.length !== 1) {
+    if (workbookEntries.length === 0) throw new Error('El ZIP debe contener exactamente un archivo inventory.xlsx.');
+    throw new Error(`El ZIP debe contener exactamente un archivo inventory.xlsx; encontrados: ${workbookEntries.map((entry) => entry.name).join(', ')}`);
+  }
+  const workbookEntry = workbookEntries[0];
 
   const workbookBuffer = await workbookEntry.async('arraybuffer');
   const workbook = XLSX.read(workbookBuffer, { type: 'array', cellDates: false });
-  const worksheet = workbook.Sheets.Inventory || workbook.Sheets[workbook.SheetNames[0]];
-  if (!worksheet) throw new Error('No se encontró la hoja Inventory en el workbook.');
+  const worksheet = workbook.Sheets.Inventory;
+  if (!worksheet) throw new Error(`No se encontró la hoja Inventory en el workbook. Hojas disponibles: ${workbook.SheetNames.join(', ') || 'ninguna'}.`);
 
   const rows = XLSX.utils.sheet_to_json<InventorySourceRow>(worksheet, { defval: null, raw: true });
   if (rows.length === 0) throw new Error('La hoja Inventory no contiene filas de productos.');
@@ -90,6 +101,10 @@ export default function AdminInventoryImport() {
 
   const canImport = !isImportButtonDisabled(preview, Boolean(archive));
   const issueRows = preview?.rows.filter((row) => row.issues.length > 0) ?? [];
+  const handleImport = () => {
+    if (!canImport) return;
+    toast({ title: 'Importación pendiente', description: 'La vista previa está validada; todavía no se escribió ningún producto.' });
+  };
 
   return (
     <div className="max-w-[1500px] mx-auto">
@@ -102,6 +117,7 @@ export default function AdminInventoryImport() {
             <input
               type="file"
               accept=".zip,application/zip"
+              aria-label="Choose ZIP"
               className="sr-only"
               disabled={parsing || loadingSlugs}
               onChange={(event) => { void handleArchive(event.target.files?.[0]); event.currentTarget.value = ''; }}
@@ -159,10 +175,33 @@ export default function AdminInventoryImport() {
               )}
               {Object.keys(preview.missingFields).length > 0 && (
                 <div className="mt-4 grid gap-2 md:grid-cols-3">
-                  {Object.entries(preview.missingFields).map(([field, count]) => <div key={field} className="text-xs text-destructive">{field}: {count}</div>)}
+              {Object.entries(preview.missingFields).map(([field, count]) => <div key={field} className="text-xs text-destructive">{field}: {count}</div>)}
+              </div>
+            )}
+              {(preview.duplicateNames.length > 0 || preview.fallbackRows.length > 0) && (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {preview.duplicateNames.length > 0 && (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                      <div className="font-medium text-amber-300">Duplicate names</div>
+                      <ul className="mt-2 space-y-1 text-xs text-amber-100/80">
+                        {preview.duplicateNames.map((duplicate) => <li key={duplicate.name}>{duplicate.name} · rows {duplicate.rowNumbers.join(', ')}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {preview.fallbackRows.length > 0 && (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                      <div className="font-medium text-amber-300">Fallback classifications</div>
+                      <ul className="mt-2 space-y-1 text-xs text-amber-100/80">
+                        {preview.fallbackRows.map((rowNumber) => {
+                          const row = preview.rows.find((candidate) => candidate.sourceRowNumber === rowNumber);
+                          return <li key={rowNumber}>row {rowNumber}: {row?.name || 'Unnamed'} — {row?.categoryReason}</li>;
+                        })}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
-              <Button className="mt-5 w-full gap-2" disabled={!canImport} title="Persistence is enabled in the next import step">
+              <Button className="mt-5 w-full gap-2" disabled={!canImport} onClick={handleImport} title="No products are written until persistence is connected">
                 <PackageCheck className="h-4 w-4" />Import products
               </Button>
             </AdminSurface>
@@ -194,7 +233,7 @@ export default function AdminInventoryImport() {
                         <td className="max-w-[260px] px-5 py-3"><div className="truncate font-medium">{row.name || '—'}</div><div className="truncate text-xs text-muted-foreground">{row.brand} {row.model}</div></td>
                         <td className="px-5 py-3"><div>{row.categorySlug}</div><div className="max-w-[260px] text-xs text-muted-foreground">{row.categoryReason}</div></td>
                         <td className="px-5 py-3 font-mono">{row.unitPrice === null ? '—' : `$${row.unitPrice.toFixed(2)}`}</td>
-                        <td className="px-5 py-3 font-mono">{row.quantity ?? '—'}</td>
+                        <td className="px-5 py-3 font-mono"><div>{row.quantity ?? '—'}</div><div className="text-[10px] font-sans uppercase tracking-wide text-muted-foreground">{getImportStockStatus(row.quantity)}</div></td>
                         <td className="px-5 py-3 text-xs">{row.photoFileName || '—'}</td>
                         <td className="px-5 py-3">{row.issues.length ? <span className="text-xs text-destructive">{row.issues.join(', ')}</span> : <span className="text-xs text-emerald-400">Valid</span>}</td>
                       </tr>
