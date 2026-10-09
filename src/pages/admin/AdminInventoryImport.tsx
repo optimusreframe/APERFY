@@ -10,6 +10,7 @@ import { AdminPageHeader, AdminSurface } from './_shared';
 import { useToast } from '@/hooks/use-toast';
 import { buildImportPreview } from '@/lib/inventory-import/preview';
 import { persistInventoryImport, type InventoryImportProgress, type InventoryImportResult } from '@/lib/inventory-import/persist';
+import { assertSafeArchiveEntryName, validateInventoryArchiveLimits } from '@/lib/inventory-import/safety';
 import { INVENTORY_CATEGORIES } from '@/lib/inventory-import/taxonomy';
 import type { ExistingInventoryProduct, ImportPreview, InventorySourceRow } from '@/lib/inventory-import/types';
 import type { Category } from '@/lib/model-types';
@@ -35,8 +36,11 @@ function isImagePath(path: string): boolean {
 }
 
 export async function parseInventoryArchive(file: File, existingProducts: ExistingInventoryProduct[]): Promise<ParsedInventoryArchive> {
+  validateInventoryArchiveLimits({ archiveBytes: file.size });
   const zip = await JSZip.loadAsync(file);
   const entries = Object.values(zip.files);
+  validateInventoryArchiveLimits({ entryCount: entries.length });
+  entries.forEach((entry) => assertSafeArchiveEntryName(entry.unsafeOriginalName ?? entry.name));
   const workbookEntries = entries.filter((entry) => !entry.dir && /(?:^|\/)inventory\.xlsx$/i.test(entry.name));
   if (workbookEntries.length !== 1) {
     if (workbookEntries.length === 0) throw new Error('El ZIP debe contener exactamente un archivo inventory.xlsx.');
@@ -45,11 +49,13 @@ export async function parseInventoryArchive(file: File, existingProducts: Existi
   const workbookEntry = workbookEntries[0];
 
   const workbookBuffer = await workbookEntry.async('arraybuffer');
+  validateInventoryArchiveLimits({ workbookBytes: workbookBuffer.byteLength });
   const workbook = XLSX.read(workbookBuffer, { type: 'array', cellDates: false });
   const worksheet = workbook.Sheets.Inventory;
   if (!worksheet) throw new Error(`No se encontró la hoja Inventory en el workbook. Hojas disponibles: ${workbook.SheetNames.join(', ') || 'ninguna'}.`);
 
   const rows = XLSX.utils.sheet_to_json<InventorySourceRow>(worksheet, { defval: null, raw: true });
+  validateInventoryArchiveLimits({ rowCount: rows.length });
   if (rows.length === 0) throw new Error('La hoja Inventory no contiene filas de productos.');
 
   const photoNames = new Set(entries.filter((entry) => isImagePath(entry.name)).map((entry) => entry.name));

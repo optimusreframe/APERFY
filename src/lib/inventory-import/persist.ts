@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { supabase } from '@/integrations/supabase/client';
 import type { Category } from '@/lib/model-types';
 import type { ImportPreview, InventoryImportRow } from './types';
+import { assertSafeImageSize } from './safety';
 
 export type InventoryImportProgress = {
   completed: number;
@@ -122,6 +123,7 @@ export async function persistInventoryImport(
       const image = imageExtension(row.photoFileName);
       if (!photo || !image) throw new Error(`No se encontró una imagen compatible para ${row.name}.`);
       const imageBytes = await photo.async('uint8array');
+      assertSafeImageSize(imageBytes.byteLength);
       if (!hasImageSignature(imageBytes, image.extension)) throw new Error(`El archivo ${row.photoFileName} no contiene una imagen válida.`);
       const blob = new Blob([imageBytes], { type: image.contentType });
       const path = `inventory-import/${row.sourceRowNumber}-${row.slug}.${image.extension}`;
