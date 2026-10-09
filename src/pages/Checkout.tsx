@@ -228,7 +228,9 @@ function AddressAutocomplete({
 
   useEffect(() => {
     const query = value.trim();
-    if (query.length < 3) { setSuggestions([]); setOpen(false); return undefined; }
+    if (query.length < 3) { setSuggestions([]); setOpen(false); setSearching(false); return undefined; }
+    setSuggestions([]);
+    setOpen(false);
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setSearching(true);
@@ -236,7 +238,11 @@ function AddressAutocomplete({
         const result = await searchAddress(query, countryCode, controller.signal);
         setSuggestions(result);
         setOpen(result.length > 0);
-      } catch { /* manual entry remains available when lookup is unavailable */ }
+      } catch {
+        setSuggestions([]);
+        setOpen(false);
+        /* manual entry remains available when lookup is unavailable */
+      }
       finally { setSearching(false); }
     }, 650);
     return () => { window.clearTimeout(timer); controller.abort(); };
