@@ -19,6 +19,7 @@ const routeLabels: Record<string, string> = {
   '/admin/logs': 'LOGS',
   '/admin/ai-settings': 'AI PRODUCT INTELLIGENCE',
   '/admin/integrations': 'SECURE INTEGRATIONS',
+  '/admin/notifications': 'NOTIFICATION STUDIO',
   '/admin/background-qa': 'BACKGROUND QA',
   '/admin/homepage': 'HOME PAGE',
 };

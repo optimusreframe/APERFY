@@ -10,12 +10,15 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Zap, Cog, Package } from 'lucide-react';
+import { Loader2, MessageCircle, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Zap, Cog, Package, Search, MapPin, ChevronUp } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
 import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutWhatsAppUrl, isWhatsAppCheckoutComplete } from '@/lib/checkout';
 import { buildIncomingOrderMessages } from '@/lib/incomingOrder';
 import { optimizeImageUrl } from '@/lib/image-url';
+import { getCitiesForState, getCountryName, getCountryOptions, getStatesForCountry } from '@/lib/location-data';
+import { detectCountryFromIp, getPhoneCountryOptions, isCheckoutPhoneValid, normalizePhoneForCountry } from '@/lib/phone';
+import { searchNominatim, type AddressSuggestion } from '@/lib/geocoding';
 
 type Step = 'shipping' | 'method' | 'payment-instructions' | 'whatsapp-sent';
 type Section = 'contact' | 'address' | 'shipping';
@@ -99,6 +102,202 @@ function TAField({ label, value, onChange, ...rest }: TAFieldProps) {
         onBlur={() => setFocused(false)}
         className="w-full bg-transparent px-4 pt-6 pb-2 text-[15px] text-foreground outline-none resize-none placeholder:text-muted-foreground/40"
       />
+    </div>
+  );
+}
+
+function SelectField({
+  label, value, onChange, options, placeholder, disabled, error,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  placeholder: string;
+  disabled?: boolean;
+  error?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block px-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">{label}</label>
+      <div className={`relative rounded-xl border bg-background transition-colors ${error ? 'border-destructive/60' : 'border-border focus-within:border-primary'}`}>
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          disabled={disabled}
+          className="min-h-12 w-full appearance-none bg-transparent px-4 pr-10 text-[15px] text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="" disabled>{placeholder}</option>
+          {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      </div>
+      {error && <p className="ml-1 text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+function PhoneField({
+  label, value, countryCode, countries, onChange, onCountryChange, error,
+}: {
+  label: string;
+  value: string;
+  countryCode: string;
+  countries: Array<{ isoCode: string; name: string; phoneCode: string }>;
+  onChange: (value: string) => void;
+  onCountryChange: (value: string) => void;
+  error?: string;
+}) {
+  const selected = countries.find((country) => country.isoCode === countryCode);
+  const callingCode = selected?.phoneCode || '';
+  const localValue = value.replace(/\D/g, '').replace(new RegExp(`^${callingCode.replace('+', '')}`), '');
+  return (
+    <div>
+      <div className={`flex overflow-hidden rounded-xl border bg-background transition-colors ${error ? 'border-destructive/60' : 'border-border focus-within:border-primary focus-within:shadow-[0_0_0_4px_hsl(var(--primary)/0.12)]'}`}>
+        <label className="sr-only" htmlFor="checkout-phone-country">{label} country</label>
+        <select
+          id="checkout-phone-country"
+          aria-label={`${label} country`}
+          value={countryCode}
+          onChange={(event) => onCountryChange(event.target.value)}
+          className="w-[108px] shrink-0 appearance-none border-r border-border bg-transparent px-3 text-sm text-foreground outline-none"
+        >
+          {countries.map((country) => <option key={country.isoCode} value={country.isoCode}>{country.isoCode} {country.phoneCode}</option>)}
+        </select>
+        <div className="relative min-w-0 flex-1">
+          <label className="pointer-events-none absolute left-4 top-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">{label}</label>
+          <input
+            id="checkout-phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel-national"
+            value={localValue}
+            onChange={(event) => onChange(normalizePhoneForCountry(event.target.value, countryCode))}
+            placeholder="555 555 0123"
+            className="w-full bg-transparent px-4 pb-2 pt-5 text-[15px] text-foreground outline-none placeholder:text-muted-foreground/40"
+          />
+        </div>
+      </div>
+      <p className="mt-1.5 px-1 text-[10px] text-muted-foreground">{callingCode ? `+${callingCode.replace('+', '')} · ` : ''}Formato internacional para WhatsApp</p>
+      {error && <p className="ml-1 text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+function AddressAutocomplete({
+  value, countryCode, onChange, onSelect, language,
+}: {
+  value: string;
+  countryCode: string;
+  onChange: (value: string) => void;
+  onSelect: (suggestion: AddressSuggestion) => void;
+  language: 'es' | 'en';
+}) {
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    const query = value.trim();
+    if (query.length < 3) { setSuggestions([]); setOpen(false); return undefined; }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setSearching(true);
+      try {
+        const result = await searchNominatim(query, countryCode, controller.signal);
+        setSuggestions(result);
+        setOpen(result.length > 0);
+      } catch { /* manual entry remains available when lookup is unavailable */ }
+      finally { setSearching(false); }
+    }, 650);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [value, countryCode]);
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Field
+          label={language === 'es' ? 'Dirección' : 'Address'}
+          value={value}
+          onChange={onChange}
+          maxLength={255}
+          autoComplete="street-address"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls="address-suggestions"
+        />
+        <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+          {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+        </div>
+      </div>
+      {open && suggestions.length > 0 && (
+        <div id="address-suggestions" role="listbox" className="absolute z-40 mt-2 max-h-64 w-full overflow-auto rounded-xl border border-primary/20 bg-card shadow-2xl">
+          {suggestions.map((suggestion, index) => (
+            <button
+              type="button"
+              role="option"
+              key={`${suggestion.label}-${index}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => { onSelect(suggestion); setOpen(false); }}
+              className="flex w-full items-start gap-3 border-b border-white/[0.05] px-4 py-3 text-left last:border-0 hover:bg-primary/[0.08]"
+            >
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span className="text-xs leading-5 text-foreground">{suggestion.label}</span>
+            </button>
+          ))}
+          <p className="px-4 py-2 text-[10px] text-muted-foreground">{language === 'es' ? 'Sugerencias de OpenStreetMap · también puedes escribir manualmente' : 'OpenStreetMap suggestions · manual entry is always available'}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CityAutocomplete({
+  label, value, countryCode, onChange, language, error,
+}: {
+  label: string;
+  value: string;
+  countryCode: string;
+  onChange: (value: string) => void;
+  language: 'es' | 'en';
+  error?: string;
+}) {
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (value.trim().length < 2) { setSuggestions([]); setOpen(false); return undefined; }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await searchNominatim(value, countryCode, controller.signal, 'city');
+        setSuggestions(result);
+        setOpen(result.length > 0);
+      } catch { /* manual city entry is still available */ }
+    }, 500);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [value, countryCode]);
+
+  return (
+    <div className="relative">
+      <Field label={label} value={value} onChange={onChange} error={error} maxLength={100} autoComplete="address-level2" />
+      {open && suggestions.length > 0 && (
+        <div role="listbox" className="absolute z-40 mt-2 max-h-56 w-full overflow-auto rounded-xl border border-primary/20 bg-card shadow-2xl">
+          {suggestions.map((suggestion, index) => (
+            <button
+              type="button"
+              role="option"
+              key={`${suggestion.label}-${index}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => { onChange(suggestion.city || suggestion.label.split(',')[0]); setOpen(false); }}
+              className="flex w-full items-center gap-3 border-b border-white/[0.05] px-4 py-3 text-left last:border-0 hover:bg-primary/[0.08]"
+            >
+              <MapPin className="h-4 w-4 shrink-0 text-primary" />
+              <span className="text-xs text-foreground">{suggestion.city || suggestion.label}</span>
+            </button>
+          ))}
+          <p className="px-4 py-2 text-[10px] text-muted-foreground">{language === 'es' ? 'Ciudades sugeridas por OpenStreetMap' : 'Cities suggested by OpenStreetMap'}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -296,6 +495,9 @@ export default function Checkout() {
   const [form, setForm] = useState({
     fullName: '', email: '', phone: '', address: '', address2: '', city: '', state: '', zipCode: '', country: '', notes: ''
   });
+  const [phoneCountry, setPhoneCountry] = useState('US');
+  const [addressCountryCode, setAddressCountryCode] = useState('US');
+  const [addressStateCode, setAddressStateCode] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [step, setStep] = useState<Step>('shipping');
   const [section, setSection] = useState<Section>('contact');
@@ -307,6 +509,10 @@ export default function Checkout() {
   const [paymentConfigs, setPaymentConfigs] = useState<Record<string, PaymentConfig>>({});
   const [summaryOpen, setSummaryOpen] = useState(false);
   const whatsappIdempotencyKeyRef = useRef<string | null>(null);
+
+  const countryOptions = useMemo(() => getCountryOptions(language === 'es' ? 'es' : 'en'), [language]);
+  const phoneCountryOptions = useMemo(() => getPhoneCountryOptions(language === 'es' ? 'es' : 'en'), [language]);
+  const [stateOptions, setStateOptions] = useState<Array<{ isoCode: string; name: string }>>([]);
 
   const stepLabels = language === 'es' ? ['Envío', 'Pago', 'Confirmación'] : ['Shipping', 'Payment', 'Confirmation'];
   const currentStepNum = step === 'shipping' ? 0 : step === 'method' ? 1 : 2;
@@ -357,6 +563,31 @@ export default function Checkout() {
       });
   }, [user]);
 
+  useEffect(() => {
+    let active = true;
+    setStateOptions([]);
+    getStatesForCountry(addressCountryCode).then((states) => {
+      if (active) setStateOptions(states);
+    });
+    return () => { active = false; };
+  }, [addressCountryCode]);
+
+  useEffect(() => {
+    let active = true;
+    const localeCountry = navigator.language?.split('-')[1]?.toUpperCase();
+    const fallbackCountry = countryOptions.some((country) => country.isoCode === localeCountry) ? localeCountry : 'US';
+    setPhoneCountry(fallbackCountry);
+    setAddressCountryCode(fallbackCountry);
+    setForm((prev) => ({ ...prev, country: prev.country || getCountryName(fallbackCountry, language === 'es' ? 'es' : 'en') }));
+    detectCountryFromIp().then((detected) => {
+      if (!active || !detected || !countryOptions.some((country) => country.isoCode === detected)) return;
+      setPhoneCountry(detected);
+      setAddressCountryCode(detected);
+      setForm((prev) => ({ ...prev, country: prev.country || getCountryName(detected, language === 'es' ? 'es' : 'en') }));
+    });
+    return () => { active = false; };
+  }, [countryOptions, language]);
+
   const selectedProvider = shippingProviders.find(p => p.id === selectedShipping);
   const totalWeight = useMemo(() =>
     items.reduce((sum, item) => sum + (item.quantity * (item.weightGrams && item.weightGrams > 0 ? item.weightGrams : 100)) / 1000, 0)
@@ -368,6 +599,42 @@ export default function Checkout() {
   const whatsappCheckoutComplete = isWhatsAppCheckoutComplete(step, createdOrderId, whatsappUrl);
 
   const setF = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
+
+  const handleAddressCountryChange = (countryCode: string) => {
+    setAddressCountryCode(countryCode);
+    setAddressStateCode('');
+    setForm((prev) => ({
+      ...prev,
+      country: getCountryName(countryCode, language === 'es' ? 'es' : 'en'),
+      state: '',
+      city: '',
+    }));
+  };
+
+  const handleAddressStateChange = (stateCode: string) => {
+    setAddressStateCode(stateCode);
+    const state = stateOptions.find((option) => option.isoCode === stateCode);
+    setF('state', state?.name || '');
+    setF('city', '');
+  };
+
+  const handleAddressSuggestion = (suggestion: AddressSuggestion) => {
+    setForm((prev) => ({
+      ...prev,
+      address: suggestion.address || suggestion.label,
+      city: suggestion.city || prev.city,
+      state: suggestion.state || prev.state,
+      zipCode: suggestion.zipCode || prev.zipCode,
+      country: suggestion.country || prev.country,
+    }));
+    if (suggestion.countryCode && countryOptions.some((country) => country.isoCode === suggestion.countryCode)) {
+      setAddressCountryCode(suggestion.countryCode);
+    }
+    getStatesForCountry(suggestion.countryCode || addressCountryCode).then((states) => {
+      const matchedState = states.find((state) => state.name.toLowerCase() === suggestion.state.toLowerCase());
+      if (matchedState) setAddressStateCode(matchedState.isoCode);
+    });
+  };
 
   const buildFallbackWhatsAppUrl = (orderId: string): string => {
     const shipping = [form.address, form.address2, form.city, form.state, form.zipCode, form.country]
@@ -397,7 +664,7 @@ export default function Checkout() {
     const errs: Record<string, string> = {};
     if (!form.fullName.trim() || form.fullName.length < 2) errs.fullName = language === 'es' ? 'Nombre requerido' : 'Name is required';
     if (!/^\S+@\S+\.\S+$/.test(form.email)) errs.email = language === 'es' ? 'Email inválido' : 'Invalid email';
-    if (!form.phone.trim() || form.phone.length < 7) errs.phone = language === 'es' ? 'Teléfono inválido' : 'Invalid phone';
+    if (!isCheckoutPhoneValid(form.phone, phoneCountry)) errs.phone = language === 'es' ? 'Teléfono inválido para el país seleccionado' : 'Invalid phone for the selected country';
     setFieldErrors(prev => ({ ...prev, ...errs }));
     return Object.keys(errs).length === 0;
   };
@@ -492,6 +759,9 @@ export default function Checkout() {
       discountId: discount?.id || null,
       discountAmount,
       language: language === 'es' ? 'es' : 'en',
+      countryCode: addressCountryCode,
+      phoneCountryCode: phoneCountry,
+      stateCode: addressStateCode,
     });
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -544,6 +814,7 @@ export default function Checkout() {
           templateData: {
             customerName: form.fullName, orderId, total: orderTotal.toFixed(2),
             paymentMethod, itemsSummary, shippingAddress: shippingAddr,
+            language: language === 'es' ? 'es' : 'en',
           },
         },
       });
@@ -597,7 +868,10 @@ export default function Checkout() {
         .then(({ error }) => {
           if (error) console.warn('Checkout WhatsApp tracking failed:', error);
         });
-      if (redirectUrl) window.setTimeout(() => window.open(redirectUrl, '_blank'), 0);
+      // Keep the navigation in the original checkout tab. iOS Safari and in-app
+      // browsers often block window.open after the async order/notification work,
+      // which previously left a black screen while the order had already been saved.
+      if (redirectUrl) window.location.assign(redirectUrl);
     } catch (error: unknown) {
       toast({ title: t.checkout.error, description: getCheckoutErrorMessage(error, 'Checkout failed'), variant: 'destructive' });
     } finally { setLoading(false); }
@@ -897,7 +1171,18 @@ export default function Checkout() {
                         >
                           <Field label={language === 'es' ? 'Nombre completo' : 'Full name'} value={form.fullName} onChange={v => setF('fullName', v)} error={fieldErrors.fullName} maxLength={100} autoComplete="name" />
                           <Field label="Email" type="email" value={form.email} onChange={v => setF('email', v)} error={fieldErrors.email} maxLength={255} autoComplete="email" />
-                          <Field label={language === 'es' ? 'Teléfono' : 'Phone'} type="tel" value={form.phone} onChange={v => setF('phone', v)} error={fieldErrors.phone} maxLength={20} autoComplete="tel" />
+                          <PhoneField
+                            label={language === 'es' ? 'Teléfono' : 'Phone'}
+                            value={form.phone}
+                            countryCode={phoneCountry}
+                            countries={phoneCountryOptions}
+                            onChange={(value) => setF('phone', value)}
+                            onCountryChange={(countryCode) => {
+                              setPhoneCountry(countryCode);
+                              setF('phone', normalizePhoneForCountry(form.phone, countryCode));
+                            }}
+                            error={fieldErrors.phone}
+                          />
                         </SectionCard>
                       )}
 
@@ -913,15 +1198,47 @@ export default function Checkout() {
                           ctaLabel={shippingProviders.length > 0 ? (language === 'es' ? 'Continuar a envío' : 'Continue to shipping') : (language === 'es' ? 'Continuar a pago' : 'Continue to payment')}
                           onContinue={continueAddress}
                         >
-                          <Field label={language === 'es' ? 'Dirección' : 'Address'} value={form.address} onChange={v => setF('address', v)} error={fieldErrors.address} maxLength={255} autoComplete="street-address" />
+                          <AddressAutocomplete
+                            value={form.address}
+                            countryCode={addressCountryCode}
+                            onChange={(value) => setF('address', value)}
+                            onSelect={handleAddressSuggestion}
+                            language={language === 'es' ? 'es' : 'en'}
+                          />
+                          {fieldErrors.address && <p className="-mt-2 ml-1 text-xs text-destructive">{fieldErrors.address}</p>}
                           <Field label={language === 'es' ? 'Apto, suite (opcional)' : 'Apt, suite (optional)'} value={form.address2} onChange={v => setF('address2', v)} maxLength={255} />
                           <div className="grid sm:grid-cols-2 gap-3">
-                            <Field label={language === 'es' ? 'Ciudad' : 'City'} value={form.city} onChange={v => setF('city', v)} error={fieldErrors.city} maxLength={100} autoComplete="address-level2" />
-                            <Field label={language === 'es' ? 'Estado' : 'State'} value={form.state} onChange={v => setF('state', v)} error={fieldErrors.state} maxLength={100} autoComplete="address-level1" />
+                            <CityAutocomplete
+                              label={language === 'es' ? 'Ciudad' : 'City'}
+                              value={form.city}
+                              countryCode={addressCountryCode}
+                              onChange={(value) => setF('city', value)}
+                              language={language === 'es' ? 'es' : 'en'}
+                              error={fieldErrors.city}
+                            />
+                            {stateOptions.length > 0 ? (
+                              <SelectField
+                                label={language === 'es' ? 'Estado / provincia' : 'State / province'}
+                                value={addressStateCode}
+                                onChange={handleAddressStateChange}
+                                options={stateOptions.map((state) => ({ value: state.isoCode, label: state.name }))}
+                                placeholder={language === 'es' ? 'Selecciona un estado' : 'Select a state'}
+                                error={fieldErrors.state}
+                              />
+                            ) : (
+                              <Field label={language === 'es' ? 'Estado' : 'State'} value={form.state} onChange={v => setF('state', v)} error={fieldErrors.state} maxLength={100} autoComplete="address-level1" />
+                            )}
                           </div>
                           <div className="grid sm:grid-cols-2 gap-3">
                             <Field label={language === 'es' ? 'Código Postal' : 'ZIP / Postal'} value={form.zipCode} onChange={v => setF('zipCode', v)} error={fieldErrors.zipCode} maxLength={20} autoComplete="postal-code" />
-                            <Field label={language === 'es' ? 'País' : 'Country'} value={form.country} onChange={v => setF('country', v)} error={fieldErrors.country} maxLength={100} autoComplete="country-name" />
+                            <SelectField
+                              label={language === 'es' ? 'País' : 'Country'}
+                              value={addressCountryCode}
+                              onChange={handleAddressCountryChange}
+                              options={countryOptions.map((country) => ({ value: country.isoCode, label: country.name }))}
+                              placeholder={language === 'es' ? 'Selecciona un país' : 'Select a country'}
+                              error={fieldErrors.country}
+                            />
                           </div>
                           <TAField label={language === 'es' ? 'Notas (opcional)' : 'Notes (optional)'} value={form.notes} onChange={v => setF('notes', v)} rows={2} maxLength={500} />
                         </SectionCard>

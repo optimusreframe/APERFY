@@ -113,6 +113,51 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_templates: {
+        Row: {
+          body_html: string | null
+          body_text: string
+          channel: string
+          created_at: string
+          enabled: boolean
+          event_key: string
+          id: string
+          locale: string
+          name: string
+          subject: string | null
+          updated_at: string
+          variables: Json
+        }
+        Insert: {
+          body_html?: string | null
+          body_text?: string
+          channel: string
+          created_at?: string
+          enabled?: boolean
+          event_key: string
+          id?: string
+          locale?: string
+          name: string
+          subject?: string | null
+          updated_at?: string
+          variables?: Json
+        }
+        Update: {
+          body_html?: string | null
+          body_text?: string
+          channel?: string
+          created_at?: string
+          enabled?: boolean
+          event_key?: string
+          id?: string
+          locale?: string
+          name?: string
+          subject?: string | null
+          updated_at?: string
+          variables?: Json
+        }
+        Relationships: []
+      }
       background_composition_results: {
         Row: {
           background_candidate_id: string | null

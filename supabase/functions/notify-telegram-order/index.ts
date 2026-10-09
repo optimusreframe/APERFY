@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { getIntegrationSecret } from '../_shared/integration-secrets.ts'
+import { getNotificationTemplate, renderNotificationTemplate } from '../_shared/notification-templates.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -145,9 +146,25 @@ Deno.serve(async (req) => {
   const waMessage = whatsappMessage(orderData, orderItems)
   const waUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(waMessage)}`
   const shipping = orderData.shipping_address && typeof orderData.shipping_address === 'object' ? orderData.shipping_address as ShippingAddress : {}
+  const locale = shipping.language === 'en' ? 'en' : 'es'
+  const templateData = {
+    order_code: String(order.id).slice(0, 8).toUpperCase(),
+    customer_name: shipping.full_name || '',
+    phone: shipping.phone || '',
+    email: shipping.email || '',
+    shipping_address: [shipping.address, shipping.address2, shipping.city, shipping.state, shipping.zip_code, shipping.country]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0).join(', '),
+    items_summary: itemLines(orderItems).join('\n'),
+    total: `$${Number(order.total).toFixed(2)}`,
+  }
+  const telegramTemplate = await getNotificationTemplate(adminClient, 'order.new', 'telegram', locale)
+  const customerWhatsAppTemplate = await getNotificationTemplate(adminClient, 'order.received', 'whatsapp', locale)
   const customerNumber = normalizePhone(typeof shipping.phone === 'string' ? shipping.phone : '')
+  const customerMessage = customerWhatsAppTemplate
+    ? renderNotificationTemplate(customerWhatsAppTemplate.body_text, templateData)
+    : customerWhatsAppMessage(orderData, orderItems)
   const customerWaUrl = customerNumber
-    ? `https://wa.me/${customerNumber}?text=${encodeURIComponent(customerWhatsAppMessage(orderData, orderItems))}`
+    ? `https://wa.me/${customerNumber}?text=${encodeURIComponent(customerMessage)}`
     : null
   const english = shipping.language === 'en'
   if (order.telegram_status === 'sent') return json({ ok: true, telegramStatus: 'sent', duplicate: true, whatsappUrl: waUrl })
@@ -162,7 +179,9 @@ Deno.serve(async (req) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: telegramChatId,
-      text: telegramMessage(orderData, orderItems),
+      text: telegramTemplate
+        ? renderNotificationTemplate(telegramTemplate.body_text, templateData)
+        : telegramMessage(orderData, orderItems),
       reply_markup: { inline_keyboard: [[
         ...(customerWaUrl ? [{ text: english ? 'Contact customer on WhatsApp' : 'Contactar cliente por WhatsApp', url: customerWaUrl }] : []),
         { text: english ? 'Open admin orders' : 'Abrir pedidos en admin', url: `${ADMIN_ORDERS_URL}?order=${encodeURIComponent(orderId)}` },

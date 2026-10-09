@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, Sparkles, FlaskConical, Settings2, FileUp, LayoutTemplate } from 'lucide-react';
+import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, Sparkles, FlaskConical, Settings2, FileUp, LayoutTemplate, BellRing } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -48,6 +48,7 @@ const groups = [
       { title: 'HOME PAGE', url: '/admin/homepage', icon: LayoutTemplate },
       { title: 'AI SETTINGS', url: '/admin/ai-settings', icon: Settings2 },
       { title: 'INTEGRATIONS', url: '/admin/integrations', icon: Settings2 },
+      { title: 'NOTIFICATIONS', url: '/admin/notifications', icon: BellRing },
     ],
   },
 ];

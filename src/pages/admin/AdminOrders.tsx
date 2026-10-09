@@ -11,11 +11,12 @@ import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
 import { sendTransactionalEmail } from '@/lib/send-email';
 import { buildIncomingOrderMessages } from '@/lib/incomingOrder';
+import { normalizePhoneForCountry } from '@/lib/phone';
 import { AdminPageHeader } from './_shared';
 import type { Database } from '@/integrations/supabase/types';
 import type { Order, OrderItem } from '@/lib/model-types';
 
-type ShippingAddress = { email?: string; full_name?: string; address?: string; address2?: string; city?: string; state?: string; zip_code?: string; country?: string; phone?: string; language?: 'es' | 'en' };
+type ShippingAddress = { email?: string; full_name?: string; address?: string; address2?: string; city?: string; state?: string; zip_code?: string; country?: string; country_code?: string; phone?: string; phone_country_code?: string; language?: 'es' | 'en' };
 const shippingAddress = (value: unknown): ShippingAddress => value && typeof value === 'object' ? value as ShippingAddress : {};
 type AdminOrderItem = OrderItem & { products?: { name_en: string; name_es?: string; images: unknown } | null };
 
@@ -41,12 +42,15 @@ export default function AdminOrders() {
 
   const switchView = (v: 'list' | 'kanban') => { setView(v); localStorage.setItem('admin-orders-view', v); };
 
-  const { data: orders = [], isLoading } = useQuery({
+  const { data: orders = [], isLoading, error: ordersError } = useQuery({
     queryKey: ['admin-orders'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, total, status, created_at, payment_method, shipping_address, user_id, source, telegram_status, profiles(full_name, phone)')
+        // Do not join profiles here: orders.user_id intentionally has no FK to
+        // profiles, and PostgREST turns the missing relationship into an empty
+        // catalog while the admin inbox still receives its notification.
+        .select('id, total, status, created_at, payment_method, shipping_address, user_id, source, telegram_status')
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -137,6 +141,10 @@ export default function AdminOrders() {
     const address = shippingAddress(order.shipping_address);
     if (!address.phone) return null;
     const language = address.language === 'en' ? 'en' : 'es';
+    const phoneCountry = address.phone_country_code || address.country_code || 'US';
+    const customerPhone = address.phone.startsWith('+')
+      ? address.phone
+      : normalizePhoneForCountry(address.phone, phoneCountry);
     const shipping = [address.address, address.address2, address.city, address.state, address.zip_code, address.country]
       .filter(Boolean)
       .join(', ');
@@ -162,7 +170,7 @@ export default function AdminOrders() {
       }),
       total: Number(order.total),
       language,
-      whatsappNumber: address.phone,
+      whatsappNumber: customerPhone,
       shipping,
       notes: order.notes || undefined,
     }).customerWhatsAppUrl;
@@ -187,7 +195,12 @@ export default function AdminOrders() {
       />
 
 
-      {isLoading ? (
+      {ordersError ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-5 text-sm text-destructive">
+          No pudimos cargar las órdenes. Recarga el panel o revisa la migración/RLS de `orders`.
+          <span className="mt-2 block text-xs opacity-80">{ordersError instanceof Error ? ordersError.message : 'Supabase query failed'}</span>
+        </div>
+      ) : isLoading ? (
         <div className="flex justify-center py-12">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
@@ -235,7 +248,7 @@ export default function AdminOrders() {
                         <span className="font-mono text-[11px] font-semibold tabular-nums">${Number(order.total).toFixed(2)}</span>
                       </div>
                       <div className="text-[12px] text-foreground truncate font-medium">
-                        {order.profiles?.full_name || shippingAddress(order.shipping_address).full_name || '—'}
+                        {shippingAddress(order.shipping_address).full_name || '—'}
                       </div>
                       <div className="flex items-center justify-between mt-1.5">
                         <span className="text-[10px] text-muted-foreground/70 font-mono">
@@ -273,7 +286,7 @@ export default function AdminOrders() {
                 <React.Fragment key={order.id}>
                   <TableRow className="cursor-pointer hover:bg-secondary/30" onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}>
                     <TableCell className="font-mono text-xs">#{order.id.slice(0, 8).toUpperCase()}</TableCell>
-                    <TableCell>{order.profiles?.full_name || '—'}</TableCell>
+                    <TableCell>{shippingAddress(order.shipping_address).full_name || '—'}</TableCell>
                     <TableCell>
                       <Select
                         value={order.status}

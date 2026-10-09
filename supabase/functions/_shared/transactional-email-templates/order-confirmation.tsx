@@ -5,8 +5,10 @@ import {
 import type { TemplateEntry } from './registry.ts'
 
 const SITE_NAME = 'APERFY'
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const LOGO_URL = `${SUPABASE_URL}/storage/v1/object/public/email-assets/logo.png`
+// Use the production public asset instead of the old optional storage bucket.
+// The previous URL produced a broken-image placeholder in Gmail when that
+// bucket was not present.
+const LOGO_URL = 'https://aperfy.kpwr.dev/logo.png'
 
 interface Props {
   customerName?: string
