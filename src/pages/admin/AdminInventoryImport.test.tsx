@@ -9,7 +9,9 @@ import type { ImportPreview } from '@/lib/inventory-import/types';
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
-    from: () => ({ select: async () => ({ data: [{ slug: 'phone' }], error: null }) }),
+    from: (table: string) => table === 'products'
+      ? { select: async () => ({ data: [{ slug: 'phone' }], error: null }) }
+      : { select: () => ({ eq: async () => ({ data: [{ id: 'cat-electronics', slug: 'electronics' }], error: null }) }) },
   },
 }));
 

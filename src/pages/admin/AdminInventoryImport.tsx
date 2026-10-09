@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 import { AlertCircle, CheckCircle2, FileArchive, FileUp, Loader2, PackageCheck, Upload } from 'lucide-react';
@@ -9,8 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { AdminPageHeader, AdminSurface } from './_shared';
 import { useToast } from '@/hooks/use-toast';
 import { buildImportPreview } from '@/lib/inventory-import/preview';
+import { persistInventoryImport, type InventoryImportProgress, type InventoryImportResult } from '@/lib/inventory-import/persist';
 import { INVENTORY_CATEGORIES } from '@/lib/inventory-import/taxonomy';
 import type { ImportPreview, InventorySourceRow } from '@/lib/inventory-import/types';
+import type { Category } from '@/lib/model-types';
 
 export interface ParsedInventoryArchive {
   zip: JSZip;
@@ -65,10 +67,15 @@ function Metric({ label, value, tone = 'text-foreground' }: { label: string; val
 
 export default function AdminInventoryImport() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [archive, setArchive] = useState<ParsedInventoryArchive | null>(null);
   const [parsing, setParsing] = useState(false);
+  const [persisting, setPersisting] = useState(false);
+  const [progress, setProgress] = useState<InventoryImportProgress | null>(null);
+  const [summary, setSummary] = useState<InventoryImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const cancelRef = useRef(false);
 
   const { data: existingSlugs = new Set<string>(), isLoading: loadingSlugs } = useQuery({
     queryKey: ['inventory-import-existing-slugs'],
@@ -79,12 +86,22 @@ export default function AdminInventoryImport() {
     },
   });
 
+  const { data: categories = [], isLoading: loadingCategories } = useQuery<Pick<Category, 'id' | 'slug'>[]>({
+    queryKey: ['admin-categories'],
+    queryFn: async () => {
+      const { data, error: queryError } = await supabase.from('categories').select('id, slug').eq('is_active', true);
+      if (queryError) throw queryError;
+      return data ?? [];
+    },
+  });
+
   const handleArchive = async (file: File | undefined) => {
     if (!file) return;
     setParsing(true);
     setError(null);
     setPreview(null);
     setArchive(null);
+    setSummary(null);
     try {
       const parsed = await parseInventoryArchive(file, existingSlugs);
       setArchive(parsed);
@@ -99,11 +116,31 @@ export default function AdminInventoryImport() {
     }
   };
 
-  const canImport = !isImportButtonDisabled(preview, Boolean(archive));
+  const categoriesReady = Boolean(preview) && (preview?.rows.every((row) => categories.some((category) => category.slug === row.categorySlug)) ?? false);
+  const canImport = !isImportButtonDisabled(preview, Boolean(archive)) && !loadingCategories && categoriesReady;
   const issueRows = preview?.rows.filter((row) => row.issues.length > 0) ?? [];
-  const handleImport = () => {
-    if (!canImport) return;
-    toast({ title: 'Importación pendiente', description: 'La vista previa está validada; todavía no se escribió ningún producto.' });
+  const handleImport = async () => {
+    if (!canImport || !preview || !archive) return;
+    cancelRef.current = false;
+    setPersisting(true);
+    setProgress(null);
+    setSummary(null);
+    try {
+      const result = await persistInventoryImport(preview, archive.zip, categories, (nextProgress) => {
+        setProgress(nextProgress);
+        return !cancelRef.current;
+      });
+      setSummary(result);
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-product-count'] });
+      toast({ title: 'Importación completada', description: `${result.created} creados, ${result.skipped} omitidos, ${result.failed} fallidos.` });
+    } catch (importError) {
+      const message = importError instanceof Error ? importError.message : 'No se pudo completar la importación.';
+      setError(message);
+      toast({ title: 'Importación detenida', description: message, variant: 'destructive' });
+    } finally {
+      setPersisting(false);
+    }
   };
 
   return (
@@ -119,10 +156,10 @@ export default function AdminInventoryImport() {
               accept=".zip,application/zip"
               aria-label="Choose ZIP"
               className="sr-only"
-              disabled={parsing || loadingSlugs}
+              disabled={parsing || loadingSlugs || persisting}
               onChange={(event) => { void handleArchive(event.target.files?.[0]); event.currentTarget.value = ''; }}
             />
-            <Button asChild disabled={parsing || loadingSlugs} className="gap-2 bg-gradient-gold text-primary-foreground">
+            <Button asChild disabled={parsing || loadingSlugs || persisting} className="gap-2 bg-gradient-gold text-primary-foreground">
               <span><Upload className="h-4 w-4" />{parsing ? 'Reading…' : 'Choose ZIP'}</span>
             </Button>
           </label>
@@ -147,6 +184,34 @@ export default function AdminInventoryImport() {
             </div>
           )}
         </AdminSurface>
+
+        {progress && persisting && (
+          <AdminSurface className="p-5 md:p-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="font-display text-lg font-semibold">Import in progress</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{progress.phase === 'image' ? 'Uploading image' : 'Creating product'}: {progress.currentName}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-sm text-muted-foreground">{progress.completed}/{progress.total}</span>
+                <Button variant="outline" onClick={() => { cancelRef.current = true; }} className="gap-2">Cancel after current row</Button>
+              </div>
+            </div>
+          </AdminSurface>
+        )}
+
+        {summary && (
+          <AdminSurface className="p-5 md:p-6">
+            <h2 className="font-display text-lg font-semibold">Import summary</h2>
+            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <Metric label="Created" value={summary.created} tone="text-emerald-400" />
+              <Metric label="Skipped" value={summary.skipped} tone="text-amber-400" />
+              <Metric label="Failed" value={summary.failed} tone={summary.failed ? 'text-destructive' : 'text-emerald-400'} />
+              <Metric label="New photos" value={summary.uploadedPaths.length} />
+            </div>
+            {summary.failures.length > 0 && <ul className="mt-4 space-y-1 text-xs text-destructive">{summary.failures.map((failure) => <li key={failure.sourceRowNumber}>row {failure.sourceRowNumber}: {failure.name} — {failure.message}</li>)}</ul>}
+          </AdminSurface>
+        )}
 
         {preview && (
           <>
@@ -201,8 +266,9 @@ export default function AdminInventoryImport() {
                   )}
                 </div>
               )}
-              <Button className="mt-5 w-full gap-2" disabled={!canImport} onClick={handleImport} title="No products are written until persistence is connected">
-                <PackageCheck className="h-4 w-4" />Import products
+              {!categoriesReady && preview && !loadingCategories && <p className="mt-4 text-sm text-destructive">Some preview categories are not available as active categories. Resolve the category setup before importing.</p>}
+              <Button className="mt-5 w-full gap-2" disabled={!canImport || persisting} onClick={() => { void handleImport(); }} title="Import products sequentially without overwriting existing source keys">
+                {persisting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}{persisting ? 'Importing…' : 'Import products'}
               </Button>
             </AdminSurface>
 
