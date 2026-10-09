@@ -24,6 +24,8 @@ describe('incoming order messaging', () => {
     expect(result.whatsappMessage).toContain('Teléfono: +1 (407) 555-0199');
     expect(result.whatsappMessage).toContain('Email: juan@example.com');
     expect(result.whatsappMessage).toContain('Dirección: 123 Main St, Miami, FL 33101, United States');
+    expect(result.customerWhatsAppMessage).toContain('Hola Juan Pérez, hemos recibido tu nuevo pedido.');
+    expect(result.customerWhatsAppUrl).toContain('https://wa.me/14075550199?text=');
     expect(result.telegramText).toContain('NUEVO PEDIDO APERFY');
     expect(result.telegramText).toContain('14075550199');
     expect(result.telegramText).toContain('Figura APERFY');

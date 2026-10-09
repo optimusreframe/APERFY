@@ -490,6 +490,7 @@ export default function Checkout() {
       shippingCost,
       discountId: discount?.id || null,
       discountAmount,
+      language: language === 'es' ? 'es' : 'en',
     });
     const { data: order, error: orderError } = await supabase
       .from('orders')

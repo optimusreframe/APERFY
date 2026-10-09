@@ -1,20 +1,23 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, Package, DollarSign, List, LayoutGrid } from 'lucide-react';
+import { ChevronDown, ChevronUp, Package, DollarSign, List, LayoutGrid, MessageCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
 import { sendTransactionalEmail } from '@/lib/send-email';
+import { buildIncomingOrderMessages } from '@/lib/incomingOrder';
 import { AdminPageHeader } from './_shared';
 import type { Database } from '@/integrations/supabase/types';
 import type { Order, OrderItem } from '@/lib/model-types';
 
-type ShippingAddress = { email?: string; full_name?: string; address?: string; city?: string; phone?: string };
+type ShippingAddress = { email?: string; full_name?: string; address?: string; address2?: string; city?: string; state?: string; zip_code?: string; country?: string; phone?: string; language?: 'es' | 'en' };
 const shippingAddress = (value: unknown): ShippingAddress => value && typeof value === 'object' ? value as ShippingAddress : {};
+type AdminOrderItem = OrderItem & { products?: { name_en: string; name_es?: string; images: unknown } | null };
 
 const statuses = ['pending', 'confirmed', 'printing', 'shipped', 'delivered', 'cancelled'] as const;
 const statusLabels: Record<string, string> = { pending: 'PENDING', confirmed: 'CONFIRMED', printing: 'PROCESSING', shipped: 'SHIPPED', delivered: 'DELIVERED', cancelled: 'CANCELLED' };
@@ -31,7 +34,8 @@ const statusColors: Record<string, string> = {
 export default function AdminOrders() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(() => searchParams.get('order'));
   const [view, setView] = useState<'list' | 'kanban'>(() => (localStorage.getItem('admin-orders-view') as 'list' | 'kanban') || 'list');
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -59,7 +63,7 @@ export default function AdminOrders() {
         .select('*, products(name_en, images)')
         .eq('order_id', expandedOrder!);
       if (error) throw error;
-      return data as unknown as (OrderItem & { products?: { name_en: string; images: unknown } | null })[];
+      return data as unknown as AdminOrderItem[];
     },
     enabled: !!expandedOrder,
   });
@@ -127,6 +131,41 @@ export default function AdminOrders() {
     } else {
       toast({ title: 'No email found for this order', variant: 'destructive' });
     }
+  };
+
+  const getCustomerWhatsAppUrl = (order: Order, items: AdminOrderItem[]): string | null => {
+    const address = shippingAddress(order.shipping_address);
+    if (!address.phone) return null;
+    const language = address.language === 'en' ? 'en' : 'es';
+    const shipping = [address.address, address.address2, address.city, address.state, address.zip_code, address.country]
+      .filter(Boolean)
+      .join(', ');
+    return buildIncomingOrderMessages({
+      orderCode: order.id.slice(0, 8).toUpperCase(),
+      customerName: address.full_name || 'cliente',
+      phone: address.phone,
+      email: address.email || '',
+      items: items.map(item => {
+        const variations = Array.isArray(item.selected_variations)
+          ? item.selected_variations
+            .filter((variation): variation is { name?: unknown } => Boolean(variation && typeof variation === 'object'))
+            .map(variation => typeof variation.name === 'string' ? variation.name : '')
+            .filter(Boolean)
+            .join(', ')
+          : '';
+        return {
+          name: language === 'es' ? item.products?.name_es || item.products?.name_en || 'Producto' : item.products?.name_en || 'Product',
+          quantity: item.quantity,
+          total: Number(item.unit_price) * item.quantity,
+          variation: variations,
+        };
+      }),
+      total: Number(order.total),
+      language,
+      whatsappNumber: address.phone,
+      shipping,
+      notes: order.notes || undefined,
+    }).customerWhatsAppUrl;
   };
 
   return (
@@ -281,10 +320,14 @@ export default function AdminOrders() {
                           ))}
                           {order.shipping_address && (
                             <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
-                              <p><strong>Ship to:</strong> {shippingAddress(order.shipping_address).full_name}</p>
-                              <p>{shippingAddress(order.shipping_address).address}, {shippingAddress(order.shipping_address).city}</p>
-                              <p>Phone: {shippingAddress(order.shipping_address).phone}</p>
-                              <p>Source: {order.source || 'website'} · Telegram: {order.telegram_status || 'pending'}</p>
+                              <p><strong>Customer:</strong> {shippingAddress(order.shipping_address).full_name}</p>
+                              <p>Email: {shippingAddress(order.shipping_address).email || '—'}</p>
+                              <p>Phone: {shippingAddress(order.shipping_address).phone || '—'}</p>
+                              <p><strong>Ship to:</strong> {[shippingAddress(order.shipping_address).address, shippingAddress(order.shipping_address).address2, shippingAddress(order.shipping_address).city, shippingAddress(order.shipping_address).state, shippingAddress(order.shipping_address).zip_code, shippingAddress(order.shipping_address).country].filter(Boolean).join(', ') || '—'}</p>
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                {getCustomerWhatsAppUrl(order, orderItems) && <a href={getCustomerWhatsAppUrl(order, orderItems) || undefined} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/20"><MessageCircle className="h-4 w-4" /> WhatsApp</a>}
+                                <span>Source: {order.source || 'website'} · Telegram: {order.telegram_status || 'pending'}</span>
+                              </div>
                             </div>
                           )}
                         </div>

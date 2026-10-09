@@ -31,6 +31,25 @@ export function buildIncomingOrderMessages(input: IncomingOrderMessageInput) {
   });
   const shippingLine = input.shipping ? `\nShipping: ${input.shipping}` : '';
   const notesLine = input.notes ? `\nNotes: ${input.notes}` : '';
+  const customerWhatsAppMessage = input.language === 'es'
+    ? [
+        `Hola ${input.customerName}, hemos recibido tu nuevo pedido.`,
+        `Orden: #${input.orderCode}`,
+        `Teléfono: ${input.phone}`,
+        `Email: ${input.email}`,
+        input.shipping ? `Dirección: ${input.shipping}` : '', '',
+        ...itemLines, '', `Total: $${input.total.toFixed(2)}`, notesLine,
+        '¿Continuamos con tu pedido?', '', "APERFY | Andres' Perfect Finds",
+      ].filter(Boolean).join('\n')
+    : [
+        `Hi ${input.customerName}, we received your new order.`,
+        `Order: #${input.orderCode}`,
+        `Phone: ${input.phone}`,
+        `Email: ${input.email}`,
+        input.shipping ? `Address: ${input.shipping}` : '', '',
+        ...itemLines, '', `Total: $${input.total.toFixed(2)}`, notesLine,
+        'Shall we continue with your order?', '', "APERFY | Andres' Perfect Finds",
+      ].filter(Boolean).join('\n');
   const whatsappMessage = input.language === 'es'
     ? [
         `Hola ${input.customerName}, hemos recibido tu pedido:`,
@@ -67,6 +86,8 @@ export function buildIncomingOrderMessages(input: IncomingOrderMessageInput) {
     phone,
     whatsappMessage,
     whatsappUrl: `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`,
+    customerWhatsAppMessage,
+    customerWhatsAppUrl: `https://wa.me/${phone}?text=${encodeURIComponent(customerWhatsAppMessage)}`,
     telegramText,
   };
 }
