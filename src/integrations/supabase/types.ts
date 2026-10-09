@@ -435,6 +435,8 @@ export type Database = {
       }
       model_requests: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           created_at: string
           description: string | null
           email: string
@@ -449,6 +451,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
           description?: string | null
           email: string
@@ -463,6 +467,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
           description?: string | null
           email?: string
@@ -533,6 +539,8 @@ export type Database = {
       }
       orders: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           created_at: string
           discount_amount: number
           discount_code_id: string | null
@@ -540,6 +548,12 @@ export type Database = {
           idempotency_key: string | null
           notes: string | null
           payment_method: string | null
+          payment_proof_path: string | null
+          payment_proof_uploaded_at: string | null
+          payment_proof_uploaded_by: string | null
+          payment_received_at: string | null
+          payment_received_by: string | null
+          payment_status: string
           shipping_address: Json | null
           shipping_cost: number | null
           shipping_provider_id: string | null
@@ -554,6 +568,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
           discount_amount?: number
           discount_code_id?: string | null
@@ -561,6 +577,12 @@ export type Database = {
           idempotency_key?: string | null
           notes?: string | null
           payment_method?: string | null
+          payment_proof_path?: string | null
+          payment_proof_uploaded_at?: string | null
+          payment_proof_uploaded_by?: string | null
+          payment_received_at?: string | null
+          payment_received_by?: string | null
+          payment_status?: string
           shipping_address?: Json | null
           shipping_cost?: number | null
           shipping_provider_id?: string | null
@@ -575,6 +597,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
           discount_amount?: number
           discount_code_id?: string | null
@@ -582,6 +606,12 @@ export type Database = {
           idempotency_key?: string | null
           notes?: string | null
           payment_method?: string | null
+          payment_proof_path?: string | null
+          payment_proof_uploaded_at?: string | null
+          payment_proof_uploaded_by?: string | null
+          payment_received_at?: string | null
+          payment_received_by?: string | null
+          payment_status?: string
           shipping_address?: Json | null
           shipping_cost?: number | null
           shipping_provider_id?: string | null
@@ -596,6 +626,68 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      payment_events: {
+        Row: {
+          actor_id: string | null
+          amount: number
+          created_at: string
+          currency: string
+          event_type: string
+          id: string
+          note: string | null
+          occurred_at: string
+          order_id: string
+          payment_method: string | null
+          provider: string
+          proof_path: string | null
+          reference: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          amount: number
+          created_at?: string
+          currency?: string
+          event_type: string
+          id?: string
+          note?: string | null
+          occurred_at?: string
+          order_id: string
+          payment_method?: string | null
+          provider?: string
+          proof_path?: string | null
+          reference?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          amount?: number
+          created_at?: string
+          currency?: string
+          event_type?: string
+          id?: string
+          note?: string | null
+          occurred_at?: string
+          order_id?: string
+          payment_method?: string | null
+          provider?: string
+          proof_path?: string | null
+          reference?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_likes: {
         Row: {
@@ -1063,6 +1155,18 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      record_order_payment_event: {
+        Args: {
+          p_event_type: string
+          p_note?: string | null
+          p_order_id: string
+          p_proof_path?: string | null
+          p_reference?: string | null
+          p_provider?: string | null
+          p_currency?: string
+        }
+        Returns: string
       }
       increment_discount_usage: { Args: { _id: string }; Returns: undefined }
       reserve_order_stock: { Args: { p_order_id: string }; Returns: Json }
