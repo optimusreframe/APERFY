@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import DiscountCodeInput from '@/components/DiscountCodeInput';
-import { optimizeImageUrl } from '@/lib/image-url';
+import { CartThumbnailImage } from '@/components/CartThumbnailImage';
 
 export default function Cart() {
   const { items, removeFromCart, updateQuantity, getTotal, clearCart, itemCount, discount, getDiscountAmount, getFinalTotal } = useCart();
@@ -118,15 +118,16 @@ export default function Cart() {
                   >
                     <div className="flex gap-4">
                       <Link to={`/products/${item.slug}`} className="shrink-0">
-                        <div className="w-24 h-24 rounded-xl overflow-hidden bg-white/[0.02] border border-white/[0.06]">
+                        <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-white/[0.06] bg-white p-1">
                           {item.productImage ? (
-                            <img
-                              src={optimizeImageUrl(item.productImage, { width: 192, quality: 72 })}
+                            <CartThumbnailImage
+                              source={item.productImage}
                               alt={item.productName}
-                              width={96}
-                              height={96}
-                              decoding="async"
-                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                              width={192}
+                              height={192}
+                              quality={72}
+                              className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.03]"
+                              fallback={<div className="flex h-full w-full items-center justify-center"><ShoppingCart className="w-6 h-6 text-muted-foreground/30" /></div>}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">

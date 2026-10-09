@@ -44,7 +44,7 @@ export const checkoutSchema = z.object({
 });
 
 // ── Payment Method ──
-export const VALID_PAYMENT_METHODS = ['whatsapp', 'zelle', 'binance', 'cashapp'] as const;
+export const VALID_PAYMENT_METHODS = ['whatsapp', 'telegram', 'zelle', 'binance', 'cashapp'] as const;
 export const paymentMethodSchema = z.enum(VALID_PAYMENT_METHODS);
 export const MAX_ORDER_ITEMS = 20;
 export const MAX_ITEM_QUANTITY = 99;

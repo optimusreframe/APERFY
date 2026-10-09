@@ -15,3 +15,5 @@ project_id = "xftxyvgplghnelawkhvl"
     verify_jwt = false
   [functions.notify-telegram-order]
     verify_jwt = true
+  [functions.search-address]
+    verify_jwt = true

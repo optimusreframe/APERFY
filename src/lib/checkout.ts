@@ -47,7 +47,7 @@ export function buildOrderInsert({
     total,
     notes: form.notes || null,
     payment_method: paymentMethod,
-    source: paymentMethod === 'whatsapp' ? 'whatsapp' : 'website',
+    source: paymentMethod === 'whatsapp' || paymentMethod === 'telegram' ? paymentMethod : 'website',
     idempotency_key: idempotencyKey,
     shipping_address: {
       full_name: form.fullName || '',
@@ -83,6 +83,10 @@ export function getCheckoutErrorMessage(error: unknown, fallback: string): strin
 }
 
 export function getCheckoutWhatsAppUrl(currentUrl: string | null, returnedUrl: string | null): string | null {
+  return returnedUrl || currentUrl;
+}
+
+export function getCheckoutHandoffUrl(currentUrl: string | null, returnedUrl: string | null): string | null {
   return returnedUrl || currentUrl;
 }
 

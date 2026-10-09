@@ -20,6 +20,7 @@ const FIELDS = [
   { key: 'RESEND_WEBHOOK_SECRET', label: 'Resend webhook signing secret (optional)', placeholder: 'whsec_...', group: 'EMAIL' },
   { key: 'TELEGRAM_BOT_TOKEN', label: 'Telegram bot token', placeholder: '123456:ABC...', group: 'MESSAGING' },
   { key: 'TELEGRAM_CHAT_ID', label: 'Telegram admin chat ID', placeholder: '-100...', group: 'MESSAGING' },
+  { key: 'TELEGRAM_CHECKOUT_TARGET', label: 'Telegram checkout destination', placeholder: '@usuario, @canal o https://t.me/tu_bot', group: 'MESSAGING' },
   { key: 'WHATSAPP_BUSINESS_NUMBER', label: 'WhatsApp business number', placeholder: 'Country code + number', group: 'MESSAGING' },
 ] as const
 
@@ -29,7 +30,7 @@ type Status = { name: FieldKey; configured: boolean }
 const GROUP_META = {
   AI: { title: 'AI PRODUCT INTELLIGENCE', icon: Sparkles, description: 'Text extraction and image generation use separate OpenAI-compatible providers. Select both providers and models in AI Settings.' },
   EMAIL: { title: 'RESEND EMAIL', icon: Send, description: 'Transactional email uses Resend directly and stays within the provider account limits.' },
-  MESSAGING: { title: 'ORDER NOTIFICATIONS', icon: Smartphone, description: 'WhatsApp checkout and Telegram order alerts activate as soon as their values are present.' },
+  MESSAGING: { title: 'ORDER NOTIFICATIONS', icon: Smartphone, description: 'Configura el número receptor de WhatsApp y el destino de checkout de Telegram sin exponer valores en el navegador.' },
 } as const
 
 export default function AdminIntegrations() {

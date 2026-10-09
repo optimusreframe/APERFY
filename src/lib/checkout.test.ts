@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutWhatsAppUrl, isWhatsAppCheckoutComplete } from './checkout';
+import { paymentMethodSchema } from './validation';
 
 describe('checkout order contract', () => {
   it('keeps the selected payment method in the order payload', () => {
@@ -44,6 +45,17 @@ describe('checkout order contract', () => {
       country: 'United States',
       language: 'es',
     });
+  });
+
+  it('keeps Telegram checkout orders separate from WhatsApp orders', () => {
+    const payload = buildOrderInsert({
+      userId: 'user-1', total: 18.15, paymentMethod: 'telegram', idempotencyKey: 'checkout-telegram-1',
+      form: { fullName: 'Checkout Test', email: 'test@example.com', phone: '+15555550123', address: '123 Test Avenue', city: 'Miami', state: 'FL', zipCode: '33101', country: 'United States' },
+      selectedShipping: null, shippingCost: 0, discountId: null, discountAmount: 0, language: 'es',
+    });
+
+    expect(payload).toMatchObject({ payment_method: 'telegram', source: 'telegram' });
+    expect(paymentMethodSchema.safeParse('telegram').success).toBe(true);
   });
 
   it('surfaces structured Supabase errors instead of collapsing them to a generic message', () => {
