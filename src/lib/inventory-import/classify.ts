@@ -24,7 +24,7 @@ const rules: Array<{ slug: InventoryCategorySlug; patterns: RegExp[] }> = [
     slug: '3d-printing',
     patterns: [
       /\b3d\s*(print|printer|printing|printer(?:s)?|filament|resin)\b/,
-      /\bfilament\b/, /\bresin\s+printer\b/, /\bhotend\b/, /\bnozzle\b/, /\bbuild\s*plate\b/, /\bfep\s*film\b/, /\bfilament\s*(dryer|drying|storage)\b/,
+      /\bfilament\b/, /\bresin\s+printer\b/, /\bhotend\b/, /\bnozzle\b/, /\bbuild\s*plate\b/, /\bfep\s*film\b/, /\bfilament\s*(dryer|drying|storage)\b/, /\bwash\s+and\s+cure\b/,
     ],
   },
   {
@@ -36,7 +36,7 @@ const rules: Array<{ slug: InventoryCategorySlug; patterns: RegExp[] }> = [
   {
     slug: 'computers-accessories',
     patterns: [
-      /\blaptop\b/, /\bnotebook\b/, /\bdesktop\b/, /\bmonitor\b/, /\bkeyboard\b/, /\bmouse\b/, /\bwebcam\b/, /\bssd\b/, /\bhard\s*drive\b/, /\bflash\s*drive\b/, /\busb\s*(drive|hub)\b/, /\btablet\b/, /\bipad\b/, /\bcomputer\b/, /\blaptop\s*(stand|bag|dock|charger)\b/,
+      /\blaptop\b/, /\bnotebook\b/, /\bdesktop\b/, /\bmonitor\b/, /\bkeyboard\b/, /\bkeypad\b/, /\bmouse\b/, /\bwebcam\b/, /\bssd\b/, /\bhard\s*drive\b/, /\bflash\s*drive\b/, /\busb\s*(drive|hub)\b/, /\btablet\b/, /\bipad\b/, /\bcomputer\b/, /\blaptop\s*(stand|bag|dock|charger)\b/,
     ],
   },
   {
@@ -48,19 +48,19 @@ const rules: Array<{ slug: InventoryCategorySlug; patterns: RegExp[] }> = [
   {
     slug: 'automotive',
     patterns: [
-      /\bautomotive\b/, /\bcar\b/, /\bvehicle\b/, /\bobd\b/, /\bdash\s*cam\b/, /\btire\b/, /\bwindshield\b/, /\bcar\s*(?:charger|mount|holder)\b/,
+      /\bautomotive\b/, /\bcar\b/, /\bvehicle\b/, /\bobd\b/, /\bdash\s*cam\b/, /\btire\b/, /\bwindshield\b/, /\bcar\s*(?:charger|mount|holder)\b/, /\bjump\s*starter\b/, /\btrolley\s*jack\b/, /\bjack\s*stand\b/, /\bhigh\s*pressure\s*inflator\b/, /\becho\s*auto\b/,
     ],
   },
   {
     slug: 'sports-outdoors',
     patterns: [
-      /\bsport\b/, /\bfitness\b/, /\byoga\b/, /\bgym\b/, /\bcamping\b/, /\bhiking\b/, /\boutdoor\b/, /\bbicycle\b/, /\bgolf\b/, /\bbaseball\b/, /\bfootball\b/, /\bexercise\b/,
+      /\bsport\b/, /\bfitness\b/, /\byoga\b/, /\bgym\b/, /\bcamping\b/, /\bhiking\b/, /\boutdoor\b/, /\bbicycle\b/, /\bgolf\b/, /\bbaseball\b/, /\bfootball\b/, /\bexercise\b/, /\btennis\s*racket\b/, /\bpickleball\b/, /\bduffel\s*bag\b/, /\bbinoculars\b/,
     ],
   },
   {
     slug: 'toys-games',
     patterns: [
-      /\btoy\b/, /\bpuzzle\b/, /\bboard\s*game\b/, /\bdoll\b/, /\bstuffed\s*animal\b/, /\bbuilding\s*blocks?\b/, /\blego\b/,
+      /\btoy\b/, /\bpuzzle\b/, /\bboard\s*game\b/, /\bdoll\b/, /\bstuffed\s*animal\b/, /\bbuilding\s*blocks?\b/, /\blego\b/, /\buno\b/, /\bdominoes?\b/, /\bactivity\s*selector\b/,
     ],
   },
   {
@@ -78,7 +78,7 @@ const rules: Array<{ slug: InventoryCategorySlug; patterns: RegExp[] }> = [
   {
     slug: 'health-household',
     patterns: [
-      /\bhealth\b/, /\bmedical\b/, /\bfirst\s*aid\b/, /\bvitamin\b/, /\bthermometer\b/, /\bmask\b/, /\bppe\b/, /\bprotective\s*equipment\b/,
+      /\bhealth\b/, /\bmedical\b/, /\bfirst\s*aid\b/, /\bvitamin\b/, /\bthermometer\b/, /\bmask\b/, /\bppe\b/, /\btourniquet\b/, /\bprotective\s*equipment\b/,
     ],
   },
   {
@@ -90,19 +90,25 @@ const rules: Array<{ slug: InventoryCategorySlug; patterns: RegExp[] }> = [
   {
     slug: 'arts-crafts',
     patterns: [
-      /\bart\b/, /\bcraft\b/, /\bsewing\b/, /\bpaint(?:ing)?\b/, /\bcanvas\b/, /\bdrawing\b/, /\bknitting\b/, /\byarn\b/, /\bscrapbook\b/,
+      /\bart\b/, /\bcraft\b/, /\bsewing\b/, /\bpaint(?:ing)?\b/, /\bcanvas\b/, /\bdrawing\b/, /\bknitting\b/, /\byarn\b/, /\bscrapbook\b/, /\bmarker\b/, /\bbrush\s*marker\b/,
     ],
   },
   {
     slug: 'tools-home-improvement',
     patterns: [
-      /\bdrill\b/, /\bscrewdriver\b/, /\bwrench\b/, /\btool\b/, /\bhardware\b/, /\bsolder(?:ing|ing iron)\b/, /\bmultimeter\b/, /\bmeasure(?:ment|ring)?\b/, /\btape\s*measure\b/, /\bworkshop\b/, /\bladder\b/, /\bsaw\b/, /\bwall\s*mount\b/,
+      /\bdrill\b/, /\bscrewdriver\b/, /\bwrench\b/, /\btool\b/, /\bhardware\b/, /\bsolder(?:ing|ing iron)\b/, /\bmultimeter\b/, /\bmeasure(?:ment|ring)?\b/, /\btape\s*measure\b/, /\bworkshop\b/, /\bladder\b/, /\bsaw\b/, /\bchainsaw\b/, /\bstud\s*finder\b/, /\btagging\s*gun\b/, /\bepoxy\b/, /\bblower\b/, /\bwall\s*mount\b/,
     ],
   },
   {
     slug: 'home-kitchen',
     patterns: [
-      /\bkitchen\b/, /\bhome\b/, /\bhousehold\b/, /\bappliance\b/, /\bcookware\b/, /\bdrinkware\b/, /\bbottle\b/, /\bmug\b/, /\blamp\b/, /\blighting\b/, /\bfurniture\b/, /\bchair\b/, /\btable\b/, /\bstorage\b/, /\bcontainer\b/, /\bvase\b/, /\bvacuum\b/,
+      /\bkitchen\b/, /\bhome\b/, /\bhousehold\b/, /\bappliance\b/, /\bcookware\b/, /\bdrinkware\b/, /\bbottle\b/, /\bmug\b/, /\bcup\b/, /\bspoons?\b/, /\bportion\s*cups?\b/, /\bfood\s*containers?\b/, /\bplastic\s*bucket\b/, /\bmilkshake\s*maker\b/, /\bair\s*fryer\b/, /\bblender\b/, /\bice\s*cream\s*maker\b/, /\bcoffee\s*maker\b/, /\bespresso\b/, /\bkeurig\b/, /\blamp\b/, /\blighting\b/, /\blight\s*fixture\b/, /\bfurniture\b/, /\bchair\b/, /\btable\b/, /\bstorage\b/, /\bcontainers?\b/, /\bvase\b/, /\bvacuum\b/,
+    ],
+  },
+  {
+    slug: 'electronics',
+    patterns: [
+      /\bstrobe\s*light\b/, /\bheadlamp\b/, /\bmicrophone\b/, /\bpower\s*bank\b/, /\bdrone\b/, /\bpropeller\s*guard\b/, /\bcharging\s*(?:hub|station)\b/, /\bspeaker\b/, /\bheadphones?\b/, /\bdoor\s*lock\b/, /\bpower\s*strip\b/, /\bwall\s*charger\b/, /\bsoundbar\b/, /\bsmart\s*speaker\b/, /\bbattery\b/, /\bcd\s*dvd\s*drive\b/, /\bmicro\s*sd\b/, /\bsd\s*card\b/, /\boutlet\s*extender\b/, /\badapter\b/, /\bsmart\s*plug\b/, /\bdoorbell\s*camera\b/, /\bprinter\b/, /\bwatch\b/, /\bprojector\b/, /\bhandheld\s*fan\b/, /\b(?:usb|wireless)\s*-?c?\s*(?:to\s*)?c?\s*cable\b/, /\bwireless\s*charger\b/, /\bcharger\b/, /\bwarning\s*light\b/,
     ],
   },
 ];

@@ -75,6 +75,14 @@ describe('inventory taxonomy', () => {
       .toBe('3d-printing');
     expect(classifyInventoryRow(row({ Item: 'Generic USB cable' })).slug)
       .toBe('electronics');
+    expect(classifyInventoryRow(row({ Item: 'Electric Milkshake Maker' })).slug)
+      .toBe('home-kitchen');
+    expect(classifyInventoryRow(row({ Item: 'Tennis Racket' })).slug)
+      .toBe('sports-outdoors');
+    expect(classifyInventoryRow(row({ Item: 'Portable Lithium Jump Starter' })).slug)
+      .toBe('automotive');
+    expect(classifyInventoryRow(row({ Item: 'Wash and Cure Station' })).slug)
+      .toBe('3d-printing');
   });
 
   it('reports missing photo and category fallback in the preview', () => {
