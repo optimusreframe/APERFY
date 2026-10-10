@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
+import TestMemoryRouter from '@/test/TestMemoryRouter';
 import AdminAISettings from './AdminAISettings';
 
 const settingsRows = vi.hoisted(() => ({
@@ -42,9 +42,9 @@ describe('AdminAISettings', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
+        <TestMemoryRouter>
           <AdminAISettings />
-        </MemoryRouter>
+        </TestMemoryRouter>
       </QueryClientProvider>,
     );
 
@@ -66,9 +66,9 @@ describe('AdminAISettings', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
+        <TestMemoryRouter>
           <AdminAISettings />
-        </MemoryRouter>
+        </TestMemoryRouter>
       </QueryClientProvider>,
     );
 

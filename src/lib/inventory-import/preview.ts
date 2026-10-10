@@ -1,5 +1,6 @@
 import { classifyInventoryRow, normalizeInventoryText } from './classify';
 import { inferProductCondition } from '../product-condition';
+import { normalizeInventoryPath } from './paths';
 import type { ExistingInventoryProduct, ImportPreview, InventoryCellValue, InventoryImportRow, InventorySourceRow } from './types';
 
 function asText(value: InventoryCellValue): string {
@@ -14,13 +15,13 @@ function asNumber(value: InventoryCellValue): number | null {
 }
 
 function normalizePhotoName(value: InventoryCellValue): string {
-  return asText(value).replaceAll('\\', '/').split('/').pop() || '';
+  return normalizeInventoryPath(asText(value)).split('/').pop() || '';
 }
 
 function hasPhoto(photoFileName: string, photoNames: Set<string>): boolean {
   if (!photoFileName) return false;
   if (photoNames.has(photoFileName)) return true;
-  return Array.from(photoNames).some((name) => name.replaceAll('\\', '/').endsWith(`/${photoFileName}`));
+  return Array.from(photoNames).some((name) => normalizeInventoryPath(name).endsWith(`/${photoFileName}`));
 }
 
 function slugify(value: string): string {

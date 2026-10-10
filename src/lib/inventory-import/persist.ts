@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Category } from '@/lib/model-types';
 import type { ImportPreview, InventoryImportRow } from './types';
 import type { InventoryZipArchive, InventoryZipEntry } from './parsers';
+import { normalizeInventoryPath } from './paths';
 import { assertSafeImageSize } from './safety';
 
 export type InventoryImportProgress = {
@@ -66,10 +67,10 @@ function hasImageSignature(bytes: Uint8Array, extension: string): boolean {
 }
 
 function getPhotoEntry(zip: InventoryZipArchive, fileName: string): InventoryZipEntry | null {
-  const normalized = fileName.replaceAll('\\', '/');
+  const normalized = normalizeInventoryPath(fileName);
   return Object.values(zip.files).find((entry) => {
     if (entry.dir) return false;
-    const entryName = entry.name.replaceAll('\\', '/');
+    const entryName = normalizeInventoryPath(entry.name);
     return entryName === normalized || entryName.endsWith(`/${normalized}`);
   }) ?? null;
 }

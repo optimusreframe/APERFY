@@ -6,61 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AdminPageHeader, AdminSurface } from './_shared';
 import { useToast } from '@/hooks/use-toast';
-import { buildImportPreview } from '@/lib/inventory-import/preview';
 import { persistInventoryImport, type InventoryImportProgress, type InventoryImportResult } from '@/lib/inventory-import/persist';
-import { assertSafeArchiveEntryName, validateInventoryArchiveLimits } from '@/lib/inventory-import/safety';
-import { loadInventoryImportParsers, type InventoryZipArchive } from '@/lib/inventory-import/parsers';
+import { parseInventoryArchive, type ParsedInventoryArchive } from '@/lib/inventory-import/archive';
 import { INVENTORY_CATEGORIES } from '@/lib/inventory-import/taxonomy';
-import type { ExistingInventoryProduct, ImportPreview, InventorySourceRow } from '@/lib/inventory-import/types';
+import { getImportStockStatus, isImportButtonDisabled } from './inventoryImportHelpers';
+import type { ExistingInventoryProduct, ImportPreview } from '@/lib/inventory-import/types';
 import type { Category } from '@/lib/model-types';
-
-export interface ParsedInventoryArchive {
-  zip: InventoryZipArchive;
-  preview: ImportPreview;
-}
-
-export function isImportButtonDisabled(preview: ImportPreview | null, archiveReady: boolean, lookupReady = true): boolean {
-  return !lookupReady || !archiveReady || !preview?.canImport;
-}
-
-export function getImportStockStatus(quantity: number | null): string {
-  if (quantity === null) return 'Invalid stock';
-  if (quantity === 0) return 'Sold out';
-  if (quantity <= 3) return 'Low stock';
-  return 'In stock';
-}
-
-function isImagePath(path: string): boolean {
-  return /\.(?:jpe?g|png|webp)$/i.test(path) && !path.endsWith('/');
-}
-
-export async function parseInventoryArchive(file: File, existingProducts: ExistingInventoryProduct[]): Promise<ParsedInventoryArchive> {
-  const { JSZip, XLSX } = await loadInventoryImportParsers();
-  validateInventoryArchiveLimits({ archiveBytes: file.size });
-  const zip = await JSZip.loadAsync(file);
-  const entries = Object.values(zip.files);
-  validateInventoryArchiveLimits({ entryCount: entries.length });
-  entries.forEach((entry) => assertSafeArchiveEntryName(entry.unsafeOriginalName ?? entry.name));
-  const workbookEntries = entries.filter((entry) => !entry.dir && /(?:^|\/)inventory\.xlsx$/i.test(entry.name));
-  if (workbookEntries.length !== 1) {
-    if (workbookEntries.length === 0) throw new Error('El ZIP debe contener exactamente un archivo inventory.xlsx.');
-    throw new Error(`El ZIP debe contener exactamente un archivo inventory.xlsx; encontrados: ${workbookEntries.map((entry) => entry.name).join(', ')}`);
-  }
-  const workbookEntry = workbookEntries[0];
-
-  const workbookBuffer = await workbookEntry.async('arraybuffer');
-  validateInventoryArchiveLimits({ workbookBytes: workbookBuffer.byteLength });
-  const workbook = XLSX.read(workbookBuffer, { type: 'array', cellDates: false });
-  const worksheet = workbook.Sheets.Inventory;
-  if (!worksheet) throw new Error(`No se encontró la hoja Inventory en el workbook. Hojas disponibles: ${workbook.SheetNames.join(', ') || 'ninguna'}.`);
-
-  const rows = XLSX.utils.sheet_to_json<InventorySourceRow>(worksheet, { defval: null, raw: true });
-  validateInventoryArchiveLimits({ rowCount: rows.length });
-  if (rows.length === 0) throw new Error('La hoja Inventory no contiene filas de productos.');
-
-  const photoNames = new Set(entries.filter((entry) => isImagePath(entry.name)).map((entry) => entry.name));
-  return { zip, preview: buildImportPreview(rows, photoNames, existingProducts) };
-}
 
 function Metric({ label, value, tone = 'text-foreground' }: { label: string; value: string | number; tone?: string }) {
   return (

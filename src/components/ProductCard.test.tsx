@@ -1,7 +1,7 @@
-import { MemoryRouter } from 'react-router-dom';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '@/i18n/LanguageContext';
+import TestMemoryRouter from '@/test/TestMemoryRouter';
 import ProductCard from './ProductCard';
 
 vi.mock('@/components/LikeButton', () => ({ default: () => <button type="button">Like</button> }));
@@ -15,7 +15,7 @@ vi.mock('@/components/ShareMenu', () => ({
 describe('ProductCard', () => {
   it('keeps the price and condition inside the product navigation target', () => {
     render(
-      <MemoryRouter>
+      <TestMemoryRouter>
         <LanguageProvider>
           <ProductCard
             product={{
@@ -27,7 +27,7 @@ describe('ProductCard', () => {
             }}
           />
         </LanguageProvider>
-      </MemoryRouter>,
+      </TestMemoryRouter>,
     );
 
     expect(screen.getByText('$25.00').closest('a')).toHaveAttribute('href', '/products/used-camera');

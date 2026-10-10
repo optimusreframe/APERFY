@@ -25,13 +25,9 @@ function createMemoryStorage(): Storage {
   };
 }
 
-if (typeof globalThis.localStorage === "undefined") {
-  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: createMemoryStorage() });
-}
+Object.defineProperty(globalThis, "localStorage", { configurable: true, value: createMemoryStorage() });
 
-if (typeof globalThis.sessionStorage === "undefined") {
-  Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: createMemoryStorage() });
-}
+Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: createMemoryStorage() });
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,

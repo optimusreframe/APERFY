@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import type { Category, Product } from '@/lib/model-types';
 
-export type AdminProduct = Pick<Product, 'id' | 'name_en' | 'name_es' | 'slug' | 'base_price' | 'condition_status' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
+export type AdminProduct = Pick<Product, 'id' | 'name_en' | 'name_es' | 'description_en' | 'description_es' | 'slug' | 'base_price' | 'condition_status' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
   inventory_enabled: Product['inventory_enabled'];
   stock_quantity: Product['stock_quantity'];
   low_stock_threshold: Product['low_stock_threshold'];
@@ -14,10 +14,9 @@ export type AdminProduct = Pick<Product, 'id' | 'name_en' | 'name_es' | 'slug' |
 };
 
 export type BulkField = 'name_es' | 'base_price' | 'category_id' | 'is_active';
+export type BulkValueMap = Pick<AdminProduct, BulkField>;
 export type BulkEdit = Partial<Pick<AdminProduct, BulkField>>;
 export type ProductViewMode = 'list' | 'grid';
-
-type BulkValue = AdminProduct[BulkField];
 
 type ProductCatalogViewsProps = {
   products: AdminProduct[];
@@ -29,8 +28,8 @@ type ProductCatalogViewsProps = {
   allProductsSelected: boolean;
   onToggleAll: (checked: boolean) => void;
   onToggleSelected: (productId: string, checked: boolean) => void;
-  getBulkValue: (productId: string, field: BulkField, original: BulkValue) => BulkValue;
-  onBulkFieldChange: (productId: string, field: BulkField, value: BulkValue, original: BulkValue) => void;
+  getBulkValue: <Field extends BulkField>(productId: string, field: Field, original: BulkValueMap[Field]) => BulkValueMap[Field];
+  onBulkFieldChange: <Field extends BulkField>(productId: string, field: Field, value: BulkValueMap[Field], original: BulkValueMap[Field]) => void;
   onToggle: (productId: string, field: 'is_active' | 'is_featured', value: boolean) => void;
   onEdit: (product: AdminProduct) => void;
   onDelete: (productId: string) => void;

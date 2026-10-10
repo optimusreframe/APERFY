@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
+import TestMemoryRouter from '@/test/TestMemoryRouter';
 import AdminHomepage from './AdminHomepage';
 
 const saveMock = vi.hoisted(() => vi.fn());
@@ -30,9 +30,9 @@ describe('AdminHomepage', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
+        <TestMemoryRouter>
           <AdminHomepage />
-        </MemoryRouter>
+        </TestMemoryRouter>
       </QueryClientProvider>,
     );
 

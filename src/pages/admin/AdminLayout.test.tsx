@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
+import TestMemoryRouter from '@/test/TestMemoryRouter';
 import AdminLayout from './AdminLayout';
 
 vi.mock('./AdminSidebar', () => ({ default: () => <nav aria-label="Admin navigation" /> }));
@@ -13,9 +13,9 @@ vi.mock('@/components/ui/sidebar', () => ({
 describe('AdminLayout', () => {
   it('makes the admin content area independently scrollable', () => {
     render(
-      <MemoryRouter initialEntries={['/admin/integrations']}>
+      <TestMemoryRouter initialEntries={['/admin/integrations']}>
         <AdminLayout />
-      </MemoryRouter>,
+      </TestMemoryRouter>,
     );
 
     expect(screen.getByRole('main')).toHaveClass('flex-1', 'overflow-y-auto');

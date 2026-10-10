@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
 import { beforeAll, beforeEach, vi } from 'vitest';
+import TestMemoryRouter from '@/test/TestMemoryRouter';
 import AdminOrders from './AdminOrders';
 
 const state = vi.hoisted(() => ({
@@ -96,7 +96,7 @@ function renderOrders() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter><AdminOrders /></MemoryRouter>
+      <TestMemoryRouter><AdminOrders /></TestMemoryRouter>
     </QueryClientProvider>,
   );
 }

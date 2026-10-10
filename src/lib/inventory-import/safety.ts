@@ -1,3 +1,5 @@
+import { normalizeInventoryPath } from './paths';
+
 export const INVENTORY_IMPORT_LIMITS = Object.freeze({
   maxArchiveBytes: 250 * 1024 * 1024,
   maxArchiveEntries: 512,
@@ -27,7 +29,7 @@ export function validateInventoryArchiveLimits(input: InventoryArchiveLimitsInpu
 }
 
 export function assertSafeArchiveEntryName(name: string): void {
-  const normalizedName = name.replaceAll('\\', '/');
+  const normalizedName = normalizeInventoryPath(name);
   if (
     normalizedName.startsWith('/')
     || /^[A-Za-z]:\//.test(normalizedName)

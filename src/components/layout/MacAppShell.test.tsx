@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 import { afterEach, vi } from 'vitest';
+import TestMemoryRouter from '@/test/TestMemoryRouter';
 import MacAppShell from './MacAppShell';
 import { LanguageProvider } from '@/i18n/LanguageContext';
 import { CartProvider } from '@/contexts/CartContext';
@@ -24,7 +24,7 @@ describe('MacAppShell', () => {
   });
 
   it('renders the APERFY desktop app landmarks and mobile-safe navigation', () => {
-    render(<MemoryRouter><LanguageProvider><CartProvider><MacAppShell><div>Store content</div></MacAppShell></CartProvider></LanguageProvider></MemoryRouter>);
+    render(<TestMemoryRouter><LanguageProvider><CartProvider><MacAppShell><div>Store content</div></MacAppShell></CartProvider></LanguageProvider></TestMemoryRouter>);
 
     expect(screen.getByRole('banner', { name: /^aperfy$/i })).toBeInTheDocument();
     expect(screen.getByTestId('mac-app-shell')).toHaveAttribute('data-aperfy-shell', 'macos');
@@ -40,7 +40,7 @@ describe('MacAppShell', () => {
 
   it('changes the language from Spanish to English when the language button is pressed', () => {
     localStorage.setItem('aperfy-lang', 'es');
-    render(<MemoryRouter><LanguageProvider><CartProvider><MacAppShell><div>Store content</div></MacAppShell></CartProvider></LanguageProvider></MemoryRouter>);
+    render(<TestMemoryRouter><LanguageProvider><CartProvider><MacAppShell><div>Store content</div></MacAppShell></CartProvider></LanguageProvider></TestMemoryRouter>);
 
     const languageButton = screen.getByRole('button', { name: 'Cambiar idioma' });
     expect(languageButton).toHaveTextContent('es');
@@ -55,7 +55,7 @@ describe('MacAppShell', () => {
   it('shows an admin shield that opens the admin console for administrators', () => {
     authState.current = { user: { id: 'admin-user' }, isAdmin: true };
 
-    render(<MemoryRouter><LanguageProvider><CartProvider><MacAppShell><div>Store content</div></MacAppShell></CartProvider></LanguageProvider></MemoryRouter>);
+    render(<TestMemoryRouter><LanguageProvider><CartProvider><MacAppShell><div>Store content</div></MacAppShell></CartProvider></LanguageProvider></TestMemoryRouter>);
 
     expect(screen.getByRole('link', { name: /open admin console/i })).toHaveAttribute('href', '/admin');
   });

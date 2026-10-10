@@ -1,6 +1,6 @@
-import { MemoryRouter } from 'react-router-dom';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import TestMemoryRouter from '@/test/TestMemoryRouter';
 import BottomTabBar from './BottomTabBar';
 
 vi.mock('@/contexts/CartContext', () => ({ useCart: () => ({ itemCount: 0 }) }));
@@ -9,9 +9,9 @@ vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: null, isAdmin
 describe('BottomTabBar', () => {
   it('reserves a safe-area-aware app-shell tab row and marks the active route', () => {
     render(
-      <MemoryRouter initialEntries={['/']}>
+      <TestMemoryRouter initialEntries={['/']}>
         <BottomTabBar />
-      </MemoryRouter>,
+      </TestMemoryRouter>,
     );
 
     const nav = screen.getByRole('navigation');

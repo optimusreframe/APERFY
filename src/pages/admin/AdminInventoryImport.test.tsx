@@ -1,10 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
 import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 import { describe, expect, it, vi } from 'vitest';
-import AdminInventoryImport, { isImportButtonDisabled } from './AdminInventoryImport';
+import TestMemoryRouter from '@/test/TestMemoryRouter';
+import AdminInventoryImport from './AdminInventoryImport';
+import { isImportButtonDisabled } from './inventoryImportHelpers';
 import { loadInventoryImportParsers } from '@/lib/inventory-import/parsers';
 import type { ImportPreview } from '@/lib/inventory-import/types';
 
@@ -56,9 +57,9 @@ describe('AdminInventoryImport', () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
+        <TestMemoryRouter>
           <AdminInventoryImport />
-        </MemoryRouter>
+        </TestMemoryRouter>
       </QueryClientProvider>,
     );
 
