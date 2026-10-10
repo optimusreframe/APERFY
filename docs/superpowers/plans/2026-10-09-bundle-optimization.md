@@ -1,5 +1,7 @@
 # Bundle Optimization Implementation Plan
 
+> Estado: implementado y desplegado. Los commits `e1e79d4`, `06d48f2` y `c43c87a` contienen la optimización, el alcance geográfico US/VE y la limpieza final de diagnósticos.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Eliminar el chunk JavaScript mayor de 500 kB y reducir el coste de instalación/carga del PWA sin cambiar el comportamiento del catálogo, checkout, dirección, admin ni importación, limitando la geografía soportada a USA y Venezuela.
@@ -52,15 +54,15 @@ Aunque `state-*.js` ya se solicita mediante `import()` cuando se selecciona un p
 - Consumes: salida de `vite build` y archivos `dist/assets/*`.
 - Produces: reporte reproducible con tamaño bruto, gzip, ruta/chunk, total precacheado y lista de chunks sobre los umbrales.
 
-- [ ] **Step 1: Definir los datos mínimos del reporte**
+  - [x] **Step 1: Definir los datos mínimos del reporte**
 
   El script debe leer `dist/assets`, calcular bytes brutos y gzip, ordenar descendente y fallar solamente si no encuentra el directorio de build. No debe bloquear todavía por tamaño; la función inicial es medir.
 
-- [ ] **Step 2: Agregar el comando de reporte**
+  - [x] **Step 2: Agregar el comando de reporte**
 
   Añadir `build:report` a `package.json` para ejecutar el build y el reporte de forma consecutiva, sin cambiar `build` ni el comportamiento de producción.
 
-- [ ] **Step 3: Capturar la línea base**
+  - [x] **Step 3: Capturar la línea base**
 
   Ejecutar:
 
@@ -89,23 +91,23 @@ Aunque `state-*.js` ya se solicita mediante `import()` cuando se selecciona un p
 - Consumes: `country-state-city/lib/assets/state.json` y `city.json` durante la generación.
 - Produces: `getCountryOptions()` limitado a US/VE; `getStatesForCountry(countryCode): Promise<CheckoutRegion[]>`; y `getCitiesForState(countryCode, stateCode): Promise<CheckoutCity[]>`, cargando únicamente los JSON solicitados.
 
-- [ ] **Step 1: Especificar la compatibilidad del formato y el alcance**
+  - [x] **Step 1: Especificar la compatibilidad del formato y el alcance**
 
   El generador debe conservar `isoCode` y `name`, producir únicamente `US` y `VE`, normalizar códigos de estado/provincia, y rechazar códigos de país distintos de `US` y `VE`. El helper debe devolver `[]` para código vacío o país no permitido y conservar el fallback controlado para estados sin ciudades.
 
-- [ ] **Step 2: Generar los archivos de USA y Venezuela**
+  - [x] **Step 2: Generar los archivos de USA y Venezuela**
 
   Ejecutar el generador desde una dependencia instalada, producir JSON estático de estados y ciudades para `US` y `VE`, y registrar el resultado de forma determinista. No copiar datos de otros países al repositorio ni al bundle.
 
-- [ ] **Step 3: Cambiar el helper sin alterar el flujo del checkout**
+  - [x] **Step 3: Cambiar el helper sin alterar el flujo del checkout**
 
   Sustituir los imports monolíticos por cargas de los recursos de `US`/`VE`. `getCountryOptions` debe devolver solo esos dos países; `CheckoutRegion` mantiene `isoCode`/`name`; el nuevo `CheckoutCity` debe usarse para completar ciudad sin introducir otros países.
 
-- [ ] **Step 4: Añadir caché de datos bajo demanda**
+  - [x] **Step 4: Añadir caché de datos bajo demanda**
 
   Si el service worker debe cachear estos recursos, usar reglas específicas `CacheFirst` o `StaleWhileRevalidate` para `/data/location-states/{US,VE}.json` y `/data/location-cities/{US,VE}/*.json`, con expiración larga y sin precachear datos no utilizados. La primera selección online debe funcionar y la selección repetida debe usar caché.
 
-- [ ] **Step 5: Verificar paridad**
+  - [x] **Step 5: Verificar paridad**
 
   Comparar automáticamente USA y Venezuela contra la salida de la dependencia original. Confirmar que un país no permitido no aparece, que país/estado/ciudad y dirección continúan completándose correctamente, y que no se filtran archivos de otros países.
 
@@ -121,19 +123,19 @@ Aunque `state-*.js` ya se solicita mediante `import()` cuando se selecciona un p
 - Consumes: `JSZip` y `XLSX` solamente al iniciar el parseo/persistencia de un archivo.
 - Produces: misma preview, validación, importación, cancelación e idempotencia de inventario.
 
-- [ ] **Step 1: Cubrir el contrato actual**
+  - [x] **Step 1: Cubrir el contrato actual**
 
   Ejecutar primero las pruebas de ZIP/XLSX existentes y conservar casos de preview, archivo inválido, límites de seguridad y repetición de importación.
 
-- [ ] **Step 2: Mover `JSZip` y `XLSX` a imports dinámicos**
+  - [x] **Step 2: Mover `JSZip` y `XLSX` a imports dinámicos**
 
   Cargar cada parser dentro de la acción que realmente lo necesita. El render inicial de `/admin/inventory-import` debe mostrar el formulario sin descargar los parsers.
 
-- [ ] **Step 3: Mantener mensajes y errores**
+  - [x] **Step 3: Mantener mensajes y errores**
 
   Traducir errores de carga o parseo al mismo canal de toast/error actual y no permitir iniciar persistencia si el parser no cargó correctamente.
 
-- [ ] **Step 4: Verificar el flujo completo**
+  - [x] **Step 4: Verificar el flujo completo**
 
   Confirmar preview, importación de 209 productos, fotos, stock y deduplicación. Medir que el chunk inicial del admin disminuya y que los parsers se descarguen solo al subir el ZIP.
 
@@ -147,15 +149,15 @@ Aunque `state-*.js` ya se solicita mediante `import()` cuando se selecciona un p
 - Consumes: chunks generados por Vite.
 - Produces: service worker que precachea el shell y recursos esenciales, mientras los chunks de rutas y datos bajo demanda se cachean al usarse.
 
-- [ ] **Step 1: Definir el shell esencial**
+  - [x] **Step 1: Definir el shell esencial**
 
   Mantener en precache `index.html`, CSS, manifest, iconos, `index-*.js`, vendors necesarios y assets esenciales. Excluir datos geográficos por país y parsers de admin que no necesita un visitante público inicial.
 
-- [ ] **Step 2: Añadir runtime caching específico**
+  - [x] **Step 2: Añadir runtime caching específico**
 
   Asegurar que los scripts lazy y los JSON de estados se recuperen online y queden disponibles en caché después del primer uso. Mantener `NetworkFirst` para navegación y no cachear respuestas de Supabase sensibles como si fueran assets públicos.
 
-- [ ] **Step 3: Verificar instalación y actualización**
+  - [x] **Step 3: Verificar instalación y actualización**
 
   En un perfil limpio, instalar el PWA, abrir catálogo, detalle, carrito, checkout y admin. Verificar que no existan errores de `ChunkLoadError`, que el service worker actualice correctamente y que una versión nueva invalide los hashes anteriores.
 
@@ -171,15 +173,15 @@ Aunque `state-*.js` ya se solicita mediante `import()` cuando se selecciona un p
 - Consumes: reporte de Task 1.
 - Produces: presupuesto que alerta sobre regresiones reales, no sobre chunks lazy intencionalmente aislados.
 
-- [ ] **Step 1: Repetir el build y comparar**
+  - [x] **Step 1: Repetir el build y comparar**
 
   Confirmar que no exista ningún chunk JavaScript minificado mayor de 500 kB, que el precache total baje respecto a los 7.2 MB observados y que el JS inicial no aumente.
 
-- [ ] **Step 2: Añadir límites con tolerancia controlada**
+  - [x] **Step 2: Añadir límites con tolerancia controlada**
 
   El reporte debe fallar ante una regresión significativa del shell o ante la reaparición de un chunk mayor de 500 kB. No elevar el warning de Vite para ocultar el problema.
 
-- [ ] **Step 3: Ejecutar la validación final**
+  - [x] **Step 3: Ejecutar la validación final**
 
   ```bash
   npm run build:report
@@ -190,7 +192,7 @@ Aunque `state-*.js` ya se solicita mediante `import()` cuando se selecciona un p
 
   Además, usar Playwright/CUA para comprobar catálogo de 210 productos, filtros, detalle, carrito con miniatura completa, checkout con dirección y `/admin/inventory-import`.
 
-- [ ] **Step 4: Desplegar gradualmente**
+  - [x] **Step 4: Desplegar gradualmente**
 
   Crear un deployment preview, ejecutar smoke tests y comparar tiempos/redes con producción. Solo después promover a producción. Mantener el deployment anterior listo para rollback inmediato.
 
