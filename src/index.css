@@ -102,6 +102,7 @@
      footprint in the scroll viewport so cards and checkout actions never sit
      underneath it. Desktop keeps the full scroll height. */
   .mac-store-content { padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px)); }
+  .mac-bottom-tabs { padding-bottom: env(safe-area-inset-bottom, 0px); }
   @media (min-width: 1024px) { .mac-store-content { padding-bottom: 0; } }
   .mac-content-scroll::-webkit-scrollbar, .mac-sidebar::-webkit-scrollbar { width: 9px; }
   .mac-content-scroll::-webkit-scrollbar-track, .mac-sidebar::-webkit-scrollbar-track { background: transparent; }
@@ -124,6 +125,56 @@
   @media (prefers-reduced-motion: reduce) { .pointer-glow, .mac-deal-panel { display: none; transition: none; } }
   @media (pointer: coarse) { .pointer-glow { display: none; } }
   @media (pointer: coarse) { .mac-titlebar, .mac-sidebar { backdrop-filter: none; } }
+
+  /* Public layout presets. They are deliberately token-based so the same
+     storefront supports both the light and dark APERFY themes. */
+  .mac-workspace[data-storefront-design="design2"] .storefront-catalog #deals { padding-top: 2.25rem; }
+  .mac-workspace[data-storefront-design="design2"] .storefront-catalog .catalog-product-card > div { border-radius: 1.35rem; box-shadow: 0 14px 38px hsl(var(--foreground) / .08); }
+  .mac-workspace[data-storefront-design="design2"] .storefront-catalog .catalog-product-card img { object-fit: cover; }
+  .mac-workspace[data-storefront-design="design3"] .storefront-catalog #deals { padding-top: 3rem; }
+  .mac-workspace[data-storefront-design="design3"] .storefront-catalog .catalog-product-card > div { border-radius: 1.65rem; border-color: hsl(var(--primary) / .18); background: hsl(var(--card) / .76); }
+  .mac-workspace[data-storefront-design="design3"] .storefront-catalog .catalog-product-card h3 { letter-spacing: -.025em; }
+  .mac-workspace[data-storefront-design="design4"] .storefront-catalog .catalog-product-card > div { border-radius: .9rem; }
+  .mac-workspace[data-storefront-design="design4"] .storefront-catalog .catalog-product-card .text-gradient-gold { color: hsl(var(--primary)); background: none; }
+  .mac-workspace[data-storefront-design="design4"] .storefront-catalog [data-storefront-grid] { gap: .75rem; }
+  .mac-workspace[data-storefront-design="design3"] .storefront-product-page .storefront-product-hero { border-radius: 1.75rem; box-shadow: 0 28px 80px hsl(var(--foreground) / .12) !important; }
+  .mac-workspace[data-storefront-design="design4"] .storefront-cart-item { border-radius: .95rem; }
+
+  .layout-preview { position: relative; overflow: hidden; min-height: 220px; border-radius: 1rem; border: 1px solid hsl(var(--border) / .8); background: hsl(220 22% 8%); color: hsl(220 24% 97%); }
+  .layout-preview-top { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 12px; border-bottom: 1px solid hsl(0 0% 100% / .1); background: hsl(220 22% 12%); }
+  .layout-preview-top span { width: 5px; height: 5px; border-radius: 999px; background: hsl(var(--primary)); opacity: .8; }
+  .layout-preview-top i { width: 52px; height: 4px; border-radius: 999px; margin-left: auto; background: hsl(0 0% 100% / .12); }
+  .layout-preview-body { padding: 20px 18px 34px; }
+  .layout-preview-copy { display: grid; gap: 6px; max-width: 68%; }
+  .layout-preview-copy small { color: hsl(var(--primary)); font: 700 7px/1 monospace; letter-spacing: .24em; }
+  .layout-preview-copy strong { font: 800 20px/1.02 'Manrope', sans-serif; letter-spacing: -.05em; }
+  .layout-preview-copy em { width: 80%; height: 5px; border-radius: 999px; background: hsl(0 0% 100% / .13); }
+  .layout-preview-search { width: 100%; height: 25px; margin-top: 16px; border: 1px solid hsl(0 0% 100% / .16); border-radius: 999px; background: hsl(0 0% 100% / .05); }
+  .layout-preview-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 14px; }
+  .layout-preview-cards span { height: 72px; border-radius: 9px; background: linear-gradient(145deg, hsl(var(--primary) / .55), hsl(220 22% 18%)); border: 1px solid hsl(0 0% 100% / .12); }
+  .layout-preview-cards span:nth-child(2) { background: linear-gradient(145deg, hsl(220 28% 23%), hsl(var(--accent) / .45)); }
+  .layout-preview-cards span:nth-child(3) { background: linear-gradient(145deg, hsl(220 20% 16%), hsl(var(--primary) / .3)); }
+  .layout-preview-nav { position: absolute; inset: auto 10px 9px; display: flex; justify-content: space-around; height: 24px; padding: 5px 10px; border-radius: 999px; background: hsl(220 22% 14% / .95); border: 1px solid hsl(0 0% 100% / .13); }
+  .layout-preview-nav span { width: 12%; height: 4px; border-radius: 999px; background: hsl(0 0% 100% / .4); }
+  .layout-preview-design2 { background: radial-gradient(circle at 15% 25%, hsl(var(--primary) / .3), transparent 33%), hsl(220 22% 8%); }
+  .layout-preview-design2 .layout-preview-cards span { border-radius: 5px; }
+  .layout-preview-design3 { background: linear-gradient(145deg, hsl(0 0% 98%), hsl(220 18% 86%)); color: hsl(220 15% 11%); }
+  .layout-preview-design3 .layout-preview-top, .layout-preview-design3 .layout-preview-nav { background: hsl(0 0% 100% / .72); border-color: hsl(220 20% 20% / .12); }
+  .layout-preview-design3 .layout-preview-cards span { border-radius: 15px; background: linear-gradient(145deg, hsl(0 0% 100%), hsl(var(--primary) / .25)); }
+  .layout-preview-design4 { background: linear-gradient(180deg, hsl(0 0% 98%), hsl(220 18% 90%)); color: hsl(220 15% 11%); }
+  .layout-preview-design4 .layout-preview-top, .layout-preview-design4 .layout-preview-nav { background: hsl(0 0% 100% / .72); border-color: hsl(220 20% 20% / .12); }
+  .layout-preview-design4 .layout-preview-cards { grid-template-columns: repeat(2, 1fr); }
+  .layout-preview-design4 .layout-preview-cards span { height: 58px; border-radius: 7px; background: linear-gradient(145deg, hsl(0 0% 100%), hsl(var(--primary) / .28)); }
+  @media (max-width: 390px) {
+    .storefront-toolbar-actions { gap: 0; }
+    .storefront-toolbar-actions .mac-toolbar-button { min-width: 38px; padding-left: .3rem; padding-right: .3rem; }
+    .storefront-toolbar-actions .storefront-language-button { display: none; }
+    .storefront-currency-selector { gap: .25rem; padding-left: .45rem; padding-right: .45rem; }
+    .storefront-currency-selector select { padding-right: .45rem; }
+  }
+  @media (max-width: 340px) {
+    .storefront-toolbar-actions .storefront-currency-selector { display: none; }
+  }
 
   /* Light storefront theme: a soft paper canvas, white elevated surfaces and
      APERFY green actions, following the reference's editorial layout. */

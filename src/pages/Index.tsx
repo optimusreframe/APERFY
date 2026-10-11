@@ -14,6 +14,7 @@ export { getHomepageCopy } from './homepage-copy';
 import { DEFAULT_HOMEPAGE_HERO_CONFIG, HOMEPAGE_HERO_SETTING_KEY, parseHomepageHeroConfig } from '@/lib/homepage-settings';
 import { fetchActiveStorefrontProducts, sortStorefrontProducts } from '@/lib/storefront-products';
 import { DEFAULT_CATALOG_FILTERS, filterStorefrontProducts, getCatalogFilterFacets, type CatalogFilters, type CatalogFilterFacets } from '@/lib/storefront-filters';
+import { useStorefrontLayout } from '@/contexts/StorefrontLayoutContext';
 
 const CATALOG_VIEW_STORAGE_KEY = 'aperfy-catalog-view';
 const reveal = { initial: { opacity: 0, y: 18 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '-10% 0px' }, transition: { duration: .4, ease: [0.2, 0, 1, 1] } } as const;
@@ -115,6 +116,7 @@ export default function Index() {
   const filterBarRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<CatalogView>(readCatalogView);
   const { setPricing } = useRegionalPricing();
+  const { config: storefrontLayout } = useStorefrontLayout();
   const { data: catalog, isLoading, isError } = useQuery({
     queryKey: ['aperfy-products'],
     queryFn: fetchActiveStorefrontProducts,
@@ -157,7 +159,7 @@ export default function Index() {
   const quickFacets = useMemo(() => getCatalogFilterFacets(products, deferredSearch, filters), [products, deferredSearch, filters]);
   const draftFacets = useMemo(() => getCatalogFilterFacets(products, deferredSearch, draftFilters), [products, deferredSearch, draftFilters]);
   const draftResultCount = draftFacets.resultCount;
-  const gridClassName = viewMode === 'grid' ? 'grid grid-cols-2 gap-4 md:grid-cols-3 2xl:grid-cols-4' : 'grid gap-3 sm:gap-4';
+  const gridClassName = viewMode === 'grid' ? 'grid grid-cols-1 min-[520px]:grid-cols-2 gap-4 md:grid-cols-3 2xl:grid-cols-4' : 'grid gap-3 sm:gap-4';
   const activeFilterCount = [
     filters.category !== 'all',
     filters.price !== 'all',
@@ -190,7 +192,7 @@ export default function Index() {
   const clearDraftFilters = () => setDraftFilters({ ...DEFAULT_CATALOG_FILTERS });
 
   return <>
-    <main className="min-w-0">
+    <main data-storefront-page="catalog" data-storefront-layout={storefrontLayout.design} className="storefront-catalog min-w-0">
       {homepageHero.enabled && <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .35 }} className="border-b border-border/70 bg-card/45">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-7 sm:px-8 xl:flex-row xl:items-center xl:justify-between xl:px-12">
           <div className="min-w-0 flex-1 xl:max-w-4xl"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[.2em] text-primary">{copy.eyebrow}</p><h1 className="aperfy-display-title max-w-none break-words text-4xl font-semibold leading-[.98] tracking-[-.06em] sm:text-6xl">{copy.title} <span className="text-primary">{copy.highlight}</span></h1><p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">{copy.description}</p></div>
@@ -224,9 +226,9 @@ export default function Index() {
           </div>
         </div>
 
-        {isLoading && <div className={gridClassName}>{Array.from({ length: 8 }).map((_, index) => <div key={index} className={`${viewMode === 'grid' ? 'aspect-[4/5]' : 'h-40'} animate-pulse rounded-2xl bg-muted`} />)}</div>}
+        {isLoading && <div data-storefront-grid className={gridClassName}>{Array.from({ length: 8 }).map((_, index) => <div key={index} className={`${viewMode === 'grid' ? 'aspect-[4/5]' : 'h-40'} animate-pulse rounded-2xl bg-muted`} />)}</div>}
         {isError && <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center text-sm text-muted-foreground">{es ? 'No pudimos cargar las ofertas disponibles. Intenta de nuevo en unos segundos.' : 'We could not load available deals. Try again in a few seconds.'}</div>}
-        {!isLoading && !isError && visible.length > 0 && <div className={gridClassName}>{visible.map((product, index) => <ProductCard key={product.id} product={product} index={index} layout={viewMode} showBadges />)}</div>}
+        {!isLoading && !isError && visible.length > 0 && <div data-storefront-grid className={gridClassName}>{visible.map((product, index) => <ProductCard key={product.id} product={product} index={index} layout={viewMode} showBadges />)}</div>}
         {!isLoading && !isError && visible.length === 0 && <div className="rounded-2xl border border-dashed border-border p-12 text-center"><Boxes className="mx-auto h-6 w-6 text-primary" /><p className="mt-4 font-semibold">{es ? 'No hay ofertas con esos filtros.' : 'No deals match those filters.'}</p><p className="mt-2 text-sm text-muted-foreground">{es ? 'Prueba otra búsqueda o solicita un producto específico.' : 'Try another search or request a specific product.'}</p><Link to="/ask" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline">{copy.secondaryCta}<ArrowRight className="h-4 w-4" /></Link></div>}
         <p className="mt-5 flex items-center gap-2 text-xs text-muted-foreground"><SlidersHorizontal className="h-3.5 w-3.5 text-primary" />{visible.length} {es ? 'ofertas visibles · stock real y limitado' : 'visible deals · real and limited stock'}{activeFilterCount > 0 && <span className="text-primary">· {activeFilterCount} {es ? 'filtros activos' : 'active filters'}</span>}</p>
       </motion.section>

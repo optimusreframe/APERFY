@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { ProductCardProduct } from '@/components/ProductCard';
 import type { StorefrontPricingPayload } from '@/lib/regional-pricing';
+import { getStorefrontCountryCode } from '@/lib/storefront-region';
 
 export type StorefrontProduct = ProductCardProduct & {
   categories?: (NonNullable<ProductCardProduct['categories']> & { slug?: string }) | null;
@@ -19,7 +20,8 @@ export type StorefrontSort = 'relevant' | 'new' | 'featured' | 'price-asc' | 'pr
 
 /** Loads every active product, paging explicitly so the catalog never falls back to a small result cap. */
 export async function fetchActiveStorefrontProducts(): Promise<StorefrontProductsResponse> {
-  const { data, error } = await supabase.functions.invoke('storefront-pricing', { body: { action: 'catalog' } });
+  const countryCode = await getStorefrontCountryCode();
+  const { data, error } = await supabase.functions.invoke('storefront-pricing', { body: { action: 'catalog', countryCode: countryCode ?? undefined } });
   if (error) throw error;
   const response = data as { products?: StorefrontProduct[]; pricing?: StorefrontPricingPayload } | null;
   if (!response?.pricing || !Array.isArray(response.products)) throw new Error('Invalid storefront pricing response');

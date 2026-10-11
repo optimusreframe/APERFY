@@ -80,7 +80,6 @@ export default function ProductCard({
                 height={480}
                 className={`h-full w-full transition-transform duration-300 group-hover:scale-[1.03] ${isList ? 'object-contain p-2 sm:p-3' : 'object-cover'}`}
                 loading={index < 4 ? 'eager' : 'lazy'}
-                fetchPriority={index < 4 ? 'high' : 'low'}
                 decoding="async"
               />
             ) : (

@@ -12,6 +12,7 @@ import BottomTabBar from '@/components/mobile/BottomTabBar';
 import ThemeToggle from '@/components/ThemeToggle';
 import RegionalCurrencySelector from '@/components/RegionalCurrencySelector';
 import { MacShellProvider, type MacShellVariant } from './MacShellContext';
+import { useStorefrontLayout } from '@/contexts/StorefrontLayoutContext';
 
 type MacAppShellProps = { children: ReactNode; variant?: MacShellVariant };
 
@@ -33,8 +34,9 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
     { to: '/cart', label: es ? 'Carrito' : 'Cart', icon: ShoppingBag, count: itemCount },
   ];
   const accountPath = user ? (authIsAdmin ? '/admin' : '/profile') : '/auth';
+  const { config: storefrontLayout } = useStorefrontLayout();
 
-  return <MacShellProvider variant={variant}><div data-testid="mac-app-shell" data-aperfy-shell="macos" data-shell-variant={variant} className="mac-workspace relative box-border h-[100dvh] overflow-hidden text-foreground"><PointerGlow />
+  return <MacShellProvider variant={variant}><div data-testid="mac-app-shell" data-aperfy-shell="macos" data-shell-variant={variant} data-storefront-design={!isAdmin ? storefrontLayout.design : undefined} className="mac-workspace relative box-border h-[100dvh] overflow-hidden text-foreground"><PointerGlow />
     <MacWindowIntro><div className="mac-window mx-auto flex h-full min-h-0 max-w-[1480px] overflow-hidden sm:rounded-[1.25rem] sm:border sm:border-border/70 sm:shadow-[0_32px_100px_hsl(var(--foreground)/.16)]">
       {!isAdmin && <aside className="mac-sidebar hidden min-h-0 w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border/70 px-3 py-4 lg:flex" aria-label={es ? 'Navegación de tienda' : 'Store navigation'}>
         <Link to="/" className="mb-8 flex items-center gap-2.5 px-3" aria-label="APERFY home"><img src="/logo.png" alt="APERFY" className="h-8 w-8 rounded-lg object-contain" /><span className="aperfy-wordmark text-sm"><span>APER</span><span>FY</span></span></Link>
@@ -49,10 +51,10 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
           <div className="mac-traffic-lights hidden items-center gap-2 sm:flex" aria-hidden="true"><span className="mac-light bg-[#ff5f57]" /><span className="mac-light bg-[#febc2e]" /><span className="mac-light bg-[#28c840]" /></div>
           <Link to="/" className="flex items-center gap-2 lg:hidden"><img src="/logo.png" alt="APERFY" className="h-7 w-7 rounded-lg object-contain" /><span className="aperfy-wordmark text-sm"><span>APER</span><span>FY</span></span></Link>
           <div className="hidden flex-1 items-center justify-center lg:flex"><span className="text-xs font-medium tracking-[.02em] text-muted-foreground">{isAdmin ? 'APERFY Console · operations and catalog' : (es ? 'APERFY · oportunidades disponibles ahora' : 'APERFY · live opportunities')}</span></div>
-          {!isAdmin && <div className="ml-auto flex items-center gap-1">
+          {!isAdmin && <div className="storefront-toolbar-actions ml-auto flex items-center gap-1">
             <ThemeToggle />
             <RegionalCurrencySelector />
-            <button onClick={() => setLanguage(language === 'en' ? 'es' : 'en')} className="mac-toolbar-button" aria-label={es ? 'Cambiar idioma' : 'Toggle language'}><Globe className="h-3.5 w-3.5" /><span className="text-[10px] font-semibold uppercase">{language}</span></button>
+            <button onClick={() => setLanguage(language === 'en' ? 'es' : 'en')} className="mac-toolbar-button storefront-language-button" aria-label={es ? 'Cambiar idioma' : 'Toggle language'}><Globe className="h-3.5 w-3.5" /><span className="text-[10px] font-semibold uppercase">{language}</span></button>
             <Link to="/cart" className="mac-toolbar-button" aria-label={es ? 'Abrir carrito' : 'Open cart'}><ShoppingCart className="h-4 w-4" />{itemCount > 0 && <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">{itemCount}</span>}</Link>
             {user && authIsAdmin && <Link to="/admin" className="mac-toolbar-button text-primary" aria-label={es ? 'Abrir panel de administración' : 'Open admin console'}><ShieldCheck className="h-4 w-4" /></Link>}
             <Link to={accountPath} className="mac-toolbar-button" aria-label={user ? (es ? 'Abrir cuenta' : 'Open account') : (es ? 'Iniciar sesión' : 'Sign in')}><UserRound className="h-4 w-4" /></Link>

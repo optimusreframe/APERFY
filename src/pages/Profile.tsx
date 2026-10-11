@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useRegionalPricing } from '@/contexts/RegionalPricingContext';
+import { getStorefrontCountryCode } from '@/lib/storefront-region';
 import { formatRegionalPrice } from '@/lib/regional-pricing';
 import { profileSchema, validateImageFile, sanitizeFileName } from '@/lib/validation';
 import { checkRateLimit } from '@/lib/rate-limit';
@@ -395,7 +396,8 @@ function FavoritesTab() {
       if (favErr) throw favErr;
       if (!favs.length) return [];
       const ids = favs.map(f => f.product_id);
-      const { data, error } = await supabase.functions.invoke('storefront-pricing', { body: { action: 'favorites', productIds: ids } });
+      const countryCode = await getStorefrontCountryCode();
+      const { data, error } = await supabase.functions.invoke('storefront-pricing', { body: { action: 'favorites', productIds: ids, countryCode: countryCode ?? undefined } });
       if (error) throw error;
       return (data?.products ?? []) as Product[];
     },
@@ -462,7 +464,6 @@ function FavoritesTab() {
                     width={640}
                     height={480}
                     loading={i < 4 ? 'eager' : 'lazy'}
-                    fetchPriority={i < 4 ? 'high' : 'low'}
                     decoding="async"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />

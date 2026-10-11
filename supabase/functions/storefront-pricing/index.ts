@@ -32,13 +32,23 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...corsHeaders, 'Content-Type': 'application/json' },
 })
 
-function getRegion(req: Request): PricingRegion {
-  // These headers are injected by the edge/CDN and are intentionally used only
-  // for classification. Unknown locations fail closed to Venezuela so the USA
-  // price list is never granted by an ambiguous request.
-  const country = req.headers.get('cf-ipcountry')
-  const normalizedCountry = country && /^[A-Za-z]{2}$/.test(country) ? country.toUpperCase() : null
-  return normalizedCountry === 'US' ? 'USA' : 'VENEZUELA'
+function normalizeCountryCode(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const country = value.trim().toUpperCase()
+  return /^[A-Z]{2}$/.test(country) ? country : null
+}
+
+function getRegion(req: Request, requestedCountry?: unknown): PricingRegion {
+  // Supabase direct function calls do not always carry the CDN country
+  // header. Prefer trusted edge headers, then the browser's two-letter hint.
+  // Unknown locations use the USD/USA list instead of silently showing VES.
+  const headerCountry = [
+    req.headers.get('cf-ipcountry'),
+    req.headers.get('x-vercel-ip-country'),
+    req.headers.get('x-country-code'),
+  ].map(normalizeCountryCode).find(Boolean)
+  const country = headerCountry ?? normalizeCountryCode(requestedCountry)
+  return country === 'VE' ? 'VENEZUELA' : 'USA'
 }
 
 function parseBcvNumber(value: string): number {
@@ -284,6 +294,7 @@ Deno.serve(async (req) => {
       productIds?: unknown
       variationIds?: unknown
       refresh?: boolean
+      countryCode?: unknown
       rate?: unknown
       source?: unknown
     }
@@ -312,7 +323,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, rate: resolved.rate, source: resolved.source, fetchedAt: resolved.fetchedAt })
     }
 
-    const region = getRegion(req)
+    const region = getRegion(req, body.countryCode)
     const mode = await getMode(admin)
     const rateSource = await getRateSource(admin)
     const globalVenezuelaMarkupPercent = await getGlobalVenezuelaMarkup(admin)

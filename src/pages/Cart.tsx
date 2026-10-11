@@ -45,7 +45,7 @@ export default function Cart() {
   const finalTotal = getFinalTotal();
 
   return (
-    <div className="min-h-full bg-background">
+    <div data-storefront-page="cart" className="storefront-cart-page min-h-full bg-background">
       <Navbar />
 
       {/* ═══ Top Command Bar ═══ */}
@@ -67,7 +67,7 @@ export default function Cart() {
         </div>
       </div>
 
-      <div className="pt-10 pb-24 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="pt-6 pb-24 max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 sm:pt-10">
         {/* Eyebrow + subtitle only — the breadcrumb above already names the page,
             so we don't duplicate the "Carrito" H1. */}
         <motion.div
@@ -119,11 +119,11 @@ export default function Cart() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.04 }}
-                    className="group relative rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-xl p-4 hover:border-white/[0.1] transition-colors"
+                    className="storefront-cart-item group relative rounded-2xl border border-white/[0.06] bg-card/40 backdrop-blur-xl p-3 sm:p-4 hover:border-white/[0.1] transition-colors"
                   >
-                    <div className="flex gap-4">
+                    <div className="flex gap-3 sm:gap-4">
                       <Link to={`/products/${item.slug}`} className="shrink-0">
-                        <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-white/[0.06] bg-white p-1">
+                        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-white/[0.06] bg-white p-1 sm:h-24 sm:w-24">
                           {item.productImage ? (
                             <CartThumbnailImage
                               source={item.productImage}
@@ -146,7 +146,7 @@ export default function Cart() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <Link to={`/products/${item.slug}`}>
-                              <h3 className="font-display font-semibold text-[15px] text-foreground truncate hover:text-primary transition-colors leading-tight">
+                              <h3 className="line-clamp-2 font-display font-semibold text-sm text-foreground hover:text-primary transition-colors leading-tight sm:text-[15px]">
                                 {item.productName}
                               </h3>
                             </Link>
@@ -181,7 +181,7 @@ export default function Cart() {
                         </div>
 
                         {/* Qty + total */}
-                        <div className="mt-3 flex items-center justify-between gap-3">
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                           <div className="inline-flex items-center gap-0.5 rounded-full bg-white/[0.03] border border-white/[0.06] p-1">
                             <button
                               onClick={() => updateQuantity(item.productId, item.quantity - 1)}

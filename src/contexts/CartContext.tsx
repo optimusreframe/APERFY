@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRegionalPricing } from '@/contexts/RegionalPricingContext';
+import { getStorefrontCountryCode } from '@/lib/storefront-region';
 
 export interface CartItem {
   productId: string;
@@ -186,9 +187,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const allItems = [...items, ...savedItems];
     const productIds = [...new Set(allItems.map((item) => item.productId))];
     const variationIds = [...new Set(allItems.flatMap((item) => item.selectedVariations.map((variation) => variation.id)))];
-    void supabase.functions.invoke('storefront-pricing', {
-      body: { action: 'cart-prices', productIds, variationIds },
-    }).then(({ data, error }) => {
+    void getStorefrontCountryCode().then((countryCode) => supabase.functions.invoke('storefront-pricing', {
+      body: { action: 'cart-prices', productIds, variationIds, countryCode: countryCode ?? undefined },
+    })).then(({ data, error }) => {
       if (error || !Array.isArray(data?.items)) return;
       const pricedProducts = new Map<string, { base_price: number; variations: { id: string; type: string; price_modifier: number | null; price_override: number | null; use_manual_price: boolean }[] }>(
         data.items.filter((entry: unknown): entry is { productId: string; product: { base_price: number }; variations: { id: string; type: string; price_modifier: number | null; price_override: number | null; use_manual_price: boolean }[] } => Boolean(entry && typeof entry === 'object' && 'productId' in entry && 'product' in entry && 'variations' in entry)).map((entry) => [entry.productId, { base_price: Number(entry.product.base_price), variations: entry.variations }]),

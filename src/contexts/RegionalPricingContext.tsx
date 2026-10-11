@@ -7,6 +7,7 @@ import {
   type PricingCurrency,
   type StorefrontPricingPayload,
 } from '@/lib/regional-pricing';
+import { getStorefrontCountryCode, readStoredStorefrontCountry } from '@/lib/storefront-region';
 
 interface RegionalPricingContextValue {
   pricing: PricingContext;
@@ -36,6 +37,7 @@ function readCurrency(): PricingCurrency {
 export function RegionalPricingProvider({ children }: { children: ReactNode }) {
   const [pricing, setPricingState] = useState<PricingContext>(getDefaultPricingContext);
   const [currency, setCurrencyState] = useState<PricingCurrency>(readCurrency);
+  const [countryCode, setCountryCode] = useState<string | null>(readStoredStorefrontCountry);
   const [pricingResolved, setPricingResolved] = useState(false);
   const refreshInFlight = useRef<Promise<void> | null>(null);
   const vesAvailable = canUseVes(pricing);
@@ -60,7 +62,9 @@ export function RegionalPricingProvider({ children }: { children: ReactNode }) {
   const refreshPricing = useCallback(() => {
     if (refreshInFlight.current) return refreshInFlight.current;
 
-    const request = supabase.functions.invoke('storefront-pricing', { body: { action: 'pricing', refresh: true } })
+    const request = supabase.functions.invoke('storefront-pricing', {
+      body: { action: 'pricing', refresh: true, countryCode: countryCode ?? undefined },
+    })
       .then(({ data, error }) => {
         if (!error && data?.pricing) setPricing(data.pricing as StorefrontPricingPayload);
       })
@@ -71,7 +75,7 @@ export function RegionalPricingProvider({ children }: { children: ReactNode }) {
 
     refreshInFlight.current = request;
     return request;
-  }, [setPricing]);
+  }, [countryCode, setPricing]);
 
   const setCurrency = useCallback((next: PricingCurrency) => {
     setCurrencyState(next === 'VES' && vesAvailable ? 'VES' : 'USD');
@@ -85,6 +89,14 @@ export function RegionalPricingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, currency);
   }, [currency]);
+
+  useEffect(() => {
+    let active = true;
+    void getStorefrontCountryCode().then((detected) => {
+      if (active && detected && detected !== countryCode) setCountryCode(detected);
+    });
+    return () => { active = false; };
+  }, [countryCode]);
 
   useEffect(() => {
     void refreshPricing();

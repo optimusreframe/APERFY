@@ -34,7 +34,7 @@ export default function BottomTabBar() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
         <div
-          className="mx-auto mb-2 w-[calc(100%-1rem)] max-w-xl rounded-2xl border border-border/80 bg-card/90 backdrop-blur-2xl"
+          className="mx-auto mb-0 w-[calc(100%-1rem)] max-w-xl rounded-2xl border border-border/80 bg-card/90 backdrop-blur-2xl"
           style={{
             background: 'hsl(var(--card) / 0.88)',
             boxShadow: '0 12px 40px -8px hsl(var(--foreground) / 0.18), 0 0 0 1px hsl(var(--primary) / 0.08)',

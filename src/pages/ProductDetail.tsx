@@ -28,6 +28,8 @@ import { filterEmptySpecifications } from '@/lib/product-specifications';
 import { adjustProductImageZoom, isProductImageTap, PRODUCT_IMAGE_ZOOM } from './productImageZoom';
 import { isProductVideo } from '@/lib/product-media';
 import { formatRegionalPrice } from '@/lib/regional-pricing';
+import { getStorefrontCountryCode } from '@/lib/storefront-region';
+import { useStorefrontLayout } from '@/contexts/StorefrontLayoutContext';
 import Model3DViewer from '@/components/Model3DViewer';
 import type { Category, Material, Product } from '@/lib/model-types';
 import type { Database } from '@/integrations/supabase/types';
@@ -393,6 +395,7 @@ export default function ProductDetail() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { pricing, currency, setPricing } = useRegionalPricing();
+  const { config: storefrontLayout } = useStorefrontLayout();
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
@@ -428,7 +431,8 @@ export default function ProductDetail() {
   const { data: productResponse, isLoading } = useQuery({
     queryKey: ['product', slug],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('storefront-pricing', { body: { action: 'product', slug } });
+      const countryCode = await getStorefrontCountryCode();
+      const { data, error } = await supabase.functions.invoke('storefront-pricing', { body: { action: 'product', slug, countryCode: countryCode ?? undefined } });
       if (error) throw error;
       if (!data?.product) throw new Error('Product not found');
       return data as {
@@ -681,7 +685,7 @@ export default function ProductDetail() {
   ]);
 
   return (
-    <div className="min-h-full bg-background">
+    <div data-storefront-page="product-detail" data-storefront-layout={storefrontLayout.design} className="storefront-product-page min-h-full bg-background">
       <Navbar />
 
       {/* Lightbox */}
@@ -727,7 +731,24 @@ export default function ProductDetail() {
         </div>
       </div>
 
-      <div className="w-full min-w-0 pt-8 pb-[calc(10rem+env(safe-area-inset-bottom,0px))] lg:pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full min-w-0 pt-4 sm:pt-8 pb-[calc(10rem+env(safe-area-inset-bottom,0px))] lg:pb-16 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+
+        {/* Keep the product identity above the large gallery on touch devices. */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="product-mobile-identity mb-4 xl:hidden"
+        >
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {product.categories && <div className="font-mono text-[10px] uppercase tracking-[.24em] text-primary/80">{language === 'es' ? product.categories.name_es : product.categories.name_en}</div>}
+            <span className={`rounded-full px-2 py-1 text-[10px] font-bold tracking-wide ${product.condition_status === 'used' ? 'bg-amber-400/15 text-amber-300' : 'bg-primary/15 text-primary'}`}>{product.condition_status === 'used' ? 'USED' : 'NEW'}</span>
+          </div>
+          <h1 className="font-display text-[1.55rem] font-bold leading-[1.08] tracking-[-.03em] text-foreground sm:text-2xl">{language === 'es' ? product.name_es : product.name_en}</h1>
+          {product.brand && <div className="mt-2 font-mono text-[10px] uppercase tracking-[.2em] text-muted-foreground">{product.brand}</div>}
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <span className="text-xl font-semibold tabular-nums text-foreground">{displayTotalPrice}</span>
+            <span className={`inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[.16em] ${inventoryStatusClass}`}><span className={`h-1.5 w-1.5 rounded-full ${inventoryState === 'sold_out' ? 'bg-destructive' : inventoryState === 'low' ? 'bg-amber-400' : 'bg-emerald-400'}`} />{inventoryLabel}</span>
+          </div>
+        </motion.div>
 
         {/* ═══ HERO GRID: thumb rail | hero | info rail ═══ */}
         <div className="grid min-w-0 xl:grid-cols-[72px_minmax(0,1fr)_360px] gap-6 xl:gap-8">
@@ -768,7 +789,7 @@ export default function ProductDetail() {
             className="xl:sticky xl:top-32 xl:self-start"
           >
             <div
-              className="aspect-square rounded-2xl overflow-hidden relative group border border-white/[0.06] bg-card/30 backdrop-blur-sm"
+              className="storefront-product-hero aspect-[4/3] sm:aspect-square rounded-2xl overflow-hidden relative group border border-white/[0.06] bg-card/30 backdrop-blur-sm"
               style={{ boxShadow: '0 0 60px hsl(var(--primary) / 0.06), 0 30px 80px hsl(var(--background) / 0.5)' }}
             >
               {
@@ -894,7 +915,7 @@ export default function ProductDetail() {
           {/* ─── Right Info Rail (sticky, decision-only) ─── */}
           <div className="xl:sticky xl:top-32 xl:self-start space-y-5">
             {/* Identity */}
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="hidden xl:block">
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 {product.categories && (
                   <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary/80">

@@ -9,6 +9,7 @@ import { LanguageProvider } from "@/i18n/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { RegionalPricingProvider } from "@/contexts/RegionalPricingContext";
+import { StorefrontLayoutProvider } from "@/contexts/StorefrontLayoutContext";
 import { BulkImportProvider } from "@/contexts/BulkImportContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BulkImportBanner from "@/components/BulkImportBanner";
@@ -44,6 +45,7 @@ const AdminLogs = lazy(() => import('./pages/admin/AdminLogs'));
 const AdminDiscounts = lazy(() => import('./pages/admin/AdminDiscounts'));
 const AdminBackgroundQA = lazy(() => import('./pages/admin/AdminBackgroundQA'));
 const AdminHomepage = lazy(() => import('./pages/admin/AdminHomepage'));
+const AdminStorefrontLayout = lazy(() => import('./pages/admin/AdminStorefrontLayout'));
 const AdminInventoryImport = lazy(() => import('./pages/admin/AdminInventoryImport'));
 const RequestModel = lazy(() => import('./pages/RequestModel'));
 const Contact = lazy(() => import('./pages/Contact'));
@@ -104,6 +106,7 @@ const AppContent = () => {
                 <Route path="logs" element={<AdminLogs />} />
                 <Route path="background-qa" element={<AdminBackgroundQA />} />
                 <Route path="homepage" element={<AdminHomepage />} />
+                <Route path="storefront-layout" element={<AdminStorefrontLayout />} />
                 <Route path="ai-settings" element={<Navigate to="/admin/integrations" replace />} />
                 <Route path="integrations" element={<AdminIntegrations />} />
                 <Route path="notifications" element={<AdminNotifications />} />
@@ -126,6 +129,7 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="aperfy-theme">
       <LanguageProvider>
         <AuthProvider>
+          <StorefrontLayoutProvider>
           <RegionalPricingProvider>
             <CartProvider>
               <BulkImportProvider>
@@ -140,6 +144,7 @@ const App = () => (
               </BulkImportProvider>
             </CartProvider>
           </RegionalPricingProvider>
+          </StorefrontLayoutProvider>
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>

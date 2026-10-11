@@ -29,6 +29,7 @@ const routeLabels: Record<string, string> = {
   '/admin/notifications': 'NOTIFICATION STUDIO',
   '/admin/background-qa': 'BACKGROUND QA',
   '/admin/homepage': 'HOME PAGE',
+  '/admin/storefront-layout': 'STORE LAYOUT',
 };
 
 export default function AdminLayout() {
