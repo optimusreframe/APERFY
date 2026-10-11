@@ -295,7 +295,7 @@ export default function AdminProducts() {
   const [bulkEdits, setBulkEdits] = useState<Record<string, BulkEdit>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
-  type BulkAiJob = { kind: 'images' | 'prices'; total: number; completed: number; succeeded: number; failed: number; skipped: number; currentName: string; errors: string[] };
+  type BulkAiJob = { kind: 'images' | 'reprice'; total: number; completed: number; succeeded: number; failed: number; skipped: number; currentName: string; errors: string[] };
   const [bulkAiJob, setBulkAiJob] = useState<BulkAiJob | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -802,11 +802,11 @@ export default function AdminProducts() {
   const getProductImageUrls = (product: AdminProduct): string[] =>
     Array.isArray(product.images) ? product.images.filter((url): url is string => typeof url === 'string' && url.length > 0) : [];
 
-  const runBulkAiOperation = async (kind: 'images' | 'prices') => {
+  const runBulkAiOperation = async (kind: 'images' | 'reprice') => {
     if (bulkAiJob) return;
     const targets = products.filter((product) => selectedProductIds.includes(product.id));
     if (targets.length === 0) {
-      toast({ title: 'Selecciona productos primero', description: `Marca uno o más productos para ${kind === 'images' ? 'regenerar imágenes' : 'actualizar precios'}.`, variant: 'destructive' });
+      toast({ title: 'Selecciona productos primero', description: `Marca uno o más productos para ${kind === 'images' ? 'regenerar imágenes' : 'hacer Reprice'}.`, variant: 'destructive' });
       return;
     }
 
@@ -870,7 +870,7 @@ export default function AdminProducts() {
     setSelectedProductIds([]);
     setBulkAiJob((current) => current ? { ...current, currentName: '' } : current);
     toast({
-      title: kind === 'images' ? 'Regeneración de imágenes completada' : 'Actualización de precios completada',
+      title: kind === 'images' ? 'Regeneración de imágenes completada' : 'Reprice completado',
       description: `${succeeded} completado(s), ${skipped} omitido(s), ${failed} con error.`,
       variant: failed > 0 ? 'destructive' : 'default',
     });
@@ -1492,13 +1492,13 @@ export default function AdminProducts() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => void runBulkAiOperation('prices')}
+            onClick={() => void runBulkAiOperation('reprice')}
             disabled={Boolean(bulkAiJob)}
             className="min-h-11 flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10 sm:flex-none"
-            title="Busca precios de mercado y actualiza el precio USA de los productos seleccionados"
+            title="Busca precios en Amazon, Walmart, Best Buy y la web para actualizar el precio USA de los productos seleccionados"
           >
-            {bulkAiJob?.kind === 'prices' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Actualizar precios
+            {bulkAiJob?.kind === 'reprice' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Reprice
           </Button>
           {/* AI Import Studio Button */}
           <Dialog open={aiOpen} onOpenChange={(o) => { setAiOpen(o); if (!o) resetAi(); }}>
@@ -2993,7 +2993,7 @@ export default function AdminProducts() {
         {bulkAiJob && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mb-4 rounded-xl border border-primary/25 bg-primary/[0.06] px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="font-medium">{bulkAiJob.kind === 'images' ? 'Regenerando imágenes' : 'Actualizando precios'} · {bulkAiJob.completed}/{bulkAiJob.total}</span>
+              <span className="font-medium">{bulkAiJob.kind === 'images' ? 'Regenerando imágenes' : 'Haciendo Reprice USA'} · {bulkAiJob.completed}/{bulkAiJob.total}</span>
               <span className="font-mono text-xs text-muted-foreground">{bulkAiJob.succeeded} OK · {bulkAiJob.skipped} omitidos · {bulkAiJob.failed} errores</span>
             </div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">

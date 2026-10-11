@@ -1,11 +1,18 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
+export default defineConfig(({ mode }) => {
+  // Fail the build before producing a blank storefront when a prebuilt or
+  // remote deployment is missing the public Supabase runtime configuration.
+  // These values are intentionally public client configuration, while all
+  // privileged credentials remain in Supabase/Vercel server environments.
+  ensurePublicRuntimeConfig(mode);
+
+  return {
+    server: {
     host: "::",
     port: 8080,
     hmr: {
@@ -115,4 +122,14 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-}));
+  };
+});
+
+function ensurePublicRuntimeConfig(mode: string) {
+  const env = loadEnv(mode, process.cwd(), "");
+  const missing = ["VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY"].filter((key) => !env[key]?.trim());
+  if (missing.length > 0) {
+    throw new Error(`Missing required public runtime configuration: ${missing.join(", ")}. Configure these variables before building APERFY.`);
+  }
+  return {};
+}

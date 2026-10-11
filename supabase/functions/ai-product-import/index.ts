@@ -21,13 +21,16 @@ function isValidUrl(str: string): boolean {
 
 function extractPricesFromText(text: string): number[] {
   const prices: number[] = [];
-  const priceRegex = /(?:US\s*)?(?:\$|USD\s*)(\d{1,5}(?:\.\d{1,2})?)/gi;
+  // Only capture values explicitly marked as money. This avoids treating years,
+  // ratings, quantities, or model numbers as prices while still supporting
+  // common US formats such as $1,299.99, US$29.99, and USD 29.99.
+  const priceRegex = /(?:US\s*\$|USD\s*\$|USD|\$)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d{1,2})?)/gi;
   let match;
   while ((match = priceRegex.exec(text)) !== null) {
-    const price = parseFloat(match[1]);
-    if (price >= 1 && price <= 500) prices.push(price);
+    const price = Number.parseFloat(match[1].replace(/,/g, ""));
+    if (Number.isFinite(price) && price >= 1 && price <= 100_000) prices.push(price);
   }
-  return prices;
+  return [...new Set(prices)];
 }
 
 type AiRuntime = AiConfig;
@@ -131,17 +134,18 @@ Rules:
 }
 
 // ── Phase 2: Execute parallel Firecrawl searches ──
-interface EbayListing {
+interface MarketListing {
   title: string;
   price: number;
   url: string;
+  source: string;
 }
 
 async function searchEbayMulti(
   queries: string[],
   FIRECRAWL_API_KEY: string
-): Promise<EbayListing[]> {
-  const allListings: EbayListing[] = [];
+): Promise<MarketListing[]> {
+  const allListings: MarketListing[] = [];
   const seenUrls = new Set<string>();
 
   const results = await Promise.allSettled(
@@ -182,7 +186,7 @@ async function searchEbayMulti(
 
         const prices = extractPricesFromText(item.markdown + " " + item.title);
         for (const price of prices) {
-          allListings.push({ title: item.title, price, url: item.url });
+          allListings.push({ title: item.title, price, url: item.url, source: "eBay" });
         }
       }
     }
@@ -192,19 +196,96 @@ async function searchEbayMulti(
   return allListings;
 }
 
+type PreferredMarketSource = "Amazon" | "Walmart" | "Best Buy" | "Google";
+
+function buildMarketSearches(title: string): Array<{ source: PreferredMarketSource; query: string }> {
+  const cleanTitle = title.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 140);
+  return [
+    { source: "Amazon", query: `site:amazon.com "${cleanTitle}" price` },
+    { source: "Walmart", query: `site:walmart.com "${cleanTitle}" price` },
+    { source: "Best Buy", query: `site:bestbuy.com "${cleanTitle}" price` },
+    { source: "Google", query: `"${cleanTitle}" price -used -parts -manual` },
+  ];
+}
+
+async function searchMarketMulti(
+  searches: Array<{ source: PreferredMarketSource; query: string }>,
+  FIRECRAWL_API_KEY: string,
+): Promise<MarketListing[]> {
+  const allListings: MarketListing[] = [];
+  const seenUrls = new Set<string>();
+
+  const results = await Promise.allSettled(
+    searches.map(async ({ source, query }) => {
+      try {
+        const resp = await fetch("https://api.firecrawl.dev/v1/search", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query,
+            limit: 5,
+            scrapeOptions: { formats: ["markdown"] },
+          }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success || !Array.isArray(data.data)) return [];
+        return data.data.map((result: Record<string, unknown>) => ({
+          source,
+          title: String(result.title || (result.metadata as Record<string, unknown> | undefined)?.title || ""),
+          markdown: String(result.markdown || result.description || ""),
+          url: String(result.url || (result.metadata as Record<string, unknown> | undefined)?.sourceURL || ""),
+        }));
+      } catch (error) {
+        console.error(`Market search failed for ${source}:`, error);
+        return [];
+      }
+    }),
+  );
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const item of result.value) {
+      if (item.url && seenUrls.has(item.url)) continue;
+      if (item.url) seenUrls.add(item.url);
+
+      // A result can contain both a sale price and an MSRP. Keep a small set so
+      // the AI can choose the current physical-product price without allowing a
+      // long product page to dominate the consensus.
+      const prices = extractPricesFromText(`${item.markdown} ${item.title}`).slice(0, 3);
+      for (const price of prices) {
+        allListings.push({ title: item.title, price, url: item.url, source: item.source });
+      }
+    }
+  }
+
+  console.log(`searchMarketMulti: found ${allListings.length} listings from ${searches.length} sources`);
+  return allListings;
+}
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
+
 // ── Phase 3: AI-powered price validation and filtering ──
 interface ValidatedPrice {
   suggested_price: number;
   price_confidence: "high" | "medium" | "low";
   matched_listings_count: number;
-  price_source: "ebay_market" | "ai_estimate";
+  price_source: "ebay_market" | "market_consensus" | "ai_estimate";
 }
 
 async function validateAndAveragePrices(
   productTitle: string,
   productDescription: string,
-  listings: EbayListing[],
-  ai: AiRuntime
+  listings: MarketListing[],
+  ai: AiRuntime,
+  marketSource: "ebay_market" | "market_consensus" = "ebay_market",
 ): Promise<ValidatedPrice> {
   if (listings.length === 0) {
     return { suggested_price: 0, price_confidence: "low", matched_listings_count: 0, price_source: "ai_estimate" };
@@ -213,7 +294,7 @@ async function validateAndAveragePrices(
   try {
     const listingSummary = listings
       .slice(0, 20)
-      .map((l, i) => `${i + 1}. "${l.title}" — $${l.price.toFixed(2)}`)
+      .map((l, i) => `${i + 1}. [${l.source}] "${l.title}" — $${l.price.toFixed(2)}`)
       .join("\n");
 
     const resp = await fetchAiLegacy(ai, {
@@ -223,19 +304,21 @@ async function validateAndAveragePrices(
         messages: [
           {
             role: "system",
-            content: `You are a pricing analyst for general retail products. Given a target product and marketplace listings found via search, determine which listings are actually the same or very similar product.
+            content: `You are a pricing analyst for general retail products. Given a target product and current web listings found across multiple retailers, determine which listings are actually the same or very similar physical product.
 
 Rules:
 - DISCARD listings that are clearly different products (wrong character, wrong type, unrelated items)
 - DISCARD listings that are digital files or digital downloads; we sell physical products
-- From the RELEVANT listings, calculate the average price
+- DISCARD used items, parts/accessories, bundles with different quantities, shipping-only charges, and obvious MSRP/reference prices when a current sale price is available
+- Prefer exact current retail matches from Amazon, Walmart, Best Buy, and corroborating web results
+- From the RELEVANT listings, use the most common price band or a trimmed average/median; ignore extreme outliers
 - If 3+ relevant listings match → confidence "high"
 - If 1-2 relevant listings match → confidence "medium"
 - If 0 relevant listings match → confidence "low" and suggest a reasonable price based on product type`
           },
           {
             role: "user",
-            content: `TARGET PRODUCT:\nTitle: ${productTitle}\nDescription: ${productDescription.substring(0, 300)}\n\nEBAY LISTINGS FOUND:\n${listingSummary}`
+            content: `TARGET PRODUCT:\nTitle: ${productTitle}\nDescription: ${productDescription.substring(0, 300)}\n\nMARKET LISTINGS FOUND:\n${listingSummary}`
           }
         ],
         tools: [{
@@ -262,15 +345,15 @@ Rules:
 
     if (!resp.ok) {
       console.error("Price validation AI failed:", resp.status);
-      const avg = listings.reduce((a, b) => a + b.price, 0) / listings.length;
-      return { suggested_price: Math.round(avg * 100) / 100, price_confidence: "medium", matched_listings_count: listings.length, price_source: "ebay_market" };
+      const fallback = median(listings.map((listing) => listing.price));
+      return { suggested_price: Math.round(fallback * 100) / 100, price_confidence: "medium", matched_listings_count: listings.length, price_source: marketSource };
     }
 
     const result = await resp.json();
     const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) {
-      const avg = listings.reduce((a, b) => a + b.price, 0) / listings.length;
-      return { suggested_price: Math.round(avg * 100) / 100, price_confidence: "medium", matched_listings_count: listings.length, price_source: "ebay_market" };
+      const fallback = median(listings.map((listing) => listing.price));
+      return { suggested_price: Math.round(fallback * 100) / 100, price_confidence: "medium", matched_listings_count: listings.length, price_source: marketSource };
     }
 
     const validated = JSON.parse(toolCall.function.arguments);
@@ -279,12 +362,12 @@ Rules:
       suggested_price: Math.round((validated.suggested_price || 0) * 100) / 100,
       price_confidence: validated.price_confidence || "low",
       matched_listings_count: validated.matched_listings_count || 0,
-      price_source: validated.matched_listings_count > 0 ? "ebay_market" : "ai_estimate",
+      price_source: validated.matched_listings_count > 0 ? marketSource : "ai_estimate",
     };
   } catch (e) {
     console.error("validateAndAveragePrices error:", e);
-    const avg = listings.reduce((a, b) => a + b.price, 0) / listings.length;
-    return { suggested_price: Math.round(avg * 100) / 100, price_confidence: "low", matched_listings_count: listings.length, price_source: "ebay_market" };
+    const fallback = median(listings.map((listing) => listing.price));
+    return { suggested_price: Math.round(fallback * 100) / 100, price_confidence: "low", matched_listings_count: listings.length, price_source: marketSource };
   }
 }
 
@@ -573,11 +656,22 @@ ${imageListForAI || "No images found."}`
         });
       }
 
-      const searchQueriesUsed = await generateEbayQueries(title, description, ai);
-      const listings = await searchEbayMulti(searchQueriesUsed, FIRECRAWL_API_KEY);
-      const priceResult = await validateAndAveragePrices(title, description, listings, ai);
+      const marketSearches = buildMarketSearches(title);
+      let searchQueriesUsed = marketSearches.map((search) => search.query);
+      let listings = await searchMarketMulti(marketSearches, FIRECRAWL_API_KEY);
+
+      // eBay is a useful fallback when one of the preferred retail sites does
+      // not expose a price in search results. It is deliberately secondary so
+      // retail sources drive the normal Reprice result.
+      if (listings.length === 0) {
+        const ebayQueries = await generateEbayQueries(title, description, ai);
+        searchQueriesUsed = [...searchQueriesUsed, ...ebayQueries];
+        listings = await searchEbayMulti(ebayQueries, FIRECRAWL_API_KEY);
+      }
+
+      const priceResult = await validateAndAveragePrices(title, description, listings, ai, "market_consensus");
       if (!Number.isFinite(priceResult.suggested_price) || priceResult.suggested_price <= 0) {
-        return new Response(JSON.stringify({ success: false, code: "PRICE_NOT_FOUND", error: "No se encontró un precio de mercado confiable para este producto.", data: { matched_listings_count: priceResult.matched_listings_count, search_queries_used: searchQueriesUsed } }), {
+        return new Response(JSON.stringify({ success: false, code: "PRICE_NOT_FOUND", error: "No se encontró un precio de mercado confiable para este producto.", data: { matched_listings_count: priceResult.matched_listings_count, search_queries_used: searchQueriesUsed, sources_used: [...new Set(listings.map((listing) => listing.source))] } }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -597,6 +691,7 @@ ${imageListForAI || "No images found."}`
           price_source: priceResult.price_source,
           matched_listings_count: priceResult.matched_listings_count,
           search_queries_used: searchQueriesUsed,
+          sources_used: [...new Set(listings.map((listing) => listing.source))],
         },
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
