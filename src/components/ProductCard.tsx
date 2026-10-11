@@ -10,6 +10,7 @@ import ShareMenu from '@/components/ShareMenu';
 import { Badge } from '@/components/ui/badge';
 import { getInventoryLabel, getInventoryState } from '@/lib/inventory';
 import { buildResponsiveImageSources, optimizeImageUrl } from '@/lib/image-url';
+import { isProductVideo } from '@/lib/product-media';
 import type { Category, Product } from '@/lib/model-types';
 
 export type ProductCardProduct = Product & { categories?: Pick<Category, 'name_en' | 'name_es'> | null };
@@ -48,11 +49,22 @@ export default function ProductCard({
   const imageSources = images[0] ? buildResponsiveImageSources(images[0], [320, 480, 640], 74) : undefined;
 
   return (
-    <div className="group catalog-product-card min-w-0">
+    <div className="group catalog-product-card min-w-0 [content-visibility:auto] [contain-intrinsic-size:420px]">
       <div className="relative rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
         <Link to={`/products/${product.slug}`} className="block" aria-label={name}>
           <div className="aspect-[4/3] bg-secondary relative overflow-hidden">
-            {images.length > 0 ? (
+            {images.length > 0 ? isProductVideo(images[0]) ? (
+              <video
+                src={images[0]}
+                aria-label={name}
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                muted
+                loop
+                autoPlay
+                playsInline
+                preload={index < 4 ? 'metadata' : 'none'}
+              />
+            ) : (
               <img
                 src={imageSource}
                 srcSet={imageSources}

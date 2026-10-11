@@ -45,8 +45,12 @@ const cartSchema = z.array(cartItemSchema);
 
 interface CartContextType {
   items: CartItem[];
+  savedItems: CartItem[];
   addToCart: (item: CartItem) => void;
   removeFromCart: (productId: string) => void;
+  saveForLater: (productId: string) => void;
+  moveSavedToCart: (productId: string) => void;
+  removeSavedItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   getTotal: () => number;
@@ -63,7 +67,9 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const CART_KEY = 'aperfy-cart';
+const SAVED_CART_KEY = 'aperfy-saved-cart-v1';
 const DISCOUNT_KEY = 'aperfy-discount';
+const SAVED_CART_VERSION = 1;
 
 function loadCart(): CartItem[] {
   try {
@@ -81,6 +87,27 @@ function loadDiscount(): AppliedDiscount | null {
   catch { return null; }
 }
 
+function loadSavedCart(): CartItem[] {
+  try {
+    const stored = localStorage.getItem(SAVED_CART_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored) as { version?: unknown; items?: unknown };
+    if (parsed?.version !== SAVED_CART_VERSION) {
+      localStorage.removeItem(SAVED_CART_KEY);
+      return [];
+    }
+    const result = cartSchema.safeParse(parsed.items);
+    if (!result.success) {
+      localStorage.removeItem(SAVED_CART_KEY);
+      return [];
+    }
+    return result.data as CartItem[];
+  } catch {
+    localStorage.removeItem(SAVED_CART_KEY);
+    return [];
+  }
+}
+
 export function mergeCartItem(items: CartItem[], item: CartItem): CartItem[] {
   const existing = items.find(i => i.productId === item.productId);
   if (existing) {
@@ -95,10 +122,14 @@ export function mergeCartItem(items: CartItem[], item: CartItem): CartItem[] {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(loadCart);
+  const [savedItems, setSavedItems] = useState<CartItem[]>(loadSavedCart);
   const [lastAdded, setLastAdded] = useState<{ item: CartItem; at: number } | null>(null);
   const [discount, setDiscount] = useState<AppliedDiscount | null>(loadDiscount);
 
   useEffect(() => { localStorage.setItem(CART_KEY, JSON.stringify(items)); }, [items]);
+  useEffect(() => {
+    localStorage.setItem(SAVED_CART_KEY, JSON.stringify({ version: SAVED_CART_VERSION, items: savedItems }));
+  }, [savedItems]);
   useEffect(() => {
     if (discount) localStorage.setItem(DISCOUNT_KEY, JSON.stringify(discount));
     else localStorage.removeItem(DISCOUNT_KEY);
@@ -112,6 +143,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const removeFromCart = (productId: string) => setItems(prev => prev.filter(i => i.productId !== productId));
+  const saveForLater = (productId: string) => {
+    const item = items.find(current => current.productId === productId);
+    if (!item) return;
+    setSavedItems(saved => saved.some(current => current.productId === productId) ? saved : [...saved, item]);
+    setItems(prev => prev.filter(current => current.productId !== productId));
+  };
+  const moveSavedToCart = (productId: string) => {
+    const item = savedItems.find(current => current.productId === productId);
+    if (!item) return;
+    setItems(current => mergeCartItem(current, item));
+    setSavedItems(prev => prev.filter(current => current.productId !== productId));
+  };
+  const removeSavedItem = (productId: string) => setSavedItems(prev => prev.filter(item => item.productId !== productId));
   const updateQuantity = (productId: string, quantity: number) => {
     if (quantity < 1) return removeFromCart(productId);
     if (quantity > 100) return;
@@ -164,7 +208,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   return (
     <CartContext.Provider value={{
-      items, addToCart, removeFromCart, updateQuantity, clearCart, getTotal,
+      items, savedItems, addToCart, removeFromCart, saveForLater, moveSavedToCart, removeSavedItem, updateQuantity, clearCart, getTotal,
       itemCount: items.reduce((s, i) => s + i.quantity, 0),
       lastAdded, dismissLastAdded,
       discount, applyDiscount, removeDiscount, getDiscountAmount, getFinalTotal,

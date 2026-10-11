@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Trash2, Minus, Plus, ArrowLeft, Weight, Ruler, Lock, ArrowRight } from 'lucide-react';
+import { ShoppingCart, Trash2, Minus, Plus, ArrowLeft, Weight, Ruler, Lock, ArrowRight, Bookmark, RotateCcw } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -23,7 +23,7 @@ import DiscountCodeInput from '@/components/DiscountCodeInput';
 import { CartThumbnailImage } from '@/components/CartThumbnailImage';
 
 export default function Cart() {
-  const { items, removeFromCart, updateQuantity, getTotal, clearCart, itemCount, discount, getDiscountAmount, getFinalTotal } = useCart();
+  const { items, savedItems, removeFromCart, saveForLater, moveSavedToCart, removeSavedItem, updateQuantity, getTotal, clearCart, itemCount, discount, getDiscountAmount, getFinalTotal } = useCart();
   const { user } = useAuth();
   const { language, t } = useLanguage();
   const navigate = useNavigate();
@@ -79,7 +79,7 @@ export default function Cart() {
         </motion.div>
 
 
-        {items.length === 0 ? (
+        {items.length === 0 && savedItems.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl border border-white/[0.06] bg-card/30 backdrop-blur-xl p-16 text-center"
@@ -100,6 +100,7 @@ export default function Cart() {
           </motion.div>
         ) : (
           <div className="grid xl:grid-cols-[minmax(0,1fr)_380px] gap-6 xl:gap-8">
+            <div className="min-w-0">
             {/* ─── Items list ─── */}
             <div className="space-y-3">
               <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground/80 px-1">
@@ -213,6 +214,14 @@ export default function Cart() {
                             </motion.span>
                           </AnimatePresence>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => saveForLater(item.productId)}
+                          className="mt-2 inline-flex min-h-11 items-center gap-1.5 self-start rounded-md px-1 text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <Bookmark className="h-3.5 w-3.5" aria-hidden="true" />
+                          {language === 'es' ? 'Guardar para después' : 'Save for later'}
+                        </button>
                       </div>
                     </div>
                   </motion.div>
@@ -248,6 +257,39 @@ export default function Cart() {
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
+            </div>
+
+            {savedItems.length > 0 && (
+              <section className="space-y-3 pt-5" aria-labelledby="saved-cart-heading">
+                <div className="flex items-center gap-2 px-1">
+                  <Bookmark className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                  <h2 id="saved-cart-heading" className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground/80">
+                    {language === 'es' ? 'Guardados para después' : 'Saved for later'} · {String(savedItems.length).padStart(2, '0')}
+                  </h2>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {savedItems.map((item) => (
+                    <div key={item.productId} className="flex min-w-0 items-center gap-3 rounded-xl border border-white/[0.06] bg-card/25 p-3">
+                      <Link to={`/products/${item.slug}`} className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-white/[0.06] bg-white p-1">
+                        {item.productImage ? <CartThumbnailImage source={item.productImage} alt={item.productName} width={112} height={112} quality={68} className="h-full w-full object-contain" fallback={<ShoppingCart className="h-5 w-5 text-muted-foreground/30" />} /> : <ShoppingCart className="m-auto h-5 w-5 text-muted-foreground/30" />}
+                      </Link>
+                      <div className="min-w-0 flex-1">
+                        <Link to={`/products/${item.slug}`} className="block truncate text-sm font-semibold hover:text-primary">{item.productName}</Link>
+                        <p className="mt-1 font-mono text-xs text-muted-foreground">${item.unitPrice.toFixed(2)}</p>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          <button type="button" onClick={() => moveSavedToCart(item.productId)} className="inline-flex min-h-9 items-center gap-1 rounded-md px-1 text-[10px] font-mono uppercase tracking-wider text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                            <RotateCcw className="h-3 w-3" aria-hidden="true" /> {language === 'es' ? 'Volver al carrito' : 'Move to cart'}
+                          </button>
+                          <button type="button" onClick={() => removeSavedItem(item.productId)} className="inline-flex min-h-9 items-center rounded-md px-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                            {language === 'es' ? 'Quitar' : 'Remove'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
             </div>
 
             {/* ─── Summary rail ─── */}
@@ -307,6 +349,7 @@ export default function Cart() {
                 <motion.div whileTap={{ scale: 0.99 }} className="mt-5">
                   <Button
                     onClick={handleCheckout}
+                    disabled={items.length === 0}
                     className="w-full bg-gradient-gold text-primary-foreground font-bold gap-2 h-12 text-[14px] shadow-[0_0_30px_hsl(var(--primary)/0.25)] hover:shadow-[0_0_50px_hsl(var(--primary)/0.5)] transition-all rounded-full tracking-tight"
                   >
                     {t.cart.checkout}

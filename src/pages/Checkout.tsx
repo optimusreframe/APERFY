@@ -882,6 +882,12 @@ export default function Checkout() {
   };
 
   const sendOrderEmail = async (orderId: string, paymentMethod: string) => {
+    const { data: authoritativeOrder } = await supabase
+      .from('orders')
+      .select('total')
+      .eq('id', orderId)
+      .maybeSingle();
+    const authoritativeTotal = Number(authoritativeOrder?.total ?? orderTotal);
     const itemsSummary = items.map(item => {
       const varInfo = item.selectedVariations.map(v => v.name).filter(Boolean).join(', ');
       return `${item.productName}${varInfo ? ` (${varInfo})` : ''} x${item.quantity}`;
@@ -893,7 +899,7 @@ export default function Checkout() {
           templateName: 'order-confirmation', recipientEmail: form.email,
           idempotencyKey: `order-confirm-${orderId}`,
           templateData: {
-            customerName: form.fullName, orderId, total: orderTotal.toFixed(2),
+            customerName: form.fullName, orderId, total: authoritativeTotal.toFixed(2),
             paymentMethod, itemsSummary, shippingAddress: shippingAddr,
             language: language === 'es' ? 'es' : 'en',
           },

@@ -97,13 +97,18 @@ export function printBundleReport(report) {
   console.log(`\nPrecache: ${formatKiB(report.precache.bytes)} across ${report.precache.files} files`);
   const overThreshold = report.assets.filter((asset) => asset.overThreshold);
   console.log(`Chunks over ${report.chunkThresholdBytes.toLocaleString("en-US")} bytes: ${overThreshold.length ? overThreshold.map(({ path: assetPath }) => assetPath).join(", ") : "none"}`);
+  return overThreshold;
 }
 
 const invokedPath = process.argv[1] && path.resolve(process.argv[1]);
 if (invokedPath === fileURLToPath(import.meta.url)) {
   try {
     const report = await createBundleReport(process.argv[2] ?? "dist");
-    printBundleReport(report);
+    const overThreshold = printBundleReport(report);
+    if (overThreshold.length > 0) {
+      console.error(`Bundle regression: ${overThreshold.length} asset(s) exceed the ${report.chunkThresholdBytes.toLocaleString("en-US")}-byte limit.`);
+      process.exitCode = 1;
+    }
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;

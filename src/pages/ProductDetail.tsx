@@ -21,9 +21,11 @@ import { Badge } from '@/components/ui/badge';
 import MobileStickyAddToCart from '@/components/mobile/MobileStickyAddToCart';
 import { productCommandBarClassName } from './productDetailLayout';
 import { getInventoryLabel, getInventoryState, getInventoryStock } from '@/lib/inventory';
-import { optimizeImageUrl } from '@/lib/image-url';
+import { buildResponsiveImageSources, optimizeImageUrl } from '@/lib/image-url';
 import { filterEmptySpecifications } from '@/lib/product-specifications';
 import { adjustProductImageZoom, PRODUCT_IMAGE_ZOOM } from './productImageZoom';
+import { isProductVideo } from '@/lib/product-media';
+import Model3DViewer from '@/components/Model3DViewer';
 import type { Category, Material, Product } from '@/lib/model-types';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -55,6 +57,14 @@ function ImageLightbox({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const touchGesture = useRef<{
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    startZoom: number;
+    startDistance: number | null;
+  } | null>(null);
 
   const resetZoom = useCallback(() => {
     setZoom(PRODUCT_IMAGE_ZOOM.min);
@@ -89,6 +99,7 @@ function ImageLightbox({
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return;
     if (zoom > 1) {
       setIsDragging(true);
       setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
@@ -96,12 +107,62 @@ function ImageLightbox({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return;
     if (isDragging) {
       setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
     }
   };
 
   const handlePointerUp = () => setIsDragging(false);
+  const getTouchDistance = (touches: React.TouchList) => {
+    const [first, second] = [touches.item(0), touches.item(1)];
+    if (!first || !second) return null;
+    return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
+  };
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const first = event.touches.item(0);
+    if (!first) return;
+    touchGesture.current = {
+      startX: first.clientX,
+      startY: first.clientY,
+      lastX: first.clientX,
+      lastY: first.clientY,
+      startZoom: zoom,
+      startDistance: getTouchDistance(event.touches),
+    };
+  };
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const gesture = touchGesture.current;
+    const first = event.touches.item(0);
+    if (!gesture || !first) return;
+    const distance = getTouchDistance(event.touches);
+    if (distance && gesture.startDistance) {
+      const nextZoom = Math.min(PRODUCT_IMAGE_ZOOM.max, Math.max(PRODUCT_IMAGE_ZOOM.min, gesture.startZoom * (distance / gesture.startDistance)));
+      setZoom(nextZoom);
+      if (nextZoom === PRODUCT_IMAGE_ZOOM.min) setPan({ x: 0, y: 0 });
+      return;
+    }
+    if (zoom > 1) {
+      const deltaX = first.clientX - gesture.lastX;
+      const deltaY = first.clientY - gesture.lastY;
+      setPan(current => ({ x: current.x + deltaX, y: current.y + deltaY }));
+    }
+    gesture.lastX = first.clientX;
+    gesture.lastY = first.clientY;
+  };
+  const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const gesture = touchGesture.current;
+    touchGesture.current = null;
+    if (!gesture || zoom > 1 || gesture.startDistance) return;
+    const first = event.changedTouches.item(0);
+    if (!first || Math.abs(first.clientX - gesture.startX) < 48 || Math.abs(first.clientX - gesture.startX) < Math.abs(first.clientY - gesture.startY)) return;
+    if (first.clientX < gesture.startX) setIndex(i => (i + 1) % images.length);
+    else setIndex(i => (i - 1 + images.length) % images.length);
+    resetZoom();
+  };
   const labels = language === 'es'
     ? { zoomIn: 'Acercar', zoomOut: 'Alejar', reset: 'Restablecer', back: 'Volver', close: 'Cerrar zoom' }
     : { zoomIn: 'Zoom in', zoomOut: 'Zoom out', reset: 'Reset', back: 'Back', close: 'Close zoom' };
@@ -161,18 +222,36 @@ function ImageLightbox({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
-        <img
-          src={images[index]}
-          alt={altText}
-          className="max-w-[95vw] max-h-[85vh] w-auto h-auto object-contain object-center select-none"
-          style={{
-            transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
-            transformOrigin: 'center center',
-            transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-          }}
-          draggable={false}
-        />
+        {isProductVideo(images[index]) ? (
+          <video
+            src={images[index]}
+            aria-label={altText}
+            className="max-w-[95vw] max-h-[85vh] w-auto h-auto object-contain object-center"
+            controls
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+          />
+        ) : (
+          <img
+            src={images[index]}
+            alt={altText}
+            className="max-w-[95vw] max-h-[85vh] w-auto h-auto object-contain object-center select-none"
+            style={{
+              transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+              transformOrigin: 'center center',
+              transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+            }}
+            draggable={false}
+          />
+        )}
       </div>
 
       {/* Thumbnails */}
@@ -363,7 +442,7 @@ export default function ProductDetail() {
   });
 
   const { data: relatedProducts = [] } = useQuery({
-    queryKey: ['related-products', product?.category_id],
+    queryKey: ['related-products', product?.category_id, product?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
@@ -644,7 +723,7 @@ export default function ProductDetail() {
                   onClick={() => setSelectedImage(i)}
                   className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/[0.06] hover:border-primary/40 transition-colors group"
                 >
-                    <img src={optimizeImageUrl(img, { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className={`w-full h-full object-contain bg-white p-0.5 transition-opacity ${i === selectedImage ? 'opacity-100' : 'opacity-50 group-hover:opacity-80'}`} />
+                  {isProductVideo(img) ? <video src={img} aria-hidden muted playsInline preload="metadata" className={`w-full h-full object-contain bg-white p-0.5 transition-opacity ${i === selectedImage ? 'opacity-100' : 'opacity-50 group-hover:opacity-80'}`} /> : <img src={optimizeImageUrl(img, { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className={`w-full h-full object-contain bg-white p-0.5 transition-opacity ${i === selectedImage ? 'opacity-100' : 'opacity-50 group-hover:opacity-80'}`} />}
                   {i === selectedImage && (
                     <motion.span
                       layoutId="pdp-thumb-active"
@@ -671,7 +750,7 @@ export default function ProductDetail() {
               {
                 <div className="absolute inset-0 cursor-zoom-in" onClick={openLightbox}>
                   {/* Blurred background fill */}
-                  {images.length > 0 && (
+                  {images.length > 0 && !isProductVideo(images[selectedImage]) && (
                     <img
                       src={optimizeImageUrl(images[selectedImage], { width: 960, quality: 72 })}
                       alt=""
@@ -681,14 +760,37 @@ export default function ProductDetail() {
                   )}
                   <AnimatePresence mode="wait">
                     {images.length > 0 ? (
-                      <motion.img
-                        key={selectedImage}
-                        src={optimizeImageUrl(images[selectedImage], { width: 1200, quality: 80 })}
-                        alt={language === 'es' ? product.name_es : product.name_en}
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        transition={{ duration: 0.25 }}
-                        className="absolute inset-0 w-full h-full object-contain object-center p-2 transition-transform duration-500 group-hover:scale-[1.03]"
-                      />
+                      isProductVideo(images[selectedImage]) ? (
+                        <motion.video
+                          key={selectedImage}
+                          src={images[selectedImage]}
+                          aria-label={language === 'es' ? product.name_es : product.name_en}
+                          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                          transition={{ duration: 0.25 }}
+                          className="absolute inset-0 h-full w-full object-contain object-center p-2"
+                          controls
+                          muted
+                          loop
+                          autoPlay
+                          playsInline
+                          preload="metadata"
+                        />
+                      ) : (
+                        <motion.img
+                          key={selectedImage}
+                          src={optimizeImageUrl(images[selectedImage], { width: 1200, quality: 80 })}
+                          srcSet={buildResponsiveImageSources(images[selectedImage], [640, 960, 1200], 80)}
+                          sizes="(max-width: 1279px) calc(100vw - 2rem), min(62vw, 900px)"
+                          alt={language === 'es' ? product.name_es : product.name_en}
+                          width={1200}
+                          height={1200}
+                          loading={selectedImage === 0 ? 'eager' : 'lazy'}
+                          decoding="async"
+                          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                          transition={{ duration: 0.25 }}
+                          className="absolute inset-0 h-full w-full object-contain object-center p-2 transition-transform duration-500 group-hover:scale-[1.03]"
+                        />
+                      )
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Box className="w-24 h-24 text-muted-foreground/20" />
@@ -743,9 +845,24 @@ export default function ProductDetail() {
                       i === selectedImage ? 'border-primary' : 'border-white/[0.06] opacity-60'
                     }`}
                   >
-                    <img src={optimizeImageUrl(img, { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className="w-full h-full object-contain bg-white p-0.5" />
+                    {isProductVideo(img) ? <video src={img} aria-hidden muted playsInline preload="metadata" className="w-full h-full object-contain bg-white p-0.5" /> : <img src={optimizeImageUrl(img, { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className="w-full h-full object-contain bg-white p-0.5" />}
                   </button>
                 ))}
+              </div>
+            )}
+            {product.model_3d_url && (
+              <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.06] bg-card/30 p-2">
+                <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70">
+                  {language === 'es' ? 'Vista 3D' : '3D view'}
+                </div>
+                <div className="aspect-square">
+                  <Model3DViewer
+                    src={product.model_3d_url}
+                    poster={images[0] ? optimizeImageUrl(images[0], { width: 800, quality: 72 }) : undefined}
+                    alt={language === 'es' ? product.name_es : product.name_en}
+                    className="h-full w-full"
+                  />
+                </div>
               </div>
             )}
           </motion.div>
