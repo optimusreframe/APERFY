@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   canUseVes,
@@ -37,16 +37,46 @@ export function RegionalPricingProvider({ children }: { children: ReactNode }) {
   const [pricing, setPricingState] = useState<PricingContext>(getDefaultPricingContext);
   const [currency, setCurrencyState] = useState<PricingCurrency>(readCurrency);
   const [pricingResolved, setPricingResolved] = useState(false);
+  const refreshInFlight = useRef<Promise<void> | null>(null);
   const vesAvailable = canUseVes(pricing);
 
   const setPricing = useCallback((payload: StorefrontPricingPayload) => {
-    setPricingState((current) => ({ ...current, ...payload, currency: 'USD' }));
+    setPricingState((current) => {
+      const currentUpdatedAt = current.rateUpdatedAt ? Date.parse(current.rateUpdatedAt) : 0;
+      const payloadUpdatedAt = payload.rateUpdatedAt ? Date.parse(payload.rateUpdatedAt) : 0;
+      if (currentUpdatedAt && payloadUpdatedAt && payloadUpdatedAt < currentUpdatedAt) {
+        return {
+          ...current,
+          region: payload.region,
+          mode: payload.mode,
+          currency: 'USD',
+        };
+      }
+      return { ...current, ...payload, currency: 'USD' };
+    });
     setPricingResolved(true);
   }, []);
 
+  const refreshPricing = useCallback(() => {
+    if (refreshInFlight.current) return refreshInFlight.current;
+
+    const request = supabase.functions.invoke('storefront-pricing', { body: { action: 'pricing', refresh: true } })
+      .then(({ data, error }) => {
+        if (!error && data?.pricing) setPricing(data.pricing as StorefrontPricingPayload);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        refreshInFlight.current = null;
+      });
+
+    refreshInFlight.current = request;
+    return request;
+  }, [setPricing]);
+
   const setCurrency = useCallback((next: PricingCurrency) => {
     setCurrencyState(next === 'VES' && vesAvailable ? 'VES' : 'USD');
-  }, [vesAvailable]);
+    void refreshPricing();
+  }, [refreshPricing, vesAvailable]);
 
   useEffect(() => {
     if (!vesAvailable && currency !== 'USD') setCurrencyState('USD');
@@ -57,12 +87,20 @@ export function RegionalPricingProvider({ children }: { children: ReactNode }) {
   }, [currency]);
 
   useEffect(() => {
-    let cancelled = false;
-    void supabase.functions.invoke('storefront-pricing', { body: { action: 'pricing' } }).then(({ data, error }) => {
-      if (!cancelled && !error && data?.pricing) setPricing(data.pricing as StorefrontPricingPayload);
-    });
-    return () => { cancelled = true; };
-  }, [setPricing]);
+    void refreshPricing();
+
+    const handlePageShow = () => { void refreshPricing(); };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshPricing();
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshPricing]);
 
   const value = useMemo(() => ({
     pricing: { ...pricing, currency },

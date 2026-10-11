@@ -1,8 +1,13 @@
+import { useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Outlet, useLocation } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import AdminSidebar from './AdminSidebar';
 import { Activity } from 'lucide-react';
 import NotificationBell from '@/components/admin/NotificationBell';
+import { supabase } from '@/integrations/supabase/client';
+
+const AUTO_RATE_SOURCES = ['bcv', 'laslucas', 'binance'] as const;
 
 const routeLabels: Record<string, string> = {
   '/admin': 'DASHBOARD',
@@ -28,8 +33,21 @@ const routeLabels: Record<string, string> = {
 
 export default function AdminLayout() {
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const ratesRefreshStarted = useRef(false);
   const current = routeLabels[location.pathname] || 'Console';
   const sessionId = 'SES-' + Math.floor(Date.now() / 1000).toString(36).toUpperCase().slice(-6);
+
+  useEffect(() => {
+    if (ratesRefreshStarted.current) return;
+    ratesRefreshStarted.current = true;
+
+    void Promise.allSettled(
+      AUTO_RATE_SOURCES.map((source) => supabase.functions.invoke('storefront-pricing', { body: { action: 'refresh-rate', source } })),
+    ).then(() => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-currency-rates'] });
+    });
+  }, [queryClient]);
 
   return (
     <SidebarProvider>
