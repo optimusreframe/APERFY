@@ -117,7 +117,7 @@ export default function Index() {
   const filterBarRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<CatalogView>(readCatalogView);
   const { setPricing } = useRegionalPricing();
-  const { config: storefrontLayout } = useStorefrontLayout();
+  const { resolvedDesign } = useStorefrontLayout();
   const { data: catalog, isLoading, isError } = useQuery({
     queryKey: ['aperfy-products'],
     queryFn: fetchActiveStorefrontProducts,
@@ -207,11 +207,11 @@ export default function Index() {
     setViewMode,
   };
 
-  if (storefrontLayout.design !== 'design1') {
+  if (resolvedDesign !== 'design1') {
     return <>
-      {storefrontLayout.design === 'design2' && <TechCatalogPreset copy={copy} es={es} products={products} visible={visible} categories={categories} {...presetControls} />}
-      {storefrontLayout.design === 'design3' && <LuxuryCatalogPreset copy={copy} es={es} products={products} visible={visible} categories={categories} {...presetControls} />}
-      {storefrontLayout.design === 'design4' && <DropsCatalogPreset copy={copy} es={es} products={products} visible={visible} categories={categories} {...presetControls} />}
+      {resolvedDesign === 'design2' && <TechCatalogPreset copy={copy} es={es} products={products} visible={visible} categories={categories} {...presetControls} />}
+      {resolvedDesign === 'design3' && <LuxuryCatalogPreset copy={copy} es={es} products={products} visible={visible} categories={categories} {...presetControls} />}
+      {resolvedDesign === 'design4' && <DropsCatalogPreset copy={copy} es={es} products={products} visible={visible} categories={categories} {...presetControls} />}
       <CatalogFiltersDialog
         open={filterDialogOpen}
         onOpenChange={handleFilterDialogChange}
@@ -230,7 +230,7 @@ export default function Index() {
   }
 
   return <>
-    <main data-storefront-page="catalog" data-storefront-layout={storefrontLayout.design} className="storefront-catalog min-w-0">
+    <main data-storefront-page="catalog" data-storefront-layout={resolvedDesign} className="storefront-catalog min-w-0">
       {homepageHero.enabled && <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: .35 }} className="border-b border-border/70 bg-card/45">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-7 sm:px-8 xl:flex-row xl:items-center xl:justify-between xl:px-12">
           <div className="min-w-0 flex-1 xl:max-w-4xl"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[.2em] text-primary">{copy.eyebrow}</p><h1 className="aperfy-display-title max-w-none break-words text-4xl font-semibold leading-[.98] tracking-[-.06em] sm:text-6xl">{copy.title} <span className="text-primary">{copy.highlight}</span></h1><p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">{copy.description}</p></div>

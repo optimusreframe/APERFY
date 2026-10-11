@@ -1,12 +1,29 @@
 export const STOREFRONT_LAYOUT_SETTING_KEY = 'storefront_layout';
 
 export type StorefrontDesign = 'design1' | 'design2' | 'design3' | 'design4';
+export type StorefrontDevice = 'mobile' | 'tablet' | 'desktop';
 
 export interface StorefrontLayoutConfig {
-  design: StorefrontDesign;
+  mobile: StorefrontDesign;
+  tablet: StorefrontDesign;
+  desktop: StorefrontDesign;
 }
 
-export const DEFAULT_STOREFRONT_LAYOUT: StorefrontLayoutConfig = { design: 'design1' };
+export const DEFAULT_STOREFRONT_LAYOUT: StorefrontLayoutConfig = {
+  mobile: 'design1',
+  tablet: 'design1',
+  desktop: 'design1',
+};
+
+export const STOREFRONT_DEVICES: Array<{
+  id: StorefrontDevice;
+  label: string;
+  description: string;
+}> = [
+  { id: 'mobile', label: 'Móvil', description: 'Teléfonos · hasta 767 px' },
+  { id: 'tablet', label: 'iPad', description: 'Tablets · 768–1023 px' },
+  { id: 'desktop', label: 'Desktop', description: 'Pantallas · desde 1024 px' },
+];
 
 export const STOREFRONT_DESIGNS: Array<{
   id: StorefrontDesign;
@@ -56,14 +73,31 @@ function parseObject(value: unknown): Record<string, unknown> | null {
   }
 }
 
+function isStorefrontDesign(value: unknown): value is StorefrontDesign {
+  return value === 'design1' || value === 'design2' || value === 'design3' || value === 'design4';
+}
+
 export function parseStorefrontLayoutConfig(value: unknown): StorefrontLayoutConfig {
   const record = parseObject(value);
-  const design = record?.design;
+  const legacyDesign = record?.design;
+  const fallback = isStorefrontDesign(legacyDesign) ? legacyDesign : 'design1';
   return {
-    design: design === 'design2' || design === 'design3' || design === 'design4' ? design : 'design1',
+    mobile: isStorefrontDesign(record?.mobile) ? record.mobile : fallback,
+    tablet: isStorefrontDesign(record?.tablet) ? record.tablet : fallback,
+    desktop: isStorefrontDesign(record?.desktop) ? record.desktop : fallback,
   };
 }
 
 export function serializeStorefrontLayoutConfig(config: StorefrontLayoutConfig): string {
   return JSON.stringify(parseStorefrontLayoutConfig(config));
+}
+
+export function getStorefrontDeviceForWidth(width: number): StorefrontDevice {
+  if (width < 768) return 'mobile';
+  if (width < 1024) return 'tablet';
+  return 'desktop';
+}
+
+export function getStorefrontDesignForWidth(config: StorefrontLayoutConfig, width: number): StorefrontDesign {
+  return config[getStorefrontDeviceForWidth(width)];
 }

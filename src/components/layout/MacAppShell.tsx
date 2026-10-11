@@ -34,9 +34,9 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
     { to: '/cart', label: es ? 'Carrito' : 'Cart', icon: ShoppingBag, count: itemCount },
   ];
   const accountPath = user ? (authIsAdmin ? '/admin' : '/profile') : '/auth';
-  const { config: storefrontLayout } = useStorefrontLayout();
+  const { resolvedDesign } = useStorefrontLayout();
 
-  return <MacShellProvider variant={variant}><div data-testid="mac-app-shell" data-aperfy-shell="macos" data-shell-variant={variant} data-storefront-design={!isAdmin ? storefrontLayout.design : undefined} className="mac-workspace relative box-border h-[100dvh] overflow-hidden text-foreground"><PointerGlow />
+  return <MacShellProvider variant={variant}><div data-testid="mac-app-shell" data-aperfy-shell="macos" data-shell-variant={variant} data-storefront-design={!isAdmin ? resolvedDesign : undefined} className="mac-workspace relative box-border h-[100dvh] overflow-hidden text-foreground"><PointerGlow />
     <MacWindowIntro><div className="mac-window mx-auto flex h-full min-h-0 max-w-[1480px] overflow-hidden sm:rounded-[1.25rem] sm:border sm:border-border/70 sm:shadow-[0_32px_100px_hsl(var(--foreground)/.16)]">
       {!isAdmin && <aside className="mac-sidebar hidden min-h-0 w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border/70 px-3 py-4 lg:flex" aria-label={es ? 'Navegación de tienda' : 'Store navigation'}>
         <Link to="/" className="mb-8 flex items-center gap-2.5 px-3" aria-label="APERFY home"><img src="/logo.png" alt="APERFY" className="h-8 w-8 rounded-lg object-contain" /><span className="aperfy-wordmark text-sm"><span>APER</span><span>FY</span></span></Link>

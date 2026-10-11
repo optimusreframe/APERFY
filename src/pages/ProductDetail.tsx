@@ -396,7 +396,7 @@ export default function ProductDetail() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { pricing, currency, setPricing } = useRegionalPricing();
-  const { config: storefrontLayout } = useStorefrontLayout();
+  const { resolvedDesign } = useStorefrontLayout();
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
@@ -685,15 +685,15 @@ export default function ProductDetail() {
     { k: 'SKU', v: `PRD-${product.id.slice(0, 8).toUpperCase()}` },
   ]);
 
-  if (storefrontLayout.design !== 'design1') {
+  if (resolvedDesign !== 'design1') {
     return (
-      <div data-storefront-page="product-detail" data-storefront-layout={storefrontLayout.design} className="storefront-product-page min-h-full bg-background">
+      <div data-storefront-page="product-detail" data-storefront-layout={resolvedDesign} className="storefront-product-page min-h-full bg-background">
         <Navbar />
         <AnimatePresence>
           {lightboxOpen && images.length > 0 && <ImageLightbox images={images} initialIndex={selectedImage} altText={language === 'es' ? product.name_es : product.name_en} language={language} onClose={closeLightbox} />}
         </AnimatePresence>
         <StorefrontProductDetailPreset
-          design={storefrontLayout.design}
+          design={resolvedDesign}
           product={product}
           language={language}
           images={images}
@@ -738,7 +738,7 @@ export default function ProductDetail() {
   }
 
   return (
-    <div data-storefront-page="product-detail" data-storefront-layout={storefrontLayout.design} className="storefront-product-page min-h-full bg-background">
+    <div data-storefront-page="product-detail" data-storefront-layout={resolvedDesign} className="storefront-product-page min-h-full bg-background">
       <Navbar />
 
       {/* Lightbox */}

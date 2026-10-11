@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Check, LayoutTemplate, Loader2, Moon, Save, Sun } from 'lucide-react';
+import { Check, LayoutTemplate, Loader2, Monitor, Moon, Save, Smartphone, Sun, Tablet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useStorefrontLayout } from '@/contexts/StorefrontLayoutContext';
-import { STOREFRONT_DESIGNS, type StorefrontDesign } from '@/lib/storefront-layout';
+import { STOREFRONT_DESIGNS, STOREFRONT_DEVICES, type StorefrontDesign, type StorefrontDevice, type StorefrontLayoutConfig } from '@/lib/storefront-layout';
 import { AdminPageHeader, AdminSurface } from './_shared';
 
 function LayoutPreview({ design }: { design: StorefrontDesign }) {
@@ -32,18 +32,19 @@ function LayoutPreview({ design }: { design: StorefrontDesign }) {
 export default function AdminStorefrontLayout() {
   const { config, isLoading, saveLayout } = useStorefrontLayout();
   const { toast } = useToast();
-  const [draft, setDraft] = useState<StorefrontDesign>(config.design);
+  const [draft, setDraft] = useState<StorefrontLayoutConfig>(config);
+  const [activeDevice, setActiveDevice] = useState<StorefrontDevice>('mobile');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { setDraft(config.design); }, [config.design]);
+  useEffect(() => { setDraft(config); }, [config]);
 
   if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
   const save = async () => {
     setSaving(true);
     try {
-      await saveLayout({ design: draft });
-      toast({ title: 'GUARDADO', description: 'El diseño público de la tienda fue actualizado.' });
+      await saveLayout(draft);
+      toast({ title: 'GUARDADO', description: 'Los diseños por dispositivo fueron actualizados.' });
     } catch (error) {
       toast({ title: 'ERROR', description: error instanceof Error ? error.message : 'No se pudo guardar el layout.', variant: 'destructive' });
     } finally {
@@ -56,7 +57,7 @@ export default function AdminStorefrontLayout() {
       <AdminPageHeader
         eyebrow="STOREFRONT · EXPERIENCIA PÚBLICA"
         title="LAYOUT DE TIENDA"
-        meta="ELIGE LA COMPOSICIÓN PRINCIPAL DEL STOREFRONT"
+        meta="ELIGE UN DISEÑO PARA CADA TIPO DE PANTALLA"
         actions={<Button onClick={() => void save()} disabled={saving} className="gap-2 uppercase"><Save className="h-4 w-4" />{saving ? 'GUARDANDO' : 'GUARDAR DISEÑO'}</Button>}
       />
 
@@ -64,20 +65,53 @@ export default function AdminStorefrontLayout() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><LayoutTemplate className="h-5 w-5" /></div>
-            <div><h2 className="font-semibold uppercase">DISEÑO PÚBLICO</h2><p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">El diseño cambia la composición visual de la tienda sin cambiar productos, inventario, carrito, precios ni contenido. Todos los presets conservan los colores de APERFY y funcionan con tema oscuro y claro.</p></div>
+            <div><h2 className="font-semibold uppercase">DISEÑO PÚBLICO</h2><p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">Asigna una composición independiente para móvil, iPad y desktop. El storefront cambia automáticamente según el ancho de pantalla; los productos, inventario, carrito, precios y contenido permanecen intactos.</p></div>
           </div>
           <div className="flex shrink-0 items-center gap-2 rounded-xl border border-white/[0.08] bg-black/15 px-3 py-2 text-xs text-muted-foreground"><Moon className="h-3.5 w-3.5" /><span>/</span><Sun className="h-3.5 w-3.5 text-primary" />Tema controlado por el selector público</div>
         </div>
       </AdminSurface>
 
+      <AdminSurface className="p-5 md:p-6">
+        <div className="mb-4 flex flex-col gap-1">
+          <h2 className="font-semibold uppercase">DISEÑO POR DISPOSITIVO</h2>
+          <p className="text-sm text-muted-foreground">Selecciona un dispositivo y luego elige uno de los cuatro diseños para ese breakpoint.</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          {STOREFRONT_DEVICES.map((device) => {
+            const Icon = device.id === 'mobile' ? Smartphone : device.id === 'tablet' ? Tablet : Monitor;
+            const selected = activeDevice === device.id;
+            const selectedDesign = STOREFRONT_DESIGNS.find((option) => option.id === draft[device.id]);
+            return (
+              <button
+                key={device.id}
+                type="button"
+                onClick={() => setActiveDevice(device.id)}
+                aria-pressed={selected}
+                className={`rounded-2xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${selected ? 'border-primary bg-primary/[0.08] shadow-[0_0_0_1px_hsl(var(--primary)/.18)]' : 'border-white/[0.08] bg-background/30 hover:border-primary/40'}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl border ${selected ? 'border-primary/30 bg-primary/15 text-primary' : 'border-border bg-card text-muted-foreground'}`}><Icon className="h-5 w-5" /></span>
+                  {selected && <span className="rounded-full bg-primary px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">Editando</span>}
+                </div>
+                <p className="mt-4 font-semibold uppercase">{device.label}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{device.description}</p>
+                <p className="mt-3 text-sm text-primary">{selectedDesign?.name ?? 'Diseño 1'}</p>
+              </button>
+            );
+          })}
+        </div>
+      </AdminSurface>
+
+      <div className="flex items-center gap-3 px-1 text-xs uppercase tracking-[.16em] text-muted-foreground"><span className="h-px flex-1 bg-border/70" /><span>Diseños para {STOREFRONT_DEVICES.find((device) => device.id === activeDevice)?.label}</span><span className="h-px flex-1 bg-border/70" /></div>
+
       <div className="grid gap-5 md:grid-cols-2">
         {STOREFRONT_DESIGNS.map((option) => {
-          const selected = draft === option.id;
+          const selected = draft[activeDevice] === option.id;
           return (
             <button
               key={option.id}
               type="button"
-              onClick={() => setDraft(option.id)}
+              onClick={() => setDraft((current) => ({ ...current, [activeDevice]: option.id }))}
               aria-pressed={selected}
               className={`group text-left rounded-2xl border p-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${selected ? 'border-primary bg-primary/[0.08] shadow-[0_0_0_1px_hsl(var(--primary)/.18),0_24px_70px_hsl(var(--primary)/.12)]' : 'border-white/[0.08] bg-[hsl(220_17%_12%/.72)] hover:border-primary/40'}`}
             >
