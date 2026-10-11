@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Eye, EyeOff, KeyRound, Loader2, Save, Send, ShieldCheck, Smartphone, Sparkles } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
@@ -32,7 +32,7 @@ type FieldKey = typeof FIELDS[number]['key']
 type Status = { name: FieldKey; configured: boolean }
 
 const GROUP_META = {
-  AI: { title: 'AI CREDENTIALS', icon: Sparkles, description: 'Las credenciales se guardan en Vault y se utilizan según las asignaciones configuradas arriba. No necesitas abrir otra sección.' },
+  AI: { title: 'AI & INTEGRATIONS', icon: Sparkles, description: 'Configura proveedores, funciones y credenciales desde una sola experiencia.' },
   EMAIL: { title: 'RESEND EMAIL', icon: Send, description: 'Transactional email uses Resend directly and stays within the provider account limits.' },
   MESSAGING: { title: 'ORDER NOTIFICATIONS', icon: Smartphone, description: 'Configura el número receptor de WhatsApp y el destino de checkout de Telegram sin exponer valores en el navegador.' },
 } as const
@@ -42,6 +42,7 @@ export default function AdminIntegrations() {
   const qc = useQueryClient()
   const [values, setValues] = useState<Partial<Record<FieldKey, string>>>({})
   const [visible, setVisible] = useState<Partial<Record<FieldKey, boolean>>>({})
+  const [activeAiTab, setActiveAiTab] = useState<'workflows' | 'credentials'>('workflows')
 
   const { data: statuses = [], isLoading } = useQuery({
     queryKey: ['admin-integration-status'],
@@ -55,16 +56,29 @@ export default function AdminIntegrations() {
   const { data: aiSettings = [] } = useQuery({
     queryKey: ['admin-ai-integration-provider'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('admin_settings').select('setting_key, setting_value').in('setting_key', ['ai_provider', 'ai_image_provider'])
+      const { data, error } = await supabase.from('admin_settings').select('setting_key, setting_value').in('setting_key', ['ai_provider', 'ai_image_provider', 'ai_provider_assignments', 'ai_custom_providers'])
       if (error) throw error
       return data
     },
   })
 
-  const selectedProviderId = aiSettings.find((row) => row.setting_key === 'ai_provider')?.setting_value
-  const selectedImageProviderId = aiSettings.find((row) => row.setting_key === 'ai_image_provider')?.setting_value
-  const selectedProvider = selectedProviderId ? getAiProvider(selectedProviderId) : undefined
-  const selectedImageProvider = selectedImageProviderId ? getAiProvider(selectedImageProviderId) : undefined
+  const assignments = useMemo(() => {
+    const row = aiSettings.find((item) => item.setting_key === 'ai_provider_assignments')?.setting_value
+    if (!row) return {} as Record<string, { provider?: string; model?: string }>
+    try { return JSON.parse(row) as Record<string, { provider?: string; model?: string }> } catch { return {} as Record<string, { provider?: string; model?: string }> }
+  }, [aiSettings])
+  const customProviderLabels = useMemo(() => {
+    const row = aiSettings.find((item) => item.setting_key === 'ai_custom_providers')?.setting_value
+    if (!row) return new Map<string, { label: string; defaultBaseUrl: string }>()
+    try {
+      const providers = JSON.parse(row) as Array<{ id?: string; label?: string; defaultBaseUrl?: string }>
+      return new Map(providers.filter((item) => item.id && item.label).map((item) => [item.id!, { label: item.label!, defaultBaseUrl: item.defaultBaseUrl || '' }]))
+    } catch { return new Map<string, { label: string; defaultBaseUrl: string }>() }
+  }, [aiSettings])
+  const selectedProviderId = assignments.text?.provider || aiSettings.find((row) => row.setting_key === 'ai_provider')?.setting_value
+  const selectedImageProviderId = assignments.image?.provider || assignments.vision?.provider || aiSettings.find((row) => row.setting_key === 'ai_image_provider')?.setting_value
+  const selectedProvider = selectedProviderId ? customProviderLabels.get(selectedProviderId) || getAiProvider(selectedProviderId) : undefined
+  const selectedImageProvider = selectedImageProviderId ? customProviderLabels.get(selectedImageProviderId) || getAiProvider(selectedImageProviderId) : undefined
 
   const fieldLabel = (field: typeof FIELDS[number]) => {
     if (field.key === 'AI_PROVIDER_API_KEY') return `${selectedProvider?.label ?? 'Proveedor de texto'} API key`
@@ -81,6 +95,14 @@ export default function AdminIntegrations() {
     if (field.key === 'AI_IMAGE_PROVIDER_BASE_URL') return selectedImageProvider?.defaultBaseUrl ?? 'Selecciona un proveedor arriba'
     return field.placeholder
   }
+
+  const renderCredentialFields = (group: typeof FIELDS[number]['group']) => <div className="mt-5 grid gap-4 md:grid-cols-2">
+    {FIELDS.filter((field) => field.group === group).map((field) => {
+      const configured = isConfigured(field.key)
+      const shown = visible[field.key] === true
+      return <div key={field.key} className="space-y-2"><div className="flex items-center justify-between"><Label className="uppercase tracking-wider">{fieldLabel(field)}</Label><span className={`font-mono text-[10px] uppercase ${configured ? 'text-primary' : 'text-muted-foreground'}`}>{configured ? 'READY' : 'NOT SET'}</span></div><div className="relative"><Input type={shown ? 'text' : 'password'} value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} placeholder={configured ? '••••••••  (deja vacío para conservar)' : fieldPlaceholder(field)} className="border-white/10 bg-black/20 pr-10" autoComplete="new-password" /><button type="button" aria-label={shown ? 'Ocultar valor' : 'Mostrar valor'} onClick={() => setVisible((current) => ({ ...current, [field.key]: !shown }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></div>
+    })}
+  </div>
 
   useEffect(() => {
     const next: Partial<Record<FieldKey, string>> = {}
@@ -121,24 +143,22 @@ export default function AdminIntegrations() {
         <div><p className="font-semibold uppercase">VAULT PROTECTED</p><p className="mt-1 text-sm text-muted-foreground">Los valores nuevos se envían a una Edge Function protegida y se guardan cifrados en Supabase Vault. Nunca se cargan valores existentes al cliente.</p></div>
       </AdminSurface>
 
-      <AdminSurface className="p-5 md:p-6">
-        <AiProviderSetup embedded />
-      </AdminSurface>
-
       {(['AI', 'EMAIL', 'MESSAGING'] as const).map((group) => {
         const meta = GROUP_META[group]
         const Icon = meta.icon
         return (
           <AdminSurface key={group} className="p-5 md:p-6">
             <div className="flex items-start gap-3 border-b border-white/[0.08] pb-5"><div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><Icon className="h-5 w-5" /></div><div><h2 className="font-semibold uppercase">{meta.title}</h2><p className="mt-1 text-sm text-muted-foreground">{meta.description}</p></div></div>
-            {group === 'AI' && <div className="mt-4 grid gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] p-4 text-xs md:grid-cols-2"><div><span className="font-mono uppercase tracking-wider text-muted-foreground">Texto</span><p className="mt-1 font-medium">{selectedProvider?.label ?? 'Sin asignar'}</p><p className="mt-1 text-muted-foreground">{selectedProvider ? `Base sugerido: ${selectedProvider.defaultBaseUrl}` : 'Selecciona un proveedor en la configuración centralizada.'}</p></div><div><span className="font-mono uppercase tracking-wider text-muted-foreground">Visión / imagen</span><p className="mt-1 font-medium">{selectedImageProvider?.label ?? 'Sin asignar'}</p><p className="mt-1 text-muted-foreground">{selectedImageProvider ? `Base sugerido: ${selectedImageProvider.defaultBaseUrl}` : 'Puede quedar sin asignar si no usarás funciones de imagen.'}</p></div></div>}
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              {FIELDS.filter((field) => field.group === group).map((field) => {
-                const configured = isConfigured(field.key)
-                const shown = visible[field.key] === true
-                return <div key={field.key} className="space-y-2"><div className="flex items-center justify-between"><Label className="uppercase tracking-wider">{fieldLabel(field)}</Label><span className={`font-mono text-[10px] uppercase ${configured ? 'text-primary' : 'text-muted-foreground'}`}>{configured ? 'READY' : 'NOT SET'}</span></div><div className="relative"><Input type={shown ? 'text' : 'password'} value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} placeholder={configured ? '••••••••  (deja vacío para conservar)' : fieldPlaceholder(field)} className="border-white/10 bg-black/20 pr-10" autoComplete="new-password" /><button type="button" aria-label={shown ? 'Ocultar valor' : 'Mostrar valor'} onClick={() => setVisible((current) => ({ ...current, [field.key]: !shown }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></div>
-              })}
-            </div>
+            {group === 'AI' ? <>
+              <div className="mt-5 flex flex-wrap gap-2 border-b border-white/[0.08] pb-3" role="tablist" aria-label="Configuración de inteligencia artificial">
+                <button type="button" role="tab" aria-selected={activeAiTab === 'workflows'} onClick={() => setActiveAiTab('workflows')} className={`rounded-full border px-3 py-2 text-xs font-medium transition ${activeAiTab === 'workflows' ? 'border-primary/60 bg-primary/10 text-primary' : 'border-white/10 text-muted-foreground hover:border-primary/40 hover:text-foreground'}`}>AI WORKFLOWS <span className="ml-1 opacity-70">Funciones</span></button>
+                <button type="button" role="tab" aria-selected={activeAiTab === 'credentials'} onClick={() => setActiveAiTab('credentials')} className={`rounded-full border px-3 py-2 text-xs font-medium transition ${activeAiTab === 'credentials' ? 'border-primary/60 bg-primary/10 text-primary' : 'border-white/10 text-muted-foreground hover:border-primary/40 hover:text-foreground'}`}>AI CREDENTIALS <span className="ml-1 opacity-70">Claves</span></button>
+              </div>
+              {activeAiTab === 'workflows' ? <div className="mt-5"><AiProviderSetup embedded /></div> : <>
+                <div className="mt-5 rounded-xl border border-primary/15 bg-primary/[0.04] p-4 text-sm"><p className="font-medium">Credenciales conectadas a tus funciones</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Cada bloque corresponde al proveedor que asignaste en AI WORKFLOWS. Guarda aquí la clave del proveedor para esa función; las claves existentes nunca se muestran.</p><div className="mt-3 grid gap-2 text-xs sm:grid-cols-2"><div><span className="font-mono uppercase tracking-wider text-muted-foreground">Texto y herramientas</span><p className="mt-1 font-medium">{selectedProvider?.label ?? 'Sin proveedor asignado'}</p></div><div><span className="font-mono uppercase tracking-wider text-muted-foreground">Visión e imágenes</span><p className="mt-1 font-medium">{selectedImageProvider?.label ?? 'Sin proveedor asignado'}</p></div></div></div>
+                {renderCredentialFields('AI')}
+              </>}
+            </> : renderCredentialFields(group)}
           </AdminSurface>
         )
       })}

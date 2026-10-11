@@ -48,14 +48,14 @@ describe('AdminAISettings', () => {
       </QueryClientProvider>,
     );
 
-    const provider = await screen.findByDisplayValue('openai');
+    const provider = await screen.findByLabelText('Proveedor para Texto y herramientas');
     const model = await screen.findByDisplayValue('gpt-4o-mini');
 
     fireEvent.change(provider, { target: { value: 'deepseek' } });
     fireEvent.change(model, { target: { value: 'deepseek-v4-flash' } });
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('deepseek')).toBeInTheDocument();
+      expect(provider).toHaveValue('deepseek');
       expect(screen.getByDisplayValue('deepseek-v4-flash')).toBeInTheDocument();
       expect(screen.getAllByText('READY').length).toBeGreaterThanOrEqual(1);
     });
@@ -72,8 +72,8 @@ describe('AdminAISettings', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByDisplayValue('openai-compatible')).toBeInTheDocument();
-    expect(await screen.findByDisplayValue('vision-image-model')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Proveedor para Visión y análisis de fotos')).toHaveValue('openai-compatible');
+    expect(await screen.findByLabelText('Modelo para Visión y análisis de fotos')).toHaveValue('vision-image-model');
     expect(screen.getAllByText('READY').length).toBeGreaterThanOrEqual(2);
   });
 });
