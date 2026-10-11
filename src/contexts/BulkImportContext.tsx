@@ -4,6 +4,7 @@ import { logActivity } from '@/lib/activity-log';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Category } from '@/lib/model-types';
 import { getErrorMessage } from '@/lib/model-types';
+import { calculateVenezuelaUsdPrice } from '@/lib/venezuela-pricing';
 
 export type BulkItemStatus = 'queued' | 'scraping' | 'generating' | 'saving' | 'done' | 'error';
 
@@ -18,7 +19,7 @@ interface BulkImportContextType {
   isRunning: boolean;
   isComplete: boolean;
   items: BulkItem[];
-  startBulkImport: (urls: string[], categories: Category[], systemBgSetting: string | null) => void;
+  startBulkImport: (urls: string[], categories: Category[], systemBgSetting: string | null, globalVenezuelaMarkupPercent?: number) => void;
   dismiss: () => void;
 }
 
@@ -72,7 +73,7 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
     setItems([]);
   }, []);
 
-  const startBulkImport = useCallback((urls: string[], categories: Category[], systemBgSetting: string | null) => {
+  const startBulkImport = useCallback((urls: string[], categories: Category[], systemBgSetting: string | null, globalVenezuelaMarkupPercent = 40) => {
     if (runningRef.current) return;
     runningRef.current = true;
     setIsRunning(true);
@@ -141,7 +142,16 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
             description_es: productInfo.description_es || '',
             slug: productSlug,
             base_price: productInfo.suggested_price || 0,
-            venezuela_price_usd: productInfo.suggested_price || 0,
+            venezuela_price_usd: calculateVenezuelaUsdPrice({
+              usaPrice: Number(productInfo.suggested_price || 0),
+              mode: 'global',
+              manualMode: 'fixed',
+              fixedPrice: 0,
+              globalMarkupPercent: globalVenezuelaMarkupPercent,
+            }),
+            venezuela_price_mode: 'global',
+            venezuela_manual_mode: 'fixed',
+            venezuela_markup_percent: null,
             category_id: matchedCat?.id || null,
             is_active: true,
             is_featured: false,

@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { calculateVenezuelaUsdPrice, DEFAULT_VENEZUELA_MARKUP_PERCENT } from '../_shared/venezuela-pricing.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,7 +36,10 @@ async function getPricing(admin: SupabaseClient, req: Request) {
   const { data: sourceSetting } = await admin.from('admin_settings').select('setting_value').eq('setting_key', 'regional_pricing_rate_source').maybeSingle()
   const rateSource: RateSource = sourceSetting?.setting_value === 'laslucas' || sourceSetting?.setting_value === 'binance' || sourceSetting?.setting_value === 'manual' ? sourceSetting.setting_value : 'bcv'
   const { data: rate } = await admin.from('currency_rates').select('rate,fetched_at').eq('base_currency', 'USD').eq('quote_currency', 'VES').eq('source', rateSource).eq('is_active', true).order('updated_at', { ascending: false }).limit(1).maybeSingle()
-  return { region, mode, rateSource, rateUpdatedAt: rate?.fetched_at ?? null, bcvRate: rate?.rate ? Number(rate.rate) : null }
+  const { data: markupSetting } = await admin.from('admin_settings').select('setting_value').eq('setting_key', 'venezuela_global_markup_percent').maybeSingle()
+  const parsedMarkup = Number(markupSetting?.setting_value)
+  const globalVenezuelaMarkupPercent = Number.isFinite(parsedMarkup) ? Math.min(1000, Math.max(0, parsedMarkup)) : DEFAULT_VENEZUELA_MARKUP_PERCENT
+  return { region, mode, rateSource, rateUpdatedAt: rate?.fetched_at ?? null, bcvRate: rate?.rate ? Number(rate.rate) : null, globalVenezuelaMarkupPercent }
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -80,9 +84,9 @@ function cleanAddress(form: unknown) {
   return result
 }
 
-function resolveProductPrice(product: Record<string, unknown>, pricing: { region: PricingRegion; mode: PricingMode }) {
+function resolveProductPrice(product: Record<string, unknown>, pricing: { region: PricingRegion; mode: PricingMode; globalVenezuelaMarkupPercent: number }) {
   if (pricing.mode === 'geo' && pricing.region === 'VENEZUELA') {
-    const value = numberOrNull(product.venezuela_price_usd)
+    const value = calculateVenezuelaUsdPrice(product, pricing.globalVenezuelaMarkupPercent)
     if (value === null || value < 0) throw new Error('Product is not configured for Venezuela')
     return value
   }
@@ -116,7 +120,7 @@ Deno.serve(async (req) => {
 
     const pricing = await getPricing(admin, req)
     const productIds = [...new Set(items.map((item) => item.productId))]
-    const { data: products, error: productsError } = await admin.from('products').select('id,base_price,venezuela_price_usd,is_active,inventory_enabled,stock_quantity').in('id', productIds)
+    const { data: products, error: productsError } = await admin.from('products').select('id,base_price,venezuela_price_usd,venezuela_price_mode,venezuela_manual_mode,venezuela_markup_percent,is_active,inventory_enabled,stock_quantity').in('id', productIds)
     if (productsError) throw productsError
     const productMap = new Map((products ?? []).map((product) => [product.id, product as Record<string, unknown>]))
     if (productMap.size !== productIds.length) throw new Error('One or more products are unavailable')

@@ -4,6 +4,7 @@ import type { ImportPreview, InventoryImportRow } from './types';
 import type { InventoryZipArchive, InventoryZipEntry } from './parsers';
 import { normalizeInventoryPath } from './paths';
 import { assertSafeImageSize } from './safety';
+import { calculateVenezuelaUsdPrice } from '@/lib/venezuela-pricing';
 
 export type InventoryImportProgress = {
   completed: number;
@@ -154,7 +155,16 @@ export async function persistInventoryImport(
         description_es: row.description,
         slug: row.slug,
         base_price: row.unitPrice ?? 0,
-        venezuela_price_usd: row.unitPrice ?? 0,
+        venezuela_price_usd: calculateVenezuelaUsdPrice({
+          usaPrice: row.unitPrice ?? 0,
+          mode: 'global',
+          manualMode: 'fixed',
+          fixedPrice: 0,
+          globalMarkupPercent: 40,
+        }),
+        venezuela_price_mode: 'global',
+        venezuela_manual_mode: 'fixed',
+        venezuela_markup_percent: null,
         category_id: category.id,
         is_active: true,
         is_featured: false,

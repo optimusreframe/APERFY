@@ -36,6 +36,7 @@ type Variation = Database['public']['Tables']['product_variations']['Row'];
 type ProductMaterialWithMaterial = Database['public']['Tables']['product_materials']['Row'] & {
   materials: Pick<Material, 'name_en' | 'name_es'> | null;
 };
+type StorefrontProduct = Product & { categories: Pick<Category, 'name_en' | 'name_es'> | null };
 type RelatedProduct = Product & { categories: Pick<Category, 'name_en' | 'name_es'> | null };
 const PRODUCT_LIGHTBOX_HISTORY_KEY = '__aperfy_product_image_lightbox';
 
@@ -422,7 +423,7 @@ export default function ProductDetail() {
       if (error) throw error;
       if (!data?.product) throw new Error('Product not found');
       return data as {
-        product: Product;
+        product: StorefrontProduct;
         variations: Variation[];
         materials: ProductMaterialWithMaterial[];
         relatedProducts: RelatedProduct[];

@@ -351,7 +351,7 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !serviceRoleKey) throw new Error("Supabase service configuration is missing");
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const textActions = new Set(["scrape", "translate", "enhance_product"]);
+    const textActions = new Set(["scrape", "refresh_price", "translate", "enhance_product"]);
     const textAi = textActions.has(action) ? await loadAiConfig(adminClient) : null;
     if (textActions.has(action) && !textAi) throw new Error("AI text provider is not configured in Admin → Integrations");
 
@@ -531,6 +531,74 @@ ${imageListForAI || "No images found."}`
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ── ACTION: refresh_price ──
+    // Reuses the same protected Firecrawl + AI market research pipeline as URL imports,
+    // but only updates the USA price of an existing product. Venezuela pricing remains
+    // derived by its Global/Manual mode on the server.
+    if (action === "refresh_price") {
+      const ai = textAi as AiRuntime;
+      const productId = typeof body.productId === "string" ? body.productId.trim() : "";
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(productId)) {
+        return new Response(JSON.stringify({ success: false, code: "INVALID_PRODUCT_ID", error: "Product ID is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: product, error: productError } = await adminClient
+        .from("products")
+        .select("id, name_en, name_es, description_en, description_es, base_price")
+        .eq("id", productId)
+        .maybeSingle();
+      if (productError) throw productError;
+      if (!product) {
+        return new Response(JSON.stringify({ success: false, code: "PRODUCT_NOT_FOUND", error: "Product not found" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const FIRECRAWL_API_KEY = await getIntegrationSecret(adminClient, "FIRECRAWL_API_KEY");
+      if (!FIRECRAWL_API_KEY) {
+        return new Response(JSON.stringify({ success: false, code: "FIRECRAWL_NOT_CONFIGURED", error: "Configura FIRECRAWL_API_KEY en Admin → Integrations para buscar precios de mercado." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const title = String(product.name_en || product.name_es || "").trim();
+      const description = String(product.description_en || product.description_es || "").trim();
+      if (!title) {
+        return new Response(JSON.stringify({ success: false, code: "PRODUCT_WITHOUT_NAME", error: "El producto necesita un nombre para buscar su precio." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const searchQueriesUsed = await generateEbayQueries(title, description, ai);
+      const listings = await searchEbayMulti(searchQueriesUsed, FIRECRAWL_API_KEY);
+      const priceResult = await validateAndAveragePrices(title, description, listings, ai);
+      if (!Number.isFinite(priceResult.suggested_price) || priceResult.suggested_price <= 0) {
+        return new Response(JSON.stringify({ success: false, code: "PRICE_NOT_FOUND", error: "No se encontró un precio de mercado confiable para este producto.", data: { matched_listings_count: priceResult.matched_listings_count, search_queries_used: searchQueriesUsed } }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const suggestedPrice = Math.round(priceResult.suggested_price * 100) / 100;
+      const { error: updateError } = await adminClient.from("products").update({ base_price: suggestedPrice }).eq("id", productId);
+      if (updateError) throw updateError;
+
+      return new Response(JSON.stringify({
+        success: true,
+        data: {
+          updated: true,
+          product_id: productId,
+          previous_price: Number(product.base_price || 0),
+          suggested_price: suggestedPrice,
+          price_confidence: priceResult.price_confidence,
+          price_source: priceResult.price_source,
+          matched_listings_count: priceResult.matched_listings_count,
+          search_queries_used: searchQueriesUsed,
+        },
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ── ACTION: generate_image ──
@@ -1157,7 +1225,7 @@ Preserve the exact same physical product from the source image. Do not redesign 
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action. Use 'scrape', 'generate_image', 'generate_angle', 'generate_background_reference', 'translate', or 'enhance_product'." }), {
+    return new Response(JSON.stringify({ error: "Invalid action. Use 'scrape', 'refresh_price', 'generate_image', 'generate_angle', 'generate_background_reference', 'translate', or 'enhance_product'." }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 

@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, CreditCard, ExternalLink, MessageCircle, Save, Send, RefreshCw, ShieldCheck } from 'lucide-react';
 import { AdminPageHeader } from './_shared';
 import { CHECKOUT_PAYMENT_KEYS, getDefaultPaymentChannel, parsePaymentChannelSetting, paymentChannelFromKey } from '@/lib/payment-channels';
+import { DEFAULT_VENEZUELA_MARKUP_PERCENT, normalizeVenezuelaMarkup } from '@/lib/venezuela-pricing';
 
 const PAYMENT_KEYS = [...CHECKOUT_PAYMENT_KEYS, 'payment_zelle', 'payment_binance', 'payment_cashapp'] as const;
 type RateSource = 'bcv' | 'laslucas' | 'binance' | 'manual';
@@ -41,6 +42,7 @@ export default function AdminPaymentSettings() {
   const [rateSource, setRateSource] = useState<RateSource>('bcv');
   const [exchangeRate, setExchangeRate] = useState('');
   const [rateMeta, setRateMeta] = useState<{ source?: string; fetched_at?: string | null }>({});
+  const [venezuelaMarkupPercent, setVenezuelaMarkupPercent] = useState(String(DEFAULT_VENEZUELA_MARKUP_PERCENT));
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['admin-payment-settings'],
@@ -48,7 +50,7 @@ export default function AdminPaymentSettings() {
       const { data, error } = await supabase
         .from('admin_settings')
         .select('*')
-        .in('setting_key', [...PAYMENT_KEYS, 'regional_pricing_mode', 'regional_pricing_rate_source']);
+        .in('setting_key', [...PAYMENT_KEYS, 'regional_pricing_mode', 'regional_pricing_rate_source', 'venezuela_global_markup_percent']);
       if (error) throw error;
       return data;
     },
@@ -77,6 +79,10 @@ export default function AdminPaymentSettings() {
       }
       if (s.setting_key === 'regional_pricing_rate_source') {
         setRateSource(s.setting_value === 'laslucas' || s.setting_value === 'binance' || s.setting_value === 'manual' ? s.setting_value : 'bcv');
+        continue;
+      }
+      if (s.setting_key === 'venezuela_global_markup_percent') {
+        setVenezuelaMarkupPercent(String(normalizeVenezuelaMarkup(s.setting_value)));
         continue;
       }
       map[s.setting_key] = paymentChannelFromKey(s.setting_key)
@@ -127,6 +133,11 @@ export default function AdminPaymentSettings() {
         setting_key: 'regional_pricing_rate_source', setting_value: rateSource,
       }, { onConflict: 'setting_key' });
       if (sourceError) throw sourceError;
+      const markup = normalizeVenezuelaMarkup(venezuelaMarkupPercent);
+      const { error: markupError } = await supabase.from('admin_settings').upsert({
+        setting_key: 'venezuela_global_markup_percent', setting_value: String(markup),
+      }, { onConflict: 'setting_key' });
+      if (markupError) throw markupError;
       const numericRate = Number(exchangeRate);
       if (rateSource === 'manual' && Number.isFinite(numericRate) && numericRate > 0) {
         const { error: rateError } = await supabase.from('currency_rates').upsert({
@@ -140,6 +151,7 @@ export default function AdminPaymentSettings() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-payment-settings'] });
+      qc.invalidateQueries({ queryKey: ['admin-venezuela-pricing'] });
       toast({ title: '✓', description: 'Métodos de pago actualizados.' });
     },
     onError: (error: unknown) => {
@@ -366,6 +378,33 @@ export default function AdminPaymentSettings() {
                 Fuente activa: <span className="font-semibold text-foreground">{RATE_SOURCES.find((source) => source.value === rateSource)?.title}</span>
                 {rateMeta.fetched_at ? ` · ${new Date(rateMeta.fetched_at).toLocaleString()}` : ''}
               </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 className="font-display text-lg font-bold">Regla global para Venezuela</h2>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Los productos en modo Global se estandarizan automáticamente como Precio USA + este porcentaje. Los productos en modo Manual no cambian al editar este valor.</p>
+              </div>
+              <span className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">Precio USA + %</span>
+            </div>
+            <div className="mt-5 max-w-xs">
+              <Label htmlFor="venezuela-global-markup">Porcentaje global de aumento</Label>
+              <div className="relative mt-1">
+                <Input
+                  id="venezuela-global-markup"
+                  type="number"
+                  min="0"
+                  max="1000"
+                  step="0.1"
+                  value={venezuelaMarkupPercent}
+                  onChange={(event) => setVenezuelaMarkupPercent(event.target.value)}
+                  className="bg-background pr-10"
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">%</span>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">Ejemplo: 40% convierte un producto de $20 USA en $28 USD Venezuela.</p>
             </div>
           </div>
         </TabsContent>

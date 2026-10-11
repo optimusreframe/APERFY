@@ -1033,7 +1033,10 @@ export type Database = {
       products: {
         Row: {
           base_price: number
-          venezuela_price_usd: number | null
+          venezuela_price_usd?: number | null
+          venezuela_price_mode?: string
+          venezuela_manual_mode?: string
+          venezuela_markup_percent?: number | null
           category_id: string | null
           condition_status: string
           created_at: string
@@ -1060,6 +1063,9 @@ export type Database = {
         Insert: {
           base_price?: number
           venezuela_price_usd?: number | null
+          venezuela_price_mode?: string
+          venezuela_manual_mode?: string
+          venezuela_markup_percent?: number | null
           category_id?: string | null
           condition_status?: string
           created_at?: string
@@ -1086,6 +1092,9 @@ export type Database = {
         Update: {
           base_price?: number
           venezuela_price_usd?: number | null
+          venezuela_price_mode?: string
+          venezuela_manual_mode?: string
+          venezuela_markup_percent?: number | null
           category_id?: string | null
           condition_status?: string
           created_at?: string

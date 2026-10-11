@@ -28,6 +28,7 @@ import { partitionProductDeletion } from './productDeletion';
 import { getErrorMessage } from '@/lib/model-types';
 import { readClipboardImage } from '@/lib/image-clipboard';
 import ProductCatalogViews, { type AdminProduct, type BulkEdit, type BulkField, type ProductViewMode } from '@/components/admin/ProductCatalogViews';
+import { calculateVenezuelaUsdPrice, DEFAULT_VENEZUELA_MARKUP_PERCENT, normalizeVenezuelaMarkup, type VenezuelaManualMode, type VenezuelaPriceMode } from '@/lib/venezuela-pricing';
 
 // ── Types ──
 interface ProductForm {
@@ -38,6 +39,9 @@ interface ProductForm {
   slug: string;
   base_price: number;
   venezuela_price_usd: number;
+  venezuela_price_mode: VenezuelaPriceMode;
+  venezuela_manual_mode: VenezuelaManualMode;
+  venezuela_markup_percent: number;
   condition_status: 'new' | 'used';
   seller_name: string;
   return_policy_en: string;
@@ -79,7 +83,7 @@ interface AiProductData {
 
 const empty: ProductForm = {
   name_en: '', name_es: '', description_en: '', description_es: '',
-  slug: '', base_price: 0, venezuela_price_usd: 0, condition_status: 'new', seller_name: 'APERFY',
+  slug: '', base_price: 0, venezuela_price_usd: 0, venezuela_price_mode: 'global', venezuela_manual_mode: 'fixed', venezuela_markup_percent: DEFAULT_VENEZUELA_MARKUP_PERCENT, condition_status: 'new', seller_name: 'APERFY',
   return_policy_en: '30-day returns for eligible items. Contact APERFY before returning a product.',
   return_policy_es: 'Devoluciones de 30 días para artículos elegibles. Contacta a APERFY antes de devolver un producto.',
   return_window_days: 30, category_id: '', is_active: true, is_featured: false,
@@ -291,6 +295,8 @@ export default function AdminProducts() {
   const [bulkEdits, setBulkEdits] = useState<Record<string, BulkEdit>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  type BulkAiJob = { kind: 'images' | 'prices'; total: number; completed: number; succeeded: number; failed: number; skipped: number; currentName: string; errors: string[] };
+  const [bulkAiJob, setBulkAiJob] = useState<BulkAiJob | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [deleteFromEditOpen, setDeleteFromEditOpen] = useState(false);
@@ -358,7 +364,7 @@ export default function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name_en, name_es, slug, base_price, venezuela_price_usd, condition_status, seller_name, return_policy_en, return_policy_es, return_window_days, is_active, is_featured, category_id, images, created_at, description_en, description_es, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
+        .select('id, name_en, name_es, slug, base_price, venezuela_price_usd, venezuela_price_mode, venezuela_manual_mode, venezuela_markup_percent, condition_status, seller_name, return_policy_en, return_policy_es, return_window_days, is_active, is_featured, category_id, images, created_at, description_en, description_es, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -395,6 +401,19 @@ export default function AdminProducts() {
       return data?.setting_value || null;
     },
   });
+
+  const { data: venezuelaPricingSettings = [] } = useQuery({
+    queryKey: ['admin-venezuela-pricing'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('admin_settings').select('setting_key, setting_value').eq('setting_key', 'venezuela_global_markup_percent');
+      if (error) throw error;
+      return data;
+    },
+  });
+  const globalVenezuelaMarkupPercent = normalizeVenezuelaMarkup(
+    venezuelaPricingSettings.find((row) => row.setting_key === 'venezuela_global_markup_percent')?.setting_value,
+  );
+  const createEmptyProductForm = (): ProductForm => ({ ...empty, venezuela_markup_percent: globalVenezuelaMarkupPercent });
 
   const { data: aiProductSettings = [] } = useQuery({
     queryKey: ['admin-ai-product-settings'],
@@ -491,7 +510,25 @@ export default function AdminProducts() {
       }
       setFieldErrors({});
 
-      const payload = { ...f, category_id: f.category_id || null, base_price: Number(f.base_price), venezuela_price_usd: Number(f.venezuela_price_usd) };
+      const basePrice = Number(f.base_price);
+      const manualMarkup = f.venezuela_price_mode === 'manual' && f.venezuela_manual_mode === 'percentage'
+        ? normalizeVenezuelaMarkup(f.venezuela_markup_percent)
+        : null;
+      const venezuelaPrice = calculateVenezuelaUsdPrice({
+        usaPrice: basePrice,
+        mode: f.venezuela_price_mode,
+        manualMode: f.venezuela_manual_mode,
+        fixedPrice: f.venezuela_price_usd,
+        markupPercent: manualMarkup,
+        globalMarkupPercent: globalVenezuelaMarkupPercent,
+      });
+      const payload = {
+        ...f,
+        category_id: f.category_id || null,
+        base_price: basePrice,
+        venezuela_price_usd: venezuelaPrice,
+        venezuela_markup_percent: manualMarkup,
+      };
       let productId = editId;
 
       if (editId) {
@@ -571,7 +608,7 @@ export default function AdminProducts() {
       });
       setOpen(false);
       setEditId(null);
-      setForm(empty);
+      setForm(createEmptyProductForm());
       setMediaFiles([]);
       setProductVariations([]);
       toast({ title: '✓', description: 'Producto guardado.' });
@@ -630,7 +667,7 @@ export default function AdminProducts() {
         setDeleteFromEditOpen(false);
         setOpen(false);
         setEditId(null);
-        setForm(empty);
+        setForm(createEmptyProductForm());
         setMediaFiles([]);
         setProductVariations([]);
       },
@@ -663,6 +700,9 @@ export default function AdminProducts() {
       name_en: p.name_en, name_es: p.name_es,
       description_en: p.description_en || '', description_es: p.description_es || '',
       slug: p.slug, base_price: p.base_price, venezuela_price_usd: Number(p.venezuela_price_usd ?? 0),
+      venezuela_price_mode: p.venezuela_price_mode === 'manual' ? 'manual' : 'global',
+      venezuela_manual_mode: p.venezuela_manual_mode === 'percentage' ? 'percentage' : 'fixed',
+      venezuela_markup_percent: Number(p.venezuela_markup_percent ?? globalVenezuelaMarkupPercent),
       condition_status: p.condition_status === 'used' ? 'used' : 'new',
       seller_name: p.seller_name || 'APERFY',
       return_policy_en: p.return_policy_en || empty.return_policy_en,
@@ -757,6 +797,84 @@ export default function AdminProducts() {
     if (error) throw error;
     const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
     return { url: data.publicUrl, path: fileName };
+  };
+
+  const getProductImageUrls = (product: AdminProduct): string[] =>
+    Array.isArray(product.images) ? product.images.filter((url): url is string => typeof url === 'string' && url.length > 0) : [];
+
+  const runBulkAiOperation = async (kind: 'images' | 'prices') => {
+    if (bulkAiJob) return;
+    const targets = products.filter((product) => selectedProductIds.includes(product.id));
+    if (targets.length === 0) {
+      toast({ title: 'Selecciona productos primero', description: `Marca uno o más productos para ${kind === 'images' ? 'regenerar imágenes' : 'actualizar precios'}.`, variant: 'destructive' });
+      return;
+    }
+
+    let completed = 0;
+    let succeeded = 0;
+    let failed = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+    setBulkAiJob({ kind, total: targets.length, completed: 0, succeeded: 0, failed: 0, skipped: 0, currentName: targets[0].name_es || targets[0].name_en, errors: [] });
+
+    for (const product of targets) {
+      const productName = product.name_es || product.name_en || product.id;
+      setBulkAiJob((current) => current ? { ...current, currentName: productName } : current);
+      try {
+        if (kind === 'images') {
+          const sourceImage = getProductImageUrls(product)[0];
+          if (!sourceImage) {
+            skipped += 1;
+            completed += 1;
+            setBulkAiJob((current) => current ? { ...current, completed, skipped } : current);
+            continue;
+          }
+
+          const { data, error } = await supabase.functions.invoke('ai-product-import', {
+            body: {
+              action: 'generate_image',
+              productId: product.id,
+              sourceImage,
+              backgroundMode: 'system_workshop',
+              customBackground: systemBgSetting || undefined,
+            },
+          });
+          if (error || !data?.success || typeof data.data?.generated_image !== 'string') {
+            throw new Error(data?.error || error?.message || 'La IA no devolvió una imagen válida.');
+          }
+          const { url, path } = await persistAiImage(data.data.generated_image);
+          const images = getProductImageUrls(product);
+          const { error: updateError } = await supabase.from('products').update({ images: [url, ...images.slice(1)] }).eq('id', product.id);
+          if (updateError) {
+            await supabase.storage.from('product-images').remove([path]).catch(() => undefined);
+            throw updateError;
+          }
+        } else {
+          const { data, error } = await supabase.functions.invoke('ai-product-import', {
+            body: { action: 'refresh_price', productId: product.id },
+          });
+          if (error || !data?.success || !data.data?.updated) {
+            throw new Error(data?.error || error?.message || 'No se encontró un precio de mercado confiable.');
+          }
+        }
+        succeeded += 1;
+      } catch (error: unknown) {
+        failed += 1;
+        errors.push(`${productName}: ${getErrorMessage(error)}`);
+      }
+      completed += 1;
+      setBulkAiJob((current) => current ? { ...current, completed, succeeded, failed, skipped, errors: [...errors] } : current);
+    }
+
+    qc.invalidateQueries({ queryKey: ['admin-products'] });
+    setSelectedProductIds([]);
+    setBulkAiJob((current) => current ? { ...current, currentName: '' } : current);
+    toast({
+      title: kind === 'images' ? 'Regeneración de imágenes completada' : 'Actualización de precios completada',
+      description: `${succeeded} completado(s), ${skipped} omitido(s), ${failed} con error.`,
+      variant: failed > 0 ? 'destructive' : 'default',
+    });
+    window.setTimeout(() => setBulkAiJob(null), 1800);
   };
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -1251,6 +1369,7 @@ export default function AdminProducts() {
 
     const nameEn = aiData.name_en || aiData.name_es;
     const descEn = aiData.description_en || aiData.description_es;
+    const importedBasePrice = Number(aiData.suggested_price || 0);
 
     setForm({
       name_en: nameEn,
@@ -1258,8 +1377,17 @@ export default function AdminProducts() {
       description_en: descEn,
       description_es: aiData.description_es || '',
       slug: aiData.slug || slugify(aiData.name_es || ''),
-      base_price: aiData.suggested_price || 0,
-      venezuela_price_usd: aiData.suggested_price || 0,
+      base_price: importedBasePrice,
+      venezuela_price_usd: calculateVenezuelaUsdPrice({
+        usaPrice: importedBasePrice,
+        mode: 'global',
+        manualMode: 'fixed',
+        fixedPrice: 0,
+        globalMarkupPercent: globalVenezuelaMarkupPercent,
+      }),
+      venezuela_price_mode: 'global',
+      venezuela_manual_mode: 'fixed',
+      venezuela_markup_percent: globalVenezuelaMarkupPercent,
       condition_status: 'new',
       seller_name: empty.seller_name,
       return_policy_en: empty.return_policy_en,
@@ -1326,7 +1454,7 @@ export default function AdminProducts() {
       toast({ title: 'Máximo 10 URLs permitidas', variant: 'destructive' });
       return;
     }
-    startBulkImport(urls, categories, systemBgSetting || null);
+    startBulkImport(urls, categories, systemBgSetting || null, globalVenezuelaMarkupPercent);
     setAiOpen(false);
     resetAi();
     toast({ title: '🚀 Importación iniciada', description: 'Puedes seguir navegando. Verás el progreso en el banner inferior.' });
@@ -1350,6 +1478,28 @@ export default function AdminProducts() {
         title="Productos"
         actions={
         <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void runBulkAiOperation('images')}
+            disabled={Boolean(bulkAiJob)}
+            className="min-h-11 flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10 sm:flex-none"
+            title="Regenera la imagen principal de los productos seleccionados usando el fondo APERFY"
+          >
+            {bulkAiJob?.kind === 'images' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+            Regenerar imágenes
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void runBulkAiOperation('prices')}
+            disabled={Boolean(bulkAiJob)}
+            className="min-h-11 flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10 sm:flex-none"
+            title="Busca precios de mercado y actualiza el precio USA de los productos seleccionados"
+          >
+            {bulkAiJob?.kind === 'prices' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Actualizar precios
+          </Button>
           {/* AI Import Studio Button */}
           <Dialog open={aiOpen} onOpenChange={(o) => { setAiOpen(o); if (!o) resetAi(); }}>
             <DialogTrigger asChild>
@@ -1922,7 +2072,7 @@ export default function AdminProducts() {
           </Dialog>
 
           {/* ── ADD/EDIT PRODUCT DIALOG ── */}
-          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(empty); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); setEditAiImageOpen(false); setEditAiSourceImage(null); setEditAiCustomBg(null); setDeleteFromEditOpen(false); setWizardStep(0); } else { setWizardStep(0); } }}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(createEmptyProductForm()); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); setEditAiImageOpen(false); setEditAiSourceImage(null); setEditAiCustomBg(null); setDeleteFromEditOpen(false); setWizardStep(0); } else { if (!editId) setForm(createEmptyProductForm()); setWizardStep(0); } }}>
             <DialogTrigger asChild>
               <Button className="min-h-11 flex-1 gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground sm:flex-none"><Plus className="w-4 h-4" />Agregar Producto</Button>
             </DialogTrigger>
@@ -2246,14 +2396,70 @@ export default function AdminProducts() {
                 {wizardStep === 2 && <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Precio Base ($)</Label>
+                    <Label>Precio USA (USD)</Label>
                     <Input type="number" step="0.01" min="0" max="999999" value={form.base_price} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} className="bg-secondary" required />
                     {fieldErrors.base_price && <p className="text-xs text-destructive">{fieldErrors.base_price}</p>}
                   </div>
-                  <div className="space-y-2">
-                    <Label>Precio Venezuela (USD)</Label>
-                    <Input type="number" step="0.01" min="0" max="999999" value={form.venezuela_price_usd} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, venezuela_price_usd: parseFloat(e.target.value) || 0 })} className="bg-secondary" required />
-                    <p className="text-xs text-muted-foreground">Se convierte a VES con la tasa configurada en Pagos → Tasas de cambio.</p>
+                  <div className="space-y-3 rounded-xl border border-primary/25 bg-primary/[0.04] p-4 md:col-span-2">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <Label className="font-semibold">🇻🇪 Precio Venezuela (USD)</Label>
+                        <p className="mt-1 text-xs text-muted-foreground">El precio final se convierte a VES con la tasa configurada en Pagos → Tasas de cambio.</p>
+                      </div>
+                      <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+                        <span>{form.venezuela_price_mode === 'global' ? 'Global' : 'Manual'}</span>
+                        <Switch
+                          checked={form.venezuela_price_mode === 'global'}
+                          onCheckedChange={(checked) => setForm({
+                            ...form,
+                            venezuela_price_mode: checked ? 'global' : 'manual',
+                            venezuela_price_usd: checked
+                              ? calculateVenezuelaUsdPrice({ usaPrice: form.base_price, mode: 'global', manualMode: form.venezuela_manual_mode, fixedPrice: form.venezuela_price_usd, markupPercent: form.venezuela_markup_percent, globalMarkupPercent: globalVenezuelaMarkupPercent })
+                              : form.venezuela_price_usd,
+                          })}
+                          aria-label="Usar precio global para Venezuela"
+                        />
+                      </label>
+                    </div>
+
+                    {form.venezuela_price_mode === 'global' ? (
+                      <div className="rounded-lg border border-border/70 bg-background/60 p-3 text-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span>Precio USA + {globalVenezuelaMarkupPercent}%</span>
+                          <strong className="font-mono text-primary">${calculateVenezuelaUsdPrice({ usaPrice: form.base_price, mode: 'global', manualMode: form.venezuela_manual_mode, fixedPrice: form.venezuela_price_usd, markupPercent: form.venezuela_markup_percent, globalMarkupPercent: globalVenezuelaMarkupPercent }).toFixed(2)} USD</strong>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">Regla global editable en Configuración → Pagos → Tasas de cambio.</p>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)]">
+                        <div className="space-y-2">
+                          <Label>Tipo manual</Label>
+                          <Select value={form.venezuela_manual_mode} onValueChange={(value: VenezuelaManualMode) => setForm({ ...form, venezuela_manual_mode: value })}>
+                            <SelectTrigger className="bg-secondary"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="fixed">Precio fijo</SelectItem>
+                              <SelectItem value="percentage">Porcentaje</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {form.venezuela_manual_mode === 'percentage' ? (
+                          <div className="space-y-2">
+                            <Label>Recargo manual (%)</Label>
+                            <div className="relative">
+                              <Input type="number" step="0.1" min="0" max="1000" value={form.venezuela_markup_percent} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, venezuela_markup_percent: parseFloat(e.target.value) || 0 })} className="bg-secondary pr-9" />
+                              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">%</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Precio calculado: ${calculateVenezuelaUsdPrice({ usaPrice: form.base_price, mode: 'manual', manualMode: 'percentage', fixedPrice: form.venezuela_price_usd, markupPercent: form.venezuela_markup_percent, globalMarkupPercent: globalVenezuelaMarkupPercent }).toFixed(2)} USD.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label>Precio fijo Venezuela (USD)</Label>
+                            <Input type="number" step="0.01" min="0" max="999999" value={form.venezuela_price_usd} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, venezuela_price_usd: parseFloat(e.target.value) || 0 })} className="bg-secondary" required />
+                            <p className="text-xs text-muted-foreground">Este valor no cambia cuando se modifica la regla global.</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {fieldErrors.venezuela_price_usd && <p className="text-xs text-destructive">{fieldErrors.venezuela_price_usd}</p>}
                   </div>
                   <div className="md:col-span-2">
@@ -2779,6 +2985,22 @@ export default function AdminProducts() {
               <Button variant="ghost" size="sm" onClick={() => setSelectedProductIds([])} className="h-8 text-muted-foreground hover:text-foreground">Limpiar selección</Button>
             </div>
             <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)} className="gap-1.5"><Trash2 className="h-4 w-4" /> Eliminar seleccionados</Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {bulkAiJob && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mb-4 rounded-xl border border-primary/25 bg-primary/[0.06] px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="font-medium">{bulkAiJob.kind === 'images' ? 'Regenerando imágenes' : 'Actualizando precios'} · {bulkAiJob.completed}/{bulkAiJob.total}</span>
+              <span className="font-mono text-xs text-muted-foreground">{bulkAiJob.succeeded} OK · {bulkAiJob.skipped} omitidos · {bulkAiJob.failed} errores</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
+              <motion.div className="h-full rounded-full bg-primary" animate={{ width: `${bulkAiJob.total ? (bulkAiJob.completed / bulkAiJob.total) * 100 : 0}%` }} />
+            </div>
+            {bulkAiJob.currentName && <p className="mt-2 truncate text-xs text-muted-foreground">Procesando: {bulkAiJob.currentName}</p>}
+            {bulkAiJob.errors.length > 0 && <p className="mt-1 truncate text-xs text-destructive">Último error: {bulkAiJob.errors[bulkAiJob.errors.length - 1]}</p>}
           </motion.div>
         )}
       </AnimatePresence>

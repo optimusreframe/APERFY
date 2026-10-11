@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { calculateVenezuelaUsdPrice, DEFAULT_VENEZUELA_MARKUP_PERCENT } from '../_shared/venezuela-pricing.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +24,7 @@ type Pricing = {
   bcvRate: number | null
   rateSource: RateSource | null
   rateUpdatedAt: string | null
+  globalVenezuelaMarkupPercent: number
 }
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -151,6 +153,12 @@ async function getMode(admin: SupabaseClient): Promise<PricingMode> {
   return data?.setting_value === 'global' ? 'global' : 'geo'
 }
 
+async function getGlobalVenezuelaMarkup(admin: SupabaseClient): Promise<number> {
+  const { data } = await admin.from('admin_settings').select('setting_value').eq('setting_key', 'venezuela_global_markup_percent').maybeSingle()
+  const parsed = Number(data?.setting_value)
+  return Number.isFinite(parsed) ? Math.min(1000, Math.max(0, parsed)) : DEFAULT_VENEZUELA_MARKUP_PERCENT
+}
+
 async function getRate(admin: SupabaseClient, source: RateSource, refresh = false): Promise<{ rate: number; source: RateSource; fetchedAt: string | null } | null> {
   const { data: current } = await admin.from('currency_rates').select('*').eq('base_currency', 'USD').eq('quote_currency', 'VES').eq('source', source).eq('is_active', true).order('updated_at', { ascending: false }).limit(1).maybeSingle()
   const fetchedAt = current?.fetched_at ? Date.parse(current.fetched_at) : 0
@@ -179,7 +187,7 @@ async function getRate(admin: SupabaseClient, source: RateSource, refresh = fals
 
 function publicProduct(row: Record<string, unknown>, pricing: Pricing) {
   const category = row.categories && typeof row.categories === 'object' ? row.categories : null
-  const rawVenezuelaPrice = row.venezuela_price_usd == null ? null : Number(row.venezuela_price_usd)
+  const rawVenezuelaPrice = calculateVenezuelaUsdPrice(row, pricing.globalVenezuelaMarkupPercent)
   const effectivePrice = pricing.mode === 'geo' && pricing.region === 'VENEZUELA'
     ? rawVenezuelaPrice
     : Number(row.base_price)
@@ -293,6 +301,7 @@ Deno.serve(async (req) => {
     const region = getRegion(req)
     const mode = await getMode(admin)
     const rateSource = await getRateSource(admin)
+    const globalVenezuelaMarkupPercent = await getGlobalVenezuelaMarkup(admin)
     const resolvedRate = region === 'VENEZUELA' ? await getRate(admin, rateSource, Boolean(body.refresh)) : null
     const pricing: Pricing = {
       region,
@@ -301,8 +310,9 @@ Deno.serve(async (req) => {
       bcvRate: resolvedRate?.rate ?? null,
       rateSource: resolvedRate?.source ?? rateSource,
       rateUpdatedAt: resolvedRate?.fetchedAt ?? null,
+      globalVenezuelaMarkupPercent,
     }
-    const productSelect = 'id,name_en,name_es,description_en,description_es,slug,base_price,venezuela_price_usd,category_id,is_active,is_featured,images,created_at,updated_at,seller_name,return_policy_en,return_policy_es,return_window_days,condition_status,model_3d_url,inventory_enabled,stock_quantity,low_stock_threshold,inventory_source_key,categories(id,name_en,name_es,slug)'
+    const productSelect = 'id,name_en,name_es,description_en,description_es,slug,base_price,venezuela_price_usd,venezuela_price_mode,venezuela_manual_mode,venezuela_markup_percent,category_id,is_active,is_featured,images,created_at,updated_at,seller_name,return_policy_en,return_policy_es,return_window_days,condition_status,model_3d_url,inventory_enabled,stock_quantity,low_stock_threshold,inventory_source_key,categories(id,name_en,name_es,slug)'
 
     if (body.action === 'pricing') return json({ pricing })
 
