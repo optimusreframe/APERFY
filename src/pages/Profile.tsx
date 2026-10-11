@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { profileSchema, validateImageFile, sanitizeFileName } from '@/lib/validation';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { buildResponsiveImageSources, optimizeImageUrl } from '@/lib/image-url';
 import { useIsMobile } from '@/hooks/use-mobile';
 import ReferralsTab from '@/components/profile/ReferralsTab';
 import type { Order, OrderItem, Product } from '@/lib/model-types';
@@ -450,7 +451,18 @@ function FavoritesTab() {
             <Link to={`/products/${product.slug}`}>
               <div className="aspect-[4/3] bg-secondary relative overflow-hidden">
                 {Array.isArray(product.images) && typeof product.images[0] === 'string' ? (
-                  <img src={product.images[0]} alt={language === 'es' ? product.name_es : product.name_en} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <img
+                    src={optimizeImageUrl(product.images[0], { width: 640, quality: 74 })}
+                    srcSet={buildResponsiveImageSources(product.images[0], [320, 480, 640], 74)}
+                    sizes="(max-width: 639px) calc((100vw - 36px) / 2), (max-width: 1023px) 30vw, 280px"
+                    alt={language === 'es' ? product.name_es : product.name_en}
+                    width={640}
+                    height={480}
+                    loading={i < 4 ? 'eager' : 'lazy'}
+                    fetchPriority={i < 4 ? 'high' : 'low'}
+                    decoding="async"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Box className="w-12 h-12 text-muted-foreground/30" />
