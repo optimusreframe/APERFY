@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, FlaskConical, Settings2, FileUp, LayoutTemplate, BellRing, DollarSign, MessageCircleQuestion, PanelsTopLeft } from 'lucide-react';
+import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, FlaskConical, Settings2, FileUp, LayoutTemplate, BellRing, DollarSign, MessageCircleQuestion, PanelsTopLeft, SearchCheck } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -49,6 +49,7 @@ const groups = [
       { title: 'BACKGROUND QA', url: '/admin/background-qa', icon: FlaskConical },
       { title: 'HOME PAGE', url: '/admin/homepage', icon: LayoutTemplate },
       { title: 'STORE LAYOUT', url: '/admin/storefront-layout', icon: PanelsTopLeft },
+      { title: 'SEO & SOCIAL', url: '/admin/seo', icon: SearchCheck },
       { title: 'AI & INTEGRATIONS', url: '/admin/integrations', icon: Settings2 },
       { title: 'NOTIFICATIONS', url: '/admin/notifications', icon: BellRing },
     ],

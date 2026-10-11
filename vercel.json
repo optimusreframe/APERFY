@@ -1,6 +1,40 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/((?!.*\\.[^/]+$).*)", "destination": "/index.html" }
+    {
+      "source": "/products/:slug",
+      "has": [{ "type": "header", "key": "user-agent", "value": { "re": "facebookexternalhit|facebot|twitterbot|linkedinbot|whatsapp|telegrambot|pinterest|slackbot|discordbot|googlebot|bingbot|yandex|duckduckbot|applebot" } }],
+      "destination": "/api/social-preview?slug=:slug"
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "header", "key": "user-agent", "value": { "re": "facebookexternalhit|facebot|twitterbot|linkedinbot|whatsapp|telegrambot|pinterest|slackbot|discordbot|googlebot|bingbot|yandex|duckduckbot|applebot" } }],
+      "destination": "/api/social-preview?path=/"
+    },
+    {
+      "source": "/ask",
+      "has": [{ "type": "header", "key": "user-agent", "value": { "re": "facebookexternalhit|facebot|twitterbot|linkedinbot|whatsapp|telegrambot|pinterest|slackbot|discordbot|googlebot|bingbot|yandex|duckduckbot|applebot" } }],
+      "destination": "/api/social-preview?path=/ask"
+    },
+    {
+      "source": "/contact",
+      "has": [{ "type": "header", "key": "user-agent", "value": { "re": "facebookexternalhit|facebot|twitterbot|linkedinbot|whatsapp|telegrambot|pinterest|slackbot|discordbot|googlebot|bingbot|yandex|duckduckbot|applebot" } }],
+      "destination": "/api/social-preview?path=/contact"
+    },
+    {
+      "source": "/auth",
+      "has": [{ "type": "header", "key": "user-agent", "value": { "re": "facebookexternalhit|facebot|twitterbot|linkedinbot|whatsapp|telegrambot|pinterest|slackbot|discordbot|googlebot|bingbot|yandex|duckduckbot|applebot" } }],
+      "destination": "/api/social-preview?path=/auth"
+    },
+    {
+      "source": "/cart",
+      "has": [{ "type": "header", "key": "user-agent", "value": { "re": "facebookexternalhit|facebot|twitterbot|linkedinbot|whatsapp|telegrambot|pinterest|slackbot|discordbot|googlebot|bingbot|yandex|duckduckbot|applebot" } }],
+      "destination": "/api/social-preview?path=/cart"
+    },
+    {
+      "source": "/((?!.*\\.[^/]+$).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {

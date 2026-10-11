@@ -32,6 +32,7 @@ const routeLabels: Record<string, string> = {
   '/admin/background-qa': 'BACKGROUND QA',
   '/admin/homepage': 'HOME PAGE',
   '/admin/storefront-layout': 'STORE LAYOUT',
+  '/admin/seo': 'SEO & SOCIAL',
 };
 
 export default function AdminLayout() {

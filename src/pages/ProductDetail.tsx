@@ -587,6 +587,8 @@ export default function ProductDetail() {
     setMeta(`meta[property="og:type"]`, 'property', 'og:type', 'product');
     setMeta(`meta[property="og:url"]`, 'property', 'og:url', url);
     setMeta(`meta[property="og:image"]`, 'property', 'og:image', img);
+    setMeta(`meta[property="og:image:alt"]`, 'property', 'og:image:alt', name);
+    setMeta(`meta[name="robots"]`, 'name', 'robots', 'index,follow');
     setMeta(`meta[name="twitter:card"]`, 'name', 'twitter:card', 'summary_large_image');
     setMeta(`meta[name="twitter:title"]`, 'name', 'twitter:title', name);
     setMeta(`meta[name="twitter:description"]`, 'name', 'twitter:description', desc.slice(0, 158));
@@ -607,7 +609,7 @@ export default function ProductDetail() {
       },
     });
 
-    return () => { document.title = 'APERFY'; };
+    return () => { document.title = 'APERFY'; document.getElementById(ldId)?.remove(); };
   }, [product, language, baseImages, inventoryState, descriptionForDisplay]);
 
 

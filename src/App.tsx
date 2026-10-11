@@ -10,6 +10,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { RegionalPricingProvider } from "@/contexts/RegionalPricingContext";
 import { StorefrontLayoutProvider } from "@/contexts/StorefrontLayoutContext";
+import { SeoProvider } from "@/contexts/SeoContext";
 import { BulkImportProvider } from "@/contexts/BulkImportContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BulkImportBanner from "@/components/BulkImportBanner";
@@ -48,6 +49,7 @@ const AdminDiscounts = lazyWithRetry(() => import('./pages/admin/AdminDiscounts'
 const AdminBackgroundQA = lazyWithRetry(() => import('./pages/admin/AdminBackgroundQA'), 'admin-background-qa');
 const AdminHomepage = lazyWithRetry(() => import('./pages/admin/AdminHomepage'), 'admin-homepage');
 const AdminStorefrontLayout = lazyWithRetry(() => import('./pages/admin/AdminStorefrontLayout'), 'admin-storefront-layout');
+const AdminSeo = lazyWithRetry(() => import('./pages/admin/AdminSeo'), 'admin-seo');
 const AdminInventoryImport = lazyWithRetry(() => import('./pages/admin/AdminInventoryImport'), 'admin-inventory-import');
 const RequestModel = lazyWithRetry(() => import('./pages/RequestModel'), 'request-model');
 const Contact = lazyWithRetry(() => import('./pages/Contact'), 'contact');
@@ -109,6 +111,7 @@ const AppContent = () => {
                 <Route path="background-qa" element={<AdminBackgroundQA />} />
                 <Route path="homepage" element={<AdminHomepage />} />
                 <Route path="storefront-layout" element={<AdminStorefrontLayout />} />
+                <Route path="seo" element={<AdminSeo />} />
                 <Route path="ai-settings" element={<Navigate to="/admin/integrations" replace />} />
                 <Route path="integrations" element={<AdminIntegrations />} />
                 <Route path="notifications" element={<AdminNotifications />} />
@@ -139,10 +142,12 @@ const App = () => (
                   <Toaster />
                   <Sonner />
                   <BrowserRouter>
-                    <AppErrorBoundary>
-                      <AppContent />
-                      <BulkImportBanner />
-                    </AppErrorBoundary>
+                    <SeoProvider>
+                      <AppErrorBoundary>
+                        <AppContent />
+                        <BulkImportBanner />
+                      </AppErrorBoundary>
+                    </SeoProvider>
                   </BrowserRouter>
                 </TooltipProvider>
               </BulkImportProvider>
