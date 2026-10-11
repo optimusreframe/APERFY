@@ -117,7 +117,7 @@ export default function CatalogFiltersDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-dvh max-h-dvh w-full max-w-4xl flex-col gap-0 rounded-none border-border/70 bg-background/98 p-0 sm:h-[min(760px,calc(100dvh-2rem))] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl">
+      <DialogContent className="!bg-card !backdrop-blur-none flex h-dvh max-h-dvh w-full max-w-4xl flex-col gap-0 rounded-none border-border/70 p-0 sm:h-[min(760px,calc(100dvh-2rem))] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl">
         <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-4 py-4 pr-14 sm:px-6">
           <div>
             <DialogTitle className="text-xl tracking-[-.03em]">{es ? 'Filtros' : 'Filters'}</DialogTitle>
@@ -126,7 +126,7 @@ export default function CatalogFiltersDialog({
         </div>
 
         <div className="flex min-h-0 flex-1">
-          <nav aria-label={es ? 'Secciones de filtros' : 'Filter sections'} className="w-[8.5rem] shrink-0 overflow-y-auto border-r border-border/70 bg-card/35 sm:w-48">
+          <nav aria-label={es ? 'Secciones de filtros' : 'Filter sections'} className="w-[8.5rem] shrink-0 overflow-y-auto border-r border-border/70 bg-card sm:w-48">
             {visibleSections.map(section => {
               const Icon = section.icon;
               const active = activeSection === section.id;
@@ -228,7 +228,7 @@ export default function CatalogFiltersDialog({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border/70 bg-card/55 px-4 py-3 backdrop-blur-xl sm:px-6">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border/70 bg-card px-4 py-3 sm:px-6">
           <button type="button" onClick={onClear} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">{es ? 'Restablecer' : 'Reset'}<span className="sr-only">{es ? ' todos los filtros' : ' all filters'}</span></button>
           <button type="button" onClick={onApply} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-gold transition-transform hover:-translate-y-0.5 sm:flex-none">{es ? `Mostrar ${resultCount} resultados` : `Show ${resultCount} results`}</button>
         </div>
