@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRegionalPricing } from '@/contexts/RegionalPricingContext';
 
 export interface CartItem {
   productId: string;
@@ -63,6 +64,7 @@ interface CartContextType {
   removeDiscount: () => void;
   getDiscountAmount: () => number;
   getFinalTotal: () => number;
+  cartPricingResolved: boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -123,10 +125,13 @@ export function mergeCartItem(items: CartItem[], item: CartItem): CartItem[] {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { pricing, pricingResolved } = useRegionalPricing();
   const [items, setItems] = useState<CartItem[]>(loadCart);
   const [savedItems, setSavedItems] = useState<CartItem[]>(loadSavedCart);
   const [lastAdded, setLastAdded] = useState<{ item: CartItem; at: number } | null>(null);
   const [discount, setDiscount] = useState<AppliedDiscount | null>(loadDiscount);
+  const [cartPricingResolved, setCartPricingResolved] = useState(items.length === 0);
+  const repricedKey = useRef<string | null>(null);
 
   useEffect(() => { localStorage.setItem(CART_KEY, JSON.stringify(items)); }, [items]);
   useEffect(() => {
@@ -161,9 +166,53 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timeout);
   }, [items, user]);
 
+  useEffect(() => {
+    const pricingKey = `${pricing.region}:${pricing.mode}`;
+    if (!pricingResolved || repricedKey.current === pricingKey) return;
+    repricedKey.current = pricingKey;
+    if (items.length === 0 && savedItems.length === 0) {
+      setCartPricingResolved(true);
+      return;
+    }
+    setCartPricingResolved(false);
+
+    const allItems = [...items, ...savedItems];
+    const productIds = [...new Set(allItems.map((item) => item.productId))];
+    const variationIds = [...new Set(allItems.flatMap((item) => item.selectedVariations.map((variation) => variation.id)))];
+    void supabase.functions.invoke('storefront-pricing', {
+      body: { action: 'cart-prices', productIds, variationIds },
+    }).then(({ data, error }) => {
+      if (error || !Array.isArray(data?.items)) return;
+      const pricedProducts = new Map<string, { base_price: number; variations: { id: string; type: string; price_modifier: number | null; price_override: number | null; use_manual_price: boolean }[] }>(
+        data.items.filter((entry: unknown): entry is { productId: string; product: { base_price: number }; variations: { id: string; type: string; price_modifier: number | null; price_override: number | null; use_manual_price: boolean }[] } => Boolean(entry && typeof entry === 'object' && 'productId' in entry && 'product' in entry && 'variations' in entry)).map((entry) => [entry.productId, { base_price: Number(entry.product.base_price), variations: entry.variations }]),
+      );
+      const reprice = (current: CartItem[]) => current.flatMap((item) => {
+        const priced = pricedProducts.get(item.productId);
+        if (!priced) return [];
+        const variationMap = new Map(priced.variations.map((variation) => [variation.id, variation]));
+        let computedPrice = priced.base_price;
+        let manualSizePrice: number | null = null;
+        for (const selected of item.selectedVariations) {
+          const variation = variationMap.get(selected.id);
+          if (!variation) return [];
+          if (variation.type === 'size' && variation.use_manual_price && variation.price_override !== null) {
+            manualSizePrice = Number(variation.price_override);
+          } else {
+            computedPrice += Number(variation.price_modifier || 0);
+          }
+        }
+        return [{ ...item, unitPrice: Math.max(0, manualSizePrice ?? computedPrice) }];
+      });
+      setItems(reprice);
+      setSavedItems(reprice);
+      setCartPricingResolved(true);
+    });
+  }, [items, savedItems, pricing.region, pricing.mode, pricingResolved]);
+
   const addToCart = (item: CartItem) => {
     const result = cartItemSchema.safeParse(item);
     if (!result.success) return;
+    setCartPricingResolved((current) => current && pricingResolved);
     setItems(prev => mergeCartItem(prev, item));
     setLastAdded({ item, at: Date.now() });
   };
@@ -238,6 +287,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       itemCount: items.reduce((s, i) => s + i.quantity, 0),
       lastAdded, dismissLastAdded,
       discount, applyDiscount, removeDiscount, getDiscountAmount, getFinalTotal,
+      cartPricingResolved,
     }}>
       {children}
     </CartContext.Provider>

@@ -21,11 +21,15 @@ import {
 
 import DiscountCodeInput from '@/components/DiscountCodeInput';
 import { CartThumbnailImage } from '@/components/CartThumbnailImage';
+import { useRegionalPricing } from '@/contexts/RegionalPricingContext';
+import { formatRegionalPrice } from '@/lib/regional-pricing';
 
 export default function Cart() {
-  const { items, savedItems, removeFromCart, saveForLater, moveSavedToCart, removeSavedItem, updateQuantity, getTotal, clearCart, itemCount, discount, getDiscountAmount, getFinalTotal } = useCart();
+  const { items, savedItems, removeFromCart, saveForLater, moveSavedToCart, removeSavedItem, updateQuantity, getTotal, clearCart, itemCount, discount, getDiscountAmount, getFinalTotal, cartPricingResolved } = useCart();
   const { user } = useAuth();
   const { language, t } = useLanguage();
+  const { pricing, currency, pricingResolved } = useRegionalPricing();
+  const displayPrice = (amount: number) => pricingResolved && cartPricingResolved ? formatRegionalPrice(amount, pricing, currency) : '—';
   const navigate = useNavigate();
 
   const handleCheckout = () => {
@@ -173,7 +177,7 @@ export default function Cart() {
                               <Ruler className="w-3 h-3" />{item.dimensions}mm
                             </span>
                           )}
-                          <span className="tabular-nums">${item.unitPrice.toFixed(2)} {language === 'es' ? '/u' : '/ea'}</span>
+                          <span className="tabular-nums">{displayPrice(item.unitPrice)} {language === 'es' ? '/u' : '/ea'}</span>
                         </div>
 
                         {/* Qty + total */}
@@ -210,7 +214,7 @@ export default function Cart() {
                               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                               className="font-mono font-semibold text-[15px] tabular-nums text-foreground"
                             >
-                              ${lineTotal.toFixed(2)}
+                              {displayPrice(lineTotal)}
                             </motion.span>
                           </AnimatePresence>
                         </div>
@@ -275,7 +279,7 @@ export default function Cart() {
                       </Link>
                       <div className="min-w-0 flex-1">
                         <Link to={`/products/${item.slug}`} className="block truncate text-sm font-semibold hover:text-primary">{item.productName}</Link>
-                        <p className="mt-1 font-mono text-xs text-muted-foreground">${item.unitPrice.toFixed(2)}</p>
+                        <p className="mt-1 font-mono text-xs text-muted-foreground">{displayPrice(item.unitPrice)}</p>
                         <div className="mt-1 flex flex-wrap gap-2">
                           <button type="button" onClick={() => moveSavedToCart(item.productId)} className="inline-flex min-h-9 items-center gap-1 rounded-md px-1 text-[10px] font-mono uppercase tracking-wider text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                             <RotateCcw className="h-3 w-3" aria-hidden="true" /> {language === 'es' ? 'Volver al carrito' : 'Move to cart'}
@@ -310,12 +314,12 @@ export default function Cart() {
                 <dl className="space-y-2.5 text-[13px]">
                   <div className="flex justify-between items-baseline">
                     <dt className="text-muted-foreground">{t.cart.subtotal}</dt>
-                    <dd className="font-mono tabular-nums text-foreground">${subtotal.toFixed(2)}</dd>
+                    <dd className="font-mono tabular-nums text-foreground">{displayPrice(subtotal)}</dd>
                   </div>
                   {discount && discountAmount > 0 && (
                     <div className="flex justify-between items-baseline">
                       <dt className="text-primary font-mono text-[11px] uppercase tracking-wider">{discount.code}</dt>
-                      <dd className="font-mono tabular-nums text-primary">−${discountAmount.toFixed(2)}</dd>
+                      <dd className="font-mono tabular-nums text-primary">−{displayPrice(discountAmount)}</dd>
                     </div>
                   )}
                   <div className="flex justify-between items-baseline">
@@ -341,7 +345,7 @@ export default function Cart() {
                       transition={{ type: 'spring', stiffness: 280, damping: 30 }}
                       className="font-display font-bold text-2xl text-foreground tabular-nums tracking-tight"
                     >
-                      ${finalTotal.toFixed(2)}
+                      {displayPrice(finalTotal)}
                     </motion.span>
                   </AnimatePresence>
                 </div>

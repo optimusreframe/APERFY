@@ -8,6 +8,7 @@ import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import CatalogFiltersDialog, { type CatalogFilterSection } from '@/components/CatalogFiltersDialog';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { useRegionalPricing } from '@/contexts/RegionalPricingContext';
 import { getHomepageCopy } from './homepage-copy';
 export { getHomepageCopy } from './homepage-copy';
 import { DEFAULT_HOMEPAGE_HERO_CONFIG, HOMEPAGE_HERO_SETTING_KEY, parseHomepageHeroConfig } from '@/lib/homepage-settings';
@@ -113,13 +114,19 @@ export default function Index() {
   const [openQuickFilter, setOpenQuickFilter] = useState<QuickFilterKey | null>(null);
   const filterBarRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<CatalogView>(readCatalogView);
-  const { data: products = [], isLoading, isError } = useQuery({
+  const { setPricing } = useRegionalPricing();
+  const { data: catalog, isLoading, isError } = useQuery({
     queryKey: ['aperfy-products'],
     queryFn: fetchActiveStorefrontProducts,
     staleTime: 60_000,
     gcTime: 5 * 60_000,
   });
+  const products = useMemo(() => catalog?.products ?? [], [catalog?.products]);
   const es = language === 'es';
+
+  useEffect(() => {
+    if (catalog?.pricing) setPricing(catalog.pricing);
+  }, [catalog?.pricing, setPricing]);
 
   useEffect(() => {
     window.localStorage.setItem(CATALOG_VIEW_STORAGE_KEY, viewMode);

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, ShoppingCart, Box, ArrowLeft, Minus, Plus, ZoomIn, ZoomOut, X, Weight, Ruler, ChevronLeft, ChevronRight, RotateCcw, Maximize2, Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { useRegionalPricing } from '@/contexts/RegionalPricingContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import Navbar from '@/components/Navbar';
@@ -26,6 +27,7 @@ import { buildResponsiveImageSources, optimizeImageUrl } from '@/lib/image-url';
 import { filterEmptySpecifications } from '@/lib/product-specifications';
 import { adjustProductImageZoom, isProductImageTap, PRODUCT_IMAGE_ZOOM } from './productImageZoom';
 import { isProductVideo } from '@/lib/product-media';
+import { formatRegionalPrice } from '@/lib/regional-pricing';
 import Model3DViewer from '@/components/Model3DViewer';
 import type { Category, Material, Product } from '@/lib/model-types';
 import type { Database } from '@/integrations/supabase/types';
@@ -380,6 +382,7 @@ export default function ProductDetail() {
   const { language, t } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { pricing, currency, setPricing } = useRegionalPricing();
   const [selectedVariations, setSelectedVariations] = useState<Record<string, string>>({});
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
@@ -412,62 +415,29 @@ export default function ProductDetail() {
     return () => window.removeEventListener('popstate', handleBrowserBack);
   }, [lightboxOpen]);
 
-  const { data: product, isLoading } = useQuery({
+  const { data: productResponse, isLoading } = useQuery({
     queryKey: ['product', slug],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, categories(name_en, name_es)')
-        .eq('slug', slug!)
-        .eq('is_active', true)
-        .single();
+      const { data, error } = await supabase.functions.invoke('storefront-pricing', { body: { action: 'product', slug } });
       if (error) throw error;
-      return data;
+      if (!data?.product) throw new Error('Product not found');
+      return data as {
+        product: Product;
+        variations: Variation[];
+        materials: ProductMaterialWithMaterial[];
+        relatedProducts: RelatedProduct[];
+        pricing: { region: 'USA' | 'VENEZUELA'; mode: 'global' | 'geo'; currency: 'USD'; bcvRate: number | null };
+      };
     },
   });
+  const product = productResponse?.product;
+  const variations = useMemo(() => productResponse?.variations ?? [], [productResponse?.variations]);
+  const productMaterialsList = useMemo(() => productResponse?.materials ?? [], [productResponse?.materials]);
+  const relatedProducts = useMemo(() => productResponse?.relatedProducts ?? [], [productResponse?.relatedProducts]);
 
-  const { data: variations = [] } = useQuery({
-    queryKey: ['product-variations', product?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('product_variations')
-        .select('*')
-        .eq('product_id', product!.id)
-        .eq('is_active', true);
-      if (error) throw error;
-      return (data ?? []) as Variation[];
-    },
-    enabled: !!product?.id,
-  });
-
-  const { data: productMaterialsList = [] } = useQuery({
-    queryKey: ['product-materials-detail', product?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('product_materials')
-        .select('*, materials(name_en, name_es)')
-        .eq('product_id', product!.id);
-      if (error) throw error;
-      return (data ?? []) as ProductMaterialWithMaterial[];
-    },
-    enabled: !!product?.id,
-  });
-
-  const { data: relatedProducts = [] } = useQuery({
-    queryKey: ['related-products', product?.category_id, product?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, categories(name_en, name_es)')
-        .eq('is_active', true)
-        .eq('category_id', product!.category_id!)
-        .neq('id', product!.id)
-        .limit(4);
-      if (error) throw error;
-      return (data ?? []) as RelatedProduct[];
-    },
-    enabled: !!product?.category_id,
-  });
+  useEffect(() => {
+    if (productResponse?.pricing) setPricing(productResponse.pricing);
+  }, [productResponse?.pricing, setPricing]);
 
   const { data: favorites = [], refetch: refetchFavorites } = useQuery({
     queryKey: ['user-favorites-detail', user?.id],
@@ -518,10 +488,13 @@ export default function ProductDetail() {
   }, 0);
 
   const selectedSizeEffective = effectiveVarPrice(selectedSizeVar);
-  const unitPrice = selectedSizeVar && selectedSizeEffective > 0
+  const selectedSizeHasManualPrice = Boolean(selectedSizeVar?.use_manual_price && selectedSizeVar.price_override !== null && selectedSizeVar.price_override !== undefined);
+  const unitPrice = selectedSizeHasManualPrice
     ? selectedSizeEffective
     : Number(product?.base_price || 0) + priceModifier;
   const totalPrice = product ? unitPrice * quantity : 0;
+  const displayUnitPrice = formatRegionalPrice(unitPrice, pricing, currency);
+  const displayTotalPrice = formatRegionalPrice(totalPrice, pricing, currency);
   const selectedWeight = selectedSizeVar ? Number(selectedSizeVar.weight_grams || 0) : null;
   const selectedDimensions = selectedSizeVar?.dimensions || null;
   const baseImages = useMemo(() => product ? (Array.isArray(product.images) ? product.images.filter((image): image is string => typeof image === 'string') : []) : [], [product]);
@@ -618,7 +591,7 @@ export default function ProductDetail() {
       selectedVariations: Object.entries(selectedVariations).map(([type, varId]) => {
         const v = variations.find((vr) => vr.id === varId);
         const eff = effectiveVarPrice(v);
-        const isAbsoluteSize = type === 'size' && v && eff > 0;
+        const isAbsoluteSize = type === 'size' && v && v.use_manual_price && v.price_override !== null && v.price_override !== undefined;
         return { id: varId, type, name: v ? (language === 'es' ? v.name_es : v.name_en) : '', priceModifier: isAbsoluteSize ? 0 : eff };
       }),
 
@@ -901,13 +874,13 @@ export default function ProductDetail() {
               <div className="flex items-center justify-between mt-4">
                 <AnimatePresence mode="wait">
                   <motion.div
-                    key={totalPrice.toFixed(2)}
+                    key={displayTotalPrice}
                     initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
                     transition={{ type: 'spring', stiffness: 280, damping: 30 }}
                     className="flex items-baseline gap-1"
                   >
                     <span className="text-[28px] font-semibold text-foreground tabular-nums tracking-tight">
-                      ${totalPrice.toFixed(2)}
+                      {displayTotalPrice}
                     </span>
                     {quantity > 1 && (
                       <span className="font-mono text-[11px] text-muted-foreground tabular-nums ml-1">
@@ -998,7 +971,7 @@ export default function ProductDetail() {
                               </div>
                               {isSize && (vWeight || v.dimensions || vPrice) && (
                                 <span className="text-[9px] text-muted-foreground font-mono tabular-nums">
-                                  {[vWeight && `${vWeight}g`, v.dimensions && `${v.dimensions}mm`, vPrice && `$${vPrice.toFixed(2)}`].filter(Boolean).join(' · ')}
+                                  {[vWeight && `${vWeight}g`, v.dimensions && `${v.dimensions}mm`, vPrice && formatRegionalPrice(vPrice, pricing, currency)].filter(Boolean).join(' · ')}
                                 </span>
                               )}
                             </motion.button>
@@ -1067,7 +1040,7 @@ export default function ProductDetail() {
                   <ShoppingCart className="w-4 h-4" />
                   <span>{t.product.addToCart}</span>
                   <span className="opacity-60">·</span>
-                  <span className="tabular-nums">${totalPrice.toFixed(2)}</span>
+                  <span className="tabular-nums">{displayTotalPrice}</span>
                 </Button>
               </motion.div>
               <p className="text-center text-[10px] text-muted-foreground mt-2.5 font-mono uppercase tracking-wider">
@@ -1181,6 +1154,8 @@ export default function ProductDetail() {
         }
         unitPrice={unitPrice}
         totalPrice={totalPrice}
+        unitPriceLabel={displayUnitPrice}
+        totalPriceLabel={displayTotalPrice}
         quantity={quantity}
         setQuantity={setQuantity}
         needsVariation={

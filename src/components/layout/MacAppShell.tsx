@@ -10,6 +10,7 @@ import MacWindowIntro from '@/components/motion/MacWindowIntro';
 import PointerGlow from '@/components/motion/PointerGlow';
 import BottomTabBar from '@/components/mobile/BottomTabBar';
 import ThemeToggle from '@/components/ThemeToggle';
+import RegionalCurrencySelector from '@/components/RegionalCurrencySelector';
 import { MacShellProvider, type MacShellVariant } from './MacShellContext';
 
 type MacAppShellProps = { children: ReactNode; variant?: MacShellVariant };
@@ -50,6 +51,7 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
           <div className="hidden flex-1 items-center justify-center lg:flex"><span className="text-xs font-medium tracking-[.02em] text-muted-foreground">{isAdmin ? 'APERFY Console · operations and catalog' : (es ? 'APERFY · oportunidades disponibles ahora' : 'APERFY · live opportunities')}</span></div>
           {!isAdmin && <div className="ml-auto flex items-center gap-1">
             <ThemeToggle />
+            <RegionalCurrencySelector />
             <button onClick={() => setLanguage(language === 'en' ? 'es' : 'en')} className="mac-toolbar-button" aria-label={es ? 'Cambiar idioma' : 'Toggle language'}><Globe className="h-3.5 w-3.5" /><span className="text-[10px] font-semibold uppercase">{language}</span></button>
             <Link to="/cart" className="mac-toolbar-button" aria-label={es ? 'Abrir carrito' : 'Open cart'}><ShoppingCart className="h-4 w-4" />{itemCount > 0 && <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">{itemCount}</span>}</Link>
             {user && authIsAdmin && <Link to="/admin" className="mac-toolbar-button text-primary" aria-label={es ? 'Abrir panel de administración' : 'Open admin console'}><ShieldCheck className="h-4 w-4" /></Link>}

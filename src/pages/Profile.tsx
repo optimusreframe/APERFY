@@ -16,6 +16,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { useRegionalPricing } from '@/contexts/RegionalPricingContext';
+import { formatRegionalPrice } from '@/lib/regional-pricing';
 import { profileSchema, validateImageFile, sanitizeFileName } from '@/lib/validation';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { buildResponsiveImageSources, optimizeImageUrl } from '@/lib/image-url';
@@ -383,6 +385,7 @@ function FavoritesTab() {
   const { user } = useAuth();
   const { language, t } = useLanguage();
   const { toast } = useToast();
+  const { pricing, currency, pricingResolved } = useRegionalPricing();
 
   const { data: favoriteProducts = [], isLoading, refetch } = useQuery({
     queryKey: ['favorite-products', user?.id],
@@ -392,9 +395,9 @@ function FavoritesTab() {
       if (favErr) throw favErr;
       if (!favs.length) return [];
       const ids = favs.map(f => f.product_id);
-      const { data, error } = await supabase.from('products').select('*').in('id', ids);
+      const { data, error } = await supabase.functions.invoke('storefront-pricing', { body: { action: 'favorites', productIds: ids } });
       if (error) throw error;
-      return data;
+      return (data?.products ?? []) as Product[];
     },
     enabled: !!user,
   });
@@ -483,7 +486,7 @@ function FavoritesTab() {
                 </h3>
               </Link>
               <div className="mt-1 text-sm font-bold text-gradient-gold">
-                ${Number(product.base_price).toFixed(2)}
+                {pricingResolved ? formatRegionalPrice(Number(product.base_price), pricing, currency) : '—'}
               </div>
             </div>
           </div>

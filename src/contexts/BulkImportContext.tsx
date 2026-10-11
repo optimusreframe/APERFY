@@ -141,6 +141,7 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
             description_es: productInfo.description_es || '',
             slug: productSlug,
             base_price: productInfo.suggested_price || 0,
+            venezuela_price_usd: productInfo.suggested_price || 0,
             category_id: matchedCat?.id || null,
             is_active: true,
             is_featured: false,

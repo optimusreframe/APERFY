@@ -3,6 +3,7 @@ import { fetchActiveStorefrontProducts, sortStorefrontProducts } from './storefr
 
 const supabaseMock = vi.hoisted(() => ({
   from: vi.fn(),
+  functions: { invoke: vi.fn() },
 }));
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: supabaseMock }));
@@ -10,17 +11,12 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: supabaseMock }));
 describe('storefront products query', () => {
   it('returns the complete active catalog instead of applying a 48-item cap', async () => {
     const products = Array.from({ length: 210 }, (_, index) => ({ id: String(index) }));
-    const query = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      range: vi.fn().mockResolvedValue({ data: products, error: null }),
-      limit: vi.fn(() => { throw new Error('The storefront must not cap products at 48'); }),
-    };
-    supabaseMock.from.mockReturnValue(query);
+    supabaseMock.functions.invoke.mockResolvedValue({ data: { products, pricing: { region: 'USA', mode: 'global', currency: 'USD', bcvRate: null } }, error: null });
 
-    await expect(fetchActiveStorefrontProducts()).resolves.toHaveLength(210);
-    expect(query.limit).not.toHaveBeenCalled();
+    const response = await fetchActiveStorefrontProducts();
+    expect(response.products).toHaveLength(210);
+    expect(response.products.map((product) => product.id)).toEqual(products.map((product) => product.id));
+    expect(supabaseMock.from).not.toHaveBeenCalled();
   });
 
   it('sorts the catalog using the customer-facing options', () => {

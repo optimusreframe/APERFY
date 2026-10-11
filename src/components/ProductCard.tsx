@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Heart, Box, Flame } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { useRegionalPricing } from '@/contexts/RegionalPricingContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -12,6 +13,7 @@ import { getInventoryLabel, getInventoryState } from '@/lib/inventory';
 import { buildResponsiveImageSources, optimizeImageUrl } from '@/lib/image-url';
 import { isProductVideo } from '@/lib/product-media';
 import type { Category, Product } from '@/lib/model-types';
+import { formatRegionalPrice } from '@/lib/regional-pricing';
 
 export type ProductCardProduct = Product & { categories?: Pick<Category, 'name_en' | 'name_es'> | null };
 
@@ -37,6 +39,7 @@ export default function ProductCard({
   showBadges = true,
 }: ProductCardProps) {
   const { language } = useLanguage();
+  const { pricing, currency } = useRegionalPricing();
   const images = Array.isArray(product.images) ? product.images.filter((image): image is string => typeof image === 'string') : [];
   const name = language === 'es' ? product.name_es : product.name_en;
   const inventoryState = getInventoryState(product);
@@ -130,7 +133,7 @@ export default function ProductCard({
             </h3>
             <div className="flex items-center justify-between mt-1">
               <span className="text-base sm:text-lg font-bold text-gradient-gold">
-                ${Number(product.base_price).toFixed(2)}
+                {formatRegionalPrice(Number(product.base_price), pricing, currency)}
               </span>
             </div>
             {inventoryLabel && (

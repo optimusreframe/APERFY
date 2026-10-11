@@ -8,6 +8,7 @@ import { ThemeProvider } from "next-themes";
 import { LanguageProvider } from "@/i18n/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { RegionalPricingProvider } from "@/contexts/RegionalPricingContext";
 import { BulkImportProvider } from "@/contexts/BulkImportContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import BulkImportBanner from "@/components/BulkImportBanner";
@@ -126,18 +127,20 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="aperfy-theme">
       <LanguageProvider>
         <AuthProvider>
-          <CartProvider>
-            <BulkImportProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-                  <AppContent />
-                  <BulkImportBanner />
-                </BrowserRouter>
-              </TooltipProvider>
-            </BulkImportProvider>
-          </CartProvider>
+          <RegionalPricingProvider>
+            <CartProvider>
+              <BulkImportProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <AppContent />
+                    <BulkImportBanner />
+                  </BrowserRouter>
+                </TooltipProvider>
+              </BulkImportProvider>
+            </CartProvider>
+          </RegionalPricingProvider>
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>

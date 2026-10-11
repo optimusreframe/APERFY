@@ -37,6 +37,7 @@ interface ProductForm {
   description_es: string;
   slug: string;
   base_price: number;
+  venezuela_price_usd: number;
   condition_status: 'new' | 'used';
   seller_name: string;
   return_policy_en: string;
@@ -78,7 +79,7 @@ interface AiProductData {
 
 const empty: ProductForm = {
   name_en: '', name_es: '', description_en: '', description_es: '',
-  slug: '', base_price: 0, condition_status: 'new', seller_name: 'APERFY',
+  slug: '', base_price: 0, venezuela_price_usd: 0, condition_status: 'new', seller_name: 'APERFY',
   return_policy_en: '30-day returns for eligible items. Contact APERFY before returning a product.',
   return_policy_es: 'Devoluciones de 30 días para artículos elegibles. Contacta a APERFY antes de devolver un producto.',
   return_window_days: 30, category_id: '', is_active: true, is_featured: false,
@@ -248,6 +249,7 @@ export default function AdminProducts() {
     dimensions: string;
     is_active: boolean;
     price_override: number | null;
+    price_override_venezuela: number | null;
     use_manual_price: boolean;
     image_url: string | null;
     _isNew?: boolean;
@@ -356,7 +358,7 @@ export default function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name_en, name_es, slug, base_price, condition_status, seller_name, return_policy_en, return_policy_es, return_window_days, is_active, is_featured, category_id, images, created_at, description_en, description_es, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
+        .select('id, name_en, name_es, slug, base_price, venezuela_price_usd, condition_status, seller_name, return_policy_en, return_policy_es, return_window_days, is_active, is_featured, category_id, images, created_at, description_en, description_es, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -489,7 +491,7 @@ export default function AdminProducts() {
       }
       setFieldErrors({});
 
-      const payload = { ...f, category_id: f.category_id || null, base_price: Number(f.base_price) };
+      const payload = { ...f, category_id: f.category_id || null, base_price: Number(f.base_price), venezuela_price_usd: Number(f.venezuela_price_usd) };
       let productId = editId;
 
       if (editId) {
@@ -541,6 +543,7 @@ export default function AdminProducts() {
              material_id: null,
             price_modifier: effectivePrice,
             price_override: v.use_manual_price && v.price_override !== null ? Number(v.price_override) : null,
+            price_override_venezuela: v.use_manual_price && v.price_override_venezuela !== null ? Number(v.price_override_venezuela) : null,
             use_manual_price: !!v.use_manual_price,
             image_url: v.image_url || null,
              value: `${v.type || 'custom'}: ${v.name_es || v.name_en}`,
@@ -659,7 +662,7 @@ export default function AdminProducts() {
     setForm({
       name_en: p.name_en, name_es: p.name_es,
       description_en: p.description_en || '', description_es: p.description_es || '',
-      slug: p.slug, base_price: p.base_price,
+      slug: p.slug, base_price: p.base_price, venezuela_price_usd: Number(p.venezuela_price_usd ?? 0),
       condition_status: p.condition_status === 'used' ? 'used' : 'new',
       seller_name: p.seller_name || 'APERFY',
       return_policy_en: p.return_policy_en || empty.return_policy_en,
@@ -688,6 +691,7 @@ export default function AdminProducts() {
         dimensions: v.dimensions || '',
         is_active: v.is_active,
         price_override: v.price_override !== null && v.price_override !== undefined ? Number(v.price_override) : null,
+        price_override_venezuela: v.price_override_venezuela !== null && v.price_override_venezuela !== undefined ? Number(v.price_override_venezuela) : null,
         use_manual_price: !!v.use_manual_price,
         image_url: v.image_url || null,
       })));
@@ -1258,6 +1262,7 @@ export default function AdminProducts() {
       description_es: aiData.description_es || '',
       slug: aiData.slug || slugify(aiData.name_es || ''),
       base_price: aiData.suggested_price || 0,
+      venezuela_price_usd: aiData.suggested_price || 0,
       condition_status: 'new',
       seller_name: empty.seller_name,
       return_policy_en: empty.return_policy_en,
@@ -2248,6 +2253,12 @@ export default function AdminProducts() {
                     <Input type="number" step="0.01" min="0" max="999999" value={form.base_price} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} className="bg-secondary" required />
                     {fieldErrors.base_price && <p className="text-xs text-destructive">{fieldErrors.base_price}</p>}
                   </div>
+                  <div className="space-y-2">
+                    <Label>Precio Venezuela (USD)</Label>
+                    <Input type="number" step="0.01" min="0" max="999999" value={form.venezuela_price_usd} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, venezuela_price_usd: parseFloat(e.target.value) || 0 })} className="bg-secondary" required />
+                    <p className="text-xs text-muted-foreground">Se convierte a VES con la tasa configurada en Pagos → Tasas de cambio.</p>
+                    {fieldErrors.venezuela_price_usd && <p className="text-xs text-destructive">{fieldErrors.venezuela_price_usd}</p>}
+                  </div>
                   <div className="md:col-span-2">
                     <MarginCalculator defaultPrice={form.base_price} />
                   </div>
@@ -2352,7 +2363,7 @@ export default function AdminProducts() {
                       size="sm"
                       onClick={() => setProductVariations(prev => [...prev, {
                         name_en: '', name_es: '', type: 'size', weight_grams: 0, material_id: '', dimensions: '', is_active: true,
-                        price_override: null, use_manual_price: false, image_url: null, _isNew: true,
+                        price_override: null, price_override_venezuela: null, use_manual_price: false, image_url: null, _isNew: true,
                       }])}
 
                       className="gap-1 text-xs"
@@ -2510,6 +2521,7 @@ export default function AdminProducts() {
                                         ...updated[actualIdx],
                                         use_manual_price: c,
                                         price_override: c && updated[actualIdx].price_override === null ? calcPrice : updated[actualIdx].price_override,
+                                        price_override_venezuela: c && updated[actualIdx].price_override_venezuela === null ? calcPrice : updated[actualIdx].price_override_venezuela,
                                       };
                                       return updated;
                                     });
@@ -2520,24 +2532,47 @@ export default function AdminProducts() {
                               </label>
                             </div>
                             {variation.use_manual_price ? (
-                              <div className="space-y-1">
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={variation.price_override ?? ''}
-                                  placeholder="0.00"
-                                  onFocus={(e) => e.target.select()}
-                                  onChange={(e) => {
-                                    const val = e.target.value === '' ? null : parseFloat(e.target.value);
-                                    setProductVariations(prev => {
-                                      const updated = [...prev];
-                                      updated[actualIdx] = { ...updated[actualIdx], price_override: val };
-                                      return updated;
-                                    });
-                                  }}
-                                  className="bg-background text-sm h-8 font-mono text-primary"
-                                />
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                <div>
+                                  <p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">USA USD</p>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={variation.price_override ?? ''}
+                                    placeholder="0.00"
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => {
+                                      const val = e.target.value === '' ? null : parseFloat(e.target.value);
+                                      setProductVariations(prev => {
+                                        const updated = [...prev];
+                                        updated[actualIdx] = { ...updated[actualIdx], price_override: val };
+                                        return updated;
+                                      });
+                                    }}
+                                    className="bg-background text-sm h-8 font-mono text-primary"
+                                  />
+                                </div>
+                                <div>
+                                  <p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Venezuela USD</p>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={variation.price_override_venezuela ?? ''}
+                                    placeholder="0.00"
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => {
+                                      const val = e.target.value === '' ? null : parseFloat(e.target.value);
+                                      setProductVariations(prev => {
+                                        const updated = [...prev];
+                                        updated[actualIdx] = { ...updated[actualIdx], price_override_venezuela: val };
+                                        return updated;
+                                      });
+                                    }}
+                                    className="bg-background text-sm h-8 font-mono text-primary"
+                                  />
+                                </div>
                                 {calcPrice > 0 && (
                                   <p className="text-[10px] text-muted-foreground font-mono">
                                     Sugerido: ${calcPrice.toFixed(2)} (peso × material)

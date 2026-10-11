@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { useRegionalPricing } from '@/contexts/RegionalPricingContext';
 import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -13,7 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, MessageCircle, Send, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Zap, Cog, Package, Search, MapPin, ChevronUp } from 'lucide-react';
 import { checkoutSchema, paymentMethodSchema, MAX_ORDER_ITEMS, MAX_ITEM_QUANTITY } from '@/lib/validation';
 import { checkRateLimit, formatRetryTime } from '@/lib/rate-limit';
-import { buildOrderInsert, getCheckoutErrorMessage, getCheckoutHandoffUrl } from '@/lib/checkout';
+import { getCheckoutErrorMessage, getCheckoutHandoffUrl } from '@/lib/checkout';
+import { formatRegionalPrice } from '@/lib/regional-pricing';
 import { CartThumbnailImage } from '@/components/CartThumbnailImage';
 import { getCitiesForState, getCountryName, getCountryOptions, getStatesForCountry, type CheckoutCity } from '@/lib/location-data';
 import { detectCountryFromIp, getPhoneCountryOptions, isCheckoutPhoneValid, normalizePhoneForCountry } from '@/lib/phone';
@@ -563,9 +565,11 @@ function SectionCard({
 }
 
 export default function Checkout() {
-  const { items, getTotal, clearCart, discount, getDiscountAmount, getFinalTotal } = useCart();
+  const { items, getTotal, clearCart, discount, getDiscountAmount, getFinalTotal, cartPricingResolved } = useCart();
   const { user } = useAuth();
   const { t, language } = useLanguage();
+  const { pricing, currency, pricingResolved } = useRegionalPricing();
+  const displayPrice = (amount: number) => pricingResolved && cartPricingResolved ? formatRegionalPrice(amount, pricing, currency) : '—';
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -817,21 +821,6 @@ export default function Checkout() {
       const retryAfter = serverRateLimit && typeof serverRateLimit === 'object' && 'retry_after_seconds' in serverRateLimit ? Number(serverRateLimit.retry_after_seconds) : 60;
       throw new Error(language === 'es' ? `Demasiados intentos. Intenta nuevamente en ${formatRetryTime(retryAfter * 1000)}.` : `Too many attempts. Try again in ${formatRetryTime(retryAfter * 1000)}.`);
     }
-    const productIds = items.map(i => i.productId);
-    const { data: currentProducts, error: priceError } = await supabase
-      .from('products').select('id, base_price, is_active, inventory_enabled, stock_quantity').in('id', productIds);
-    if (priceError) throw priceError;
-    const productMap = new Map(currentProducts?.map(p => [p.id, p]) || []);
-    for (const item of items) {
-      const dbProduct = productMap.get(item.productId);
-      if (!dbProduct) throw new Error('Product not found');
-      if (!dbProduct.is_active) throw new Error('Product is no longer available');
-      if (dbProduct.inventory_enabled && item.quantity > dbProduct.stock_quantity) {
-        throw new Error(language === 'es'
-          ? `Solo quedan ${dbProduct.stock_quantity} unidades de ${item.productName}.`
-          : `Only ${dbProduct.stock_quantity} units of ${item.productName} remain.`);
-      }
-    }
     const formResult = checkoutSchema.safeParse(form);
     if (!formResult.success) {
       throw new Error(language === 'es' ? 'Revisa los datos de envío antes de continuar.' : 'Review your shipping details before continuing.');
@@ -842,62 +831,32 @@ export default function Checkout() {
       : paymentMethod === 'telegram'
         ? (telegramIdempotencyKeyRef.current ||= crypto.randomUUID())
         : crypto.randomUUID();
-    const orderInput = buildOrderInsert({
-      userId: user.id,
-      total: orderTotal,
-      paymentMethod,
-      idempotencyKey,
-      form: vf,
-      selectedShipping,
-      shippingCost,
-      discountId: discount?.id || null,
-      discountAmount,
-      language: language === 'es' ? 'es' : 'en',
-      countryCode: addressCountryCode,
-      phoneCountryCode: phoneCountry,
-      stateCode: addressStateCode,
+    const { data: response, error: orderError } = await supabase.functions.invoke('create-regional-order', {
+      body: {
+        paymentMethod,
+        idempotencyKey,
+        form: vf,
+        selectedShipping,
+        discountId: discount?.id || null,
+        language: language === 'es' ? 'es' : 'en',
+        countryCode: addressCountryCode,
+        phoneCountryCode: phoneCountry,
+        stateCode: addressStateCode,
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          selectedVariations: item.selectedVariations,
+          notes: item.notes || null,
+          weightGrams: item.weightGrams || null,
+        })),
+      },
     });
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert(orderInput)
-      .select().single();
-    if (orderError?.code === '23505') {
-      const { data: existingOrder } = await supabase.from('orders').select('id').eq('idempotency_key', idempotencyKey).maybeSingle();
-      if (existingOrder?.id) return existingOrder.id;
-    }
     if (orderError) {
-      console.error('Checkout order insert failed:', orderError);
-      throw orderError;
+      const serverMessage = response && typeof response === 'object' && 'error' in response && typeof response.error === 'string' ? response.error : null;
+      throw new Error(serverMessage || orderError.message);
     }
-    if (discount?.id) {
-      // best-effort increment usage counter
-      await supabase.rpc('increment_discount_usage', { _id: discount.id }).then(() => undefined, () => undefined);
-    }
-    const orderItems = items.map(item => ({
-      order_id: order.id, product_id: item.productId, quantity: item.quantity,
-      unit_price: item.unitPrice + item.selectedVariations.reduce((s, v) => s + v.priceModifier, 0),
-      selected_variations: item.selectedVariations, notes: item.notes || null,
-    }));
-    const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-    if (itemsError) throw itemsError;
-    const { data: stockResult, error: stockError } = await supabase.rpc('reserve_order_stock', { p_order_id: order.id });
-    if (stockError) {
-      await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id).eq('status', 'pending');
-      throw stockError;
-    }
-    const stockResponse = (stockResult && typeof stockResult === 'object' ? stockResult : {}) as { ok?: boolean; code?: string };
-    if (!stockResponse.ok) {
-      throw new Error(stockResponse.code === 'INSUFFICIENT_STOCK'
-        ? (language === 'es' ? 'El producto se agotó mientras completabas el pedido.' : 'The product sold out while you were checking out.')
-        : (language === 'es' ? 'No pudimos reservar el inventario.' : 'We could not reserve inventory.'));
-    }
-    // Mark the authenticated recovery snapshot as converted. Failure here is
-    // non-blocking: the order and inventory reservation are already complete.
-    await supabase.rpc('mark_abandoned_cart_converted', { p_order_id: order.id })
-      .then(({ error }) => {
-        if (error) console.warn('Cart recovery conversion tracking failed:', error.message);
-      });
-    return order.id;
+    if (!response?.orderId) throw new Error(language === 'es' ? 'No pudimos crear el pedido.' : 'We could not create the order.');
+    return response.orderId as string;
   };
 
   const sendOrderEmail = async (orderId: string, paymentMethod: string) => {
@@ -1064,7 +1023,7 @@ export default function Checkout() {
                   <p className="text-[10px] text-muted-foreground truncate font-mono uppercase tracking-wider mt-0.5">{item.selectedVariations.map(v => v.name).filter(Boolean).join(' · ')}</p>
                 )}
               </div>
-              <span className="text-[13px] font-medium shrink-0 tabular-nums">${itemTotal.toFixed(2)}</span>
+              <span className="text-[13px] font-medium shrink-0 tabular-nums">{displayPrice(itemTotal)}</span>
             </div>
           );
         })}
@@ -1073,12 +1032,12 @@ export default function Checkout() {
       <div className="border-t border-white/[0.05] pt-4 space-y-2.5 text-[13px]">
         <div className="flex justify-between text-muted-foreground">
           <span className="font-mono uppercase tracking-wider text-[10px]">{language === 'es' ? 'Subtotal' : 'Subtotal'}</span>
-          <span className="text-foreground tabular-nums">${subtotal.toFixed(2)}</span>
+          <span className="text-foreground tabular-nums">{displayPrice(subtotal)}</span>
         </div>
         {discount && discountAmount > 0 && (
           <div className="flex justify-between">
             <span className="font-mono uppercase tracking-wider text-[10px] text-primary">{discount.code}</span>
-            <span className="text-primary tabular-nums">−${discountAmount.toFixed(2)}</span>
+            <span className="text-primary tabular-nums">−{displayPrice(discountAmount)}</span>
           </div>
         )}
         <div className="flex justify-between text-muted-foreground">
@@ -1088,7 +1047,7 @@ export default function Checkout() {
             initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
             className="text-foreground tabular-nums"
           >
-            {selectedProvider ? `$${shippingCost.toFixed(2)}` : '—'}
+            {selectedProvider ? displayPrice(shippingCost) : '—'}
           </motion.span>
         </div>
         <div className="border-t border-white/[0.05] pt-3 mt-2 flex justify-between items-baseline">
@@ -1099,7 +1058,7 @@ export default function Checkout() {
             transition={{ type: 'spring', stiffness: 260, damping: 28 }}
             className="text-2xl font-semibold tracking-tight tabular-nums text-gradient-gold"
           >
-            ${orderTotal.toFixed(2)}
+            {displayPrice(orderTotal)}
           </motion.span>
         </div>
       </div>
@@ -1190,7 +1149,7 @@ export default function Checkout() {
                 >
                   <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{language === 'es' ? 'Resumen' : 'Order summary'}</span>
                   <span className="flex items-center gap-2">
-                    <span className="text-base font-semibold tabular-nums">${orderTotal.toFixed(2)}</span>
+                    <span className="text-base font-semibold tabular-nums">{displayPrice(orderTotal)}</span>
                     <ChevronDown className={`w-4 h-4 transition-transform ${summaryOpen ? 'rotate-180' : ''}`} />
                   </span>
                 </button>
@@ -1548,7 +1507,7 @@ export default function Checkout() {
                 </div>
                 <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-baseline justify-between">
                   <span className="text-sm font-medium">{language === 'es' ? 'Total' : 'Total'}</span>
-                  <span className="text-2xl font-semibold text-primary tracking-tight">${orderTotal.toFixed(2)}</span>
+                  <span className="text-2xl font-semibold text-primary tracking-tight">{displayPrice(orderTotal)}</span>
                 </div>
               </div>
 

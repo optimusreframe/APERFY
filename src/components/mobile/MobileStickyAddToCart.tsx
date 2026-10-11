@@ -10,6 +10,8 @@ interface Props {
   productName?: string | null;
   unitPrice: number;
   totalPrice: number;
+  unitPriceLabel?: string;
+  totalPriceLabel?: string;
   quantity: number;
   setQuantity: (n: number) => void;
   needsVariation: boolean;
@@ -23,6 +25,8 @@ export default function MobileStickyAddToCart({
   productName,
   unitPrice,
   totalPrice,
+  unitPriceLabel,
+  totalPriceLabel,
   quantity,
   setQuantity,
   needsVariation,
@@ -110,12 +114,12 @@ export default function MobileStickyAddToCart({
                 transition={{ duration: 0.15 }}
                 className="text-[15px] font-bold text-gradient-gold tabular-nums tracking-tight"
               >
-                ${totalPrice.toFixed(2)}
+                {totalPriceLabel ?? `$${totalPrice.toFixed(2)}`}
               </motion.span>
             </AnimatePresence>
             {quantity > 1 && (
               <span className="hidden font-mono text-[9px] text-muted-foreground tabular-nums min-[430px]:inline">
-                ${unitPrice.toFixed(2)} × {quantity}
+                {unitPriceLabel ?? `$${unitPrice.toFixed(2)}`} × {quantity}
               </span>
             )}
           </div>

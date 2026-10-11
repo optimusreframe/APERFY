@@ -230,6 +230,51 @@ export type Database = {
         }
         Relationships: []
       }
+      currency_rates: {
+        Row: {
+          base_currency: string
+          created_at: string
+          fetched_at: string | null
+          id: string
+          is_active: boolean
+          is_automatic: boolean
+          quote_currency: string
+          rate: number
+          source: string
+          source_url: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          base_currency?: string
+          created_at?: string
+          fetched_at?: string | null
+          id?: string
+          is_active?: boolean
+          is_automatic?: boolean
+          quote_currency?: string
+          rate: number
+          source?: string
+          source_url?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          base_currency?: string
+          created_at?: string
+          fetched_at?: string | null
+          id?: string
+          is_active?: boolean
+          is_automatic?: boolean
+          quote_currency?: string
+          rate?: number
+          source?: string
+          source_url?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       discount_codes: {
         Row: {
           banner_text_en: string | null
@@ -557,6 +602,10 @@ export type Database = {
           shipping_address: Json | null
           shipping_cost: number | null
           shipping_provider_id: string | null
+          pricing_region: string
+          pricing_mode: string
+          pricing_currency: string
+          exchange_rate_ves_per_usd: number | null
           status: Database["public"]["Enums"]["order_status"]
           total: number
           source: string
@@ -586,6 +635,10 @@ export type Database = {
           shipping_address?: Json | null
           shipping_cost?: number | null
           shipping_provider_id?: string | null
+          pricing_region?: string
+          pricing_mode?: string
+          pricing_currency?: string
+          exchange_rate_ves_per_usd?: number | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
           source?: string
@@ -615,6 +668,10 @@ export type Database = {
           shipping_address?: Json | null
           shipping_cost?: number | null
           shipping_provider_id?: string | null
+          pricing_region?: string
+          pricing_mode?: string
+          pricing_currency?: string
+          exchange_rate_ves_per_usd?: number | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
           source?: string
@@ -917,6 +974,7 @@ export type Database = {
           name_es: string
           price_modifier: number
           price_override: number | null
+          price_override_venezuela: number | null
           product_id: string
           type: string
           use_manual_price: boolean
@@ -934,6 +992,7 @@ export type Database = {
           name_es?: string
           price_modifier?: number
           price_override?: number | null
+          price_override_venezuela?: number | null
           product_id: string
           type?: string
           use_manual_price?: boolean
@@ -951,6 +1010,7 @@ export type Database = {
           name_es?: string
           price_modifier?: number
           price_override?: number | null
+          price_override_venezuela?: number | null
           product_id?: string
           type?: string
           use_manual_price?: boolean
@@ -970,6 +1030,7 @@ export type Database = {
       products: {
         Row: {
           base_price: number
+          venezuela_price_usd: number | null
           category_id: string | null
           condition_status: string
           created_at: string
@@ -995,6 +1056,7 @@ export type Database = {
         }
         Insert: {
           base_price?: number
+          venezuela_price_usd?: number | null
           category_id?: string | null
           condition_status?: string
           created_at?: string
@@ -1020,6 +1082,7 @@ export type Database = {
         }
         Update: {
           base_price?: number
+          venezuela_price_usd?: number | null
           category_id?: string | null
           condition_status?: string
           created_at?: string

@@ -6,6 +6,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { useMacShell } from '@/components/layout/MacShellContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
+import RegionalCurrencySelector from '@/components/RegionalCurrencySelector';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -96,6 +97,7 @@ export default function Navbar() {
 
               {/* Desktop Actions */}
               <div className="hidden md:flex items-center gap-2">
+                <RegionalCurrencySelector />
                 <Link
                   to="/cart"
                   className={`relative p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all duration-200 ${
@@ -182,6 +184,7 @@ export default function Navbar() {
 
               {/* Mobile right actions */}
               <div className="md:hidden flex items-center gap-1">
+                <RegionalCurrencySelector />
                 <button
                   onClick={() => setLanguage(language === 'en' ? 'es' : 'en')}
                   aria-label="Toggle language"
@@ -249,6 +252,7 @@ export default function Navbar() {
                   className="pt-4 border-t border-border/30"
                 >
                   <div className="flex items-center justify-between px-2">
+                    <RegionalCurrencySelector />
                     <button
                       onClick={() => setLanguage(language === 'en' ? 'es' : 'en')}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:text-foreground"

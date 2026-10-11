@@ -1,35 +1,35 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { ProductCardProduct } from '@/components/ProductCard';
+import type { StorefrontPricingPayload } from '@/lib/regional-pricing';
 
 export type StorefrontProduct = ProductCardProduct & {
   categories?: (NonNullable<ProductCardProduct['categories']> & { slug?: string }) | null;
+  price_ves?: number | null;
+  pricing_region?: StorefrontPricingPayload['region'];
+  pricing_mode?: StorefrontPricingPayload['mode'];
+  bcv_rate_ves_per_usd?: number | null;
 };
+
+export interface StorefrontProductsResponse {
+  products: StorefrontProduct[];
+  pricing: StorefrontPricingPayload;
+}
 
 export type StorefrontSort = 'relevant' | 'new' | 'featured' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc';
 
-const STOREFRONT_PAGE_SIZE = 500;
-
 /** Loads every active product, paging explicitly so the catalog never falls back to a small result cap. */
-export async function fetchActiveStorefrontProducts(): Promise<StorefrontProduct[]> {
-  const products: StorefrontProduct[] = [];
-  let pageStart = 0;
-
-  while (true) {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*, categories(id, name_en, name_es, slug)')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .range(pageStart, pageStart + STOREFRONT_PAGE_SIZE - 1);
-
-    if (error) throw error;
-    const page = (data ?? []) as StorefrontProduct[];
-    products.push(...page);
-    if (page.length < STOREFRONT_PAGE_SIZE) break;
-    pageStart += STOREFRONT_PAGE_SIZE;
-  }
-
-  return products;
+export async function fetchActiveStorefrontProducts(): Promise<StorefrontProductsResponse> {
+  const { data, error } = await supabase.functions.invoke('storefront-pricing', { body: { action: 'catalog' } });
+  if (error) throw error;
+  const response = data as { products?: StorefrontProduct[]; pricing?: StorefrontPricingPayload } | null;
+  if (!response?.pricing || !Array.isArray(response.products)) throw new Error('Invalid storefront pricing response');
+  const products = response.products.map((product) => ({
+    ...product,
+    pricing_region: response.pricing!.region,
+    pricing_mode: response.pricing!.mode,
+    bcv_rate_ves_per_usd: response.pricing!.bcvRate,
+  }));
+  return { products, pricing: response.pricing };
 }
 
 function availabilityScore(product: StorefrontProduct): number {

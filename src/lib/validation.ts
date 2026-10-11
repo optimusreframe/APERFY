@@ -57,6 +57,7 @@ export const productSchema = z.object({
   description_es: sanitizedString(2000).optional().or(z.literal('')),
   slug: z.string().trim().min(1, 'Required').max(255).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Lowercase letters, numbers, hyphens only'),
   base_price: z.number().min(0, 'Must be positive').max(999999),
+  venezuela_price_usd: z.number().min(0, 'Must be zero or greater').max(999999),
   condition_status: z.enum(['new', 'used']),
   category_id: z.string().optional().or(z.literal('')),
   is_active: z.boolean(),

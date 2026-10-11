@@ -154,6 +154,7 @@ export async function persistInventoryImport(
         description_es: row.description,
         slug: row.slug,
         base_price: row.unitPrice ?? 0,
+        venezuela_price_usd: row.unitPrice ?? 0,
         category_id: category.id,
         is_active: true,
         is_featured: false,
