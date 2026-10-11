@@ -11,3 +11,15 @@ export function clampProductImageZoom(value: number): number {
 export function adjustProductImageZoom(current: number, delta: number): number {
   return clampProductImageZoom(current + delta);
 }
+
+export function isProductImageTap(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  durationMs: number,
+  movementThreshold = 12,
+  maxDurationMs = 450,
+): boolean {
+  return Math.hypot(endX - startX, endY - startY) <= movementThreshold && durationMs <= maxDurationMs;
+}
