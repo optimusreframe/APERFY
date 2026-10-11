@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   orderItems: [] as Array<Record<string, unknown>>,
   updates: [] as Array<{ table: string; payload: Record<string, unknown>; id: string }>,
   uploads: [] as Array<{ path: string; file: File }>,
+  removals: [] as string[][],
   rpcCalls: [] as Array<{ name: string; args: Record<string, unknown> }>,
   toast: vi.fn(),
 }));
@@ -59,6 +60,10 @@ vi.mock('@/integrations/supabase/client', () => {
       auth: { getUser: async () => ({ data: { user: { id: 'admin-1' } }, error: null }) },
       rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
         state.rpcCalls.push({ name, args });
+        if (name === 'delete_order_for_admin') {
+          state.orders = state.orders.filter((order) => order.id !== args.p_order_id);
+          return { data: { proof_paths: [] }, error: null };
+        }
         return { data: 'event-1', error: null };
       }),
       storage: { from: () => ({
@@ -67,6 +72,7 @@ vi.mock('@/integrations/supabase/client', () => {
           return { data: { path }, error: null };
         },
         createSignedUrl: async () => ({ data: { signedUrl: 'https://private.example/signed-proof' }, error: null }),
+        remove: async (paths: string[]) => { state.removals.push(paths); return { data: paths, error: null }; },
       }) },
     },
   };
@@ -76,10 +82,10 @@ vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: state.toast }) }
 vi.mock('@/lib/activity-log', () => ({ logActivity: vi.fn() }));
 vi.mock('@/lib/send-email', () => ({ sendTransactionalEmail: vi.fn() }));
 
-const createOrder = (id: string, archivedAt: string | null = null) => ({
+const createOrder = (id: string, archivedAt: string | null = null, status = 'pending') => ({
   id,
   total: 42,
-  status: 'pending',
+  status,
   created_at: '2026-10-01T12:00:00.000Z',
   payment_method: 'zelle',
   payment_status: 'pending',
@@ -111,6 +117,7 @@ describe('AdminOrders', () => {
     state.orderItems = [];
     state.updates = [];
     state.uploads = [];
+    state.removals = [];
     state.rpcCalls = [];
     state.toast.mockClear();
     localStorage.clear();
@@ -143,6 +150,26 @@ describe('AdminOrders', () => {
       table: 'orders', id: 'archived-1', payload: { archived_at: null, archived_by: null },
     })));
     expect(container.querySelector('ul[aria-label="Orders card list"]')).toHaveClass('2xl:hidden');
+  });
+
+  it('requires confirmation before permanently deleting an archived cancelled order', async () => {
+    state.orders = [createOrder('archived-cancelled-1', '2026-10-02T12:00:00.000Z', 'cancelled')];
+    renderOrders();
+
+    fireEvent.click(await screen.findByRole('button', { name: /archived/i }));
+    const archivedOrderTexts = await screen.findAllByText('#ARCHIVED');
+    const archivedRow = archivedOrderTexts.find((element) => element.closest('tr'))?.closest('tr');
+    expect(archivedRow).not.toBeNull();
+
+    fireEvent.click(within(archivedRow as HTMLElement).getByRole('button', { name: /delete order archived-cancelled-1/i }));
+    expect(state.rpcCalls).not.toContainEqual(expect.objectContaining({ name: 'delete_order_for_admin' }));
+    expect(await screen.findByText(/delete this order permanently/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^delete order$/i }));
+    await waitFor(() => expect(state.rpcCalls).toContainEqual(expect.objectContaining({
+      name: 'delete_order_for_admin',
+      args: { p_order_id: 'archived-cancelled-1' },
+    })));
   });
 
   it('provides a keyboard-accessible status control on Kanban cards', async () => {

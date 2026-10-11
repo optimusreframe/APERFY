@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { ChevronDown, ChevronUp, Package, DollarSign, List, LayoutGrid, MessageCircle, Archive, RotateCcw, Upload, FileCheck2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Package, DollarSign, List, LayoutGrid, MessageCircle, Archive, RotateCcw, Trash2, Upload, FileCheck2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { logActivity } from '@/lib/activity-log';
 import { sendTransactionalEmail } from '@/lib/send-email';
@@ -60,6 +60,7 @@ export default function AdminOrders() {
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<{ id: string; archive: boolean } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const switchView = (v: 'list' | 'kanban') => { setView(v); localStorage.setItem('admin-orders-view', v); };
 
@@ -186,6 +187,49 @@ export default function AdminOrders() {
     },
     onError: (error: unknown) => {
       toast({ title: 'Could not update order archive', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
+    },
+  });
+
+  const deleteOrder = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase.rpc('delete_order_for_admin', { p_order_id: id });
+      if (error) throw error;
+
+      const response = data && typeof data === 'object' && !Array.isArray(data)
+        ? data as { proof_paths?: unknown }
+        : {};
+      const proofPaths = Array.isArray(response.proof_paths)
+        ? response.proof_paths.filter((path): path is string => typeof path === 'string' && path.length > 0)
+        : [];
+      let storageCleanupFailed = false;
+      if (proofPaths.length > 0) {
+        const { error: cleanupError } = await supabase.storage.from('payment-proofs').remove(proofPaths);
+        storageCleanupFailed = !!cleanupError;
+        if (cleanupError) console.warn('Order deleted, but payment proof cleanup failed:', cleanupError);
+      }
+      return { id, storageCleanupFailed };
+    },
+    onSuccess: ({ id, storageCleanupFailed }) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.removeQueries({ queryKey: ['admin-order-items', id] });
+      queryClient.removeQueries({ queryKey: ['admin-payment-events', id] });
+      setDeleteTarget(null);
+      if (expandedOrder === id) setExpandedOrder(null);
+      void logActivity({
+        action: 'order_deleted',
+        category: 'order',
+        entity_type: 'order',
+        entity_id: id,
+        title: 'Orden eliminada permanentemente',
+        metadata: { storage_cleanup_failed: storageCleanupFailed },
+      });
+      toast({
+        title: 'Order deleted',
+        description: storageCleanupFailed ? 'The order was deleted, but its payment proof could not be removed.' : undefined,
+      });
+    },
+    onError: (error: unknown) => {
+      toast({ title: 'Could not delete order', description: error instanceof Error ? error.message : 'Only archived, cancelled orders can be deleted.', variant: 'destructive' });
     },
   });
 
@@ -581,16 +625,30 @@ export default function AdminOrders() {
                           {paymentStatusLabels[order.payment_status] || paymentStatusLabels.pending}
                         </Badge>
                         {showArchived ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="min-h-11 gap-1.5 text-[10px]"
-                            aria-label={`Restore order ${order.id}`}
-                            disabled={archiveOrder.isPending}
-                            onClick={() => archiveOrder.mutate({ id: order.id, archive: false })}
-                          >
-                            <RotateCcw className="h-3.5 w-3.5" /> Restore
-                          </Button>
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="min-h-11 gap-1.5 text-[10px]"
+                              aria-label={`Restore order ${order.id}`}
+                              disabled={archiveOrder.isPending || deleteOrder.isPending}
+                              onClick={() => archiveOrder.mutate({ id: order.id, archive: false })}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" /> Restore
+                            </Button>
+                            {order.status === 'cancelled' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="min-h-11 gap-1.5 text-[10px] text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                aria-label={`Delete order ${order.id}`}
+                                disabled={deleteOrder.isPending}
+                                onClick={() => setDeleteTarget(order.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </Button>
+                            )}
+                          </div>
                         ) : (
                           <Button
                             size="sm"
@@ -698,16 +756,30 @@ export default function AdminOrders() {
                       <DollarSign className="h-4 w-4 shrink-0" aria-hidden="true" /> Payment
                     </Button>
                     {showArchived ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="min-h-11 min-w-0 gap-1.5"
-                        aria-label={`Restore order ${order.id}`}
-                        disabled={archiveOrder.isPending}
-                        onClick={() => archiveOrder.mutate({ id: order.id, archive: false })}
-                      >
-                        <RotateCcw className="h-4 w-4 shrink-0" aria-hidden="true" /> Restore
-                      </Button>
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="min-h-11 min-w-0 gap-1.5"
+                          aria-label={`Restore order ${order.id}`}
+                          disabled={archiveOrder.isPending || deleteOrder.isPending}
+                          onClick={() => archiveOrder.mutate({ id: order.id, archive: false })}
+                        >
+                          <RotateCcw className="h-4 w-4 shrink-0" aria-hidden="true" /> Restore
+                        </Button>
+                        {order.status === 'cancelled' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="min-h-11 min-w-0 gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            aria-label={`Delete order ${order.id}`}
+                            disabled={deleteOrder.isPending}
+                            onClick={() => setDeleteTarget(order.id)}
+                          >
+                            <Trash2 className="h-4 w-4 shrink-0" aria-hidden="true" /> Delete
+                          </Button>
+                        )}
+                      </div>
                     ) : (
                       <Button
                         size="sm"
@@ -784,17 +856,32 @@ export default function AdminOrders() {
                           <DollarSign className="w-3 h-3" /> Payment
                         </Button>
                         {showArchived ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="min-h-11 min-w-11 px-2 text-xs"
-                            aria-label={`Restore order ${order.id}`}
-                            title="Restore order"
-                            disabled={archiveOrder.isPending}
-                            onClick={(e) => { e.stopPropagation(); archiveOrder.mutate({ id: order.id, archive: false }); }}
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="min-h-11 min-w-11 px-2 text-xs"
+                              aria-label={`Restore order ${order.id}`}
+                              title="Restore order"
+                              disabled={archiveOrder.isPending || deleteOrder.isPending}
+                              onClick={(e) => { e.stopPropagation(); archiveOrder.mutate({ id: order.id, archive: false }); }}
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                            {order.status === 'cancelled' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="min-h-11 min-w-11 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                aria-label={`Delete order ${order.id}`}
+                                title="Delete order permanently"
+                                disabled={deleteOrder.isPending}
+                                onClick={(e) => { e.stopPropagation(); setDeleteTarget(order.id); }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </>
                         ) : (
                           <Button
                             size="sm"
@@ -848,6 +935,29 @@ export default function AdminOrders() {
               }}
             >
               {archiveOrder.isPending ? 'Saving…' : archiveTarget?.archive ? 'Archive order' : 'Restore order'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this order permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the archived, cancelled order and its payment history. This action cannot be undone. Use Archive if you only want to hide it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="min-h-11" disabled={deleteOrder.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteOrder.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                if (deleteTarget) deleteOrder.mutate(deleteTarget);
+              }}
+            >
+              {deleteOrder.isPending ? 'Deleting…' : 'Delete order'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

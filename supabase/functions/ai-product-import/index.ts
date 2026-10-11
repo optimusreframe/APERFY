@@ -61,6 +61,42 @@ function imageCapabilityError(config?: AiRuntime | null) {
   }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function aiProviderFailureResponse(response: Response, operation: string) {
+  const status = response.status;
+  let providerMessage = "";
+  try {
+    const payload = await response.json() as Record<string, unknown>;
+    const error = payload.error && typeof payload.error === "object"
+      ? payload.error as Record<string, unknown>
+      : {};
+    providerMessage = String(error.message || payload.message || "");
+  } catch {
+    // Keep the admin-facing error stable when the provider sends non-JSON output.
+  }
+
+  const retryAfter = Number(response.headers.get("retry-after") || 0);
+  const message = status === 429
+    ? "El proveedor de IA está temporalmente limitado. Espera unos minutos y vuelve a intentarlo; no se guardaron cambios parciales."
+    : status === 402
+      ? "El proveedor de IA no tiene créditos disponibles. Revisa el saldo o configura otro proveedor."
+      : `${operation} no pudo completarse con el proveedor configurado (código ${status}).`;
+
+  console.error(`[${operation}] AI provider error`, { status, providerMessage: providerMessage.slice(0, 300) });
+  return jsonResponse({
+    success: false,
+    code: status === 429 ? "AI_RATE_LIMITED" : status === 402 ? "AI_CREDITS_EXHAUSTED" : "AI_PROVIDER_ERROR",
+    error: message,
+    ...(status === 429 ? { retry_after_seconds: retryAfter > 0 ? retryAfter : 60 } : {}),
+  });
+}
+
 // ── Phase 1: Generate optimized eBay search queries using AI ──
 async function generateEbayQueries(
   title: string,
@@ -278,6 +314,22 @@ interface ValidatedPrice {
   price_confidence: "high" | "medium" | "low";
   matched_listings_count: number;
   price_source: "ebay_market" | "market_consensus" | "ai_estimate";
+  matched_listing_indexes?: number[];
+}
+
+function publicPriceReferences(listings: MarketListing[], indexes?: number[]) {
+  const selected = indexes && indexes.length > 0
+    ? indexes.map((index) => listings[index - 1]).filter(Boolean)
+    : listings;
+  return selected
+    .filter((listing) => listing.price > 0)
+    .slice(0, 12)
+    .map((listing) => ({
+      source: listing.source,
+      title: listing.title.slice(0, 180),
+      price: Math.round(listing.price * 100) / 100,
+      url: listing.url,
+    }));
 }
 
 async function validateAndAveragePrices(
@@ -333,8 +385,9 @@ Rules:
                 price_confidence: { type: "string", enum: ["high", "medium", "low"] },
                 matched_listings_count: { type: "number", description: "Number of relevant listings used" },
                 reasoning: { type: "string", description: "Brief explanation of the pricing decision" },
+                matched_listing_indexes: { type: "array", items: { type: "integer" }, description: "1-based indexes of the relevant listings from the supplied list" },
               },
-              required: ["suggested_price", "price_confidence", "matched_listings_count", "reasoning"],
+              required: ["suggested_price", "price_confidence", "matched_listings_count", "reasoning", "matched_listing_indexes"],
               additionalProperties: false,
             },
           },
@@ -346,28 +399,40 @@ Rules:
     if (!resp.ok) {
       console.error("Price validation AI failed:", resp.status);
       const fallback = median(listings.map((listing) => listing.price));
-      return { suggested_price: Math.round(fallback * 100) / 100, price_confidence: "medium", matched_listings_count: listings.length, price_source: marketSource };
+      return { suggested_price: Math.round(fallback * 100) / 100, price_confidence: "medium", matched_listings_count: listings.length, price_source: marketSource, matched_listing_indexes: listings.map((_, index) => index + 1) };
     }
 
     const result = await resp.json();
     const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) {
       const fallback = median(listings.map((listing) => listing.price));
-      return { suggested_price: Math.round(fallback * 100) / 100, price_confidence: "medium", matched_listings_count: listings.length, price_source: marketSource };
+      return { suggested_price: Math.round(fallback * 100) / 100, price_confidence: "medium", matched_listings_count: listings.length, price_source: marketSource, matched_listing_indexes: listings.map((_, index) => index + 1) };
     }
 
     const validated = JSON.parse(toolCall.function.arguments);
+    const selectedIndexes = Array.isArray(validated.matched_listing_indexes)
+      ? [...new Set(validated.matched_listing_indexes
+        .map((value: unknown) => Number(value))
+        .filter((value: number) => Number.isInteger(value) && value >= 1 && value <= listings.length))]
+      : [];
+    const selectedListings = selectedIndexes.map((index: number) => listings[index - 1]).filter(Boolean);
+    const evidencePrice = selectedListings.length > 0
+      ? median(selectedListings.map((listing) => listing.price))
+      : median(listings.map((listing) => listing.price));
     console.log("Price validation result:", validated.reasoning);
     return {
-      suggested_price: Math.round((validated.suggested_price || 0) * 100) / 100,
+      // Once the model identifies listings, use their published median instead
+      // of allowing the model to invent a price unrelated to the evidence.
+      suggested_price: Math.round(evidencePrice * 100) / 100,
       price_confidence: validated.price_confidence || "low",
-      matched_listings_count: validated.matched_listings_count || 0,
-      price_source: validated.matched_listings_count > 0 ? marketSource : "ai_estimate",
+      matched_listings_count: selectedIndexes.length > 0 ? selectedIndexes.length : Math.max(0, Math.min(Number(validated.matched_listings_count) || 0, listings.length)),
+      price_source: (selectedIndexes.length > 0 || Number(validated.matched_listings_count) > 0) ? marketSource : "ai_estimate",
+      matched_listing_indexes: selectedIndexes,
     };
   } catch (e) {
     console.error("validateAndAveragePrices error:", e);
     const fallback = median(listings.map((listing) => listing.price));
-    return { suggested_price: Math.round(fallback * 100) / 100, price_confidence: "low", matched_listings_count: listings.length, price_source: marketSource };
+    return { suggested_price: Math.round(fallback * 100) / 100, price_confidence: "low", matched_listings_count: listings.length, price_source: marketSource, matched_listing_indexes: listings.map((_, index) => index + 1) };
   }
 }
 
@@ -583,10 +648,7 @@ ${imageListForAI || "No images found."}`
       });
 
       if (!extractResp.ok) {
-        const status = extractResp.status;
-        if (status === 429) return new Response(JSON.stringify({ error: "Rate limited, please try again later." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        throw new Error("AI extraction failed");
+        return await aiProviderFailureResponse(extractResp, "La extracción del producto");
       }
 
       const extractResult = await extractResp.json();
@@ -670,9 +732,19 @@ ${imageListForAI || "No images found."}`
       }
 
       const priceResult = await validateAndAveragePrices(title, description, listings, ai, "market_consensus");
-      if (!Number.isFinite(priceResult.suggested_price) || priceResult.suggested_price <= 0) {
-        return new Response(JSON.stringify({ success: false, code: "PRICE_NOT_FOUND", error: "No se encontró un precio de mercado confiable para este producto.", data: { matched_listings_count: priceResult.matched_listings_count, search_queries_used: searchQueriesUsed, sources_used: [...new Set(listings.map((listing) => listing.source))] } }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const priceReferences = publicPriceReferences(listings, priceResult.matched_listing_indexes);
+      if (!Number.isFinite(priceResult.suggested_price) || priceResult.suggested_price <= 0 || priceResult.price_source === "ai_estimate" || priceResult.matched_listings_count <= 0) {
+        return jsonResponse({
+          success: false,
+          code: "PRICE_NOT_VERIFIED",
+          error: "No se encontró un precio de mercado verificable para este producto. El precio USA no fue modificado.",
+          data: {
+            updated: false,
+            matched_listings_count: priceResult.matched_listings_count,
+            search_queries_used: searchQueriesUsed,
+            sources_used: [...new Set(listings.map((listing) => listing.source))],
+            price_references: priceReferences,
+          },
         });
       }
 
@@ -692,6 +764,8 @@ ${imageListForAI || "No images found."}`
           matched_listings_count: priceResult.matched_listings_count,
           search_queries_used: searchQueriesUsed,
           sources_used: [...new Set(listings.map((listing) => listing.source))],
+          price_references: priceReferences,
+          pricing_method: "consenso de precios publicados en fuentes de mercado",
         },
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -827,11 +901,14 @@ Luxury technology product display of the EXACT same physical product on a matte 
             can_use_non_ai_fallback: true,
           }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
-        let errorMsg = 'Error al generar imagen con IA.';
-        if (status === 429) errorMsg = 'Demasiadas solicitudes. Intenta de nuevo en unos minutos.';
-        else if (status === 402) errorMsg = 'Créditos de IA agotados.';
-        else errorMsg = `Error del servicio de IA (código ${status}). Intenta de nuevo más tarde.`;
-        return new Response(JSON.stringify({ success: false, error: errorMsg }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        const retryAfter = imgResp.headers.get("retry-after");
+        return await aiProviderFailureResponse(new Response(t, {
+          status,
+          headers: {
+            "Content-Type": imgResp.headers.get("content-type") || "application/json",
+            ...(retryAfter ? { "retry-after": retryAfter } : {}),
+          },
+        }), "La generación de imagen");
       }
 
       const imgResult = await imgResp.json();
@@ -983,10 +1060,7 @@ Luxury technology product display of the EXACT same physical product on a matte 
       });
 
       if (!translateResp.ok) {
-        const status = translateResp.status;
-        if (status === 429) return new Response(JSON.stringify({ error: "Rate limited." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        throw new Error("Translation failed");
+        return await aiProviderFailureResponse(translateResp, "La traducción");
       }
 
       const tResult = await translateResp.json();
@@ -1071,10 +1145,7 @@ If the input name/description is already good, polish it slightly. If it's empty
       });
 
       if (!enhanceResp.ok) {
-        const status = enhanceResp.status;
-        if (status === 429) return new Response(JSON.stringify({ error: "Rate limited." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        throw new Error("Enhancement failed");
+        return await aiProviderFailureResponse(enhanceResp, "La mejora del producto");
       }
 
       const eResult = await enhanceResp.json();
@@ -1137,12 +1208,15 @@ Preserve the exact same physical product from the source image. Do not redesign 
 
       if (!imgResp.ok) {
         const status = imgResp.status;
-        let errorMsg = `Error del servicio de IA (código ${status}).`;
-        if (status === 429) errorMsg = 'Demasiadas solicitudes. Intenta de nuevo en unos minutos.';
-        else if (status === 402) errorMsg = 'Créditos de IA agotados.';
-        return new Response(JSON.stringify({ success: false, error: errorMsg }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        const bodyText = await imgResp.text();
+        const retryAfter = imgResp.headers.get("retry-after");
+        return await aiProviderFailureResponse(new Response(bodyText, {
+          status,
+          headers: {
+            "Content-Type": imgResp.headers.get("content-type") || "application/json",
+            ...(retryAfter ? { "retry-after": retryAfter } : {}),
+          },
+        }), "La generación de ángulo");
       }
 
       const imgResult = await imgResp.json();
@@ -1327,8 +1401,6 @@ Preserve the exact same physical product from the source image. Do not redesign 
 
   } catch (e) {
     console.error("Error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ success: false, code: "AI_OPERATION_FAILED", error: e instanceof Error ? e.message : "No se pudo completar la operación de IA." });
   }
 });

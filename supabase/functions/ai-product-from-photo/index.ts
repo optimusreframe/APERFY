@@ -56,7 +56,19 @@ serve(async (req) => {
         }, required: ["name", "brand", "model", "category", "description", "attributes", "search_query", "market_reference_price", "confidence"], additionalProperties: false } } }],
         tool_choice: { type: "function", function: { name: "return_product" } },
     });
-    if (!response.ok) return json({ success: false, error: `AI provider returned ${response.status}.` });
+    if (!response.ok) {
+      const status = response.status;
+      return json({
+        success: false,
+        code: status === 429 ? "AI_RATE_LIMITED" : status === 402 ? "AI_CREDITS_EXHAUSTED" : "AI_PROVIDER_ERROR",
+        error: status === 429
+          ? "El proveedor de IA está temporalmente limitado. Espera unos minutos y vuelve a intentarlo."
+          : status === 402
+            ? "El proveedor de IA no tiene créditos disponibles."
+            : `El proveedor de IA no pudo analizar la imagen (código ${status}).`,
+        ...(status === 429 ? { retry_after_seconds: 60 } : {}),
+      });
+    }
     const payload = await response.json();
     const args = payload.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
     if (!args) return json({ success: false, error: "The AI provider returned no structured product data." });
@@ -82,6 +94,6 @@ serve(async (req) => {
     const suggestedPrice = marketPrice > 0 ? Math.round(marketPrice * (1 - discount / 100) * 100) / 100 : 0;
     return json({ success: true, data: { ...identified, market_reference_price: Math.round(marketPrice * 100) / 100, market_sources: marketSources, discount_percent: discount, suggested_price: suggestedPrice } });
   } catch (error) {
-    return json({ success: false, error: error instanceof Error ? error.message : "Photo analysis failed." }, 500);
+    return json({ success: false, code: "AI_OPERATION_FAILED", error: error instanceof Error ? error.message : "No se pudo analizar la foto." });
   }
 });

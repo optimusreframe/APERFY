@@ -196,6 +196,48 @@ function MediaThumb({ item, onRemove, onDragStart, onDragOver, onDrop, index }: 
   );
 }
 
+type PriceReference = { source: string; title: string; price: number; url: string };
+type BulkRepriceResult = {
+  name: string;
+  updated: boolean;
+  previousPrice?: number;
+  suggestedPrice?: number;
+  confidence?: string;
+  references: PriceReference[];
+  message?: string;
+};
+
+async function getFunctionErrorMessage(error: unknown, data: unknown, fallback: string) {
+  if (data && typeof data === 'object' && typeof (data as Record<string, unknown>).error === 'string') {
+    return String((data as Record<string, unknown>).error);
+  }
+
+  const context = error && typeof error === 'object' ? (error as { context?: unknown }).context : undefined;
+  if (context instanceof Response) {
+    try {
+      const payload = await context.clone().json() as Record<string, unknown>;
+      if (typeof payload.error === 'string') return payload.error;
+      if (typeof payload.message === 'string') return payload.message;
+    } catch {
+      // Fall through to the SDK error message.
+    }
+  }
+
+  return getErrorMessage(error, fallback);
+}
+
+function parsePriceReferences(value: unknown): PriceReference[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+    .map((item) => ({
+      source: typeof item.source === 'string' ? item.source : 'Web',
+      title: typeof item.title === 'string' ? item.title : 'Referencia de mercado',
+      price: Number(item.price) || 0,
+      url: typeof item.url === 'string' ? item.url : '',
+    }))
+    .filter((item) => item.price > 0);
+}
+
 // ══════════════════════════════════════════════════════════════
 // ── MAIN COMPONENT ──
 // ══════════════════════════════════════════════════════════════
@@ -295,7 +337,17 @@ export default function AdminProducts() {
   const [bulkEdits, setBulkEdits] = useState<Record<string, BulkEdit>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
-  type BulkAiJob = { kind: 'images' | 'reprice'; total: number; completed: number; succeeded: number; failed: number; skipped: number; currentName: string; errors: string[] };
+  type BulkAiJob = {
+    kind: 'images' | 'reprice';
+    total: number;
+    completed: number;
+    succeeded: number;
+    failed: number;
+    skipped: number;
+    currentName: string;
+    errors: string[];
+    repriceResults: BulkRepriceResult[];
+  };
   const [bulkAiJob, setBulkAiJob] = useState<BulkAiJob | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -815,10 +867,17 @@ export default function AdminProducts() {
     let failed = 0;
     let skipped = 0;
     const errors: string[] = [];
-    setBulkAiJob({ kind, total: targets.length, completed: 0, succeeded: 0, failed: 0, skipped: 0, currentName: targets[0].name_es || targets[0].name_en, errors: [] });
+    let rateLimitDetected = false;
+    setBulkAiJob({ kind, total: targets.length, completed: 0, succeeded: 0, failed: 0, skipped: 0, currentName: targets[0].name_es || targets[0].name_en, errors: [], repriceResults: [] });
 
     for (const product of targets) {
       const productName = product.name_es || product.name_en || product.id;
+      if (rateLimitDetected) {
+        skipped += 1;
+        completed += 1;
+        setBulkAiJob((current) => current ? { ...current, completed, skipped, currentName: productName, errors: [...errors] } : current);
+        continue;
+      }
       setBulkAiJob((current) => current ? { ...current, currentName: productName } : current);
       try {
         if (kind === 'images') {
@@ -840,7 +899,7 @@ export default function AdminProducts() {
             },
           });
           if (error || !data?.success || typeof data.data?.generated_image !== 'string') {
-            throw new Error(data?.error || error?.message || 'La IA no devolvió una imagen válida.');
+            throw new Error(await getFunctionErrorMessage(error, data, 'La IA no devolvió una imagen válida.'));
           }
           const { url, path } = await persistAiImage(data.data.generated_image);
           const images = getProductImageUrls(product);
@@ -853,14 +912,27 @@ export default function AdminProducts() {
           const { data, error } = await supabase.functions.invoke('ai-product-import', {
             body: { action: 'refresh_price', productId: product.id },
           });
+          const priceData = data?.data as Record<string, unknown> | undefined;
+          const priceResult: BulkRepriceResult = {
+            name: productName,
+            updated: Boolean(priceData?.updated),
+            previousPrice: Number(priceData?.previous_price ?? product.base_price) || 0,
+            suggestedPrice: Number(priceData?.suggested_price) || undefined,
+            confidence: typeof priceData?.price_confidence === 'string' ? priceData.price_confidence : undefined,
+            references: parsePriceReferences(priceData?.price_references),
+            message: typeof data?.error === 'string' ? data.error : undefined,
+          };
+          setBulkAiJob((current) => current ? { ...current, repriceResults: [...current.repriceResults, priceResult] } : current);
           if (error || !data?.success || !data.data?.updated) {
-            throw new Error(data?.error || error?.message || 'No se encontró un precio de mercado confiable.');
+            throw new Error(await getFunctionErrorMessage(error, data, 'No se encontró un precio de mercado verificable.'));
           }
         }
         succeeded += 1;
       } catch (error: unknown) {
         failed += 1;
-        errors.push(`${productName}: ${getErrorMessage(error)}`);
+        const message = getErrorMessage(error);
+        errors.push(`${productName}: ${message}`);
+        if (/rate|limit|solicitud|temporalmente/i.test(message)) rateLimitDetected = true;
       }
       completed += 1;
       setBulkAiJob((current) => current ? { ...current, completed, succeeded, failed, skipped, errors: [...errors] } : current);
@@ -871,10 +943,10 @@ export default function AdminProducts() {
     setBulkAiJob((current) => current ? { ...current, currentName: '' } : current);
     toast({
       title: kind === 'images' ? 'Regeneración de imágenes completada' : 'Reprice completado',
-      description: `${succeeded} completado(s), ${skipped} omitido(s), ${failed} con error.`,
+      description: `${succeeded} completado(s), ${skipped} omitido(s), ${failed} con error.${rateLimitDetected ? ' El proveedor limitó solicitudes; los restantes no se reintentaron.' : ''}`,
       variant: failed > 0 ? 'destructive' : 'default',
     });
-    window.setTimeout(() => setBulkAiJob(null), 1800);
+    window.setTimeout(() => setBulkAiJob(null), kind === 'reprice' ? 10000 : 1800);
   };
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -886,6 +958,11 @@ export default function AdminProducts() {
     });
 
   const triggerAiGenerateImage = async (sourceImg: string) => {
+    if (aiImageLoading || aiPersistingImage) {
+      toast({ title: 'Generación en curso', description: 'Espera a que termine la solicitud actual antes de volver a intentarlo.' });
+      return;
+    }
+
     let customBackground: string | undefined;
     if (aiBgMode === 'system_workshop' && systemBgSetting) {
       customBackground = systemBgSetting;
@@ -910,10 +987,7 @@ export default function AdminProducts() {
           backgroundMode: aiBgMode,
         },
       });
-      if (error) {
-        const errorMsg = data?.error || error.message || 'Error al generar imagen';
-        throw new Error(errorMsg);
-      }
+      if (error) throw new Error(await getFunctionErrorMessage(error, data, 'Error al generar imagen'));
       if (!data?.success) throw new Error(data?.error || 'Error al generar imagen');
       
       const generatedImg = data.data.generated_image;
@@ -971,14 +1045,14 @@ export default function AdminProducts() {
     const seeds: AiAngle[] = selected.map(a => ({ url: '', path: '', angle: a, loading: true }));
     setAiAngles(prev => [...prev, ...seeds]);
 
-    await Promise.all(selected.map(async (angle) => {
+    // Keep provider image requests sequential. Parallel generations commonly
+    // trip provider rate limits and leave the editor in a misleading loading state.
+    for (const angle of selected) {
       try {
         const { data, error } = await supabase.functions.invoke('ai-product-import', {
           body: { action: 'generate_angle', sourceImage: aiStoredImageUrl, angle },
         });
-        if (error || !data?.success) {
-          throw new Error(data?.error || error?.message || 'Error al generar ángulo');
-        }
+        if (error || !data?.success) throw new Error(await getFunctionErrorMessage(error, data, 'Error al generar ángulo'));
         const generated = data.data.generated_image;
         const { url, path } = await persistAiImage(generated);
         setAiAngles(prev => prev.map(a =>
@@ -990,7 +1064,7 @@ export default function AdminProducts() {
         ));
         toast({ title: `Error en ángulo ${ANGLE_LABELS[angle] || angle}`, description: getErrorMessage(e), variant: 'destructive' });
       }
-    }));
+    }
 
     setAiAnglesGenerating(false);
   };
@@ -1007,6 +1081,10 @@ export default function AdminProducts() {
 
 
   const handleAiScrape = async () => {
+    if (aiLoading || aiImageLoading || aiPersistingImage) {
+      toast({ title: 'Importación en curso', description: 'Espera a que termine la operación de IA actual.' });
+      return;
+    }
     if (!aiUrl) {
       toast({ title: 'Ingresa una URL', variant: 'destructive' });
       return;
@@ -1028,7 +1106,7 @@ export default function AdminProducts() {
            discountPercent: aiDiscountPercent,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await getFunctionErrorMessage(error, data, 'No se pudo extraer el producto'));
       if (!data?.success) throw new Error(data?.error || 'Error al extraer datos');
 
       setAiData({ ...data.data, market_reference_price: data.data.suggested_price, suggested_price: suggestRetailPrice(Number(data.data.suggested_price || 0), aiDiscountPercent), discount_percent: aiDiscountPercent });
@@ -1054,6 +1132,10 @@ export default function AdminProducts() {
   };
 
   const handleAiGenerateImage = async () => {
+    if (aiLoading || aiImageLoading || aiPersistingImage) {
+      toast({ title: 'Generación en curso', description: 'Espera a que termine la solicitud actual antes de volver a intentarlo.' });
+      return;
+    }
     const sourceImage = aiOriginalImage || aiSelectedSourceImage;
     if (!sourceImage) {
       toast({ title: 'No hay imagen fuente disponible', variant: 'destructive' });
@@ -1093,6 +1175,10 @@ export default function AdminProducts() {
   };
 
   const handleAiPhotoAnalyze = async () => {
+    if (aiLoading || aiImageLoading || aiPersistingImage) {
+      toast({ title: 'Análisis en curso', description: 'Espera a que termine la operación de IA actual.' });
+      return;
+    }
     if (!aiOriginalImage) {
       toast({ title: 'SUBE UNA FOTO DEL PRODUCTO', variant: 'destructive' });
       return;
@@ -1103,7 +1189,7 @@ export default function AdminProducts() {
       const { data, error } = await supabase.functions.invoke('ai-product-from-photo', {
         body: { imageData: aiOriginalImage, discountPercent: aiDiscountPercent, searchEnabled: aiSearchEnabled },
       });
-      if (error) throw error;
+      if (error) throw new Error(await getFunctionErrorMessage(error, data, 'No se pudo extraer el producto'));
       if (!data?.success) throw new Error(data?.error || 'NO SE PUDO ANALIZAR LA FOTO');
       const product = data.data;
       setAiData({ ...product, name_es: product.name || '', name_en: product.name || '', description_es: product.description || '', description_en: product.description || '', slug: slugify(product.name || 'producto'), suggested_category: '', colors: [], materials: [] });
@@ -1165,7 +1251,7 @@ export default function AdminProducts() {
       const { data, error } = await supabase.functions.invoke('ai-product-import', {
         body: { action: 'translate', name_es: aiData.name_es, description_es: aiData.description_es },
       });
-      if (error) throw error;
+      if (error) throw new Error(await getFunctionErrorMessage(error, data, 'No se pudo generar la traducción'));
       if (!data?.success) throw new Error(data?.error || 'No se pudo generar la traducción');
       const newNameEn = data.data.name_en;
       setAiData((prev) => {
@@ -1200,6 +1286,10 @@ export default function AdminProducts() {
   };
 
   const handleEditAiGenerateImage = async () => {
+    if (editAiGenerating || editEnhancing) {
+      toast({ title: 'Generación en curso', description: 'Espera a que termine la solicitud actual antes de volver a intentarlo.' });
+      return;
+    }
     if (!editAiSourceImage) {
       toast({ title: 'Sube una foto del producto primero', variant: 'destructive' });
       return;
@@ -1222,7 +1312,7 @@ export default function AdminProducts() {
           backgroundMode: editAiBgMode,
         },
       });
-      if (error) throw new Error(data?.error || error.message || 'Error');
+      if (error) throw new Error(await getFunctionErrorMessage(error, data, 'Error al generar imagen'));
       if (!data?.success) throw new Error(data?.error || 'Error al generar imagen');
 
       const generatedImg = data.data.generated_image;
@@ -1257,6 +1347,7 @@ export default function AdminProducts() {
   };
 
   const handleEditEnhanceWithAi = async () => {
+    if (editEnhancing || editAiGenerating) return;
     setEditEnhancing(true);
     try {
       // Get first image URL for context
@@ -1271,7 +1362,7 @@ export default function AdminProducts() {
           imageUrl: firstImage,
         },
       });
-      if (error) throw new Error(data?.error || error.message);
+      if (error) throw new Error(await getFunctionErrorMessage(error, data, 'No se pudo mejorar el producto'));
       if (!data?.success) throw new Error(data?.error || 'Error');
 
       const enhanced = data.data;
@@ -3001,6 +3092,33 @@ export default function AdminProducts() {
             </div>
             {bulkAiJob.currentName && <p className="mt-2 truncate text-xs text-muted-foreground">Procesando: {bulkAiJob.currentName}</p>}
             {bulkAiJob.errors.length > 0 && <p className="mt-1 truncate text-xs text-destructive">Último error: {bulkAiJob.errors[bulkAiJob.errors.length - 1]}</p>}
+            {bulkAiJob.kind === 'reprice' && bulkAiJob.repriceResults.length > 0 && (() => {
+              const result = bulkAiJob.repriceResults[bulkAiJob.repriceResults.length - 1];
+              return (
+                <div className="mt-3 rounded-lg border border-border/60 bg-background/40 p-3 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium">{result.name}</span>
+                    {result.updated && result.suggestedPrice !== undefined ? (
+                      <span className="font-mono text-primary">${Number(result.previousPrice || 0).toFixed(2)} → ${result.suggestedPrice.toFixed(2)}</span>
+                    ) : <span className="text-muted-foreground">Sin cambio</span>}
+                  </div>
+                  <p className="mt-1 text-muted-foreground">
+                    {result.updated ? `Precio basado en ${result.references.length} referencia(s)${result.confidence ? ` · confianza ${result.confidence}` : ''}.` : (result.message || 'No hubo evidencia suficiente para cambiar el precio.')}
+                  </p>
+                  {result.references.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {result.references.slice(0, 6).map((reference, index) => (
+                        reference.url ? (
+                          <a key={`${reference.url}-${index}`} href={reference.url} target="_blank" rel="noreferrer" className="rounded-md border border-border/70 px-2 py-1 text-muted-foreground hover:border-primary/50 hover:text-primary">
+                            {reference.source} ${reference.price.toFixed(2)}
+                          </a>
+                        ) : <span key={`${reference.source}-${index}`} className="rounded-md border border-border/70 px-2 py-1 text-muted-foreground">{reference.source} ${reference.price.toFixed(2)}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </motion.div>
         )}
       </AnimatePresence>
