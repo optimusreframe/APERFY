@@ -1,7 +1,7 @@
 import "https://deno.land/std@0.168.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { aiChatCompletionsUrl, aiHeaders, loadAiConfig, loadAiImageConfig } from "../_shared/ai-provider.ts";
+import { callAi, type AiConfig, loadAiConfig, loadAiImageGenerationConfig } from "../_shared/ai-provider.ts";
 import { buildAiRequestBody, DEEPSEEK_IMAGE_LIMITATION, isDeepSeekProvider, isImageProviderUsable } from "../_shared/ai-compat.ts";
 import { getIntegrationSecret } from "../_shared/integration-secrets.ts";
 
@@ -30,12 +30,18 @@ function extractPricesFromText(text: string): number[] {
   return prices;
 }
 
-type AiRuntime = { endpoint: string; headers: Record<string, string>; model: string; provider: string; baseUrl: string };
+type AiRuntime = AiConfig;
 type ImagePart = { type: string; image_url?: { url?: string }; url?: string; text?: string };
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string | ImagePart[] };
 
 function serializeAiRequest(ai: AiRuntime, body: Record<string, unknown>) {
   return JSON.stringify(buildAiRequestBody(ai, body));
+}
+
+async function fetchAiLegacy(ai: AiRuntime, init: RequestInit) {
+  const rawBody = typeof init.body === "string" ? init.body : "{}";
+  const body = JSON.parse(rawBody) as Record<string, unknown>;
+  return callAi(ai, body);
 }
 
 function imageCapabilityError(config?: AiRuntime | null) {
@@ -56,9 +62,8 @@ async function generateEbayQueries(
   ai: AiRuntime
 ): Promise<string[]> {
   try {
-    const resp = await fetch(ai.endpoint, {
+    const resp = await fetchAiLegacy(ai, {
       method: "POST",
-      headers: ai.headers,
       body: serializeAiRequest(ai, {
         model: ai.model,
         messages: [
@@ -208,9 +213,8 @@ async function validateAndAveragePrices(
       .map((l, i) => `${i + 1}. "${l.title}" — $${l.price.toFixed(2)}`)
       .join("\n");
 
-    const resp = await fetch(ai.endpoint, {
+    const resp = await fetchAiLegacy(ai, {
       method: "POST",
-      headers: ai.headers,
       body: serializeAiRequest(ai, {
         model: ai.model,
         messages: [
@@ -346,7 +350,7 @@ serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const aiConfig = await loadAiConfig(adminClient);
     if (!aiConfig) throw new Error("AI provider is not configured in Admin → Integrations");
-    const ai: AiRuntime = { endpoint: aiChatCompletionsUrl(aiConfig), headers: aiHeaders(aiConfig), model: aiConfig.model, provider: aiConfig.provider, baseUrl: aiConfig.baseUrl };
+    const ai: AiRuntime = aiConfig;
     const FIRECRAWL_API_KEY = await getIntegrationSecret(adminClient, "FIRECRAWL_API_KEY");
 
 
@@ -433,9 +437,8 @@ serve(async (req) => {
         ? `suggested_price: Use exactly ${priceResult.suggested_price} as the price (validated from eBay market data).`
         : `suggested_price: Reasonable retail price in USD for this physical product.`;
 
-      const extractResp = await fetch(ai.endpoint, {
+      const extractResp = await fetchAiLegacy(ai, {
         method: "POST",
-        headers: ai.headers,
         body: serializeAiRequest(ai, {
           model: ai.model,
           messages: [
@@ -534,9 +537,9 @@ ${imageListForAI || "No images found."}`
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const imageConfig = await loadAiImageConfig(adminClient);
+      const imageConfig = await loadAiImageGenerationConfig(adminClient);
       if (!imageConfig) return imageCapabilityError();
-      const imageAi: AiRuntime = { endpoint: aiChatCompletionsUrl(imageConfig), headers: aiHeaders(imageConfig), model: imageConfig.model, provider: imageConfig.provider, baseUrl: imageConfig.baseUrl };
+      const imageAi: AiRuntime = imageConfig;
       if (!isImageProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
 
       const FRAMING_RULE = `CRITICAL FRAMING RULE:
@@ -629,9 +632,8 @@ Luxury technology product display of the EXACT same physical product on a matte 
 
       const messages = [{ role: "user", content: contentParts }];
 
-      const imgResp = await fetch(imageAi.endpoint, {
+      const imgResp = await fetchAiLegacy(imageAi, {
         method: "POST",
-        headers: imageAi.headers,
         body: serializeAiRequest(imageAi, {
           model: imageAi.model,
           messages,
@@ -775,9 +777,8 @@ Luxury technology product display of the EXACT same physical product on a matte 
         });
       }
 
-      const translateResp = await fetch(ai.endpoint, {
+      const translateResp = await fetchAiLegacy(ai, {
         method: "POST",
-        headers: ai.headers,
         body: serializeAiRequest(ai, {
           model: ai.model,
           messages: [
@@ -863,9 +864,8 @@ If the input name/description is already good, polish it slightly. If it's empty
         }
       ];
 
-      const enhanceResp = await fetch(ai.endpoint, {
+      const enhanceResp = await fetchAiLegacy(ai, {
         method: "POST",
-        headers: ai.headers,
         body: serializeAiRequest(ai, {
           model: ai.model,
           messages,
@@ -921,9 +921,9 @@ If the input name/description is already good, polish it slightly. If it's empty
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const imageConfig = await loadAiImageConfig(adminClient);
+      const imageConfig = await loadAiImageGenerationConfig(adminClient);
       if (!imageConfig) return imageCapabilityError();
-      const imageAi: AiRuntime = { endpoint: aiChatCompletionsUrl(imageConfig), headers: aiHeaders(imageConfig), model: imageConfig.model, provider: imageConfig.provider, baseUrl: imageConfig.baseUrl };
+      const imageAi: AiRuntime = imageConfig;
       if (!isImageProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
 
       const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
@@ -945,9 +945,8 @@ Preserve the exact same physical product from the source image. Do not redesign 
       const framingRule = `CRITICAL FRAMING RULE: Show the entire physical product fully visible inside the frame with at least 10-15% negative space on all sides. Do not crop it. Keep the complete silhouette, packaging, labels, and visible details.`;
       const promptText = `${framingRule}\n\n${fidelityRule}\n\n${anglePrompt}\n\nThe output MUST be a single photorealistic image of the identical object — never reinterpret or restyle it. No people, no hands, no text, no watermark, no extra logos.`;
 
-      const imgResp = await fetch(imageAi.endpoint, {
+      const imgResp = await fetchAiLegacy(imageAi, {
         method: "POST",
-        headers: imageAi.headers,
         body: JSON.stringify({
           model: imageAi.model,
           messages: [{
@@ -1021,9 +1020,9 @@ Preserve the exact same physical product from the source image. Do not redesign 
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const imageConfig = await loadAiImageConfig(adminClient);
+      const imageConfig = await loadAiImageGenerationConfig(adminClient);
       if (!imageConfig) return imageCapabilityError();
-      const imageAi: AiRuntime = { endpoint: aiChatCompletionsUrl(imageConfig), headers: aiHeaders(imageConfig), model: imageConfig.model, provider: imageConfig.provider, baseUrl: imageConfig.baseUrl };
+      const imageAi: AiRuntime = imageConfig;
       if (!isImageProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
       const allowedCounts = [1, 4, 8];
       const variantCount = allowedCounts.includes(Number(count)) ? Number(count) : 1;
@@ -1053,9 +1052,8 @@ Preserve the exact same physical product from the source image. Do not redesign 
 
       for (let i = 0; i < variantCount; i++) {
         try {
-          const imgResp = await fetch(imageAi.endpoint, {
+          const imgResp = await fetchAiLegacy(imageAi, {
             method: "POST",
-            headers: imageAi.headers,
             body: serializeAiRequest(imageAi, {
               model: imageAi.model,
               messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],

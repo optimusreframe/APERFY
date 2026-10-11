@@ -1,7 +1,7 @@
 import "https://deno.land/std@0.168.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { aiChatCompletionsUrl, aiHeaders, loadAiConfig } from "../_shared/ai-provider.ts";
+import { callAi, loadAiConfig } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -94,10 +94,7 @@ Additional description: ${sanitizedDesc}
 
 Extract or generate the following fields based on the reference. Be creative and write compelling product descriptions suitable for a curated shopping store.`;
 
-    const response = await fetch(aiChatCompletionsUrl(aiConfig), {
-      method: "POST",
-      headers: aiHeaders(aiConfig),
-      body: JSON.stringify({
+    const response = await callAi(aiConfig, {
         model: aiConfig.model,
         messages: [
           { role: "system", content: "You are a product data assistant. Return structured data only." },
@@ -127,7 +124,6 @@ Extract or generate the following fields based on the reference. Be creative and
           },
         ],
         tool_choice: { type: "function", function: { name: "create_product" } },
-      }),
     });
 
     if (!response.ok) {

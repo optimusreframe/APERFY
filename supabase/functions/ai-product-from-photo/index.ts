@@ -1,7 +1,7 @@
 import "https://deno.land/std@0.168.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { aiChatCompletionsUrl, aiHeaders, loadAiImageConfig } from "../_shared/ai-provider.ts";
+import { callAi, loadAiVisionConfig } from "../_shared/ai-provider.ts";
 import { DEEPSEEK_IMAGE_LIMITATION, isDeepSeekProvider, isImageProviderUsable } from "../_shared/ai-compat.ts";
 import { getIntegrationSecret } from "../_shared/integration-secrets.ts";
 
@@ -28,7 +28,7 @@ serve(async (req) => {
     const { imageData, discountPercent = 20, searchEnabled = false } = await req.json();
     if (typeof imageData !== "string" || !imageData.startsWith("data:image/")) return json({ success: false, error: "A product photo is required." }, 400);
 
-    const aiConfig = await loadAiImageConfig(adminClient);
+    const aiConfig = await loadAiVisionConfig(adminClient);
     if (!aiConfig) {
       return json({ success: false, code: "AI_IMAGE_PROVIDER_NOT_CONFIGURED", error: "Configura AI Image Provider API Key, base URL, proveedor y modelo en Admin → Integrations / AI Settings." });
     }
@@ -42,10 +42,7 @@ serve(async (req) => {
       });
     }
 
-    const response = await fetch(aiChatCompletionsUrl(aiConfig), {
-      method: "POST",
-      headers: aiHeaders(aiConfig),
-      body: JSON.stringify({
+    const response = await callAi(aiConfig, {
         model: aiConfig.model,
         messages: [{ role: "user", content: [
           { type: "text", text: "Identify this physical retail product from its packaging, label, logo, model number, and visible details. Return only structured facts. Do not invent certainty. This is a general ecommerce store, not a 3D-print workflow." },
@@ -55,7 +52,6 @@ serve(async (req) => {
           name: { type: "string" }, brand: { type: "string" }, model: { type: "string" }, category: { type: "string" }, description: { type: "string" }, attributes: { type: "array", items: { type: "string" } }, search_query: { type: "string" }, market_reference_price: { type: "number" }, confidence: { type: "string", enum: ["high", "medium", "low"] },
         }, required: ["name", "brand", "model", "category", "description", "attributes", "search_query", "market_reference_price", "confidence"], additionalProperties: false } } }],
         tool_choice: { type: "function", function: { name: "return_product" } },
-      }),
     });
     if (!response.ok) return json({ success: false, error: `AI provider returned ${response.status}.` });
     const payload = await response.json();

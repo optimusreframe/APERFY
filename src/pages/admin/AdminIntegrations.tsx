@@ -7,12 +7,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { AdminPageHeader, AdminSurface } from './_shared'
+import { getAiProvider } from '@/lib/ai-providers'
 
 const FIELDS = [
   { key: 'AI_PROVIDER_API_KEY', label: 'AI provider API key', placeholder: 'Paste the provider key', group: 'AI' },
   { key: 'AI_PROVIDER_BASE_URL', label: 'AI compatible API base URL', placeholder: 'https://api.openai.com/v1', group: 'AI' },
   { key: 'AI_IMAGE_PROVIDER_API_KEY', label: 'AI image / vision provider API key', placeholder: 'Paste the image provider key', group: 'AI' },
   { key: 'AI_IMAGE_PROVIDER_BASE_URL', label: 'AI image / vision compatible base URL', placeholder: 'https://api.openai.com/v1', group: 'AI' },
+  { key: 'AI_VIDEO_PROVIDER_API_KEY', label: 'AI video provider API key', placeholder: 'Paste the video provider key', group: 'AI' },
+  { key: 'AI_VIDEO_PROVIDER_BASE_URL', label: 'AI video provider base URL', placeholder: 'https://api.provider.com/v1', group: 'AI' },
   { key: 'FIRECRAWL_API_KEY', label: 'Firecrawl API key (optional)', placeholder: 'Optional market-search key', group: 'AI' },
   { key: 'RESEND_API_KEY', label: 'Resend API key', placeholder: 're_...', group: 'EMAIL' },
   { key: 'RESEND_FROM_EMAIL', label: 'Resend sender email', placeholder: 'orders@aperfy.kpwr.dev', group: 'EMAIL' },
@@ -28,7 +31,7 @@ type FieldKey = typeof FIELDS[number]['key']
 type Status = { name: FieldKey; configured: boolean }
 
 const GROUP_META = {
-  AI: { title: 'AI PRODUCT INTELLIGENCE', icon: Sparkles, description: 'Text extraction and image generation use separate OpenAI-compatible providers. Select both providers and models in AI Settings.' },
+  AI: { title: 'AI PRODUCT INTELLIGENCE', icon: Sparkles, description: 'Las claves se guardan en Vault. Elige proveedores nativos o gateways compatibles y asígnalos por función en AI Settings.' },
   EMAIL: { title: 'RESEND EMAIL', icon: Send, description: 'Transactional email uses Resend directly and stays within the provider account limits.' },
   MESSAGING: { title: 'ORDER NOTIFICATIONS', icon: Smartphone, description: 'Configura el número receptor de WhatsApp y el destino de checkout de Telegram sin exponer valores en el navegador.' },
 } as const
@@ -47,6 +50,18 @@ export default function AdminIntegrations() {
       return (data?.statuses ?? []) as Status[]
     },
   })
+
+  const { data: aiSettings = [] } = useQuery({
+    queryKey: ['admin-ai-integration-provider'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('admin_settings').select('setting_key, setting_value').in('setting_key', ['ai_provider', 'ai_image_provider'])
+      if (error) throw error
+      return data
+    },
+  })
+
+  const selectedProvider = getAiProvider(aiSettings.find((row) => row.setting_key === 'ai_provider')?.setting_value)
+  const selectedImageProvider = getAiProvider(aiSettings.find((row) => row.setting_key === 'ai_image_provider')?.setting_value)
 
   useEffect(() => {
     const next: Partial<Record<FieldKey, string>> = {}
@@ -93,6 +108,7 @@ export default function AdminIntegrations() {
         return (
           <AdminSurface key={group} className="p-5 md:p-6">
             <div className="flex items-start gap-3 border-b border-white/[0.08] pb-5"><div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><Icon className="h-5 w-5" /></div><div><h2 className="font-semibold uppercase">{meta.title}</h2><p className="mt-1 text-sm text-muted-foreground">{meta.description}</p></div></div>
+            {group === 'AI' && <div className="mt-4 grid gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] p-4 text-xs md:grid-cols-2"><div><span className="font-mono uppercase tracking-wider text-muted-foreground">Texto</span><p className="mt-1 font-medium">{selectedProvider.label}</p><p className="mt-1 text-muted-foreground">Base sugerido: {selectedProvider.defaultBaseUrl}</p></div><div><span className="font-mono uppercase tracking-wider text-muted-foreground">Visión / imagen</span><p className="mt-1 font-medium">{selectedImageProvider.label}</p><p className="mt-1 text-muted-foreground">Base sugerido: {selectedImageProvider.defaultBaseUrl}</p></div></div>}
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               {FIELDS.filter((field) => field.group === group).map((field) => {
                 const configured = isConfigured(field.key)
