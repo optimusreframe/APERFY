@@ -196,6 +196,7 @@ function publicProduct(row: Record<string, unknown>, pricing: Pricing) {
 
   return {
     id: row.id,
+    brand: row.brand,
     name_en: row.name_en,
     name_es: row.name_es,
     description_en: row.description_en,
@@ -312,7 +313,7 @@ Deno.serve(async (req) => {
       rateUpdatedAt: resolvedRate?.fetchedAt ?? null,
       globalVenezuelaMarkupPercent,
     }
-    const productSelect = 'id,name_en,name_es,description_en,description_es,slug,base_price,venezuela_price_usd,venezuela_price_mode,venezuela_manual_mode,venezuela_markup_percent,category_id,is_active,is_featured,images,created_at,updated_at,seller_name,return_policy_en,return_policy_es,return_window_days,condition_status,model_3d_url,inventory_enabled,stock_quantity,low_stock_threshold,inventory_source_key,categories(id,name_en,name_es,slug)'
+    const productSelect = 'id,brand,name_en,name_es,description_en,description_es,slug,base_price,venezuela_price_usd,venezuela_price_mode,venezuela_manual_mode,venezuela_markup_percent,category_id,is_active,is_featured,images,created_at,updated_at,seller_name,return_policy_en,return_policy_es,return_window_days,condition_status,model_3d_url,inventory_enabled,stock_quantity,low_stock_threshold,inventory_source_key,categories(id,name_en,name_es,slug)'
 
     if (body.action === 'pricing') return json({ pricing })
 

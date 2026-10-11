@@ -32,6 +32,7 @@ import { calculateVenezuelaUsdPrice, DEFAULT_VENEZUELA_MARKUP_PERCENT, normalize
 
 // ── Types ──
 interface ProductForm {
+  brand: string;
   name_en: string;
   name_es: string;
   description_en: string;
@@ -64,6 +65,7 @@ interface MediaItem {
 }
 
 interface AiProductData {
+  brand?: string;
   name_es: string;
   description_es: string;
   name_en?: string;
@@ -100,6 +102,7 @@ interface AiPhotoCandidate {
 }
 
 const empty: ProductForm = {
+  brand: '',
   name_en: '', name_es: '', description_en: '', description_es: '',
   slug: '', base_price: 0, venezuela_price_usd: 0, venezuela_price_mode: 'global', venezuela_manual_mode: 'fixed', venezuela_markup_percent: DEFAULT_VENEZUELA_MARKUP_PERCENT, condition_status: 'new', seller_name: 'APERFY',
   return_policy_en: '30-day returns for eligible items. Contact APERFY before returning a product.',
@@ -326,6 +329,21 @@ export default function AdminProducts() {
   }
   const [productVariations, setProductVariations] = useState<VariationRow[]>([]);
   const [loadingVariations, setLoadingVariations] = useState(false);
+  const createEmptyVariation = (overrides: Partial<VariationRow> = {}): VariationRow => ({
+    name_en: '',
+    name_es: '',
+    type: 'color',
+    weight_grams: 0,
+    material_id: '',
+    dimensions: '',
+    is_active: true,
+    price_override: null,
+    price_override_venezuela: null,
+    use_manual_price: false,
+    image_url: null,
+    _isNew: true,
+    ...overrides,
+  });
 
 
   // Edit dialog AI state
@@ -438,7 +456,7 @@ export default function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name_en, name_es, slug, base_price, venezuela_price_usd, venezuela_price_mode, venezuela_manual_mode, venezuela_markup_percent, condition_status, seller_name, return_policy_en, return_policy_es, return_window_days, is_active, is_featured, category_id, images, created_at, description_en, description_es, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
+        .select('id, brand, name_en, name_es, slug, base_price, venezuela_price_usd, venezuela_price_mode, venezuela_manual_mode, venezuela_markup_percent, condition_status, seller_name, return_policy_en, return_policy_es, return_window_days, is_active, is_featured, category_id, images, created_at, description_en, description_es, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -603,6 +621,13 @@ export default function AdminProducts() {
         venezuela_price_usd: venezuelaPrice,
         venezuela_markup_percent: manualMarkup,
       };
+      const invalidVariation = productVariations.find((variation) => {
+        if (variation._deleted) return false;
+        return !variation.name_es.trim() && !variation.name_en.trim();
+      });
+      if (invalidVariation) {
+        throw new Error('Completa el nombre de cada variante antes de guardar el producto.');
+      }
       let productId = editId;
 
       if (editId) {
@@ -626,45 +651,49 @@ export default function AdminProducts() {
         }
         await supabase.from('products').update({ images: imageUrls }).eq('id', productId);
       }
-      // Save variations
-      if (productId && productVariations.length > 0) {
+      // Save variations. Always reconcile the collection so deleting the last
+      // variant also removes it from the database.
+      if (productId) {
         // Delete removed variations
         const existingIds = productVariations.filter(v => v.id && !v._deleted).map(v => v.id!);
-        if (editId) {
-          // Delete variations not in current list
-          const { data: currentVars } = await supabase.from('product_variations').select('id').eq('product_id', productId);
-          const toDelete = (currentVars || []).filter(cv => !existingIds.includes(cv.id));
-          for (const d of toDelete) {
-            await supabase.from('product_variations').delete().eq('id', d.id);
-          }
+        const { data: currentVars, error: currentVarsError } = await supabase.from('product_variations').select('id').eq('product_id', productId);
+        if (currentVarsError) throw currentVarsError;
+        const toDelete = (currentVars || []).filter(cv => !existingIds.includes(cv.id));
+        for (const d of toDelete) {
+          const { error: deleteVariationError } = await supabase.from('product_variations').delete().eq('id', d.id);
+          if (deleteVariationError) throw deleteVariationError;
         }
         // Upsert variations
         for (const v of productVariations.filter(vr => !vr._deleted)) {
-           const effectivePrice = v.use_manual_price && v.price_override !== null && v.price_override >= 0
-             ? Number(v.price_override)
-             : 0;
+          const nameEs = v.name_es.trim() || v.name_en.trim();
+          const nameEn = v.name_en.trim() || nameEs;
+          const effectivePrice = v.use_manual_price && v.price_override !== null && v.price_override >= 0
+            ? Number(v.price_override)
+            : 0;
 
           const varPayload = {
             product_id: productId,
-            name_en: v.name_en,
-            name_es: v.name_es,
+            name_en: nameEn,
+            name_es: nameEs,
             type: v.type || 'size',
             weight_grams: v.weight_grams || null,
             dimensions: v.dimensions || null,
-             material_id: null,
+            material_id: null,
             price_modifier: effectivePrice,
             price_override: v.use_manual_price && v.price_override !== null ? Number(v.price_override) : null,
             price_override_venezuela: v.use_manual_price && v.price_override_venezuela !== null ? Number(v.price_override_venezuela) : null,
             use_manual_price: !!v.use_manual_price,
             image_url: v.image_url || null,
-             value: `${v.type || 'custom'}: ${v.name_es || v.name_en}`,
+            value: `${v.type || 'custom'}: ${nameEs}`,
             is_active: v.is_active,
           };
           
           if (v.id && !v._isNew) {
-            await supabase.from('product_variations').update(varPayload).eq('id', v.id);
+            const { error: updateVariationError } = await supabase.from('product_variations').update(varPayload).eq('id', v.id);
+            if (updateVariationError) throw updateVariationError;
           } else {
-            await supabase.from('product_variations').insert(varPayload);
+            const { error: insertVariationError } = await supabase.from('product_variations').insert(varPayload);
+            if (insertVariationError) throw insertVariationError;
           }
         }
 
@@ -771,6 +800,7 @@ export default function AdminProducts() {
     setEditId(p.id);
     setFieldErrors({});
     setForm({
+      brand: p.brand || '',
       name_en: p.name_en, name_es: p.name_es,
       description_en: p.description_en || '', description_es: p.description_es || '',
       slug: p.slug, base_price: p.base_price, venezuela_price_usd: Number(p.venezuela_price_usd ?? 0),
@@ -1191,10 +1221,12 @@ export default function AdminProducts() {
     }
     setAiPhotoImporting(true);
     try {
+      const imageSource = selected.length === 1 && aiStoredImageUrl ? aiStoredImageUrl : aiOriginalImage;
       const { data, error } = await supabase.functions.invoke('ai-product-from-photo', {
         body: {
           action: 'import_products',
           imageData: aiOriginalImage,
+          imageSource,
           products: selected.map(({ selected: _selected, ...candidate }) => candidate),
           globalMarkupPercent: globalVenezuelaMarkupPercent,
         },
@@ -1478,6 +1510,7 @@ export default function AdminProducts() {
 
       setForm(prev => ({
         ...prev,
+        brand: enhanced.brand || prev.brand,
         name_es: enhanced.name_es || prev.name_es,
         name_en: enhanced.name_en || prev.name_en,
         description_es: enhanced.description_es || prev.description_es,
@@ -1571,6 +1604,7 @@ export default function AdminProducts() {
     const importedBasePrice = Number(aiData.suggested_price || 0);
 
     setForm({
+      brand: aiData.brand || '',
       name_en: nameEn,
       name_es: aiData.name_es || '',
       description_en: descEn,
@@ -1611,9 +1645,10 @@ export default function AdminProducts() {
         isExisting: true,
       }));
 
-    if (aiStoredImageUrl) {
+    const primaryAiImage = aiStoredImageUrl || (aiGeneratedImage && /^https:\/\//i.test(aiGeneratedImage) ? aiGeneratedImage : null);
+    if (primaryAiImage) {
       setMediaFiles([
-        { id: `ai-${Date.now()}`, preview: aiStoredImageUrl, type: 'image', isExisting: true },
+        { id: `ai-${Date.now()}`, preview: primaryAiImage, type: 'image', isExisting: true },
         ...angleItems,
       ]);
     } else if (angleItems.length > 0) {
@@ -1621,6 +1656,16 @@ export default function AdminProducts() {
     } else {
       setMediaFiles([]);
     }
+
+    // Turn the colors selected/recognized in AI Import Studio into editable
+    // variant rows. The user can then upload a photo for each one and generate
+    // an AI studio image from that specific photo in the Variants step.
+    const aiColors = Array.from(new Set((aiData.colors || []).map((color) => color.trim()).filter(Boolean)));
+    setProductVariations(aiColors.map((color) => createEmptyVariation({
+      name_es: color,
+      name_en: color,
+      type: 'color',
+    })));
 
     setAiOpen(false);
     // Clear angle list BEFORE reset so the cleanup loop doesn't remove the storage objects we just attached.
@@ -1904,7 +1949,7 @@ export default function AdminProducts() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold">Productos detectados en la imagen</p>
-                            <p className="text-xs text-muted-foreground">Selecciona todos o solo los que quieres importar. La imagen original se guardará en cada ficha.</p>
+                            <p className="text-xs text-muted-foreground">Selecciona todos o solo los que quieres importar. Si seleccionas uno y generaste una imagen con IA, se guardará esa imagen optimizada; la original seguirá disponible como referencia.</p>
                           </div>
                           <span className="text-xs font-mono text-primary whitespace-nowrap">{aiPhotoCandidates.filter((candidate) => candidate.selected).length}/{aiPhotoCandidates.length}</span>
                         </div>
@@ -2104,6 +2149,18 @@ export default function AdminProducts() {
                           <Input value={aiData.name_es} onChange={(e) => setAiData({ ...aiData, name_es: e.target.value })} className="bg-secondary text-sm" />
                         </div>
 
+                        <div className="space-y-1">
+                          <Label className="text-xs">Marca / Brand</Label>
+                          <Input
+                            value={aiData.brand || ''}
+                            onChange={(e) => setAiData({ ...aiData, brand: e.target.value })}
+                            className="bg-secondary text-sm"
+                            placeholder="Ej. Anker, Apple, Sony"
+                            maxLength={120}
+                          />
+                          <p className="text-[10px] text-muted-foreground">Se detecta automáticamente cuando aparece en la fuente o imagen.</p>
+                        </div>
+
                         {/* Spanish Description */}
                         <div className="space-y-1">
                           <Label className="text-xs">Descripción</Label>
@@ -2230,7 +2287,8 @@ export default function AdminProducts() {
 
                         {/* Materials Multi-Select */}
                         <div className="space-y-2">
-                          <Label className="text-xs uppercase">VARIANT PRESETS</Label>
+                          <Label className="text-xs uppercase">PRESETS DE VARIANTES</Label>
+                          <p className="text-[11px] text-muted-foreground">Los colores seleccionados se convertirán en variantes editables al abrir el producto.</p>
                           <div className="flex flex-wrap gap-2 p-2 rounded-lg bg-secondary border border-border min-h-[40px]">
                             {materials.map((m) => {
                               const isSelected = (aiData.materials || []).some((mat: string) =>
@@ -2601,6 +2659,17 @@ export default function AdminProducts() {
                 }
                 {wizardStep === 1 && <>
                 <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Marca / Brand</Label>
+                    <Input
+                      value={form.brand}
+                      onChange={(e) => setForm({ ...form, brand: e.target.value })}
+                      className="bg-secondary"
+                      placeholder="Ej. Anker, Apple, Sony"
+                      maxLength={120}
+                    />
+                    <p className="text-xs text-muted-foreground">Fabricante o marca comercial del producto. Déjalo vacío si no se conoce.</p>
+                  </div>
                   <div className="space-y-2">
                     <Label>Nombre (ES)</Label>
                     <Input value={form.name_es} onChange={(e) => setForm({ ...form, name_es: e.target.value })} className="bg-secondary" maxLength={255} required />
@@ -2798,30 +2867,33 @@ export default function AdminProducts() {
                 {wizardStep === 3 && <>
                 <div className="space-y-3 border-t border-border pt-4">
                   <div className="flex items-center justify-between">
-                    <Label className="flex items-center gap-2 font-semibold">
+                      <Label className="flex items-center gap-2 font-semibold">
                       <Ruler className="w-4 h-4 text-primary" />
-                      Variaciones de Tamaño
+                      Variantes del producto
                     </Label>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setProductVariations(prev => [...prev, {
-                        name_en: '', name_es: '', type: 'size', weight_grams: 0, material_id: '', dimensions: '', is_active: true,
-                        price_override: null, price_override_venezuela: null, use_manual_price: false, image_url: null, _isNew: true,
-                      }])}
+                      onClick={() => setProductVariations(prev => [...prev, createEmptyVariation()])}
 
                       className="gap-1 text-xs"
                     >
-                      <Plus className="w-3 h-3" /> Agregar Variación
+                      <Plus className="w-3 h-3" /> Agregar variante
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Agrega variaciones de tamaño con su peso en gramos. El precio se calcula automáticamente: (peso / 1000) × costo por KG del material.
+                    Agrega colores, tallas, capacidades u otras opciones. Cada variante puede tener su propia foto, precio y generación de imagen con IA.
                   </p>
 
+                  {loadingVariations && (
+                    <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-background/50 py-4 text-xs text-muted-foreground">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando variantes…
+                    </div>
+                  )}
+
                   {productVariations.filter(v => !v._deleted).length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center py-3">Sin variaciones. El producto usará solo el precio base.</p>
+                    <p className="text-xs text-muted-foreground text-center py-3">Sin variantes. El producto usará solo el precio base.</p>
                   )}
 
                   {productVariations.filter(v => !v._deleted).map((variation, idx) => {
@@ -2829,7 +2901,7 @@ export default function AdminProducts() {
                     const calcPrice = variation.price_override ?? 0;
 
                     return (
-                      <div key={idx} className="p-3 rounded-lg bg-secondary/50 border border-border space-y-3">
+                      <div key={variation.id || `new-variation-${actualIdx}`} className="p-3 rounded-lg bg-secondary/50 border border-border space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold text-muted-foreground">Variación #{idx + 1}</span>
                           <Button
@@ -2934,7 +3006,7 @@ export default function AdminProducts() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div className="space-y-1">
-                          <Label className="text-xs uppercase">VARIANT TYPE</Label>
+                            <Label className="text-xs uppercase">Tipo de variante</Label>
                             <Select
                               value={variation.type}
                               onValueChange={(v) => {
@@ -3109,10 +3181,10 @@ export default function AdminProducts() {
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 text-xs gap-1 text-primary"
-                                disabled={variation._generatingImage || !mediaFiles[0]?.preview}
-                                title={!mediaFiles[0]?.preview ? 'Sube primero una imagen principal del producto' : 'Generar con IA usando la imagen principal como referencia'}
+                                disabled={variation._generatingImage || !(variation.image_url || mediaFiles[0]?.preview)}
+                                title={!variation.image_url && !mediaFiles[0]?.preview ? 'Sube primero una imagen principal o una foto para esta variante' : variation.image_url ? 'Generar con IA usando la foto de esta variante' : 'Generar con IA usando la imagen principal como referencia'}
                                 onClick={async () => {
-                                  const base = mediaFiles[0]?.preview;
+                                  const base = variation.image_url || mediaFiles[0]?.preview;
                                   if (!base) { toast({ title: 'Necesitas una imagen principal primero', variant: 'destructive' }); return; }
                                   setProductVariations(prev => { const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _generatingImage: true }; return u; });
                                   try {
@@ -3121,12 +3193,12 @@ export default function AdminProducts() {
                                       body: {
                                         action: 'generate_image',
                                         sourceImage: base,
+                                        backgroundMode: 'system_workshop',
                                         prompt_addition: `Same product, identical design, color and texture. Show this specific variation: ${variantDesc}. Clean studio background, premium product photography.`,
                                       },
                                     });
                                     if (error || !data?.success) throw new Error(error?.message || data?.error || 'Falló la generación');
-                                    const generated = data.data?.generated_image;
-                                    if (!generated) throw new Error('No se obtuvo imagen');
+                                    const { url: generated } = getPersistedAiImage(data.data);
                                     setProductVariations(prev => {
                                       const u = [...prev];
                                       u[actualIdx] = { ...u[actualIdx], image_url: generated, _generatingImage: false };

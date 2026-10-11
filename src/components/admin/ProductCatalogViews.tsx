@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import type { Category, Product } from '@/lib/model-types';
 import { optimizeImageUrl } from '@/lib/image-url';
 
-export type AdminProduct = Pick<Product, 'id' | 'name_en' | 'name_es' | 'description_en' | 'description_es' | 'slug' | 'base_price' | 'venezuela_price_usd' | 'venezuela_price_mode' | 'venezuela_manual_mode' | 'venezuela_markup_percent' | 'condition_status' | 'seller_name' | 'return_policy_en' | 'return_policy_es' | 'return_window_days' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
+export type AdminProduct = Pick<Product, 'id' | 'brand' | 'name_en' | 'name_es' | 'description_en' | 'description_es' | 'slug' | 'base_price' | 'venezuela_price_usd' | 'venezuela_price_mode' | 'venezuela_manual_mode' | 'venezuela_markup_percent' | 'condition_status' | 'seller_name' | 'return_policy_en' | 'return_policy_es' | 'return_window_days' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
   inventory_enabled: Product['inventory_enabled'];
   stock_quantity: Product['stock_quantity'];
   low_stock_threshold: Product['low_stock_threshold'];
@@ -192,6 +192,7 @@ function ProductListView({ products, selectedProductIds, allProductsSelected, on
                     {product.condition_status === 'used' ? 'USED' : 'NEW'}
                   </span>
                 </div>
+                {product.brand && <p className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">{product.brand}</p>}
                 <p className="mt-1 font-mono text-sm font-semibold text-primary">${Number(product.base_price).toFixed(2)}</p>
               </div>
             </div>
@@ -232,6 +233,7 @@ function ProductGridView({ products, selectedProductIds, onToggleSelected, onTog
                   {product.condition_status === 'used' ? 'USED' : 'NEW'}
                 </span>
               </div>
+              {product.brand && <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{product.brand}</p>}
               <p className="mt-1 font-mono text-sm font-semibold text-primary">${Number(product.base_price).toFixed(2)}</p>
             </div>
             <ProductActions product={product} compact onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />
@@ -312,6 +314,7 @@ export default function ProductCatalogViews(props: ProductCatalogViewsProps) {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <InfoStat icon={<CircleDollarSign className="h-4 w-4" />} label="Precio USA" value={`$${Number(inspectedProduct.base_price || 0).toFixed(2)} USD`} />
                   <InfoStat icon={<MapPin className="h-4 w-4" />} label="Precio Venezuela" value={`$${Number(inspectedProduct.venezuela_price_usd || 0).toFixed(2)} USD`} />
+                  <InfoStat icon={<Tag className="h-4 w-4" />} label="Marca / Brand" value={inspectedProduct.brand || 'No especificada'} />
                   <InfoStat icon={<Tag className="h-4 w-4" />} label="Categoría" value={inspectedCategory} />
                   <InfoStat icon={<Package className="h-4 w-4" />} label="Inventario" value={inspectedProduct.inventory_enabled ? `${inspectedProduct.stock_quantity} disponibles` : 'Sin inventario'} />
                 </div>

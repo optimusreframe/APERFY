@@ -154,6 +154,7 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
           const { error: insertError } = await supabase.from('products').insert({
             name_en: nameEn,
             name_es: productInfo.name_es || '',
+            brand: typeof productInfo.brand === 'string' && productInfo.brand.trim() ? productInfo.brand.trim() : null,
             description_en: descEn,
             description_es: productInfo.description_es || '',
             slug: productSlug,

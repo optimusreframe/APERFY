@@ -44,7 +44,7 @@ function matchesSearch(product: StorefrontProduct, query: string): boolean {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) return true;
 
-  const haystack = `${product.name_en} ${product.name_es} ${product.description_en ?? ''} ${product.description_es ?? ''}`.toLowerCase();
+  const haystack = `${product.brand ?? ''} ${product.name_en} ${product.name_es} ${product.description_en ?? ''} ${product.description_es ?? ''}`.toLowerCase();
   return haystack.includes(normalizedQuery);
 }
 

@@ -151,6 +151,7 @@ export async function persistInventoryImport(
       const productPayload = {
         name_en: row.name,
         name_es: row.name,
+        brand: row.brand?.trim() || null,
         description_en: row.description,
         description_es: row.description,
         slug: row.slug,

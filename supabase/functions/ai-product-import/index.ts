@@ -607,6 +607,7 @@ serve(async (req) => {
 
 STRICT RULES:
 - Product name (name_en, name_es): Create a TOTALLY NEW name. MAX 4 WORDS. Short, catchy, commercial. NEVER copy the original name.
+- brand: Extract the manufacturer or commercial brand exactly when it is visible in the source. Return an empty string when the brand is unknown; never invent one from the product category.
 - Description (description_en, description_es): MAX 150 characters each. 2-3 short sentences. Attractive and concise.
 - reference_image_url: From the list of extracted images below, pick the SINGLE BEST image URL that shows the product most clearly (front view, clean, high-res). If no good image, return empty string.
 - slug: URL-friendly, lowercase, hyphens only, based on the new name.
@@ -635,6 +636,7 @@ ${imageListForAI || "No images found."}`
             properties: {
               name_en: { type: "string", description: "NEW unique product name in English (max 4 words)" },
               name_es: { type: "string", description: "NEW unique product name in Spanish (max 4 words)" },
+              brand: { type: "string", description: "Manufacturer or commercial brand when clearly available; empty string if unknown" },
               description_en: { type: "string", description: "Short description in English (max 150 chars, 2-3 sentences)" },
               description_es: { type: "string", description: "Short description in Spanish (max 150 chars, 2-3 sentences)" },
               slug: { type: "string", description: "URL-friendly slug (lowercase, hyphens only)" },
@@ -647,7 +649,7 @@ ${imageListForAI || "No images found."}`
               original_title: { type: "string", description: "The original product title from the source" },
               reference_image_url: { type: "string", description: "The single best product image URL from the extracted images list" },
             },
-            required: ["name_en", "name_es", "description_en", "description_es", "slug", "suggested_price", "suggested_category", "materials", "colors", "reference_image_url"],
+            required: ["name_en", "name_es", "brand", "description_en", "description_es", "slug", "suggested_price", "suggested_category", "materials", "colors", "reference_image_url"],
             additionalProperties: false,
           },
         },
@@ -1118,6 +1120,7 @@ Given a product's current Spanish name and description (which may be rough/incom
 STRICT RULES:
 - name_es: Catchy Spanish product name. MAX 4 words.
 - name_en: Equivalent English name. MAX 4 words.
+- brand: Manufacturer or commercial brand visible in the supplied context or image. Keep it empty when unknown; never guess.
 - description_es: Attractive Spanish description. MAX 150 characters. 2-3 short sentences.
 - description_en: Equivalent English description. MAX 150 characters. 2-3 short sentences.
 - slug: URL-friendly, lowercase, hyphens only, based on the ENGLISH name.
@@ -1148,6 +1151,7 @@ If the input name/description is already good, polish it slightly. If it's empty
             properties: {
               name_es: { type: "string", description: "Polished Spanish name (max 4 words)" },
               name_en: { type: "string", description: "Polished English name (max 4 words)" },
+              brand: { type: "string", description: "Manufacturer or commercial brand when known; empty string if unknown" },
               description_es: { type: "string", description: "Spanish description (max 150 chars)" },
               description_en: { type: "string", description: "English description (max 150 chars)" },
               slug: { type: "string", description: "URL slug from English name" },
@@ -1155,7 +1159,7 @@ If the input name/description is already good, polish it slightly. If it's empty
               suggested_category_name_es: { type: "string", description: "Category name in Spanish (new categories only)" },
               suggested_category_name_en: { type: "string", description: "Category name in English (new categories only)" },
             },
-            required: ["name_es", "name_en", "description_es", "description_en", "slug", "suggested_category"],
+            required: ["name_es", "name_en", "brand", "description_es", "description_en", "slug", "suggested_category"],
             additionalProperties: false,
           },
         },

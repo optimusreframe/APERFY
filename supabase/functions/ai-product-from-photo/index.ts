@@ -98,7 +98,7 @@ function slugify(value: string) { return value.toLowerCase().trim().normalize("N
 function normalized(value: string) { return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(); }
 function priceWithMarkup(price: number, markup: number) { return Math.round(price * (1 + markup / 100) * 100) / 100; }
 
-async function importSelectedProducts(adminClient: ReturnType<typeof createClient>, userId: string, imageData: string, products: unknown[], globalMarkup: number) {
+async function importSelectedProducts(adminClient: ReturnType<typeof createClient>, userId: string, imageSource: string, products: unknown[], globalMarkup: number) {
   const { data: categories } = await adminClient.from("categories").select("id, slug, name_en, name_es").eq("is_active", true);
   const categoryRows = (categories || []) as Array<Record<string, unknown>>;
   const requested = products.slice(0, MAX_CANDIDATES).map((item, index) => normalizeCandidate(item, index));
@@ -117,10 +117,10 @@ async function importSelectedProducts(adminClient: ReturnType<typeof createClien
     const matchedCategory = categoryRows.find((category) => [category.slug, category.name_en, category.name_es].some((value) => normalized(String(value || "")) === categoryText));
     const basePrice = Math.round(Math.max(0, Number(candidate.suggested_price || candidate.market_reference_price) || 0) * 100) / 100;
     try {
-      const { data: product, error: insertError } = await adminClient.from("products").insert({ name_en: candidate.name, name_es: candidate.name, description_en: candidate.description, description_es: candidate.description, slug: productSlug, base_price: basePrice, venezuela_price_usd: priceWithMarkup(basePrice, globalMarkup), venezuela_price_mode: "global", venezuela_manual_mode: "fixed", venezuela_markup_percent: null, category_id: matchedCategory?.id || null, is_active: true, is_featured: false, images: [] }).select("id").single();
+      const { data: product, error: insertError } = await adminClient.from("products").insert({ name_en: candidate.name, name_es: candidate.name, brand: candidate.brand || null, description_en: candidate.description, description_es: candidate.description, slug: productSlug, base_price: basePrice, venezuela_price_usd: priceWithMarkup(basePrice, globalMarkup), venezuela_price_mode: "global", venezuela_manual_mode: "fixed", venezuela_markup_percent: null, category_id: matchedCategory?.id || null, is_active: true, is_featured: false, images: [] }).select("id").single();
       if (insertError || !product) throw insertError || new Error("No se pudo crear el producto.");
       try {
-        const persisted = await persistImageSource(adminClient, imageData, { bucket: "product-images", folder: "ai-photo-imports", ownerId: userId, label: productSlug });
+        const persisted = await persistImageSource(adminClient, imageSource, { bucket: "product-images", folder: "ai-photo-imports", ownerId: userId, label: productSlug });
         const { error: updateError } = await adminClient.from("products").update({ images: [persisted.publicUrl] }).eq("id", product.id);
         if (updateError) throw updateError;
         created.push({ id: product.id, name: candidate.name, slug: productSlug, image: persisted.publicUrl });
@@ -150,13 +150,16 @@ serve(async (req) => {
     const body = await req.json();
     const action = body.action === "import_products" ? "import_products" : "analyze";
     const imageData = body.imageData;
-    if (typeof imageData !== "string" || !imageData.startsWith("data:image/")) return json({ success: false, error: "A product photo is required." }, 400);
-    if (imageData.length > 10_800_000) return json({ success: false, error: "La imagen supera el límite de 8 MB." }, 413);
+    const imageSource = typeof body.imageSource === "string" && body.imageSource.trim() ? body.imageSource.trim() : imageData;
+    const isDataImage = typeof imageSource === "string" && imageSource.startsWith("data:image/");
+    const isHttpsImage = typeof imageSource === "string" && /^https:\/\//i.test(imageSource);
+    if (typeof imageSource !== "string" || (!isDataImage && !isHttpsImage)) return json({ success: false, error: "A product photo is required." }, 400);
+    if (isDataImage && imageSource.length > 10_800_000) return json({ success: false, error: "La imagen supera el límite de 8 MB." }, 413);
 
     if (action === "import_products") {
       if (!Array.isArray(body.products) || body.products.length < 1) return json({ success: false, error: "Selecciona al menos un producto detectado." }, 400);
       const globalMarkup = Math.min(1000, Math.max(0, Number(body.globalMarkupPercent) || 40));
-      const result = await importSelectedProducts(adminClient, userData.user.id, imageData, body.products, globalMarkup);
+      const result = await importSelectedProducts(adminClient, userData.user.id, imageSource, body.products, globalMarkup);
       return json({ success: result.created.length > 0, data: result, ...(result.errors.length ? { error: `${result.errors.length} producto(s) no pudieron importarse.` } : {}) });
     }
 

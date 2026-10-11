@@ -1033,6 +1033,7 @@ export type Database = {
       products: {
         Row: {
           base_price: number
+          brand: string | null
           venezuela_price_usd?: number | null
           venezuela_price_mode?: string
           venezuela_manual_mode?: string
@@ -1062,6 +1063,7 @@ export type Database = {
         }
         Insert: {
           base_price?: number
+          brand?: string | null
           venezuela_price_usd?: number | null
           venezuela_price_mode?: string
           venezuela_manual_mode?: string
@@ -1091,6 +1093,7 @@ export type Database = {
         }
         Update: {
           base_price?: number
+          brand?: string | null
           venezuela_price_usd?: number | null
           venezuela_price_mode?: string
           venezuela_manual_mode?: string

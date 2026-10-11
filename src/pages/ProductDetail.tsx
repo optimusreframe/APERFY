@@ -629,6 +629,7 @@ export default function ProductDetail() {
 
   const specifications = filterEmptySpecifications([
     { k: 'Condition', v: product.condition_status === 'used' ? 'USED' : 'NEW' },
+    { k: language === 'es' ? 'Marca' : 'Brand', v: product.brand },
     { k: 'Category', v: product.categories ? (language === 'es' ? product.categories.name_es : product.categories.name_en) : null },
     { k: 'Weight', v: selectedWeight && selectedWeight > 0 ? `${selectedWeight}${t.product.grams}` : null },
     { k: 'Dimensions', v: selectedDimensions?.trim() ? `${selectedDimensions.trim()}mm` : null },
@@ -870,6 +871,7 @@ export default function ProductDetail() {
               <h1 className="font-display font-bold text-[2rem] lg:text-[2.25rem] text-foreground leading-[1.05] tracking-[-0.02em]">
                 {language === 'es' ? product.name_es : product.name_en}
               </h1>
+              {product.brand && <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">{product.brand}</div>}
 
               {/* Price + status row, Apple-clean */}
               <div className="flex items-center justify-between mt-4">

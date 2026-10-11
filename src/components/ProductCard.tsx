@@ -131,6 +131,7 @@ export default function ProductCard({
             <h3 className={`font-display font-semibold text-sm text-foreground transition-colors group-hover:text-primary sm:text-base ${isList ? 'line-clamp-2' : 'truncate'}`}>
               {name}
             </h3>
+            {product.brand && <p className="mt-1 truncate text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">{product.brand}</p>}
             <div className="flex items-center justify-between mt-1">
               <span className="text-base sm:text-lg font-bold text-gradient-gold">
                 {formatRegionalPrice(Number(product.base_price), pricing, currency)}
