@@ -7,6 +7,15 @@ import { STOREFRONT_DESIGNS, type StorefrontDesign } from '@/lib/storefront-layo
 import { AdminPageHeader, AdminSurface } from './_shared';
 
 function LayoutPreview({ design }: { design: StorefrontDesign }) {
+  if (design === 'design2') {
+    return <div className="layout-preview layout-preview-design2" aria-hidden="true"><div className="layout-preview-top"><span /><span /><span /><i /></div><div className="layout-preview-tech-hero"><small>APERFY · TECH ACCESSORIES</small><strong>Technology that moves with you.</strong><em /><b>Shop now →</b><div className="layout-preview-device" /></div><div className="layout-preview-tech-rail"><span /><span /><span /><span /></div><div className="layout-preview-nav"><span /><span /><span /><span /><span /></div></div>;
+  }
+  if (design === 'design3') {
+    return <div className="layout-preview layout-preview-design3" aria-hidden="true"><div className="layout-preview-top"><span /><span /><span /><i /></div><div className="layout-preview-luxury-hero"><div><small>APERFY · PRIVATE SELECTION</small><strong>Find something that feels like yours.</strong><em /><b>View collection →</b></div><div className="layout-preview-luxury-image" /></div><div className="layout-preview-luxury-card"><i /><span /><b /></div><div className="layout-preview-nav"><span /><span /><span /><span /><span /></div></div>;
+  }
+  if (design === 'design4') {
+    return <div className="layout-preview layout-preview-design4" aria-hidden="true"><div className="layout-preview-top"><span /><span /><span /><i /></div><div className="layout-preview-drops-top"><strong>APER<span>FY</span></strong><small>DROPS</small><i>Shipping across USA</i></div><div className="layout-preview-drops-search" /><div className="layout-preview-drops-banner"><strong>New arrivals</strong><span>The next drop lands here first.</span></div><div className="layout-preview-drops-grid"><span /><span /><span /><span /></div><div className="layout-preview-nav"><span /><span /><span /><span /><span /></div></div>;
+  }
   return (
     <div className={`layout-preview layout-preview-${design}`} aria-hidden="true">
       <div className="layout-preview-top"><span /><span /><span /><i /></div>

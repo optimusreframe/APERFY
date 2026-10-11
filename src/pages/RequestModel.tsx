@@ -196,13 +196,13 @@ export default function RequestModel() {
   ];
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <div className="request-page min-h-full bg-background relative">
       {/* ambient glow */}
       <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[900px] rounded-full"
         style={{ background: 'radial-gradient(circle, hsl(var(--primary) / 0.10), transparent 60%)' }}
       />
       <Navbar />
-      <section className="pt-28 pb-32 relative">
+      <section className="request-page-section pt-10 pb-32 relative sm:pt-20 lg:pt-28">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* ─── Hero header ─── */}
@@ -258,9 +258,9 @@ export default function RequestModel() {
                 style={{ boxShadow: '0 30px 80px -20px hsl(var(--primary) / 0.08), 0 0 0 1px hsl(var(--primary) / 0.04)' }}
               >
                 {/* ─── Palantir-style stepper ─── */}
-                <div className="flex items-center justify-between mb-10">
+                <div className="request-stepper flex items-center justify-between mb-10">
                   {steps.map((s, i) => (
-                    <div key={s.n} className="flex items-center flex-1 last:flex-none">
+                    <div key={s.n} className="request-step flex items-center flex-1 last:flex-none">
                       <div className="flex items-center gap-2.5">
                         <span className={`font-mono text-[10px] tracking-[0.15em] transition-colors ${
                           s.done ? 'text-primary' : 'text-muted-foreground/50'

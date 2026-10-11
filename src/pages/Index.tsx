@@ -15,6 +15,7 @@ import { DEFAULT_HOMEPAGE_HERO_CONFIG, HOMEPAGE_HERO_SETTING_KEY, parseHomepageH
 import { fetchActiveStorefrontProducts, sortStorefrontProducts } from '@/lib/storefront-products';
 import { DEFAULT_CATALOG_FILTERS, filterStorefrontProducts, getCatalogFilterFacets, type CatalogFilters, type CatalogFilterFacets } from '@/lib/storefront-filters';
 import { useStorefrontLayout } from '@/contexts/StorefrontLayoutContext';
+import { DropsCatalogPreset, LuxuryCatalogPreset, TechCatalogPreset } from '@/components/storefront/StorefrontCatalogPresets';
 
 const CATALOG_VIEW_STORAGE_KEY = 'aperfy-catalog-view';
 const reveal = { initial: { opacity: 0, y: 18 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '-10% 0px' }, transition: { duration: .4, ease: [0.2, 0, 1, 1] } } as const;
@@ -190,6 +191,43 @@ export default function Index() {
   };
 
   const clearDraftFilters = () => setDraftFilters({ ...DEFAULT_CATALOG_FILTERS });
+
+  const presetControls = {
+    es,
+    search,
+    setSearch,
+    searchPlaceholder: copy.searchPlaceholder,
+    openFilters,
+    activeFilterCount,
+    categoryLabel,
+    priceLabel,
+    availabilityLabel,
+    sortLabel,
+    viewMode,
+    setViewMode,
+  };
+
+  if (storefrontLayout.design !== 'design1') {
+    return <>
+      {storefrontLayout.design === 'design2' && <TechCatalogPreset copy={copy} es={es} products={products} visible={visible} categories={categories} {...presetControls} />}
+      {storefrontLayout.design === 'design3' && <LuxuryCatalogPreset copy={copy} es={es} products={products} visible={visible} categories={categories} {...presetControls} />}
+      {storefrontLayout.design === 'design4' && <DropsCatalogPreset copy={copy} es={es} products={products} visible={visible} categories={categories} {...presetControls} />}
+      <CatalogFiltersDialog
+        open={filterDialogOpen}
+        onOpenChange={handleFilterDialogChange}
+        filters={draftFilters}
+        onFiltersChange={setDraftFilters}
+        onApply={applyDraftFilters}
+        onClear={clearDraftFilters}
+        categories={categories}
+        facets={draftFacets}
+        resultCount={draftResultCount}
+        language={language}
+        initialSection={filterDialogSection}
+      />
+      <Footer />
+    </>;
+  }
 
   return <>
     <main data-storefront-page="catalog" data-storefront-layout={storefrontLayout.design} className="storefront-catalog min-w-0">

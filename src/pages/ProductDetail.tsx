@@ -31,6 +31,7 @@ import { formatRegionalPrice } from '@/lib/regional-pricing';
 import { getStorefrontCountryCode } from '@/lib/storefront-region';
 import { useStorefrontLayout } from '@/contexts/StorefrontLayoutContext';
 import Model3DViewer from '@/components/Model3DViewer';
+import StorefrontProductDetailPreset from '@/components/storefront/StorefrontProductDetailPresets';
 import type { Category, Material, Product } from '@/lib/model-types';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -683,6 +684,58 @@ export default function ProductDetail() {
     { k: 'Variations', v: variations.length > 0 ? `${variations.length} ${language === 'es' ? 'opciones' : 'options'}` : null },
     { k: 'SKU', v: `PRD-${product.id.slice(0, 8).toUpperCase()}` },
   ]);
+
+  if (storefrontLayout.design !== 'design1') {
+    return (
+      <div data-storefront-page="product-detail" data-storefront-layout={storefrontLayout.design} className="storefront-product-page min-h-full bg-background">
+        <Navbar />
+        <AnimatePresence>
+          {lightboxOpen && images.length > 0 && <ImageLightbox images={images} initialIndex={selectedImage} altText={language === 'es' ? product.name_es : product.name_en} language={language} onClose={closeLightbox} />}
+        </AnimatePresence>
+        <StorefrontProductDetailPreset
+          design={storefrontLayout.design}
+          product={product}
+          language={language}
+          images={images}
+          selectedImage={selectedImage}
+          setSelectedImage={setSelectedImage}
+          openLightbox={openLightbox}
+          isFavorite={isFav}
+          toggleFavorite={toggleFavorite}
+          description={descriptionForDisplay}
+          variations={variations}
+          variationsByType={variationsByType}
+          selectedVariations={selectedVariations}
+          setSelectedVariations={setSelectedVariations}
+          inventoryState={inventoryState}
+          inventoryLabel={inventoryLabel}
+          quantity={quantity}
+          setQuantity={setQuantity}
+          quantityLimit={quantityLimit}
+          handleAddToCart={handleAddToCart}
+          needsVariation={needsVariation}
+          displayTotalPrice={displayTotalPrice}
+          notes={notes}
+          setNotes={setNotes}
+        />
+        <MobileStickyAddToCart
+          image={images[selectedImage] || images[0] || null}
+          variationLabel={selectedVariationRows.map((variation) => language === 'es' ? variation.name_es : variation.name_en).filter(Boolean).join(' · ') || null}
+          unitPrice={unitPrice}
+          totalPrice={totalPrice}
+          unitPriceLabel={displayUnitPrice}
+          totalPriceLabel={displayTotalPrice}
+          quantity={quantity}
+          setQuantity={setQuantity}
+          needsVariation={needsVariation}
+          onAdd={handleAddToCart}
+          productName={language === 'es' ? product.name_es : product.name_en}
+          inStock={inventoryState !== 'sold_out' && !needsVariation}
+        />
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div data-storefront-page="product-detail" data-storefront-layout={storefrontLayout.design} className="storefront-product-page min-h-full bg-background">

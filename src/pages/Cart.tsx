@@ -48,18 +48,18 @@ export default function Cart() {
     <div data-storefront-page="cart" className="storefront-cart-page min-h-full bg-background">
       <Navbar />
 
-      {/* ═══ Top Command Bar ═══ */}
-      <div className="sticky top-16 z-30 border-b border-white/[0.05] bg-background/80 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-12 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0 text-[12px] text-muted-foreground">
-            <Link to="/" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors shrink-0">
+      {/* ═══ Context bar — stays attached to the app header while scrolling ═══ */}
+      <div className="storefront-command-bar sticky top-0 z-30">
+        <div className="storefront-command-bar-inner max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="storefront-command-bar-title flex items-center gap-3 min-w-0 text-[12px] text-muted-foreground">
+            <Link to="/" className="storefront-command-bar-back inline-flex items-center justify-center rounded-full hover:text-foreground transition-colors shrink-0" aria-label={language === 'es' ? 'Volver a la tienda' : 'Back to store'}>
               <ArrowLeft className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{t.store.title}</span>
             </Link>
-            <span className="text-border">/</span>
-            <span className="text-foreground truncate">{t.cart.title}</span>
+            <span className="storefront-command-bar-slash" aria-hidden="true">/</span>
+            <span className="text-foreground truncate font-medium">{t.cart.title}</span>
           </div>
-          <div className="flex items-center gap-3 shrink-0 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70">
+          <div className="storefront-command-bar-meta flex items-center gap-3 shrink-0 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70">
             <span className="tabular-nums">{String(itemCount).padStart(2, '0')} {language === 'es' ? 'items' : 'items'}</span>
             <div className="h-4 w-px bg-white/[0.06] hidden md:block" />
             <span className="hidden md:inline">CART-{Date.now().toString(36).slice(-6).toUpperCase()}</span>

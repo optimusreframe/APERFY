@@ -130,7 +130,7 @@ export default function Auth() {
     "w-full pl-11 pr-4 py-3.5 rounded-xl bg-card border border-border/70 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/60 focus:shadow-[0_0_12px_-3px_hsl(var(--primary)/0.3)] transition-all duration-300 text-sm shadow-[inset_0_2px_4px_hsl(var(--foreground)/0.08)]";
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <div className="auth-page min-h-full bg-background relative overflow-hidden">
       <Navbar />
 
       {/* Atmospheric background */}
@@ -165,7 +165,7 @@ export default function Auth() {
         />
       </div>
 
-      <div className="flex items-center justify-center min-h-screen pt-16 px-4 relative z-10">
+      <div className="auth-page-content flex min-h-full items-start justify-center px-4 py-8 relative z-10 md:items-center md:py-12">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, rotateX: -8 }}
           animate={{ opacity: 1, scale: 1, rotateX: 0 }}
