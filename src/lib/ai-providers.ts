@@ -31,7 +31,7 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
     docsUrl: "https://platform.openai.com/docs/overview",
     keyUrl: "https://platform.openai.com/api-keys",
     modelPlaceholder: "gpt-4o-mini",
-    imageModelPlaceholder: "gpt-5",
+    imageModelPlaceholder: "gpt-image-1",
     modelExamples: ["gpt-4o-mini", "gpt-4.1-mini"],
     capabilities: ["text", "tools", "vision", "image-generation"],
     tutorial: [
@@ -43,7 +43,7 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
   {
     id: "anthropic",
     label: "Claude / Anthropic",
-    description: "Claude con Messages API nativa para texto, herramientas y visión.",
+    description: "Claude con Messages API nativa para texto, herramientas y visión. No genera imágenes en esta integración.",
     protocol: "anthropic-messages",
     defaultBaseUrl: "https://api.anthropic.com/v1",
     docsUrl: "https://docs.anthropic.com/en/api/messages",
@@ -68,7 +68,7 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
     modelPlaceholder: "gemini-2.5-flash",
     imageModelPlaceholder: "gemini-3.1-flash-image",
     modelExamples: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.1-flash-image"],
-    capabilities: ["text", "tools", "vision"],
+    capabilities: ["text", "tools", "vision", "image-generation"],
     tutorial: [
       { title: "Abre Google AI Studio", body: "En AI Studio entra a Get API key y selecciona un proyecto de Google Cloud." },
       { title: "Genera la clave", body: "Crea una API key y guárdala en Integrations. Gemini se autentica de forma segura en el servidor." },

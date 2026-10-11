@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
           p_secret: rawValue.trim(),
           p_description: `APERFY integration secret managed by admin ${auth.userId}`,
         })
-        if (error) throw error
+        if (error) throw new Error(`${rawName}: ${error.message}`)
       }
     }
 

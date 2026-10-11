@@ -76,4 +76,24 @@ describe('AdminAISettings', () => {
     expect(await screen.findByLabelText('Modelo para Visión y análisis de fotos')).toHaveValue('vision-image-model');
     expect(screen.getAllByText('READY').length).toBeGreaterThanOrEqual(2);
   });
+
+  it('shows image-capable providers separately from Claude vision support', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TestMemoryRouter>
+          <AdminAISettings />
+        </TestMemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const imageProvider = await screen.findByLabelText('Proveedor para Generación de imágenes');
+    const imageOptions = Array.from(imageProvider.querySelectorAll('option')).map((option) => option.textContent);
+
+    expect(imageOptions).toContain('GPT / OpenAI');
+    expect(imageOptions).toContain('Gemini / Google');
+    expect(imageOptions).not.toContain('Claude / Anthropic');
+    expect(screen.getByText(/Claude \/ Anthropic sirve para analizar fotos y texto/)).toBeInTheDocument();
+  });
 });

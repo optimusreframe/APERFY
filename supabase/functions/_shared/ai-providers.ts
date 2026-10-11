@@ -28,7 +28,7 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
   {
     id: "anthropic",
     label: "Claude / Anthropic",
-    description: "Claude con Messages API nativa para texto, herramientas y visión.",
+    description: "Claude con Messages API nativa para texto, herramientas y visión. No genera imágenes en esta integración.",
     protocol: "anthropic-messages",
     defaultBaseUrl: "https://api.anthropic.com/v1",
     capabilities: ["text", "tools", "vision"],
