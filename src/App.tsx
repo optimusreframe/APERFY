@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "rea
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "next-themes";
 import { LanguageProvider } from "@/i18n/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
@@ -122,22 +123,24 @@ const AppContent = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <LanguageProvider>
-      <AuthProvider>
-        <CartProvider>
-          <BulkImportProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <AppContent />
-                <BulkImportBanner />
-              </BrowserRouter>
-            </TooltipProvider>
-          </BulkImportProvider>
-        </CartProvider>
-      </AuthProvider>
-    </LanguageProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="aperfy-theme">
+      <LanguageProvider>
+        <AuthProvider>
+          <CartProvider>
+            <BulkImportProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <AppContent />
+                  <BulkImportBanner />
+                </BrowserRouter>
+              </TooltipProvider>
+            </BulkImportProvider>
+          </CartProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
