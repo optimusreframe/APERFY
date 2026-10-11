@@ -5,6 +5,7 @@ import { TrendingUp, ChevronLeft, ChevronRight, Box, Crown, Trophy, Medal } from
 import { useLanguage } from '@/i18n/LanguageContext';
 import LikeButton from '@/components/LikeButton';
 import type { Product } from '@/lib/model-types';
+import { optimizeImageUrl } from '@/lib/image-url';
 
 interface TrendingSectionProps {
   products: Product[];
@@ -120,7 +121,7 @@ export default function TrendingSection({ products, likeCounts }: TrendingSectio
                   <div className="aspect-[3/4] relative overflow-hidden">
                     {images.length > 0 ? (
                       <img
-                        src={images[0]}
+                        src={optimizeImageUrl(images[0], { width: 560, quality: 74 })}
                         alt={name}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                         loading="lazy"

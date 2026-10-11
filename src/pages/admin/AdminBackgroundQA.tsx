@@ -497,7 +497,12 @@ export default function AdminBackgroundQA() {
     if (!customBackground) {
       toast.warning('No custom background — "custom" preset will return an error (expected).');
     }
-    await Promise.all(PRESETS.map((p) => runPreset(p.id)));
+    // Keep image generations sequential. Running every preset at once makes
+    // provider rate limits look like storage or configuration failures and can
+    // leave the QA panel with partial results.
+    for (const preset of PRESETS) {
+      await runPreset(preset.id);
+    }
   };
 
   return (

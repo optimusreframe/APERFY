@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import type { Category, Product } from '@/lib/model-types';
+import { optimizeImageUrl } from '@/lib/image-url';
 
 export type AdminProduct = Pick<Product, 'id' | 'name_en' | 'name_es' | 'description_en' | 'description_es' | 'slug' | 'base_price' | 'venezuela_price_usd' | 'venezuela_price_mode' | 'venezuela_manual_mode' | 'venezuela_markup_percent' | 'condition_status' | 'seller_name' | 'return_policy_en' | 'return_policy_es' | 'return_window_days' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
   inventory_enabled: Product['inventory_enabled'];
@@ -38,7 +39,7 @@ type ProductCatalogViewsProps = {
 function ProductImage({ product, className = 'h-14 w-14' }: { product: AdminProduct; className?: string }) {
   const image = Array.isArray(product.images) && typeof product.images[0] === 'string' ? product.images[0] : null;
   return image ? (
-    <img src={image} alt={product.name_es || product.name_en} loading="lazy" className={`${className} shrink-0 rounded-xl object-cover`} />
+    <img src={optimizeImageUrl(image, { width: 240, quality: 72 })} alt={product.name_es || product.name_en} loading="lazy" className={`${className} shrink-0 rounded-xl object-cover`} />
   ) : (
     <div className={`${className} flex shrink-0 items-center justify-center rounded-xl bg-secondary text-muted-foreground`} aria-label="Sin imagen">
       <Image className="h-5 w-5" aria-hidden="true" />

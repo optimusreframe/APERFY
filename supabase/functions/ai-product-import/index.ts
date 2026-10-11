@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callAi, type AiConfig, loadAiConfig, loadAiImageGenerationConfig, loadAiVisionConfig } from "../_shared/ai-provider.ts";
 import { buildAiRequestBody, DEEPSEEK_IMAGE_LIMITATION, isDeepSeekProvider, isImageGenerationProviderUsable, isImageProviderUsable } from "../_shared/ai-compat.ts";
 import { getIntegrationSecret } from "../_shared/integration-secrets.ts";
+import { persistImageSource } from "../_shared/image-storage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -781,7 +782,7 @@ ${imageListForAI || "No images found."}`
 
     // ── ACTION: generate_image ──
     if (action === "generate_image") {
-      const { sourceImage, customBackground, backgroundMode, safeRetry, backgroundCandidateId, preset: presetTag, productId, prompt_addition } = body;
+      const { sourceImage, customBackground, backgroundMode, safeRetry, backgroundCandidateId, preset: presetTag, productId, persistProduct, prompt_addition } = body;
       if (!sourceImage) {
         return new Response(JSON.stringify({ error: "Source image is required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -962,61 +963,90 @@ Luxury technology product display of the EXACT same physical product on a matte 
         });
       }
 
-      // ── Persist composed result to storage + DB (best-effort) ──
-      let composedPublicUrl: string | undefined;
-      let savedResultId: string | undefined;
+      // Persist on the server with service_role. The browser must never upload
+      // the generated result directly: product-images is intentionally protected
+      // by RLS and the provider may return either a data URL or a short-lived URL.
+      const method = safeRetry === true ? "safe_retry" : "ai";
+      const presetSlug = (typeof presetTag === "string" ? presetTag : normalizedBackgroundMode).replace(/[^a-zA-Z0-9_-]/g, "_");
+      let persistedImage;
       try {
-        const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-        const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-        if (SUPABASE_URL && SERVICE_KEY && generatedImage.startsWith("data:image")) {
-          const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(generatedImage);
-          if (m) {
-            const mime = m[1];
-            const bin = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
-            const ext = mime === "image/jpeg" ? "jpg" : (mime.split("/")[1] || "png");
-            const method = safeRetry === true ? "safe_retry" : "ai";
-            const presetSlug = (typeof presetTag === "string" ? presetTag : normalizedBackgroundMode).replace(/[^a-zA-Z0-9_-]/g, "_");
-            const path = `composed-results/${authCheck.userId}/${Date.now()}-${method}-${presetSlug}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
-            const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
-              auth: { persistSession: false, autoRefreshToken: false },
-            });
-            const { error: upErr } = await supabaseAdmin.storage
-              .from("product-images")
-              .upload(path, new Blob([bin], { type: mime }), { contentType: mime, upsert: false });
-            if (!upErr) {
-              const { data: pub } = supabaseAdmin.storage.from("product-images").getPublicUrl(path);
-              composedPublicUrl = pub.publicUrl;
-              const backgroundUrl = customBackground || resolvedReference || "";
-              const { data: row } = await supabaseAdmin
-                .from("background_composition_results")
-                .insert({
-                  source_image_url: sourceImage,
-                  background_image_url: backgroundUrl,
-                  composed_image_url: composedPublicUrl,
-                  background_candidate_id: backgroundCandidateId || null,
-                  method,
-                  preset: presetSlug,
-                  product_id: productId || null,
-                  created_by: authCheck.userId,
-                })
-                .select("id")
-                .single();
-              if (row) savedResultId = row.id;
-            } else {
-              console.error("[generate_image] composed upload failed:", upErr);
-            }
-          }
-        }
+        persistedImage = await persistImageSource(adminClient, generatedImage, {
+          bucket: "product-images",
+          folder: "composed-results",
+          ownerId: authCheck.userId,
+          label: `${method}-${presetSlug}`,
+        });
       } catch (persistErr) {
-        console.error("[generate_image] persist error:", persistErr);
+        console.error("[generate_image] composed upload failed:", persistErr);
+        return jsonResponse({
+          success: false,
+          code: "AI_IMAGE_PERSISTENCE_FAILED",
+          error: "La IA generó la imagen, pero APERFY no pudo guardarla. Revisa el almacenamiento e inténtalo de nuevo.",
+        }, 500);
+      }
+
+      const composedPublicUrl = persistedImage.publicUrl;
+      let savedResultId: string | undefined;
+      const backgroundUrl = customBackground || resolvedReference || "";
+      const { data: row } = await adminClient
+        .from("background_composition_results")
+        .insert({
+          source_image_url: sourceImage,
+          background_image_url: backgroundUrl,
+          composed_image_url: composedPublicUrl,
+          background_candidate_id: backgroundCandidateId || null,
+          method,
+          preset: presetSlug,
+          product_id: productId || null,
+          created_by: authCheck.userId,
+        })
+        .select("id")
+        .single();
+      if (row) savedResultId = row.id;
+
+      let productUpdated = false;
+      if (persistProduct === true && typeof productId === "string" && productId) {
+        const { data: product, error: productReadError } = await adminClient
+          .from("products")
+          .select("images")
+          .eq("id", productId)
+          .maybeSingle();
+        if (productReadError || !product) {
+          await adminClient.storage.from("product-images").remove([persistedImage.path]);
+          return jsonResponse({
+            success: false,
+            code: "AI_PRODUCT_IMAGE_SAVE_FAILED",
+            error: "La imagen se generó, pero no se pudo localizar el producto para actualizarlo.",
+          }, 500);
+        }
+        const existingImages = Array.isArray(product.images)
+          ? product.images.filter((image): image is string => typeof image === "string" && image.length > 0)
+          : [];
+        const { error: productUpdateError } = await adminClient
+          .from("products")
+          .update({ images: [composedPublicUrl, ...existingImages.slice(1)] })
+          .eq("id", productId);
+        if (productUpdateError) {
+          await adminClient.storage.from("product-images").remove([persistedImage.path]);
+          return jsonResponse({
+            success: false,
+            code: "AI_PRODUCT_IMAGE_SAVE_FAILED",
+            error: "La imagen se generó, pero no se pudo actualizar el producto.",
+          }, 500);
+        }
+        productUpdated = true;
       }
 
       return new Response(JSON.stringify({
         success: true,
         data: {
-          generated_image: composedPublicUrl || generatedImage,
+          generated_image: composedPublicUrl,
           composed_image_url: composedPublicUrl,
+          image_path: persistedImage.path,
+          image_content_type: persistedImage.contentType,
+          image_bytes: persistedImage.bytes,
           saved_result_id: savedResultId,
+          product_updated: productUpdated,
           method: safeRetry === true ? "safe_retry" : "ai",
         },
       }), {
@@ -1251,7 +1281,30 @@ Preserve the exact same physical product from the source image. Do not redesign 
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      return new Response(JSON.stringify({ success: true, data: { generated_image: generatedImage, angle } }), {
+      let persistedAngle;
+      try {
+        persistedAngle = await persistImageSource(adminClient, generatedImage, {
+          bucket: "product-images",
+          folder: "generated-angles",
+          ownerId: authCheck.userId,
+          label: angle,
+        });
+      } catch (persistErr) {
+        console.error("[generate_angle] upload failed:", persistErr);
+        return jsonResponse({
+          success: false,
+          code: "AI_IMAGE_PERSISTENCE_FAILED",
+          error: "La IA generó el ángulo, pero APERFY no pudo guardarlo. Inténtalo de nuevo.",
+        }, 500);
+      }
+
+      return new Response(JSON.stringify({ success: true, data: {
+        generated_image: persistedAngle.publicUrl,
+        image_path: persistedAngle.path,
+        image_content_type: persistedAngle.contentType,
+        image_bytes: persistedAngle.bytes,
+        angle,
+      } }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -1337,39 +1390,26 @@ Preserve the exact same physical product from the source image. Do not redesign 
             generatedDataUrl = message.content;
           }
 
-          if (!generatedDataUrl || !generatedDataUrl.startsWith("data:image")) {
+          if (!generatedDataUrl) {
             const reason = imgResult.choices?.[0]?.native_finish_reason || imgResult.choices?.[0]?.finish_reason || "unknown";
             errors.push(`Variant ${i + 1}: no image (${reason})`);
             continue;
           }
 
-          // data:image/<mime>;base64,<data>
-          const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(generatedDataUrl);
-          if (!match) {
-            errors.push(`Variant ${i + 1}: malformed image payload`);
-            continue;
-          }
-          const mime = match[1];
-          const b64 = match[2];
-          const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-          const ext = mime === "image/jpeg" ? "jpg" : (mime.split("/")[1] || "png");
-          const fileId = crypto.randomUUID();
-          const path = `${presetKey}/${fileId}.${ext}`;
-
-          // Upload to storage using the admin client (handles auth correctly for sb_secret_* keys)
-          const blob = new Blob([bin], { type: mime });
-          const { error: uploadErr } = await supabaseAdmin.storage
-            .from("system-backgrounds")
-            .upload(path, blob, { contentType: mime, upsert: true });
-          if (uploadErr) {
+          let persistedBackground;
+          try {
+            persistedBackground = await persistImageSource(supabaseAdmin, generatedDataUrl, {
+              bucket: "system-backgrounds",
+              folder: presetKey,
+              ownerId: authCheck.userId,
+              label: "ai-background",
+            });
+          } catch (uploadErr) {
             console.error(`[generate_background_reference] upload failed for variant ${i + 1}:`, uploadErr);
-            errors.push(`Variant ${i + 1}: AI image generated, but storage upload failed. Check service role storage auth. (${uploadErr.message})`);
+            errors.push(`Variant ${i + 1}: AI image generated, but storage upload failed.`);
             continue;
           }
-          const { data: pub } = supabaseAdmin.storage
-            .from("system-backgrounds")
-            .getPublicUrl(path);
-          const publicUrl = pub.publicUrl;
+          const publicUrl = persistedBackground.publicUrl;
 
           // Insert candidate row via admin client
           const { data: inserted, error: insertErr } = await supabaseAdmin

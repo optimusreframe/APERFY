@@ -828,27 +828,18 @@ export default function AdminProducts() {
     setAiAnglesGenerating(false);
   };
 
-  // Helper: persist an AI image (data URI or remote URL) to storage immediately
-  const persistAiImage = async (imageSource: string): Promise<{ url: string; path: string }> => {
-    let blob: Blob;
-    if (imageSource.startsWith('data:')) {
-      const [header, b64] = imageSource.split(',');
-      const mime = header.match(/:(.*?);/)?.[1] || 'image/png';
-      const byteString = atob(b64);
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-      blob = new Blob([ia], { type: mime });
-    } else {
-      const resp = await fetch(imageSource);
-      if (!resp.ok) throw new Error('Failed to download AI image');
-      blob = await resp.blob();
+  // Generated images are persisted by the Edge Function with service_role.
+  // Never upload the AI result from the browser: product-images is protected by
+  // RLS and the provider may return a temporary URL or a large data URL.
+  const getPersistedAiImage = (payload: unknown): { url: string; path: string } => {
+    const data = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+    const url = typeof data.composed_image_url === 'string' && data.composed_image_url
+      ? data.composed_image_url
+      : typeof data.generated_image === 'string' ? data.generated_image : '';
+    if (!/^https:\/\//i.test(url)) {
+      throw new Error('La imagen se generó, pero no se recibió una URL persistida en el almacenamiento.');
     }
-    const fileName = `ai-import-temp/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
-    const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { contentType: blob.type || 'image/png', upsert: true });
-    if (error) throw error;
-    const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
-    return { url: data.publicUrl, path: fileName };
+    return { url, path: typeof data.image_path === 'string' ? data.image_path : '' };
   };
 
   const getProductImageUrls = (product: AdminProduct): string[] =>
@@ -893,6 +884,7 @@ export default function AdminProducts() {
             body: {
               action: 'generate_image',
               productId: product.id,
+              persistProduct: true,
               sourceImage,
               backgroundMode: 'system_workshop',
               customBackground: systemBgSetting || undefined,
@@ -901,12 +893,14 @@ export default function AdminProducts() {
           if (error || !data?.success || typeof data.data?.generated_image !== 'string') {
             throw new Error(await getFunctionErrorMessage(error, data, 'La IA no devolvió una imagen válida.'));
           }
-          const { url, path } = await persistAiImage(data.data.generated_image);
+          const { url, path } = getPersistedAiImage(data.data);
           const images = getProductImageUrls(product);
-          const { error: updateError } = await supabase.from('products').update({ images: [url, ...images.slice(1)] }).eq('id', product.id);
-          if (updateError) {
-            await supabase.storage.from('product-images').remove([path]).catch(() => undefined);
-            throw updateError;
+          if (!data.data.product_updated) {
+            const { error: updateError } = await supabase.from('products').update({ images: [url, ...images.slice(1)] }).eq('id', product.id);
+            if (updateError) {
+              if (path) await supabase.storage.from('product-images').remove([path]).catch(() => undefined);
+              throw updateError;
+            }
           }
         } else {
           const { data, error } = await supabase.functions.invoke('ai-product-import', {
@@ -990,22 +984,11 @@ export default function AdminProducts() {
       if (error) throw new Error(await getFunctionErrorMessage(error, data, 'Error al generar imagen'));
       if (!data?.success) throw new Error(data?.error || 'Error al generar imagen');
       
-      const generatedImg = data.data.generated_image;
-      setAiGeneratedImage(generatedImg);
-      setAiPreviewImage(generatedImg);
-
-      // Persist to storage immediately
-      try {
-        const { url, path } = await persistAiImage(generatedImg);
-        setAiStoredImageUrl(url);
-        setAiStoredImagePath(path);
-      } catch (persistErr: unknown) {
-        console.error('Failed to persist AI image:', persistErr);
-        toast({ title: 'Error guardando imagen', description: 'La imagen se generó pero no se pudo guardar. Intenta regenerar.', variant: 'destructive' });
-        setAiGeneratedImage(null);
-        setAiPreviewImage(null);
-        return;
-      }
+      const { url, path } = getPersistedAiImage(data.data);
+      setAiGeneratedImage(url);
+      setAiPreviewImage(url);
+      setAiStoredImageUrl(url);
+      setAiStoredImagePath(path || null);
 
       toast({ title: '✓', description: '¡Imagen AI generada!' });
     } catch (e: unknown) {
@@ -1053,8 +1036,7 @@ export default function AdminProducts() {
           body: { action: 'generate_angle', sourceImage: aiStoredImageUrl, angle },
         });
         if (error || !data?.success) throw new Error(await getFunctionErrorMessage(error, data, 'Error al generar ángulo'));
-        const generated = data.data.generated_image;
-        const { url, path } = await persistAiImage(generated);
+        const { url, path } = getPersistedAiImage(data.data);
         setAiAngles(prev => prev.map(a =>
           a.angle === angle && a.loading ? { ...a, url, path, loading: false } : a
         ));
@@ -1315,9 +1297,7 @@ export default function AdminProducts() {
       if (error) throw new Error(await getFunctionErrorMessage(error, data, 'Error al generar imagen'));
       if (!data?.success) throw new Error(data?.error || 'Error al generar imagen');
 
-      const generatedImg = data.data.generated_image;
-      // Persist to storage
-      const { url } = await persistAiImage(generatedImg);
+      const { url } = getPersistedAiImage(data.data);
       
       // Add to media files
       setMediaFiles(prev => [...prev.slice(0, MAX_MEDIA - 1), {
