@@ -1152,6 +1152,44 @@ export type Database = {
           },
         ]
       }
+      product_ai_provenance: {
+        Row: {
+          ai_image_generated_at: string | null
+          ai_image_generation_id: string | null
+          ai_price_generated_at: string | null
+          ai_price_generation_id: string | null
+          created_at: string
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          ai_image_generated_at?: string | null
+          ai_image_generation_id?: string | null
+          ai_price_generated_at?: string | null
+          ai_price_generation_id?: string | null
+          created_at?: string
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          ai_image_generated_at?: string | null
+          ai_image_generation_id?: string | null
+          ai_price_generated_at?: string | null
+          ai_price_generation_id?: string | null
+          created_at?: string
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_ai_provenance_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

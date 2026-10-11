@@ -1,6 +1,6 @@
 import "https://deno.land/std@0.168.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callAi, type AiConfig, loadAiConfig, loadAiImageGenerationConfig, loadAiVisionConfig } from "../_shared/ai-provider.ts";
 import { buildAiRequestBody, DEEPSEEK_IMAGE_LIMITATION, isDeepSeekProvider, isImageGenerationProviderUsable, isImageProviderUsable } from "../_shared/ai-compat.ts";
 import { getIntegrationSecret } from "../_shared/integration-secrets.ts";
@@ -68,6 +68,36 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+type ProductAiProvenancePatch = {
+  ai_image_generation_id?: string | null;
+  ai_image_generated_at?: string | null;
+  ai_price_generation_id?: string | null;
+  ai_price_generated_at?: string | null;
+};
+
+async function upsertProductAiProvenance(
+  client: SupabaseClient,
+  productId: string,
+  patch: ProductAiProvenancePatch,
+) {
+  const { data: existing, error: readError } = await client
+    .from("product_ai_provenance")
+    .select("ai_image_generation_id, ai_image_generated_at, ai_price_generation_id, ai_price_generated_at")
+    .eq("product_id", productId)
+    .maybeSingle();
+  if (readError) throw readError;
+
+  const { error: writeError } = await client
+    .from("product_ai_provenance")
+    .upsert({
+      product_id: productId,
+      ...(existing || {}),
+      ...patch,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "product_id" });
+  if (writeError) throw writeError;
 }
 
 async function aiProviderFailureResponse(response: Response, operation: string) {
@@ -762,14 +792,22 @@ ${imageListForAI || "No images found."}`
       }
 
       const suggestedPrice = Math.round(priceResult.suggested_price * 100) / 100;
-      const { error: updateError } = await adminClient.from("products").update({ base_price: suggestedPrice }).eq("id", productId);
+      const aiPriceGenerationId = crypto.randomUUID();
+      const { error: updateError } = await adminClient.from("products").update({
+        base_price: suggestedPrice,
+      }).eq("id", productId);
       if (updateError) throw updateError;
+      await upsertProductAiProvenance(adminClient, productId, {
+        ai_price_generation_id: aiPriceGenerationId,
+        ai_price_generated_at: new Date().toISOString(),
+      });
 
       return new Response(JSON.stringify({
         success: true,
         data: {
           updated: true,
           product_id: productId,
+          ai_price_generation_id: aiPriceGenerationId,
           previous_price: Number(product.base_price || 0),
           suggested_price: suggestedPrice,
           price_confidence: priceResult.price_confidence,
@@ -1008,6 +1046,7 @@ Luxury technology product display of the EXACT same physical product on a matte 
       if (row) savedResultId = row.id;
 
       let productUpdated = false;
+      let aiImageGenerationId: string | undefined;
       if (persistProduct === true && typeof productId === "string" && productId) {
         const { data: product, error: productReadError } = await adminClient
           .from("products")
@@ -1025,9 +1064,12 @@ Luxury technology product display of the EXACT same physical product on a matte 
         const existingImages = Array.isArray(product.images)
           ? product.images.filter((image): image is string => typeof image === "string" && image.length > 0)
           : [];
+        aiImageGenerationId = crypto.randomUUID();
         const { error: productUpdateError } = await adminClient
           .from("products")
-          .update({ images: [composedPublicUrl, ...existingImages.slice(1)] })
+          .update({
+            images: [composedPublicUrl, ...existingImages.slice(1)],
+          })
           .eq("id", productId);
         if (productUpdateError) {
           await adminClient.storage.from("product-images").remove([persistedImage.path]);
@@ -1037,6 +1079,10 @@ Luxury technology product display of the EXACT same physical product on a matte 
             error: "La imagen se generó, pero no se pudo actualizar el producto.",
           }, 500);
         }
+        await upsertProductAiProvenance(adminClient, productId, {
+          ai_image_generation_id: aiImageGenerationId,
+          ai_image_generated_at: new Date().toISOString(),
+        });
         productUpdated = true;
       }
 
@@ -1049,6 +1095,7 @@ Luxury technology product display of the EXACT same physical product on a matte 
           image_content_type: persistedImage.contentType,
           image_bytes: persistedImage.bytes,
           saved_result_id: savedResultId,
+          ai_image_generation_id: productUpdated ? aiImageGenerationId : undefined,
           product_updated: productUpdated,
           method: safeRetry === true ? "safe_retry" : "ai",
         },

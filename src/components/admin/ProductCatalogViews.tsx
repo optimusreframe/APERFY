@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { CircleDollarSign, ExternalLink, Image, MapPin, Package, Pencil, Star, Tag, Trash2 } from 'lucide-react';
+import { BadgeCheck, CircleDollarSign, ExternalLink, Image, MapPin, Package, Pencil, Star, Tag, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,11 +10,33 @@ import type { Category, Product } from '@/lib/model-types';
 import { optimizeImageUrl } from '@/lib/image-url';
 
 export type AdminProduct = Pick<Product, 'id' | 'brand' | 'name_en' | 'name_es' | 'description_en' | 'description_es' | 'allows_special_notes' | 'slug' | 'base_price' | 'venezuela_price_usd' | 'venezuela_price_mode' | 'venezuela_manual_mode' | 'venezuela_markup_percent' | 'condition_status' | 'seller_name' | 'return_policy_en' | 'return_policy_es' | 'return_window_days' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
+  ai_image_generation_id?: string | null;
+  ai_image_generated_at?: string | null;
+  ai_price_generation_id?: string | null;
+  ai_price_generated_at?: string | null;
   inventory_enabled: Product['inventory_enabled'];
   stock_quantity: Product['stock_quantity'];
   low_stock_threshold: Product['low_stock_threshold'];
   categories: Pick<Category, 'name_en' | 'name_es'> | null;
 };
+
+function AiProvenanceBadges({ product }: { product: AdminProduct }) {
+  if (!product.ai_image_generation_id && !product.ai_price_generation_id) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5" title="Metadatos internos de administración">
+      {product.ai_image_generation_id && (
+        <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-primary">
+          <BadgeCheck className="h-3 w-3" aria-hidden="true" /> Imagen AI
+        </span>
+      )}
+      {product.ai_price_generation_id && (
+        <span className="inline-flex items-center gap-1 rounded-full border border-sky-400/25 bg-sky-400/10 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-sky-300">
+          <BadgeCheck className="h-3 w-3" aria-hidden="true" /> Precio AI
+        </span>
+      )}
+    </div>
+  );
+}
 
 export type BulkField = 'name_es' | 'base_price' | 'category_id' | 'is_active';
 export type BulkValueMap = Pick<AdminProduct, BulkField>;
@@ -193,6 +215,7 @@ function ProductListView({ products, selectedProductIds, allProductsSelected, on
                   </span>
                 </div>
                 {product.brand && <p className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">{product.brand}</p>}
+                <div className="mt-1"><AiProvenanceBadges product={product} /></div>
                 <p className="mt-1 font-mono text-sm font-semibold text-primary">${Number(product.base_price).toFixed(2)}</p>
               </div>
             </div>
@@ -234,6 +257,7 @@ function ProductGridView({ products, selectedProductIds, onToggleSelected, onTog
                 </span>
               </div>
               {product.brand && <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{product.brand}</p>}
+              <div className="mt-1"><AiProvenanceBadges product={product} /></div>
               <p className="mt-1 font-mono text-sm font-semibold text-primary">${Number(product.base_price).toFixed(2)}</p>
             </div>
             <ProductActions product={product} compact onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />
@@ -305,6 +329,7 @@ export default function ProductCatalogViews(props: ProductCatalogViewsProps) {
                     <div className="flex flex-wrap gap-2 pt-1 text-[10px] font-mono uppercase tracking-wider">
                       <span className="rounded-full bg-primary/15 px-2 py-1 text-primary">{inspectedProduct.condition_status === 'used' ? 'Used' : 'New'}</span>
                       <span className={`rounded-full px-2 py-1 ${inspectedProduct.is_active ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground'}`}>{inspectedProduct.is_active ? 'Activo' : 'Oculto'}</span>
+                      <AiProvenanceBadges product={inspectedProduct} />
                     </div>
                   </DialogHeader>
                 </div>
@@ -329,6 +354,8 @@ export default function ProductCatalogViews(props: ProductCatalogViewsProps) {
                   <DetailLine label="Devoluciones" value={`${inspectedProduct.return_window_days || 0} días`} />
                   <DetailLine label="Precio Venezuela" value={inspectedProduct.venezuela_price_mode === 'manual' ? 'Manual' : 'Global'} />
                   <DetailLine label="Destacado" value={inspectedProduct.is_featured ? 'Sí' : 'No'} />
+                  <DetailLine label="Imagen AI · interno" value={inspectedProduct.ai_image_generation_id ? `Sí · ${inspectedProduct.ai_image_generated_at ? new Date(inspectedProduct.ai_image_generated_at).toLocaleDateString() : 'registrada'}` : 'No registrada'} />
+                  <DetailLine label="Precio AI · interno" value={inspectedProduct.ai_price_generation_id ? `Sí · ${inspectedProduct.ai_price_generated_at ? new Date(inspectedProduct.ai_price_generated_at).toLocaleDateString() : 'registrado'}` : 'No registrado'} />
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/70 pt-4">

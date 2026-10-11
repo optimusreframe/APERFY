@@ -270,6 +270,20 @@ function getMediaTypeFromUrl(url: string): 'image' | 'gif' | 'video' {
   return 'image';
 }
 
+// AI-generated media is persisted by the Edge Function in these private
+// storage folders. This marker is used only by admin workflows; it is never
+// sent to the storefront or included in public product projections.
+function isAiGeneratedProductImage(url: string): boolean {
+  return /\/generated-angles\//i.test(url)
+    || (/\/composed-results\//i.test(url) && !/-non_ai-/i.test(url));
+}
+
+function getAiImageGenerationId(urls: string[], fallback: string): string {
+  const generated = urls.find(isAiGeneratedProductImage);
+  if (!generated) return fallback;
+  return generated.split('/storage/v1/object/public/product-images/').pop()?.split('?')[0] || fallback;
+}
+
 // ── Media Thumbnail Component ──
 function MediaThumb({ item, onRemove, onDragStart, onDragOver, onDrop, index }: {
   item: MediaItem; onRemove: () => void;
@@ -469,6 +483,7 @@ export default function AdminProducts() {
   const [editAiBgMode, setEditAiBgMode] = useState<string>('system_workshop');
   const [editAiCustomBg, setEditAiCustomBg] = useState<string | null>(null);
   const [editAiGenerating, setEditAiGenerating] = useState(false);
+  const [editRepricing, setEditRepricing] = useState(false);
   const [editAiSourceSyncing, setEditAiSourceSyncing] = useState(false);
   const [editEnhancing, setEditEnhancing] = useState(false);
   const [editTranslating, setEditTranslating] = useState(false);
@@ -571,13 +586,23 @@ export default function AdminProducts() {
   const { data: products = [] } = useQuery({
     queryKey: ['admin-products'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('id, brand, name_en, name_es, slug, base_price, venezuela_price_usd, venezuela_price_mode, venezuela_manual_mode, venezuela_markup_percent, condition_status, seller_name, return_policy_en, return_policy_es, return_window_days, is_active, is_featured, category_id, images, created_at, description_en, description_es, allows_special_notes, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
-        .order('created_at', { ascending: false })
-        .limit(500);
-      if (error) throw error;
-      return data;
+      const [{ data: productRows, error: productsError }, { data: provenanceRows, error: provenanceError }] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, brand, name_en, name_es, slug, base_price, venezuela_price_usd, venezuela_price_mode, venezuela_manual_mode, venezuela_markup_percent, condition_status, seller_name, return_policy_en, return_policy_es, return_window_days, is_active, is_featured, category_id, images, created_at, description_en, description_es, allows_special_notes, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
+          .order('created_at', { ascending: false })
+          .limit(1000),
+        supabase
+          .from('product_ai_provenance')
+          .select('product_id, ai_image_generation_id, ai_image_generated_at, ai_price_generation_id, ai_price_generated_at'),
+      ]);
+      if (productsError) throw productsError;
+      if (provenanceError) throw provenanceError;
+      const provenanceByProduct = new Map((provenanceRows || []).map((row) => [row.product_id, row]));
+      return (productRows || []).map((product) => ({
+        ...product,
+        ...provenanceByProduct.get(product.id),
+      }));
     },
     staleTime: 30_000,
   });
@@ -772,8 +797,34 @@ export default function AdminProducts() {
             imageUrls.push(url);
           }
         }
+        const variationHasAiImage = productVariations.some((variation) => variation.images.some(isAiGeneratedProductImage));
+        const hasAiImage = imageUrls.some(isAiGeneratedProductImage) || variationHasAiImage;
         const { error: imageUpdateError } = await supabase.from('products').update({ images: imageUrls }).eq('id', productId);
         if (imageUpdateError) throw imageUpdateError;
+
+        const { data: existingProvenance, error: provenanceReadError } = await supabase
+          .from('product_ai_provenance')
+          .select('product_id, ai_image_generation_id, ai_image_generated_at')
+          .eq('product_id', productId)
+          .maybeSingle();
+        if (provenanceReadError) throw provenanceReadError;
+        if (hasAiImage) {
+          const imageMetadata = {
+            ai_image_generation_id: existingProvenance?.ai_image_generation_id || getAiImageGenerationId(imageUrls, `admin-ai-image-${productId}`),
+            ai_image_generated_at: existingProvenance?.ai_image_generated_at || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          const { error: provenanceError } = existingProvenance
+            ? await supabase.from('product_ai_provenance').update(imageMetadata).eq('product_id', productId)
+            : await supabase.from('product_ai_provenance').insert({ product_id: productId, ...imageMetadata });
+          if (provenanceError) throw provenanceError;
+        } else if (existingProvenance) {
+          const { error: provenanceError } = await supabase
+            .from('product_ai_provenance')
+            .update({ ai_image_generation_id: null, ai_image_generated_at: null, updated_at: new Date().toISOString() })
+            .eq('product_id', productId);
+          if (provenanceError) throw provenanceError;
+        }
       }
       // Save variations. Always reconcile the collection so deleting the last
       // variant also removes it from the database.
@@ -1054,11 +1105,58 @@ export default function AdminProducts() {
   const getProductImageUrls = (product: AdminProduct): string[] =>
     Array.isArray(product.images) ? product.images.filter((url): url is string => typeof url === 'string' && url.length > 0) : [];
 
+  const refreshProductPrice = async (productId: string) => {
+    const { data, error } = await supabase.functions.invoke('ai-product-import', {
+      body: { action: 'refresh_price', productId },
+    });
+    const priceData = data?.data as Record<string, unknown> | undefined;
+    if (error || !data?.success || !priceData?.updated) {
+      throw new Error(await getFunctionErrorMessage(error, data, 'No se encontró un precio de mercado verificable.'));
+    }
+    return priceData;
+  };
+
+  const handleEditReprice = async () => {
+    if (!editId || editRepricing) return;
+    setEditRepricing(true);
+    try {
+      const priceData = await refreshProductPrice(editId);
+      const suggestedPrice = Number(priceData.suggested_price);
+      if (!Number.isFinite(suggestedPrice) || suggestedPrice <= 0) throw new Error('La IA no devolvió un precio válido.');
+      setForm((current) => ({
+        ...current,
+        base_price: suggestedPrice,
+        venezuela_price_usd: calculateVenezuelaUsdPrice({
+          usaPrice: suggestedPrice,
+          mode: current.venezuela_price_mode,
+          manualMode: current.venezuela_manual_mode,
+          fixedPrice: current.venezuela_price_usd,
+          markupPercent: current.venezuela_markup_percent,
+          globalMarkupPercent: globalVenezuelaMarkupPercent,
+        }),
+      }));
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      toast({ title: '✓ Precio actualizado', description: 'El precio de mercado fue guardado y quedó identificado internamente como Precio AI.' });
+    } catch (error: unknown) {
+      toast({ title: 'No se pudo actualizar el precio', description: getErrorMessage(error), variant: 'destructive' });
+    } finally {
+      setEditRepricing(false);
+    }
+  };
+
   const runBulkAiOperation = async (kind: 'images' | 'reprice') => {
     if (bulkAiJob) return;
-    const targets = products.filter((product) => selectedProductIds.includes(product.id));
+    const selectedTargets = products.filter((product) => selectedProductIds.includes(product.id));
+    const targets = selectedTargets.length > 0
+      ? selectedTargets
+      : products.filter((product) => kind === 'images' ? !product.ai_image_generation_id : !product.ai_price_generation_id);
     if (targets.length === 0) {
-      toast({ title: 'Selecciona productos primero', description: `Marca uno o más productos para ${kind === 'images' ? 'regenerar imágenes' : 'hacer Reprice'}.`, variant: 'destructive' });
+      toast({
+        title: selectedTargets.length > 0 ? 'No hay productos para procesar' : 'Todo está actualizado',
+        description: selectedTargets.length > 0
+          ? 'La selección actual no contiene productos procesables.'
+          : `Todos los productos ya tienen ${kind === 'images' ? 'imagen AI registrada' : 'precio AI registrado'}.`,
+      });
       return;
     }
 
@@ -1112,10 +1210,7 @@ export default function AdminProducts() {
             }
           }
         } else {
-          const { data, error } = await supabase.functions.invoke('ai-product-import', {
-            body: { action: 'refresh_price', productId: product.id },
-          });
-          const priceData = data?.data as Record<string, unknown> | undefined;
+          const priceData = await refreshProductPrice(product.id);
           const priceResult: BulkRepriceResult = {
             name: productName,
             updated: Boolean(priceData?.updated),
@@ -1123,12 +1218,8 @@ export default function AdminProducts() {
             suggestedPrice: Number(priceData?.suggested_price) || undefined,
             confidence: typeof priceData?.price_confidence === 'string' ? priceData.price_confidence : undefined,
             references: parsePriceReferences(priceData?.price_references),
-            message: typeof data?.error === 'string' ? data.error : undefined,
           };
           setBulkAiJob((current) => current ? { ...current, repriceResults: [...current.repriceResults, priceResult] } : current);
-          if (error || !data?.success || !data.data?.updated) {
-            throw new Error(await getFunctionErrorMessage(error, data, 'No se encontró un precio de mercado verificable.'));
-          }
         }
         succeeded += 1;
       } catch (error: unknown) {
@@ -2021,7 +2112,7 @@ export default function AdminProducts() {
             onClick={() => void runBulkAiOperation('images')}
             disabled={Boolean(bulkAiJob)}
             className="min-h-11 flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10 sm:flex-none"
-            title="Regenera la imagen principal de los productos seleccionados usando el fondo APERFY"
+            title={selectedProductIds.length > 0 ? 'Regenera la imagen principal de los productos seleccionados usando el fondo APERFY' : 'Sin selección, regenera únicamente productos sin una imagen AI registrada'}
           >
             {bulkAiJob?.kind === 'images' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
             Regenerar imágenes
@@ -2032,7 +2123,7 @@ export default function AdminProducts() {
             onClick={() => void runBulkAiOperation('reprice')}
             disabled={Boolean(bulkAiJob)}
             className="min-h-11 flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10 sm:flex-none"
-            title="Busca precios en Amazon, Walmart, Best Buy y la web para actualizar el precio USA de los productos seleccionados"
+            title={selectedProductIds.length > 0 ? 'Busca precios de mercado para los productos seleccionados' : 'Sin selección, busca precios únicamente para productos sin Precio AI registrado'}
           >
             {bulkAiJob?.kind === 'reprice' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Reprice
@@ -2990,8 +3081,24 @@ export default function AdminProducts() {
                 {wizardStep === 2 && <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Precio USA (USD)</Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label>Precio USA (USD)</Label>
+                      {editId && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleEditReprice()}
+                          disabled={editRepricing}
+                          className="h-8 gap-1.5 border-primary/30 px-2 text-xs text-primary hover:bg-primary/10"
+                        >
+                          {editRepricing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                          {editRepricing ? 'Buscando…' : 'Generar Price'}
+                        </Button>
+                      )}
+                    </div>
                     <Input type="number" step="0.01" min="0" max="999999" value={form.base_price} onFocus={(e) => e.target.select()} onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} className="bg-secondary" required />
+                    {editId && <p className="text-[11px] text-muted-foreground">Actualiza el precio USA con referencias verificables y lo registra como metadato interno Precio AI.</p>}
                     {fieldErrors.base_price && <p className="text-xs text-destructive">{fieldErrors.base_price}</p>}
                   </div>
                   <div className="space-y-3 rounded-xl border border-primary/25 bg-primary/[0.04] p-4 md:col-span-2">
