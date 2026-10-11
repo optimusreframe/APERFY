@@ -7,6 +7,7 @@ const corsHeaders = {
 }
 
 const BCV_URL = 'https://www.bcv.org.ve/'
+const BCV_MIRROR_URL = 'https://bcv.today/api/v1/rate.json'
 const RATE_REFRESH_MS = 60 * 60 * 1000
 
 type PricingRegion = 'USA' | 'VENEZUELA'
@@ -50,9 +51,25 @@ export function parseBcvRate(html: string): number {
 }
 
 async function fetchBcvRate(): Promise<number> {
-  const response = await fetch(BCV_URL, { headers: { Accept: 'text/html' } })
-  if (!response.ok) throw new Error(`BCV returned ${response.status}`)
-  return parseBcvRate(await response.text())
+  try {
+    const response = await fetch(BCV_URL, {
+      headers: {
+        Accept: 'text/html,application/xhtml+xml',
+        'Accept-Language': 'es-VE,es;q=0.9,en;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (compatible; APERFY/1.0; +https://aperfy.kpwr.dev)',
+      },
+    })
+    if (!response.ok) throw new Error(`BCV returned ${response.status}`)
+    return parseBcvRate(await response.text())
+  } catch (primaryError) {
+    console.warn('Direct BCV page unavailable; trying the official-rate mirror', primaryError)
+    const mirrorResponse = await fetch(BCV_MIRROR_URL, { headers: { Accept: 'application/json' } })
+    if (!mirrorResponse.ok) throw primaryError
+    const mirrorPayload = await mirrorResponse.json() as { USD?: unknown }
+    const rate = Number(mirrorPayload.USD)
+    if (!Number.isFinite(rate) || rate <= 0) throw primaryError
+    return rate
+  }
 }
 
 async function getMode(admin: SupabaseClient): Promise<PricingMode> {
