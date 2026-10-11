@@ -34,6 +34,7 @@ describe('buildAiRequestBody', () => {
   it('only enables image generation for providers that declare that capability', () => {
     expect(isImageGenerationProviderUsable({ apiKey: 'sk-openai', provider: 'openai', model: 'gpt-image-1' })).toBe(true);
     expect(isImageGenerationProviderUsable({ apiKey: 'sk-gemini', provider: 'gemini', model: 'gemini-3.1-flash-image' })).toBe(true);
+    expect(isImageGenerationProviderUsable({ apiKey: 'sk-openrouter', provider: 'openrouter', model: 'openai/gpt-image-1' })).toBe(true);
     expect(isImageGenerationProviderUsable({ apiKey: 'sk-claude', provider: 'anthropic', model: 'claude-sonnet-4-6' })).toBe(false);
     expect(isImageGenerationProviderUsable({ apiKey: 'sk-custom', provider: 'my-gateway', model: 'image-model' })).toBe(true);
   });

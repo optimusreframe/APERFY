@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ExternalLink, Eye, KeyRound, Loader2, Plus, Save, Search, Sparkles, Trash2 } from 'lucide-react';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ExternalLink, Eye, KeyRound, Loader2, Plus, RefreshCw, Save, Search, Sparkles, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,8 @@ const KEYS = ['ai_provider', 'ai_model', 'ai_image_provider', 'ai_image_model', 
 type RoleKey = 'text' | 'vision' | 'image' | 'video';
 type Assignment = { provider: string; model: string; baseUrl?: string };
 type CustomProvider = Pick<AiProviderDefinition, 'id' | 'label' | 'description' | 'defaultBaseUrl' | 'modelPlaceholder'>;
+type ModelOption = { id: string; label: string; createdAt: number | null };
+type ModelCatalog = { provider: string; role: RoleKey; models: ModelOption[]; updatedAt: string };
 
 const ROLE_META: Record<RoleKey, { title: string; description: string; secret: 'text' | 'image' | 'video' }> = {
   text: { title: 'Texto y herramientas', description: 'Extracción, traducción, copy y acciones con funciones estructuradas.', secret: 'text' },
@@ -30,7 +32,9 @@ const ROLE_CAPABILITY: Record<RoleKey, AiCapability | null> = {
   video: null,
 };
 
-const IMAGE_GENERATION_GUIDANCE = 'La generación de imágenes necesita un proveedor cuyo modelo pueda devolver imágenes. Claude / Anthropic sirve para analizar fotos y texto, pero no genera imágenes en APERFY. Para esta función usa GPT / OpenAI, Gemini o un proveedor personalizado compatible con salida de imágenes.';
+const CONFIGURABLE_ROLES: RoleKey[] = ['text', 'vision', 'image'];
+
+const IMAGE_GENERATION_GUIDANCE = 'La generación de imágenes necesita un modelo con salida image. Claude / Anthropic sirve para analizar fotos y texto, pero no genera imágenes en APERFY. Puedes usar GPT / OpenAI, Gemini, OpenRouter con un modelo de imágenes o un proveedor personalizado compatible.';
 
 const emptyAssignments = (): Record<RoleKey, Assignment> => ({
   text: { provider: '', model: '' },
@@ -43,12 +47,13 @@ function providerOptions(customProviders: CustomProvider[]) {
   return [...AI_PROVIDERS, ...customProviders.map((item) => ({
     ...getAiProvider('openai-compatible'),
     ...item,
+    modelPlaceholder: item.modelPlaceholder || 'Seleccionar modelo disponible',
     protocol: 'openai-compatible' as const,
     docsUrl: '',
     keyUrl: '',
     modelExamples: [],
     capabilities: ['text', 'tools', 'vision', 'image-generation'] as AiProviderDefinition['capabilities'],
-    tutorial: [{ title: 'Proveedor personalizado', body: 'Usa la documentación de tu proveedor para confirmar el endpoint y el modelo.' }],
+    tutorial: [{ title: 'Proveedor personalizado', body: 'Usa la documentación de tu proveedor para confirmar el endpoint; después de guardar la clave APERFY intentará cargar su catálogo de modelos.' }],
   }))];
 }
 
@@ -77,7 +82,7 @@ export function AiProviderSetup({ embedded = false }: { embedded?: boolean } = {
   const [expandedRole, setExpandedRole] = useState<RoleKey | null>('text');
   const [searchEnabled, setSearchEnabled] = useState(false);
   const [discount, setDiscount] = useState('20');
-  const [newProvider, setNewProvider] = useState({ id: '', label: '', baseUrl: '', model: '' });
+  const [newProvider, setNewProvider] = useState({ id: '', label: '', baseUrl: '' });
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-ai-settings'],
@@ -134,8 +139,50 @@ export function AiProviderSetup({ embedded = false }: { embedded?: boolean } = {
 
   const options = useMemo(() => providerOptions(customProviders), [customProviders]);
   const keyStatus = integrationStatuses.some((status) => status.name === 'AI_PROVIDER_API_KEY' && status.configured);
-  const imageKeyStatus = integrationStatuses.some((status) => status.name === 'AI_IMAGE_PROVIDER_API_KEY' && status.configured);
+  const sharedImageProvider = assignments.image.provider || assignments.vision.provider;
+  const imageKeyStatus = integrationStatuses.some((status) => status.name === 'AI_IMAGE_PROVIDER_API_KEY' && status.configured)
+    || Boolean(keyStatus && assignments.text.provider && sharedImageProvider && assignments.text.provider.toLowerCase() === sharedImageProvider.toLowerCase());
   const videoKeyStatus = integrationStatuses.some((status) => status.name === 'AI_VIDEO_PROVIDER_API_KEY' && status.configured);
+
+  const credentialReadyForRole = (role: RoleKey) => role === 'text' ? keyStatus : role === 'video' ? videoKeyStatus : imageKeyStatus;
+  const modelQueries = useQueries({
+    queries: CONFIGURABLE_ROLES.map((role) => {
+      const assignment = assignments[role];
+      return {
+        queryKey: ['admin-ai-models', role, assignment.provider, assignment.baseUrl, credentialReadyForRole(role)],
+        queryFn: async (): Promise<ModelCatalog> => {
+          const { data: result, error } = await supabase.functions.invoke('ai-models', {
+            body: { role, provider: assignment.provider, baseUrl: assignment.baseUrl },
+          });
+          if (error) throw new Error(result?.error || error.message || 'No se pudo cargar el catálogo de modelos.');
+          if (!result?.models) throw new Error(result?.error || 'El proveedor no devolvió modelos disponibles.');
+          return result as ModelCatalog;
+        },
+        enabled: Boolean(ROLE_CAPABILITY[role] && assignment.provider && credentialReadyForRole(role)),
+        staleTime: 0,
+        retry: false,
+      };
+    }),
+  });
+  const modelCatalogSignature = modelQueries.map((query) => query.data ? `${query.data.updatedAt}:${query.data.models.map((model) => model.id).join(',')}` : '').join('|');
+
+  useEffect(() => {
+    if (!modelCatalogSignature) return;
+    setAssignments((current) => {
+      let changed = false;
+      const next = { ...current };
+      CONFIGURABLE_ROLES.forEach((role, index) => {
+        const catalog = modelQueries[index].data;
+        const assignment = next[role];
+        if (!catalog || !assignment.provider || catalog.models.length === 0) return;
+        if (!assignment.model || !catalog.models.some((model) => model.id === assignment.model)) {
+          next[role] = { ...assignment, model: catalog.models[0].id };
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, [modelCatalogSignature, modelQueries]);
 
   const updateRole = (role: RoleKey, patch: Partial<Assignment>) => setAssignments((current) => ({ ...current, [role]: { ...current[role], ...patch } }));
   const selectProvider = (role: RoleKey, provider: string) => {
@@ -149,18 +196,18 @@ export function AiProviderSetup({ embedded = false }: { embedded?: boolean } = {
       toast({ title: 'CAPACIDAD NO COMPATIBLE', description: `${definition.label} no declara soporte para ${ROLE_META[role].title.toLowerCase()}.`, variant: 'destructive' });
       return;
     }
-    updateRole(role, { provider, model: normalizeAiModel(provider, role === 'image' ? (definition.imageModelPlaceholder || definition.modelPlaceholder) : definition.modelPlaceholder), baseUrl: definition.defaultBaseUrl });
+    updateRole(role, { provider, model: '', baseUrl: definition.defaultBaseUrl });
   };
 
   const addCustomProvider = () => {
     const id = newProvider.id.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
-    if (!id || !newProvider.label.trim() || !newProvider.baseUrl.trim() || !newProvider.model.trim()) {
-      toast({ title: 'FALTAN DATOS', description: 'Completa identificador, nombre, base URL y modelo del proveedor.', variant: 'destructive' });
+    if (!id || !newProvider.label.trim() || !newProvider.baseUrl.trim()) {
+      toast({ title: 'FALTAN DATOS', description: 'Completa identificador, nombre y base URL del proveedor.', variant: 'destructive' });
       return;
     }
     if (options.some((item) => item.id === id)) { toast({ title: 'ID EN USO', description: 'Usa otro identificador para el proveedor.', variant: 'destructive' }); return; }
-    setCustomProviders((current) => [...current, { id, label: newProvider.label.trim(), description: 'Proveedor personalizado compatible con OpenAI.', defaultBaseUrl: newProvider.baseUrl.trim().replace(/\/$/, ''), modelPlaceholder: newProvider.model.trim() }]);
-    setNewProvider({ id: '', label: '', baseUrl: '', model: '' });
+    setCustomProviders((current) => [...current, { id, label: newProvider.label.trim(), description: 'Proveedor personalizado compatible con OpenAI.', defaultBaseUrl: newProvider.baseUrl.trim().replace(/\/$/, ''), modelPlaceholder: 'Seleccionar modelo disponible' }]);
+    setNewProvider({ id: '', label: '', baseUrl: '' });
     toast({ title: 'PROVEEDOR AÑADIDO', description: 'Ahora puedes asignarlo a una o más funciones.' });
   };
 
@@ -213,17 +260,20 @@ export function AiProviderSetup({ embedded = false }: { embedded?: boolean } = {
         const capability = ROLE_CAPABILITY[role];
         const availableOptions = options.filter((provider) => capability ? provider.capabilities.includes(capability) : false);
         const assigned = Boolean(assignment.provider && assignment.model);
-        const credentialReady = ROLE_META[role].secret === 'text' ? keyStatus : ROLE_META[role].secret === 'video' ? videoKeyStatus : imageKeyStatus;
+        const credentialReady = credentialReadyForRole(role);
+        const modelQuery = modelQueries[CONFIGURABLE_ROLES.indexOf(role)];
+        const models = modelQuery?.data?.models || [];
+        const modelQueryError = modelQuery?.error instanceof Error ? modelQuery.error.message : '';
         return <div key={role} className={`rounded-xl border p-4 transition ${assigned ? 'border-primary/30 bg-primary/[0.035]' : 'border-white/[0.08] bg-black/10'}`}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold">{ROLE_META[role].title}</h3><span className={`rounded-full px-2 py-1 text-[10px] font-mono uppercase ${assigned ? 'bg-primary/15 text-primary' : capability ? 'bg-white/10 text-muted-foreground' : 'bg-white/5 text-muted-foreground/70'}`}>{assigned ? definition.label : capability ? 'SIN ASIGNAR' : 'PRÓXIMAMENTE'}</span></div><p className="mt-1 text-xs leading-5 text-muted-foreground">{ROLE_META[role].description}</p></div><span className={`inline-flex w-fit items-center gap-1.5 text-[10px] font-mono uppercase ${credentialReady ? 'text-primary' : 'text-muted-foreground'}`}><KeyRound className="h-3 w-3" />{credentialReady ? 'CREDENCIAL LISTA' : capability ? 'CREDENCIAL PENDIENTE' : 'SIN ACCIÓN CONECTADA'}</span></div>
-          <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"><div className="space-y-2"><Label className="text-[11px] uppercase tracking-wider">Proveedor</Label><select aria-label={`Proveedor para ${ROLE_META[role].title}`} value={assignment.provider} onChange={(event) => selectProvider(role, event.target.value)} disabled={!capability} className="flex h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"><option value="">{capability ? 'Seleccionar proveedor compatible' : 'Video aún no disponible'}</option>{availableOptions.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}</select><p className="text-xs text-muted-foreground">{capability ? `${availableOptions.length} proveedor${availableOptions.length === 1 ? '' : 'es'} compatible${availableOptions.length === 1 ? '' : 's'}.` : 'APERFY todavía no tiene una acción de video generativo conectada.'}</p>{role === 'image' && <p className="rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-xs leading-5 text-amber-100/80">{IMAGE_GENERATION_GUIDANCE}</p>}</div><div className="space-y-2"><Label className="text-[11px] uppercase tracking-wider">Model ID</Label><Input aria-label={`Modelo para ${ROLE_META[role].title}`} value={assignment.model} onChange={(event) => updateRole(role, { model: event.target.value })} disabled={!capability} className="border-white/10 bg-black/20 disabled:cursor-not-allowed disabled:opacity-60" placeholder={role === 'image' ? (definition.imageModelPlaceholder || definition.modelPlaceholder) : definition.modelPlaceholder} /><p className="text-xs text-muted-foreground">{role === 'image' ? 'Usa el ID exacto del modelo de imágenes habilitado en tu cuenta.' : 'El modelo debe estar habilitado en la cuenta del proveedor.'}</p></div></div>
+          <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"><div className="space-y-2"><Label className="text-[11px] uppercase tracking-wider">Proveedor</Label><select aria-label={`Proveedor para ${ROLE_META[role].title}`} value={assignment.provider} onChange={(event) => selectProvider(role, event.target.value)} disabled={!capability} className="flex h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"><option value="">{capability ? 'Seleccionar proveedor compatible' : 'Video aún no disponible'}</option>{availableOptions.map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}</select><p className="text-xs text-muted-foreground">{capability ? `${availableOptions.length} proveedor${availableOptions.length === 1 ? '' : 'es'} compatible${availableOptions.length === 1 ? '' : 's'}.` : 'APERFY todavía no tiene una acción de video generativo conectada.'}</p>{role === 'image' && <p className="rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-xs leading-5 text-amber-100/80">{IMAGE_GENERATION_GUIDANCE}</p>}</div><div className="space-y-2"><div className="flex items-center justify-between gap-2"><Label className="text-[11px] uppercase tracking-wider">Modelo disponible</Label>{assignment.provider && credentialReady && <button type="button" onClick={() => void modelQuery?.refetch()} disabled={modelQuery?.isFetching} className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-primary disabled:opacity-50"><RefreshCw className={`h-3 w-3 ${modelQuery?.isFetching ? 'animate-spin' : ''}`} /> Actualizar</button>}</div><select aria-label={'Modelo para ' + ROLE_META[role].title} value={assignment.model} onChange={(event) => updateRole(role, { model: event.target.value })} disabled={!capability || !assignment.provider || !credentialReady || modelQuery?.isFetching || (models.length === 0 && !assignment.model)} className="flex h-10 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"><option value="">{modelQuery?.isFetching ? 'Cargando modelos…' : models.length ? 'Seleccionar modelo disponible' : 'No hay modelos disponibles'}</option>{assignment.model && !models.some((model) => model.id === assignment.model) && <option value={assignment.model}>{assignment.model} · guardado</option>}{models.map((model) => <option key={model.id} value={model.id}>{model.label}{model.id !== model.label ? ' · ' + model.id : ''}</option>)}</select><p className="text-xs text-muted-foreground">{modelQueryError ? <span className="text-amber-200">{modelQueryError} · usa Actualizar para reintentar.</span> : !credentialReady && assignment.provider ? 'La lista se carga después de guardar la credencial en AI Credentials.' : models.length ? models.length + ' modelos disponibles · ordenados del más reciente al más antiguo.' : 'La lista se consulta directamente al proveedor; no necesitas escribir el Model ID.'}</p></div></div>
           {assigned && <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.08] pt-3"><span className="text-[11px] text-muted-foreground">La guía corresponde a <span className="font-medium text-foreground">{definition.label}</span> para esta función.</span><button type="button" onClick={() => setExpandedRole((current) => current === role ? null : role)} className="text-[10px] font-mono uppercase tracking-wider text-primary hover:underline">{expandedRole === role ? 'Ocultar guía' : 'Ver guía'}</button></div>}
           {assigned && expandedRole === role && <SetupAssistant definition={definition} role={role} />}
         </div>;
       })}</div>
       <div className="mt-4 grid gap-2 text-[10px] font-mono uppercase sm:grid-cols-3"><span className={`rounded-full px-2 py-2 ${keyStatus ? 'bg-primary/15 text-primary' : 'bg-white/10 text-muted-foreground'}`}><span>{keyStatus ? 'READY' : 'NOT SET'}</span> · TEXTO</span><span className={`rounded-full px-2 py-2 ${imageKeyStatus ? 'bg-primary/15 text-primary' : 'bg-white/10 text-muted-foreground'}`}><span>{imageKeyStatus ? 'READY' : 'NOT SET'}</span> · VISIÓN / IMAGEN</span><span className={`rounded-full px-2 py-2 ${videoKeyStatus ? 'bg-primary/15 text-primary' : 'bg-white/10 text-muted-foreground'}`}><span>{videoKeyStatus ? 'READY' : 'NOT SET'}</span> · VIDEO</span></div>
     </AdminSurface>
-    <AdminSurface className="p-5 md:p-6"><div className="flex items-start gap-3 border-b border-white/[0.08] pb-5"><Plus className="h-5 w-5 text-primary" /><div><h2 className="font-semibold uppercase">AGREGAR PROVEEDOR</h2><p className="mt-1 text-sm text-muted-foreground">Añade cualquier gateway compatible con OpenAI sin modificar el código.</p></div></div><div className="mt-5 grid gap-3 md:grid-cols-4"><Input value={newProvider.id} onChange={(event) => setNewProvider((current) => ({ ...current, id: event.target.value }))} placeholder="id-interno" className="border-white/10 bg-black/20" /><Input value={newProvider.label} onChange={(event) => setNewProvider((current) => ({ ...current, label: event.target.value }))} placeholder="Nombre visible" className="border-white/10 bg-black/20" /><Input value={newProvider.baseUrl} onChange={(event) => setNewProvider((current) => ({ ...current, baseUrl: event.target.value }))} placeholder="https://gateway/v1" className="border-white/10 bg-black/20" /><Input value={newProvider.model} onChange={(event) => setNewProvider((current) => ({ ...current, model: event.target.value }))} placeholder="modelo recomendado" className="border-white/10 bg-black/20" /></div><Button type="button" variant="outline" onClick={addCustomProvider} className="mt-4 gap-2"><Plus className="h-4 w-4" /> AÑADIR A LA LISTA</Button>{customProviders.length > 0 && <div className="mt-4 space-y-2">{customProviders.map((provider) => <div key={provider.id} className="flex items-center justify-between rounded-lg border border-white/[0.08] px-3 py-2"><span className="text-sm">{provider.label} <code className="ml-2 text-xs text-muted-foreground">{provider.defaultBaseUrl}</code></span><button type="button" onClick={() => removeCustomProvider(provider.id)} className="text-muted-foreground hover:text-destructive" aria-label={`Eliminar ${provider.label}`}><Trash2 className="h-4 w-4" /></button></div>)}</div>}</AdminSurface>
+    <AdminSurface className="p-5 md:p-6"><div className="flex items-start gap-3 border-b border-white/[0.08] pb-5"><Plus className="h-5 w-5 text-primary" /><div><h2 className="font-semibold uppercase">AGREGAR PROVEEDOR</h2><p className="mt-1 text-sm text-muted-foreground">Añade cualquier gateway compatible con OpenAI. Sus modelos se cargarán desde el catálogo del proveedor.</p></div></div><div className="mt-5 grid gap-3 md:grid-cols-3"><Input value={newProvider.id} onChange={(event) => setNewProvider((current) => ({ ...current, id: event.target.value }))} placeholder="id-interno" className="border-white/10 bg-black/20" /><Input value={newProvider.label} onChange={(event) => setNewProvider((current) => ({ ...current, label: event.target.value }))} placeholder="Nombre visible" className="border-white/10 bg-black/20" /><Input value={newProvider.baseUrl} onChange={(event) => setNewProvider((current) => ({ ...current, baseUrl: event.target.value }))} placeholder="https://gateway/v1" className="border-white/10 bg-black/20" /></div><Button type="button" variant="outline" onClick={addCustomProvider} className="mt-4 gap-2"><Plus className="h-4 w-4" /> AÑADIR A LA LISTA</Button>{customProviders.length > 0 && <div className="mt-4 space-y-2">{customProviders.map((provider) => <div key={provider.id} className="flex items-center justify-between rounded-lg border border-white/[0.08] px-3 py-2"><span className="text-sm">{provider.label} <code className="ml-2 text-xs text-muted-foreground">{provider.defaultBaseUrl}</code></span><button type="button" onClick={() => removeCustomProvider(provider.id)} className="text-muted-foreground hover:text-destructive" aria-label={`Eliminar ${provider.label}`}><Trash2 className="h-4 w-4" /></button></div>)}</div>}</AdminSurface>
     <AdminSurface className="p-5 md:p-6"><div className="flex items-start gap-3"><Search className="mt-1 h-4 w-4 text-primary" /><div><h2 className="font-semibold uppercase">MARKET REFERENCE</h2><p className="mt-1 text-sm text-muted-foreground">Analiza fotos, identifica el producto y calcula una recomendación basada en el precio de mercado.</p></div></div><div className="mt-5 grid gap-4 md:grid-cols-[1fr_180px] md:items-end"><div className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-black/20 p-4"><div><p className="text-sm font-medium uppercase">BUSCAR REFERENCIAS</p><p className="mt-1 text-xs text-muted-foreground">ACTIVA LA BÚSQUEDA CUANDO EL API ESTÉ CONFIGURADO.</p></div><Switch checked={searchEnabled} onCheckedChange={setSearchEnabled} /></div><div className="space-y-2"><Label className="uppercase tracking-wider">DESCUENTO SUGERIDO (%)</Label><Input type="number" min="0" max="90" value={discount} onChange={e => setDiscount(e.target.value)} className="border-white/10 bg-black/20 font-mono text-primary" /></div></div></AdminSurface>
     <div className="flex items-center gap-2 text-xs text-muted-foreground"><Eye className="h-3.5 w-3.5" /> Las claves nunca se muestran ni se guardan en el navegador. Cada función puede usar un proveedor distinto.</div>
   </div>;

@@ -37,7 +37,7 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
     tutorial: [
       { title: "Crea el proyecto", body: "Entra a la plataforma de OpenAI, crea o selecciona un proyecto y abre API keys." },
       { title: "Genera la clave", body: "Crea una secret key y cópiala una sola vez. Guárdala en Integrations; APERFY nunca la muestra de vuelta." },
-      { title: "Elige el modelo", body: "Usa un modelo con herramientas para extracción y uno con visión si activas el proveedor de imágenes." },
+      { title: "Elige el modelo", body: "Después de guardar la clave, APERFY cargará los modelos disponibles para que elijas uno sin escribir su ID." },
     ],
   },
   {
@@ -72,7 +72,7 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
     tutorial: [
       { title: "Abre Google AI Studio", body: "En AI Studio entra a Get API key y selecciona un proyecto de Google Cloud." },
       { title: "Genera la clave", body: "Crea una API key y guárdala en Integrations. Gemini se autentica de forma segura en el servidor." },
-      { title: "Selecciona el modelo", body: "Escribe el nombre exacto del modelo habilitado en tu proyecto, por ejemplo gemini-2.5-flash." },
+      { title: "Selecciona el modelo", body: "Después de guardar la clave, APERFY cargará los modelos habilitados en tu proyecto y los ordenará del más reciente al más antiguo." },
     ],
   },
   {
@@ -89,7 +89,7 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
     tutorial: [
       { title: "Abre xAI Console", body: "Crea un proyecto en la consola de xAI y entra a la sección API keys." },
       { title: "Crea la clave", body: "Genera una clave para el proyecto y pégala en Integrations." },
-      { title: "Confirma el modelo", body: "Usa el model ID que aparece habilitado en tu consola. El base URL de xAI ya está preconfigurado." },
+      { title: "Confirma el modelo", body: "La lista se actualiza desde xAI y solo muestra los modelos disponibles para tu clave. El base URL ya está preconfigurado." },
     ],
   },
   {
@@ -112,18 +112,19 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
   {
     id: "openrouter",
     label: "OpenRouter",
-    description: "Un gateway para seleccionar modelos de muchos proveedores.",
+    description: "Gateway multi-proveedor para texto, herramientas, visión y generación nativa de imágenes.",
     protocol: "openai-compatible",
     defaultBaseUrl: "https://openrouter.ai/api/v1",
     docsUrl: "https://openrouter.ai/docs",
     keyUrl: "https://openrouter.ai/keys",
     modelPlaceholder: "anthropic/claude-sonnet-4.6",
-    modelExamples: ["anthropic/claude-sonnet-4.6", "google/gemini-2.5-flash"],
-    capabilities: ["text", "tools", "vision"],
+    imageModelPlaceholder: "openai/gpt-image-1",
+    modelExamples: ["anthropic/claude-sonnet-4.6", "google/gemini-2.5-flash", "openai/gpt-image-1"],
+    capabilities: ["text", "tools", "vision", "image-generation"],
     tutorial: [
-      { title: "Crea una key", body: "En OpenRouter abre Keys, crea una clave y define límites de gasto si quieres controlar el presupuesto." },
-      { title: "Pega la clave", body: "Guárdala en Integrations. OpenRouter será el único gateway que verá la credencial." },
-      { title: "Escribe el model ID", body: "Copia el identificador exacto que muestra el catálogo de OpenRouter, incluyendo el prefijo del proveedor." },
+      { title: "Crea una key", body: "En OpenRouter abre Keys, crea una clave y define límites de gasto para controlar el presupuesto." },
+      { title: "Pega la clave una vez por grupo", body: "Puedes reutilizar la misma clave para texto, visión e imágenes. APERFY la guarda en Vault y nunca la expone." },
+      { title: "Elige el modelo exacto", body: "APERFY consulta el catálogo de OpenRouter. Para imágenes solo muestra modelos con salida image; para texto y visión filtra sus modalidades automáticamente." },
     ],
   },
   {

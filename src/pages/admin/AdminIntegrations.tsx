@@ -97,6 +97,7 @@ export default function AdminIntegrations() {
   const selectedImageProvider = selectedImageProviderId ? customProviderLabels.get(selectedImageProviderId) || getAiProvider(selectedImageProviderId) : undefined
   const hasTextAssignment = Boolean(assignments.text?.provider)
   const hasImageAssignment = Boolean(assignments.image?.provider || assignments.vision?.provider)
+  const canReuseTextCredential = Boolean(hasTextAssignment && hasImageAssignment && selectedProviderId && selectedImageProviderId && selectedProviderId.toLowerCase() === selectedImageProviderId.toLowerCase() && statuses.some((status) => status.name === 'AI_PROVIDER_API_KEY' && status.configured))
   const hasPendingValues = Object.values(values).some((value) => Boolean(value?.trim()))
 
   const fieldLabel = (field: typeof FIELDS[number]) => {
@@ -117,12 +118,13 @@ export default function AdminIntegrations() {
 
   const fieldRequired = (field: typeof FIELDS[number]) => {
     if (field.key === 'AI_PROVIDER_API_KEY') return hasTextAssignment
-    if (field.key === 'AI_IMAGE_PROVIDER_API_KEY') return hasImageAssignment
+    if (field.key === 'AI_IMAGE_PROVIDER_API_KEY') return hasImageAssignment && !canReuseTextCredential
     return false
   }
 
   const fieldStatus = (field: typeof FIELDS[number], configured: boolean) => {
     if (configured) return 'GUARDADO EN VAULT'
+    if (field.key === 'AI_IMAGE_PROVIDER_API_KEY' && canReuseTextCredential) return 'USA CLAVE DE TEXTO'
     return fieldRequired(field) ? 'FALTA CONFIGURAR' : 'OPCIONAL'
   }
 
@@ -131,7 +133,14 @@ export default function AdminIntegrations() {
       const configured = isConfigured(field.key)
       const shown = visible[field.key] === true
       const status = fieldStatus(field, configured)
-      return <div key={field.key} className="space-y-2"><div className="flex items-center justify-between gap-3"><Label className="uppercase tracking-wider">{fieldLabel(field)}</Label><span className={`shrink-0 font-mono text-[10px] uppercase ${configured ? 'text-primary' : fieldRequired(field) ? 'text-amber-300' : 'text-muted-foreground'}`}>{status}</span></div><div className="relative"><Input type={shown ? 'text' : 'password'} value={values[field.key] ?? ''} onChange={(event) => { setSaveError(''); setValues((current) => ({ ...current, [field.key]: event.target.value })) }} placeholder={configured ? 'Guardado en Vault · deja vacío para conservar' : fieldPlaceholder(field)} className="border-white/10 bg-black/20 pr-10" autoComplete="new-password" /><button type="button" aria-label={shown ? 'Ocultar valor' : 'Mostrar valor'} onClick={() => setVisible((current) => ({ ...current, [field.key]: !shown }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div><p className="text-xs leading-5 text-muted-foreground">{configured ? 'Existe en Vault y no se muestra por seguridad. Déjalo vacío para conservarlo; escribe uno nuevo para reemplazarlo.' : fieldRequired(field) ? 'Este proveedor está asignado a una función activa. Pega aquí su credencial para habilitarla.' : 'No es necesario configurarlo mientras ninguna función lo utilice.'}</p></div>
+      const helper = configured
+        ? 'Existe en Vault y no se muestra por seguridad. Déjalo vacío para conservarlo; escribe uno nuevo para reemplazarlo.'
+        : field.key === 'AI_IMAGE_PROVIDER_API_KEY' && canReuseTextCredential
+          ? 'El proveedor de visión / imágenes coincide con el de texto. APERFY reutilizará la clave de texto de forma segura.'
+          : fieldRequired(field)
+            ? 'Este proveedor está asignado a una función activa. Pega aquí su credencial para habilitarla.'
+            : 'No es necesario configurarlo mientras ninguna función lo utilice.'
+      return <div key={field.key} className="space-y-2"><div className="flex items-center justify-between gap-3"><Label className="uppercase tracking-wider">{fieldLabel(field)}</Label><span className={`shrink-0 font-mono text-[10px] uppercase ${configured || (field.key === 'AI_IMAGE_PROVIDER_API_KEY' && canReuseTextCredential) ? 'text-primary' : fieldRequired(field) ? 'text-amber-300' : 'text-muted-foreground'}`}>{status}</span></div><div className="relative"><Input type={shown ? 'text' : 'password'} value={values[field.key] ?? ''} onChange={(event) => { setSaveError(''); setValues((current) => ({ ...current, [field.key]: event.target.value })) }} placeholder={configured ? 'Guardado en Vault · deja vacío para conservar' : fieldPlaceholder(field)} className="border-white/10 bg-black/20 pr-10" autoComplete="new-password" /><button type="button" aria-label={shown ? 'Ocultar valor' : 'Mostrar valor'} onClick={() => setVisible((current) => ({ ...current, [field.key]: !shown }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div><p className="text-xs leading-5 text-muted-foreground">{helper}</p></div>
     })}
   </div>
 

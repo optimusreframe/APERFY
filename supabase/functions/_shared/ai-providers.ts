@@ -60,10 +60,10 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
   {
     id: "openrouter",
     label: "OpenRouter",
-    description: "Acceso a múltiples modelos mediante una sola API compatible.",
+    description: "Acceso a múltiples modelos mediante una sola API, incluyendo generación nativa de imágenes.",
     protocol: "openai-compatible",
     defaultBaseUrl: "https://openrouter.ai/api/v1",
-    capabilities: ["text", "tools", "vision"],
+    capabilities: ["text", "tools", "vision", "image-generation"],
   },
   {
     id: "deepseek",

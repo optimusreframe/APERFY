@@ -73,6 +73,9 @@ function normalizeBaseUrl(value: string, protocol: AiConfig['protocol']): string
         break
       }
     }
+    if (protocol === 'openai-compatible' && url.pathname.endsWith('/images')) {
+      url.pathname = url.pathname.slice(0, -'/images'.length).replace(/\/+$/, '') || '/'
+    }
     return url.toString().replace(/\/$/, '')
   } catch {
     // Keep custom gateway strings intact; fetch will return a useful provider
@@ -91,16 +94,33 @@ async function loadConfig(
   envProviderKey: string,
   envModelKey: string,
 ): Promise<AiConfig | null> {
-  const apiKey = await getIntegrationSecret(adminClient, keyName)
-  if (!apiKey) return null
-
   const settings = await loadSettings(adminClient)
   const assignments = parseAssignments(setting(settings, 'ai_provider_assignments'))
   const assigned = assignments[role] || (role === 'vision' ? assignments.image : undefined)
   const provider = assigned?.provider || setting(settings, legacyProviderKey) || Deno.env.get(envProviderKey) || 'openai-compatible'
   const model = assigned?.model || setting(settings, legacyModelKey) || Deno.env.get(envModelKey) || (role === 'text' ? 'gpt-4o-mini' : '')
   const providerDefinition = getAiProvider(provider)
-  const baseUrl = await getIntegrationSecret(adminClient, baseUrlSecretName)
+  let apiKey = await getIntegrationSecret(adminClient, keyName)
+
+  // A provider key is independent from a role assignment. When the same
+  // provider is assigned to text plus vision/image, allow the operator to
+  // save the key once in the text credential slot and reuse it server-side.
+  // Different providers never share credentials implicitly.
+  if (!apiKey && (role === 'vision' || role === 'image')) {
+    const textProvider = assignments.text?.provider || setting(settings, 'ai_provider') || Deno.env.get('AI_PROVIDER') || ''
+    if (textProvider.trim().toLowerCase() === provider.trim().toLowerCase()) {
+      apiKey = await getIntegrationSecret(adminClient, 'AI_PROVIDER_API_KEY')
+    }
+  }
+  if (!apiKey) return null
+
+  let baseUrl = await getIntegrationSecret(adminClient, baseUrlSecretName)
+  if (!baseUrl && (role === 'vision' || role === 'image')) {
+    const textProvider = assignments.text?.provider || setting(settings, 'ai_provider') || Deno.env.get('AI_PROVIDER') || ''
+    if (textProvider.trim().toLowerCase() === provider.trim().toLowerCase()) {
+      baseUrl = await getIntegrationSecret(adminClient, 'AI_PROVIDER_BASE_URL')
+    }
+  }
   const modelId = normalizeAiModel(provider, model)
 
   return {
@@ -351,8 +371,80 @@ function normalizeOpenAiResponses(payload: Record<string, unknown>) {
   }
 }
 
+function openRouterImageRequestBody(body: Record<string, unknown>) {
+  const messages = Array.isArray(body.messages) ? body.messages as Array<Record<string, unknown>> : []
+  const promptParts: string[] = []
+  const inputReferences: Array<Record<string, unknown>> = []
+
+  for (const message of messages) {
+    const role = String(message.role || 'user')
+    const content = message.content
+    if (typeof content === 'string' && content.trim()) {
+      promptParts.push(role === 'system' ? `System instructions:\n${content.trim()}` : content.trim())
+      continue
+    }
+    if (!Array.isArray(content)) continue
+    for (const part of content as Array<Record<string, unknown>>) {
+      if (part.type === 'text' && typeof part.text === 'string' && part.text.trim()) {
+        promptParts.push(role === 'system' ? `System instructions:\n${part.text.trim()}` : part.text.trim())
+      }
+      if (part.type === 'image_url') {
+        const imageUrl = String((part.image_url as Record<string, unknown> | undefined)?.url || '')
+        if (imageUrl) {
+          inputReferences.push({ type: 'image_url', image_url: { url: imageUrl } })
+        }
+      }
+    }
+  }
+
+  const result: Record<string, unknown> = {
+    model: String(body.model || ''),
+    prompt: promptParts.join('\n\n').trim() || 'Generate a professional ecommerce product image.',
+  }
+  if (inputReferences.length) result.input_references = inputReferences
+
+  // Preserve optional image controls when a caller provides them. The admin
+  // workflows currently use the defaults, but this keeps the native adapter
+  // useful for future aspect-ratio and quality controls.
+  for (const key of ['n', 'size', 'resolution', 'aspect_ratio', 'quality', 'output_format', 'background', 'output_compression', 'seed']) {
+    if (body[key] !== undefined) result[key] = body[key]
+  }
+  return result
+}
+
+function normalizeOpenRouterImage(payload: Record<string, unknown>) {
+  const data = Array.isArray(payload.data) ? payload.data as Array<Record<string, unknown>> : []
+  const first = data[0] || {}
+  const encoded = typeof first.b64_json === 'string' ? first.b64_json : ''
+  const mediaType = typeof first.media_type === 'string' && first.media_type.startsWith('image/') ? first.media_type : 'image/png'
+  const directUrl = typeof first.url === 'string' ? first.url : ''
+  const imageUrl = encoded ? `data:${mediaType};base64,${encoded}` : directUrl
+
+  return {
+    choices: [{
+      index: 0,
+      message: {
+        role: 'assistant',
+        content: '',
+        ...(imageUrl ? { images: [{ type: 'image_url', image_url: { url: imageUrl } }] } : {}),
+      },
+      finish_reason: imageUrl ? 'stop' : 'length',
+    }],
+    ...(payload.usage ? { usage: payload.usage } : {}),
+  }
+}
+
 export async function callAi(config: AiConfig, body: Record<string, unknown>): Promise<Response> {
   if (config.protocol === 'openai-compatible') {
+    if (config.provider.trim().toLowerCase() === 'openrouter' && isImageGenerationRequest(body)) {
+      const upstream = await fetch(`${config.baseUrl}/images`, {
+        method: 'POST',
+        headers: aiHeaders(config),
+        body: JSON.stringify(openRouterImageRequestBody(body)),
+      })
+      if (!upstream.ok) return responseFromPayload(await errorPayload(upstream, 'OpenRouter image generation failed'), upstream.status)
+      return responseFromPayload(normalizeOpenRouterImage(await upstream.json()))
+    }
     if (config.provider === 'openai' && isImageGenerationRequest(body)) {
       const upstream = await fetch(`${config.baseUrl}/responses`, {
         method: 'POST',

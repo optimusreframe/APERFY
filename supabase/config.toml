@@ -23,3 +23,5 @@ project_id = "xftxyvgplghnelawkhvl"
     verify_jwt = false
   [functions.create-regional-order]
     verify_jwt = true
+  [functions.ai-models]
+    verify_jwt = true

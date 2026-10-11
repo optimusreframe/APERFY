@@ -24,10 +24,20 @@ vi.mock('@/integrations/supabase/client', () => ({
       }),
     }),
     functions: {
-      invoke: async () => ({
-        data: { statuses: [{ name: 'AI_PROVIDER_API_KEY', configured: true }, { name: 'AI_IMAGE_PROVIDER_API_KEY', configured: true }] },
-        error: null,
-      }),
+      invoke: async (_name: string, options?: { body?: { provider?: string; role?: string } }) => {
+        if (options?.body?.provider) {
+          const models = options.body.provider === 'deepseek'
+            ? [{ id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', createdAt: 3 }]
+            : options.body.provider === 'openai-compatible'
+              ? [{ id: 'vision-image-model', label: 'Vision Image Model', createdAt: 2 }]
+              : [{ id: 'gpt-4o-mini', label: 'GPT-4o mini', createdAt: 1 }];
+          return { data: { provider: options.body.provider, role: options.body.role, models, updatedAt: '2026-10-11T00:00:00.000Z' }, error: null };
+        }
+        return {
+          data: { statuses: [{ name: 'AI_PROVIDER_API_KEY', configured: true }, { name: 'AI_IMAGE_PROVIDER_API_KEY', configured: true }] },
+          error: null,
+        };
+      },
     },
   },
 }));
@@ -49,14 +59,15 @@ describe('AdminAISettings', () => {
     );
 
     const provider = await screen.findByLabelText('Proveedor para Texto y herramientas');
-    const model = await screen.findByDisplayValue('gpt-4o-mini');
+    const model = await screen.findByLabelText('Modelo para Texto y herramientas');
+    await waitFor(() => expect(model).toHaveValue('gpt-4o-mini'));
 
     fireEvent.change(provider, { target: { value: 'deepseek' } });
     fireEvent.change(model, { target: { value: 'deepseek-v4-flash' } });
 
     await waitFor(() => {
       expect(provider).toHaveValue('deepseek');
-      expect(screen.getByDisplayValue('deepseek-v4-flash')).toBeInTheDocument();
+      expect(model).toHaveValue('deepseek-v4-flash');
       expect(screen.getAllByText('READY').length).toBeGreaterThanOrEqual(1);
     });
   });
@@ -93,6 +104,7 @@ describe('AdminAISettings', () => {
 
     expect(imageOptions).toContain('GPT / OpenAI');
     expect(imageOptions).toContain('Gemini / Google');
+    expect(imageOptions).toContain('OpenRouter');
     expect(imageOptions).not.toContain('Claude / Anthropic');
     expect(screen.getByText(/Claude \/ Anthropic sirve para analizar fotos y texto/)).toBeInTheDocument();
   });
