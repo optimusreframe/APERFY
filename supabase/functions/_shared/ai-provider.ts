@@ -79,7 +79,10 @@ async function loadConfig(
 
   return {
     apiKey,
-    baseUrl: (baseUrl || assigned?.baseUrl || providerDefinition.defaultBaseUrl).replace(/\/$/, ''),
+    // A saved assignment carries the provider-specific endpoint. Prefer it over
+    // the legacy shared secret so switching from OpenAI to a native provider
+    // cannot accidentally keep the previous provider's base URL.
+    baseUrl: (assigned?.baseUrl || baseUrl || providerDefinition.defaultBaseUrl).replace(/\/$/, ''),
     model,
     provider,
     protocol: providerDefinition.protocol,
@@ -153,34 +156,106 @@ function toAnthropicBody(body: Record<string, unknown>) {
   return { model: body.model, max_tokens: body.max_tokens || 4096, ...(system ? { system } : {}), messages: convertedMessages, ...(tools?.length ? { tools, ...(anthropicChoice ? { tool_choice: anthropicChoice } : {}) } : {}) }
 }
 
-function openAiContentToGemini(content: unknown): Array<Record<string, unknown>> {
+function isUnsafeRemoteImageUrl(value: string) {
+  try {
+    const parsed = new URL(value)
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    if (parsed.protocol !== 'https:') return true
+    if (hostname === 'localhost' || hostname.endsWith('.local') || hostname === '169.254.169.254' || hostname === '::1') return true
+    if (/^(10\.|127\.)/.test(hostname) || /^192\.168\./.test(hostname) || /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)) return true
+    if (/^(fc|fd|fe80:)/i.test(hostname)) return true
+    return false
+  } catch {
+    return true
+  }
+}
+
+async function remoteImageToGeminiPart(url: string): Promise<Record<string, unknown>> {
+  if (isUnsafeRemoteImageUrl(url)) throw new Error('Gemini solo acepta imágenes remotas HTTPS públicas.')
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8_000)
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+    if (!response.ok) throw new Error(`No se pudo descargar la imagen para Gemini (${response.status}).`)
+    const mimeType = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+    if (!mimeType.startsWith('image/')) throw new Error('La URL no devolvió un archivo de imagen válido.')
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    if (bytes.byteLength > 6_000_000) throw new Error('La imagen es demasiado grande para enviarla a Gemini.')
+    let binary = ''
+    for (let index = 0; index < bytes.length; index += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000))
+    }
+    return { inline_data: { mime_type: mimeType, data: btoa(binary) } }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+async function openAiContentToGemini(content: unknown): Promise<Array<Record<string, unknown>>> {
   if (typeof content === 'string') return [{ text: content }]
   if (!Array.isArray(content)) return [{ text: String(content || '') }]
-  return content.map((part) => {
+  return Promise.all(content.map(async (part) => {
     const item = part as Record<string, unknown>
     if (item.type === 'text') return { text: String(item.text || '') }
     if (item.type === 'image_url') {
       const url = String((item.image_url as Record<string, unknown> | undefined)?.url || '')
       const match = /^data:([^;]+);base64,(.+)$/.exec(url)
       if (match) return { inline_data: { mime_type: match[1], data: match[2] } }
-      return { file_data: { mime_type: 'image/*', file_uri: url } }
+      return remoteImageToGeminiPart(url)
+    }
+    return item
+  }))
+}
+
+function openAiContentToResponses(content: unknown): Array<Record<string, unknown>> {
+  if (typeof content === 'string') return [{ type: 'input_text', text: content }]
+  if (!Array.isArray(content)) return [{ type: 'input_text', text: String(content || '') }]
+  return content.map((part) => {
+    const item = part as Record<string, unknown>
+    if (item.type === 'text') return { type: 'input_text', text: String(item.text || '') }
+    if (item.type === 'image_url') {
+      const url = String((item.image_url as Record<string, unknown> | undefined)?.url || '')
+      return { type: 'input_image', image_url: url, detail: 'auto' }
     }
     return item
   })
 }
 
-function toGeminiBody(body: Record<string, unknown>) {
+function normalizeGeminiSchema(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeGeminiSchema)
+  if (!value || typeof value !== 'object') return value
+
+  const source = value as Record<string, unknown>
+  const normalized: Record<string, unknown> = {}
+  for (const [key, entry] of Object.entries(source)) {
+    if (key === 'additionalProperties') continue
+    if (key === 'type' && typeof entry === 'string') {
+      normalized[key] = entry.toUpperCase()
+    } else if (key === 'properties' && entry && typeof entry === 'object') {
+      normalized[key] = Object.fromEntries(Object.entries(entry as Record<string, unknown>).map(([name, schema]) => [name, normalizeGeminiSchema(schema)]))
+    } else {
+      normalized[key] = normalizeGeminiSchema(entry)
+    }
+  }
+  return normalized
+}
+
+async function toGeminiBody(body: Record<string, unknown>) {
   const messages = Array.isArray(body.messages) ? body.messages as Array<Record<string, unknown>> : []
   const systemMessages = messages.filter((message) => message.role === 'system')
-  const contents = messages.filter((message) => message.role !== 'system').map((message) => ({ role: message.role === 'assistant' ? 'model' : 'user', parts: openAiContentToGemini(message.content) }))
-  const tools = Array.isArray(body.tools) ? [{ function_declarations: (body.tools as Array<Record<string, unknown>>).map((tool) => {
+  const contents = await Promise.all(messages.filter((message) => message.role !== 'system').map(async (message) => ({ role: message.role === 'assistant' ? 'model' : 'user', parts: await openAiContentToGemini(message.content) })))
+  const declarations = Array.isArray(body.tools) ? (body.tools as Array<Record<string, unknown>>).map((tool) => {
     const fn = (tool.function || {}) as Record<string, unknown>
-    return { name: fn.name, description: fn.description, parameters: fn.parameters || { type: 'OBJECT' } }
-  }) }] : undefined
+    return { name: fn.name, description: fn.description, parameters: normalizeGeminiSchema(fn.parameters || { type: 'OBJECT' }) }
+  }) : []
+  const tools = declarations.length ? [{ function_declarations: declarations }] : undefined
   const choice = body.tool_choice as Record<string, unknown> | undefined
   const choiceFn = choice?.function as Record<string, unknown> | undefined
-  const functionCallingConfig = choiceFn?.name ? { mode: 'ANY', allowed_function_names: [String(choiceFn.name)] } : undefined
-  return { ...(systemMessages.length ? { systemInstruction: { parts: [{ text: systemMessages.map((message) => String(message.content || '')).join('\n\n') }] } } : {}), contents, ...(tools ? { tools, ...(functionCallingConfig ? { toolConfig: { functionCallingConfig } } : {}) } : {}) }
+  const functionCallingConfig = choiceFn?.name ? { mode: 'ANY', allowedFunctionNames: [String(choiceFn.name)] } : undefined
+  const generationConfig = isImageGenerationRequest(body)
+    ? { responseModalities: ['TEXT', 'IMAGE'] }
+    : undefined
+  return { ...(systemMessages.length ? { systemInstruction: { parts: [{ text: systemMessages.map((message) => String(message.content || '')).join('\n\n') }] } } : {}), contents, ...(generationConfig ? { generationConfig } : {}), ...(tools ? { tools, ...(functionCallingConfig ? { toolConfig: { functionCallingConfig } } : {}) } : {}) }
 }
 
 function normalizeAnthropicResponse(payload: Record<string, unknown>) {
@@ -194,19 +269,77 @@ function normalizeGeminiResponse(payload: Record<string, unknown>) {
   const candidate = (payload.candidates as Array<Record<string, unknown>> | undefined)?.[0]
   const parts = ((candidate?.content as Record<string, unknown> | undefined)?.parts || []) as Array<Record<string, unknown>>
   const text = parts.filter((part) => typeof part.text === 'string').map((part) => String(part.text)).join('')
+  const imagePart = parts.find((part) => part.inlineData || part.inline_data) as Record<string, unknown> | undefined
+  const imageData = (imagePart?.inlineData || imagePart?.inline_data) as Record<string, unknown> | undefined
+  const imageBase64 = typeof imageData?.data === 'string' ? imageData.data : undefined
+  const imageMime = String(imageData?.mimeType || imageData?.mime_type || 'image/png')
   const toolCalls = parts.filter((part) => part.functionCall).map((part, index) => {
     const call = part.functionCall as Record<string, unknown>
     return { id: `gemini_${index}`, type: 'function', function: { name: String(call.name || ''), arguments: JSON.stringify(call.args || {}) } }
   })
-  return { choices: [{ index: 0, message: { role: 'assistant', content: text, ...(toolCalls.length ? { tool_calls: toolCalls } : {}) }, finish_reason: candidate?.finishReason || 'STOP' }], usage: payload.usageMetadata }
+  return { choices: [{ index: 0, message: { role: 'assistant', content: text, ...(imageBase64 ? { images: [{ type: 'image_url', image_url: { url: `data:${imageMime};base64,${imageBase64}` } }] } : {}), ...(toolCalls.length ? { tool_calls: toolCalls } : {}) }, finish_reason: candidate?.finishReason || 'STOP' }], usage: payload.usageMetadata }
+}
+
+function isImageGenerationRequest(body: Record<string, unknown>) {
+  return Array.isArray(body.modalities) && (body.modalities as unknown[]).includes('image')
+}
+
+function toOpenAiResponsesBody(config: AiConfig, body: Record<string, unknown>) {
+  const messages = Array.isArray(body.messages) ? body.messages as Array<Record<string, unknown>> : []
+  const input = messages.map((message) => ({
+    role: message.role === 'system' ? 'developer' : message.role === 'assistant' ? 'assistant' : 'user',
+    content: openAiContentToResponses(message.content),
+  }))
+  const configuredModel = String(body.model || config.model)
+  // OpenAI's image tool is attached to a mainline Responses model. If an
+  // operator entered a GPT Image model ID, keep it as the tool model and use
+  // the documented mainline default for the orchestration model.
+  const imageModel = /^gpt-image/i.test(configuredModel) ? configuredModel : undefined
+  const mainModel = (imageModel || /^gpt-4/i.test(configuredModel)) ? 'gpt-5' : configuredModel
+  return {
+    model: mainModel,
+    input,
+    tools: [{ type: 'image_generation', ...(imageModel ? { model: imageModel } : {}) }],
+  }
+}
+
+function normalizeOpenAiResponses(payload: Record<string, unknown>) {
+  const outputs = Array.isArray(payload.output) ? payload.output as Array<Record<string, unknown>> : []
+  const imageCall = outputs.find((item) => item.type === 'image_generation_call' && typeof item.result === 'string')
+  const result = imageCall?.result as string | undefined
+  const imageUrl = result
+    ? (result.startsWith('data:image') ? result : `data:image/png;base64,${result}`)
+    : undefined
+  const outputText = typeof payload.output_text === 'string' ? payload.output_text : ''
+  return {
+    choices: [{
+      index: 0,
+      message: {
+        role: 'assistant',
+        content: outputText,
+        ...(imageUrl ? { images: [{ type: 'image_url', image_url: { url: imageUrl } }] } : {}),
+      },
+      finish_reason: imageUrl ? 'stop' : 'length',
+    }],
+    usage: payload.usage,
+  }
 }
 
 export async function callAi(config: AiConfig, body: Record<string, unknown>): Promise<Response> {
   if (config.protocol === 'openai-compatible') {
+    if (config.provider === 'openai' && isImageGenerationRequest(body)) {
+      const upstream = await fetch(`${config.baseUrl}/responses`, {
+        method: 'POST',
+        headers: aiHeaders(config),
+        body: JSON.stringify(toOpenAiResponsesBody(config, body)),
+      })
+      if (!upstream.ok) return responseFromPayload(await errorPayload(upstream, 'OpenAI image generation failed'), upstream.status)
+      return responseFromPayload(normalizeOpenAiResponses(await upstream.json()))
+    }
     return fetch(aiChatCompletionsUrl(config), { method: 'POST', headers: aiHeaders(config), body: JSON.stringify(body) })
   }
 
-  if (Array.isArray(body.modalities) && (body.modalities as unknown[]).includes('image')) {
+  if (config.protocol === 'anthropic-messages' && isImageGenerationRequest(body)) {
     return responseFromPayload({ error: { message: `${config.provider} no soporta generación de imágenes en APERFY. Asigna un proveedor con capacidad de imagen.` } }, 422)
   }
 
@@ -216,8 +349,11 @@ export async function callAi(config: AiConfig, body: Record<string, unknown>): P
     return responseFromPayload(normalizeAnthropicResponse(await upstream.json()))
   }
 
-  const model = String(body.model || config.model).replace(/^models\//, '')
-  const upstream = await fetch(`${config.baseUrl}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(config.apiKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(toGeminiBody(body)) })
+  const configuredModel = String(body.model || config.model).replace(/^models\//, '')
+  const model = isImageGenerationRequest(body) && !/image|nano-banana/i.test(configuredModel)
+    ? 'gemini-3.1-flash-image'
+    : configuredModel
+  const upstream = await fetch(`${config.baseUrl}/models/${encodeURIComponent(model)}:generateContent`, { method: 'POST', headers: { 'x-goog-api-key': config.apiKey, 'Content-Type': 'application/json' }, body: JSON.stringify(await toGeminiBody(body)) })
   if (!upstream.ok) return responseFromPayload(await errorPayload(upstream, 'Gemini request failed'), upstream.status)
   return responseFromPayload(normalizeGeminiResponse(await upstream.json()))
 }

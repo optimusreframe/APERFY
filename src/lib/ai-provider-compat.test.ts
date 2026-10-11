@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAiRequestBody, isDeepSeekProvider, isImageProviderUsable } from '../../supabase/functions/_shared/ai-compat';
+import { buildAiRequestBody, isDeepSeekProvider, isImageGenerationProviderUsable, isImageProviderUsable } from '../../supabase/functions/_shared/ai-compat';
 
 describe('buildAiRequestBody', () => {
   it('disables DeepSeek thinking when a request uses tool calls', () => {
@@ -27,5 +27,14 @@ describe('buildAiRequestBody', () => {
     expect(isImageProviderUsable({ apiKey: 'sk-deepseek', provider: 'deepseek', model: 'deepseek-v4-flash' })).toBe(false);
     expect(isImageProviderUsable({ apiKey: 'sk-image', provider: 'openai-compatible', model: 'vision-image-model' })).toBe(true);
     expect(isImageProviderUsable({ apiKey: '', provider: 'openai-compatible', model: 'vision-image-model' })).toBe(false);
+    expect(isImageProviderUsable({ apiKey: 'sk-gemini', provider: 'gemini', model: 'gemini-2.5-flash' })).toBe(true);
+    expect(isImageProviderUsable({ apiKey: 'sk-unknown', provider: 'unknown-gateway', model: 'vision-model' })).toBe(true);
+  });
+
+  it('only enables image generation for providers that declare that capability', () => {
+    expect(isImageGenerationProviderUsable({ apiKey: 'sk-openai', provider: 'openai', model: 'gpt-image-1' })).toBe(true);
+    expect(isImageGenerationProviderUsable({ apiKey: 'sk-gemini', provider: 'gemini', model: 'gemini-3.1-flash-image' })).toBe(true);
+    expect(isImageGenerationProviderUsable({ apiKey: 'sk-claude', provider: 'anthropic', model: 'claude-sonnet-4-6' })).toBe(false);
+    expect(isImageGenerationProviderUsable({ apiKey: 'sk-custom', provider: 'my-gateway', model: 'image-model' })).toBe(true);
   });
 });

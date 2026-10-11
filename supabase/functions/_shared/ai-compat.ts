@@ -1,3 +1,5 @@
+import { aiProviderSupports } from './ai-providers.ts'
+
 type AiProviderConfig = {
   apiKey?: string | null;
   model?: string | null;
@@ -14,7 +16,13 @@ export const DEEPSEEK_IMAGE_LIMITATION =
   'DeepSeek V4 funciona para texto y tool calls, pero no admite entrada de imágenes ni generación de imágenes. Configura un proveedor con visión/imagen o usa una imagen original subida manualmente.';
 
 export function isImageProviderUsable(config: AiProviderConfig): boolean {
-  return Boolean(config.apiKey?.trim() && config.model?.trim()) && !isDeepSeekProvider(config);
+  return Boolean(config.apiKey?.trim() && config.model?.trim())
+    && !isDeepSeekProvider(config)
+    && aiProviderSupports(config.provider, 'vision');
+}
+
+export function isImageGenerationProviderUsable(config: AiProviderConfig): boolean {
+  return Boolean(config.apiKey?.trim() && config.model?.trim()) && aiProviderSupports(config.provider, 'image-generation');
 }
 
 export function buildAiRequestBody<T extends Record<string, unknown>>(

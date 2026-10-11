@@ -1,8 +1,8 @@
 import "https://deno.land/std@0.168.0/dotenv/load.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { callAi, type AiConfig, loadAiConfig, loadAiImageGenerationConfig } from "../_shared/ai-provider.ts";
-import { buildAiRequestBody, DEEPSEEK_IMAGE_LIMITATION, isDeepSeekProvider, isImageProviderUsable } from "../_shared/ai-compat.ts";
+import { callAi, type AiConfig, loadAiConfig, loadAiImageGenerationConfig, loadAiVisionConfig } from "../_shared/ai-provider.ts";
+import { buildAiRequestBody, DEEPSEEK_IMAGE_LIMITATION, isDeepSeekProvider, isImageGenerationProviderUsable, isImageProviderUsable } from "../_shared/ai-compat.ts";
 import { getIntegrationSecret } from "../_shared/integration-secrets.ts";
 
 const corsHeaders = {
@@ -45,13 +45,16 @@ async function fetchAiLegacy(ai: AiRuntime, init: RequestInit) {
 }
 
 function imageCapabilityError(config?: AiRuntime | null) {
-  const unsupported = Boolean(config && isDeepSeekProvider(config));
+  const unsupported = Boolean(config);
+  const deepSeek = Boolean(config && isDeepSeekProvider(config));
   return new Response(JSON.stringify({
     success: false,
     code: unsupported ? "AI_IMAGE_PROVIDER_UNSUPPORTED" : "AI_IMAGE_PROVIDER_NOT_CONFIGURED",
-    error: unsupported
+    error: deepSeek
       ? DEEPSEEK_IMAGE_LIMITATION
-      : "Configura AI Image Provider API Key, base URL, proveedor y modelo en Admin → Integrations / AI Settings.",
+      : config
+        ? `${config.provider} no está habilitado para generación de imágenes. Asigna un proveedor con capacidad de imagen.`
+        : "Configura AI Image Provider API Key, base URL, proveedor y modelo en Admin → Integrations.",
   }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
@@ -324,7 +327,7 @@ serve(async (req) => {
 
   try {
     const contentLength = req.headers.get('content-length');
-    if (contentLength && parseInt(contentLength) > 5_000_000) {
+    if (contentLength && parseInt(contentLength) > 12_000_000) {
       return new Response(JSON.stringify({ error: "Request too large" }), {
         status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -348,14 +351,15 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !serviceRoleKey) throw new Error("Supabase service configuration is missing");
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const aiConfig = await loadAiConfig(adminClient);
-    if (!aiConfig) throw new Error("AI provider is not configured in Admin → Integrations");
-    const ai: AiRuntime = aiConfig;
-    const FIRECRAWL_API_KEY = await getIntegrationSecret(adminClient, "FIRECRAWL_API_KEY");
+    const textActions = new Set(["scrape", "translate", "enhance_product"]);
+    const textAi = textActions.has(action) ? await loadAiConfig(adminClient) : null;
+    if (textActions.has(action) && !textAi) throw new Error("AI text provider is not configured in Admin → Integrations");
 
 
     // ── ACTION: scrape ──
     if (action === "scrape") {
+      const ai = textAi as AiRuntime;
+      const FIRECRAWL_API_KEY = await getIntegrationSecret(adminClient, "FIRECRAWL_API_KEY");
       if (!url || typeof url !== 'string' || !isValidUrl(url.trim())) {
         return new Response(JSON.stringify({ error: "Valid URL is required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -531,7 +535,7 @@ ${imageListForAI || "No images found."}`
 
     // ── ACTION: generate_image ──
     if (action === "generate_image") {
-      const { sourceImage, customBackground, backgroundMode, safeRetry, backgroundCandidateId, preset: presetTag, productId } = body;
+      const { sourceImage, customBackground, backgroundMode, safeRetry, backgroundCandidateId, preset: presetTag, productId, prompt_addition } = body;
       if (!sourceImage) {
         return new Response(JSON.stringify({ error: "Source image is required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -540,7 +544,7 @@ ${imageListForAI || "No images found."}`
       const imageConfig = await loadAiImageGenerationConfig(adminClient);
       if (!imageConfig) return imageCapabilityError();
       const imageAi: AiRuntime = imageConfig;
-      if (!isImageProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
+      if (!isImageGenerationProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
 
       const FRAMING_RULE = `CRITICAL FRAMING RULE:
 Show the entire physical product fully visible inside the frame. Do not crop any part of it. Keep clear margins on all sides, center the product, and use a premium ecommerce composition. Preserve the complete silhouette, packaging, labels, and visible details.`;
@@ -594,9 +598,12 @@ Luxury technology product display of the EXACT same physical product on a matte 
        // Safe Retry uses a neutral prompt with no legacy product assumptions.
        const genericFramingRule = `Show the entire physical product fully visible inside the frame. Do not crop it. Preserve proportions, packaging, labels, logos, and visible details.`;
        const genericFidelityRule = `Preserve the exact same physical product from the source image. Do not redesign, restyle, add, remove, or alter its proportions, color, texture, packaging, labels, logos, or accessories.`;
-       const promptText = safeRetry === true
+       const basePromptText = safeRetry === true
          ? `${genericFramingRule}\n\n${SAFE_RETRY_PROMPT}`
          : `${genericFramingRule}\n\n${genericFidelityRule}\n\n${BACKGROUND_PROMPTS[normalizedBackgroundMode]}`;
+       const promptText = typeof prompt_addition === 'string' && prompt_addition.trim()
+         ? `${basePromptText}\n\nADDITIONAL OPERATOR INSTRUCTION:\n${prompt_addition.trim().slice(0, 800)}`
+         : basePromptText;
 
       // Resolve official workshop reference image when applicable
       let resolvedReference: string | undefined = customBackground;
@@ -770,6 +777,7 @@ Luxury technology product display of the EXACT same physical product on a matte 
 
     // ── ACTION: translate ──
     if (action === "translate") {
+      const ai = textAi as AiRuntime;
       const { name_es, description_es } = body;
       if (!name_es && !description_es) {
         return new Response(JSON.stringify({ error: "Spanish text required" }), {
@@ -831,6 +839,10 @@ Luxury technology product display of the EXACT same physical product on a matte 
     // ── ACTION: enhance_product ──
     if (action === "enhance_product") {
       const { name_es, description_es, existingCategories, imageUrl } = body;
+      const textAiConfig = textAi as AiRuntime;
+      const visionAi = imageUrl ? await loadAiVisionConfig(adminClient) : null;
+      const canUseVision = Boolean(visionAi && isImageProviderUsable(visionAi));
+      const ai = canUseVision ? visionAi as AiRuntime : textAiConfig;
 
       const categorySlugs = (existingCategories || []).map((c: Record<string, unknown>) => `${String(c.slug || '')} (${String(c.name_es || '')})`).join(", ");
 
@@ -855,7 +867,7 @@ If the input name/description is already good, polish it slightly. If it's empty
         },
         {
           role: "user",
-          content: imageUrl && !isDeepSeekProvider(aiConfig)
+          content: imageUrl && canUseVision
             ? [
                 { type: "text", text: `Current name (ES): ${name_es || '(empty)'}\nCurrent description (ES): ${description_es || '(empty)'}` },
                 { type: "image_url", image_url: { url: imageUrl } }
@@ -924,7 +936,7 @@ If the input name/description is already good, polish it slightly. If it's empty
       const imageConfig = await loadAiImageGenerationConfig(adminClient);
       if (!imageConfig) return imageCapabilityError();
       const imageAi: AiRuntime = imageConfig;
-      if (!isImageProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
+      if (!isImageGenerationProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
 
       const fidelityRule = `CRITICAL OBJECT FIDELITY RULE:
 Preserve the exact same physical product from the source image. Do not redesign it or change its proportions, silhouette, color, packaging, labels, logos, texture, or visible details. Only change the camera angle. The final image must look like the same product photographed in a professional APERFY retail studio.`;
@@ -1023,7 +1035,7 @@ Preserve the exact same physical product from the source image. Do not redesign 
       const imageConfig = await loadAiImageGenerationConfig(adminClient);
       if (!imageConfig) return imageCapabilityError();
       const imageAi: AiRuntime = imageConfig;
-      if (!isImageProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
+      if (!isImageGenerationProviderUsable(imageConfig)) return imageCapabilityError(imageAi);
       const allowedCounts = [1, 4, 8];
       const variantCount = allowedCounts.includes(Number(count)) ? Number(count) : 1;
     BACKGROUND_PRESET_PROMPTS.system_workshop = `Empty APERFY retail product photography studio, graphite surface, soft neutral gradient background, controlled green accent light, clean premium ecommerce composition, generous negative space for the product, no people, no hands, no text, no logos, no watermark.`;

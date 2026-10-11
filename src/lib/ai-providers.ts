@@ -15,6 +15,7 @@ export interface AiProviderDefinition {
   docsUrl: string;
   keyUrl: string;
   modelPlaceholder: string;
+  imageModelPlaceholder?: string;
   modelExamples: string[];
   capabilities: AiCapability[];
   tutorial: AiProviderTutorialStep[];
@@ -24,12 +25,13 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
   {
     id: "openai",
     label: "GPT / OpenAI",
-    description: "Modelos GPT para extracción, herramientas y visión.",
+    description: "Modelos GPT para extracción, herramientas, visión y generación de imágenes nativa.",
     protocol: "openai-compatible",
     defaultBaseUrl: "https://api.openai.com/v1",
     docsUrl: "https://platform.openai.com/docs/overview",
     keyUrl: "https://platform.openai.com/api-keys",
     modelPlaceholder: "gpt-4o-mini",
+    imageModelPlaceholder: "gpt-5",
     modelExamples: ["gpt-4o-mini", "gpt-4.1-mini"],
     capabilities: ["text", "tools", "vision", "image-generation"],
     tutorial: [
@@ -58,13 +60,14 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
   {
     id: "gemini",
     label: "Gemini / Google",
-    description: "Gemini con generateContent nativo y soporte de herramientas y visión.",
+    description: "Gemini con generateContent nativo para texto, herramientas, visión e imágenes Nano Banana.",
     protocol: "gemini-generate-content",
     defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
     docsUrl: "https://ai.google.dev/gemini-api/docs",
     keyUrl: "https://aistudio.google.com/app/apikey",
     modelPlaceholder: "gemini-2.5-flash",
-    modelExamples: ["gemini-2.5-flash", "gemini-2.5-pro"],
+    imageModelPlaceholder: "gemini-3.1-flash-image",
+    modelExamples: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.1-flash-image"],
     capabilities: ["text", "tools", "vision"],
     tutorial: [
       { title: "Abre Google AI Studio", body: "En AI Studio entra a Get API key y selecciona un proyecto de Google Cloud." },

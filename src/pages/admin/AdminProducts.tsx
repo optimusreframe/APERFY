@@ -905,7 +905,7 @@ export default function AdminProducts() {
       const { data, error } = await supabase.functions.invoke('ai-product-import', {
         body: {
           action: 'scrape',
-          url: aiUrl,
+          url: sanitized,
            existingCategories: categories.map((c) => ({ slug: c.slug, name_en: c.name_en, name_es: c.name_es })),
            discountPercent: aiDiscountPercent,
         },
@@ -1048,18 +1048,17 @@ export default function AdminProducts() {
         body: { action: 'translate', name_es: aiData.name_es, description_es: aiData.description_es },
       });
       if (error) throw error;
-      if (data?.success) {
-        const newNameEn = data.data.name_en;
-        setAiData((prev) => {
-          const updated = { ...prev, name_en: newNameEn, description_en: data.data.description_en };
-          // Regenerate slug from English name if English mode is on and slug is locked
-          if (showEnglish && slugLocked && newNameEn) {
-            updated.slug = slugify(newNameEn);
-          }
-          return updated;
-        });
-        toast({ title: '✓', description: 'Traducción generada' });
-      }
+      if (!data?.success) throw new Error(data?.error || 'No se pudo generar la traducción');
+      const newNameEn = data.data.name_en;
+      setAiData((prev) => {
+        const updated = { ...prev, name_en: newNameEn, description_en: data.data.description_en };
+        // Regenerate slug from English name if English mode is on and slug is locked
+        if (showEnglish && slugLocked && newNameEn) {
+          updated.slug = slugify(newNameEn);
+        }
+        return updated;
+      });
+      toast({ title: '✓', description: 'Traducción generada' });
     } catch (e: unknown) {
       toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
@@ -1185,15 +1184,14 @@ export default function AdminProducts() {
         body: { action: 'translate', name_es: form.name_es, description_es: form.description_es },
       });
       if (error) throw error;
-      if (data?.success) {
-        setForm(prev => ({
-          ...prev,
-          name_en: data.data.name_en,
-          description_en: data.data.description_en,
-          slug: slugify(data.data.name_en),
-        }));
-        toast({ title: '✓', description: 'Traducción generada' });
-      }
+      if (!data?.success) throw new Error(data?.error || 'No se pudo generar la traducción');
+      setForm(prev => ({
+        ...prev,
+        name_en: data.data.name_en,
+        description_en: data.data.description_en,
+        slug: slugify(data.data.name_en),
+      }));
+      toast({ title: '✓', description: 'Traducción generada' });
     } catch (e: unknown) {
       toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
@@ -1209,13 +1207,12 @@ export default function AdminProducts() {
         body: { action: 'translate', name_es: variation.name_es, description_es: '' },
       });
       if (error) throw error;
-      if (data?.success) {
-        setProductVariations(prev => {
-          const updated = [...prev];
-          updated[idx] = { ...updated[idx], name_en: data.data.name_en };
-          return updated;
-        });
-      }
+      if (!data?.success) throw new Error(data?.error || 'No se pudo generar la traducción');
+      setProductVariations(prev => {
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], name_en: data.data.name_en };
+        return updated;
+      });
     } catch (e: unknown) {
       toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
     }
@@ -2675,7 +2672,7 @@ export default function AdminProducts() {
                                     const { data, error } = await supabase.functions.invoke('ai-product-import', {
                                       body: {
                                         action: 'generate_image',
-                                        source_image: base,
+                                        sourceImage: base,
                                         prompt_addition: `Same product, identical design, color and texture. Show this specific variation: ${variantDesc}. Clean studio background, premium product photography.`,
                                       },
                                     });

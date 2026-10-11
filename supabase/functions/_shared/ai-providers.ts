@@ -20,7 +20,7 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
   {
     id: "openai",
     label: "GPT / OpenAI",
-    description: "Modelos GPT para texto, herramientas y visión.",
+    description: "Modelos GPT para texto, herramientas, visión y generación de imágenes nativa.",
     protocol: "openai-compatible",
     defaultBaseUrl: "https://api.openai.com/v1",
     capabilities: ["text", "tools", "vision", "image-generation"],
@@ -36,10 +36,10 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
   {
     id: "gemini",
     label: "Gemini / Google",
-    description: "Gemini con la API generateContent nativa de Google.",
+    description: "Gemini con generateContent nativo para texto, visión y generación de imágenes Nano Banana.",
     protocol: "gemini-generate-content",
     defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    capabilities: ["text", "tools", "vision"],
+    capabilities: ["text", "tools", "vision", "image-generation"],
   },
   {
     id: "xai",

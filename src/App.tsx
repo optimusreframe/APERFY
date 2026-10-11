@@ -32,7 +32,6 @@ const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const AdminProducts = lazy(() => import('./pages/admin/AdminProducts'));
 const AdminCategories = lazy(() => import('./pages/admin/AdminCategories'));
 const AdminMaterials = lazy(() => import('./pages/admin/AdminMaterials'));
-const AdminAISettings = lazy(() => import('./pages/admin/AdminAISettings'));
 const AdminIntegrations = lazy(() => import('./pages/admin/AdminIntegrations'));
 const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications'));
 const AdminOrders = lazy(() => import('./pages/admin/AdminOrders'));
@@ -105,7 +104,7 @@ const AppContent = () => {
                 <Route path="logs" element={<AdminLogs />} />
                 <Route path="background-qa" element={<AdminBackgroundQA />} />
                 <Route path="homepage" element={<AdminHomepage />} />
-                <Route path="ai-settings" element={<AdminAISettings />} />
+                <Route path="ai-settings" element={<Navigate to="/admin/integrations" replace />} />
                 <Route path="integrations" element={<AdminIntegrations />} />
                 <Route path="notifications" element={<AdminNotifications />} />
               </Route>

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { AdminPageHeader, AdminSurface } from './_shared'
 import { getAiProvider } from '@/lib/ai-providers'
+import { AiProviderSetup } from './AdminAISettings'
 
 const FIELDS = [
   { key: 'AI_PROVIDER_API_KEY', label: 'AI provider API key', placeholder: 'Paste the provider key', group: 'AI' },
@@ -31,7 +32,7 @@ type FieldKey = typeof FIELDS[number]['key']
 type Status = { name: FieldKey; configured: boolean }
 
 const GROUP_META = {
-  AI: { title: 'AI PRODUCT INTELLIGENCE', icon: Sparkles, description: 'Las claves se guardan en Vault. Elige proveedores nativos o gateways compatibles y asígnalos por función en AI Settings.' },
+  AI: { title: 'AI CREDENTIALS', icon: Sparkles, description: 'Las credenciales se guardan en Vault y se utilizan según las asignaciones configuradas arriba. No necesitas abrir otra sección.' },
   EMAIL: { title: 'RESEND EMAIL', icon: Send, description: 'Transactional email uses Resend directly and stays within the provider account limits.' },
   MESSAGING: { title: 'ORDER NOTIFICATIONS', icon: Smartphone, description: 'Configura el número receptor de WhatsApp y el destino de checkout de Telegram sin exponer valores en el navegador.' },
 } as const
@@ -60,8 +61,26 @@ export default function AdminIntegrations() {
     },
   })
 
-  const selectedProvider = getAiProvider(aiSettings.find((row) => row.setting_key === 'ai_provider')?.setting_value)
-  const selectedImageProvider = getAiProvider(aiSettings.find((row) => row.setting_key === 'ai_image_provider')?.setting_value)
+  const selectedProviderId = aiSettings.find((row) => row.setting_key === 'ai_provider')?.setting_value
+  const selectedImageProviderId = aiSettings.find((row) => row.setting_key === 'ai_image_provider')?.setting_value
+  const selectedProvider = selectedProviderId ? getAiProvider(selectedProviderId) : undefined
+  const selectedImageProvider = selectedImageProviderId ? getAiProvider(selectedImageProviderId) : undefined
+
+  const fieldLabel = (field: typeof FIELDS[number]) => {
+    if (field.key === 'AI_PROVIDER_API_KEY') return `${selectedProvider?.label ?? 'Proveedor de texto'} API key`
+    if (field.key === 'AI_PROVIDER_BASE_URL') return `${selectedProvider?.label ?? 'Proveedor de texto'} base URL`
+    if (field.key === 'AI_IMAGE_PROVIDER_API_KEY') return `${selectedImageProvider?.label ?? 'Proveedor de visión / imagen'} API key`
+    if (field.key === 'AI_IMAGE_PROVIDER_BASE_URL') return `${selectedImageProvider?.label ?? 'Proveedor de visión / imagen'} base URL`
+    if (field.key === 'AI_VIDEO_PROVIDER_API_KEY') return 'Proveedor de video API key'
+    if (field.key === 'AI_VIDEO_PROVIDER_BASE_URL') return 'Proveedor de video base URL'
+    return field.label
+  }
+
+  const fieldPlaceholder = (field: typeof FIELDS[number]) => {
+    if (field.key === 'AI_PROVIDER_BASE_URL') return selectedProvider?.defaultBaseUrl ?? 'Selecciona un proveedor arriba'
+    if (field.key === 'AI_IMAGE_PROVIDER_BASE_URL') return selectedImageProvider?.defaultBaseUrl ?? 'Selecciona un proveedor arriba'
+    return field.placeholder
+  }
 
   useEffect(() => {
     const next: Partial<Record<FieldKey, string>> = {}
@@ -102,18 +121,22 @@ export default function AdminIntegrations() {
         <div><p className="font-semibold uppercase">VAULT PROTECTED</p><p className="mt-1 text-sm text-muted-foreground">Los valores nuevos se envían a una Edge Function protegida y se guardan cifrados en Supabase Vault. Nunca se cargan valores existentes al cliente.</p></div>
       </AdminSurface>
 
+      <AdminSurface className="p-5 md:p-6">
+        <AiProviderSetup embedded />
+      </AdminSurface>
+
       {(['AI', 'EMAIL', 'MESSAGING'] as const).map((group) => {
         const meta = GROUP_META[group]
         const Icon = meta.icon
         return (
           <AdminSurface key={group} className="p-5 md:p-6">
             <div className="flex items-start gap-3 border-b border-white/[0.08] pb-5"><div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><Icon className="h-5 w-5" /></div><div><h2 className="font-semibold uppercase">{meta.title}</h2><p className="mt-1 text-sm text-muted-foreground">{meta.description}</p></div></div>
-            {group === 'AI' && <div className="mt-4 grid gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] p-4 text-xs md:grid-cols-2"><div><span className="font-mono uppercase tracking-wider text-muted-foreground">Texto</span><p className="mt-1 font-medium">{selectedProvider.label}</p><p className="mt-1 text-muted-foreground">Base sugerido: {selectedProvider.defaultBaseUrl}</p></div><div><span className="font-mono uppercase tracking-wider text-muted-foreground">Visión / imagen</span><p className="mt-1 font-medium">{selectedImageProvider.label}</p><p className="mt-1 text-muted-foreground">Base sugerido: {selectedImageProvider.defaultBaseUrl}</p></div></div>}
+            {group === 'AI' && <div className="mt-4 grid gap-3 rounded-xl border border-primary/15 bg-primary/[0.04] p-4 text-xs md:grid-cols-2"><div><span className="font-mono uppercase tracking-wider text-muted-foreground">Texto</span><p className="mt-1 font-medium">{selectedProvider?.label ?? 'Sin asignar'}</p><p className="mt-1 text-muted-foreground">{selectedProvider ? `Base sugerido: ${selectedProvider.defaultBaseUrl}` : 'Selecciona un proveedor en la configuración centralizada.'}</p></div><div><span className="font-mono uppercase tracking-wider text-muted-foreground">Visión / imagen</span><p className="mt-1 font-medium">{selectedImageProvider?.label ?? 'Sin asignar'}</p><p className="mt-1 text-muted-foreground">{selectedImageProvider ? `Base sugerido: ${selectedImageProvider.defaultBaseUrl}` : 'Puede quedar sin asignar si no usarás funciones de imagen.'}</p></div></div>}
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               {FIELDS.filter((field) => field.group === group).map((field) => {
                 const configured = isConfigured(field.key)
                 const shown = visible[field.key] === true
-                return <div key={field.key} className="space-y-2"><div className="flex items-center justify-between"><Label className="uppercase tracking-wider">{field.label}</Label><span className={`font-mono text-[10px] uppercase ${configured ? 'text-primary' : 'text-muted-foreground'}`}>{configured ? 'READY' : 'NOT SET'}</span></div><div className="relative"><Input type={shown ? 'text' : 'password'} value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} placeholder={configured ? '••••••••  (deja vacío para conservar)' : field.placeholder} className="border-white/10 bg-black/20 pr-10" autoComplete="new-password" /><button type="button" aria-label={shown ? 'Ocultar valor' : 'Mostrar valor'} onClick={() => setVisible((current) => ({ ...current, [field.key]: !shown }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></div>
+                return <div key={field.key} className="space-y-2"><div className="flex items-center justify-between"><Label className="uppercase tracking-wider">{fieldLabel(field)}</Label><span className={`font-mono text-[10px] uppercase ${configured ? 'text-primary' : 'text-muted-foreground'}`}>{configured ? 'READY' : 'NOT SET'}</span></div><div className="relative"><Input type={shown ? 'text' : 'password'} value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} placeholder={configured ? '••••••••  (deja vacío para conservar)' : fieldPlaceholder(field)} className="border-white/10 bg-black/20 pr-10" autoComplete="new-password" /><button type="button" aria-label={shown ? 'Ocultar valor' : 'Mostrar valor'} onClick={() => setVisible((current) => ({ ...current, [field.key]: !shown }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">{shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></div>
               })}
             </div>
           </AdminSurface>

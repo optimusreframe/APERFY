@@ -15,6 +15,8 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
+    const contentLength = req.headers.get("content-length");
+    if (contentLength && Number(contentLength) > 8_000_000) return json({ success: false, error: "La imagen supera el límite de 8 MB." }, 413);
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
@@ -27,10 +29,11 @@ serve(async (req) => {
 
     const { imageData, discountPercent = 20, searchEnabled = false } = await req.json();
     if (typeof imageData !== "string" || !imageData.startsWith("data:image/")) return json({ success: false, error: "A product photo is required." }, 400);
+    if (imageData.length > 10_800_000) return json({ success: false, error: "La imagen supera el límite de 8 MB." }, 413);
 
     const aiConfig = await loadAiVisionConfig(adminClient);
     if (!aiConfig) {
-      return json({ success: false, code: "AI_IMAGE_PROVIDER_NOT_CONFIGURED", error: "Configura AI Image Provider API Key, base URL, proveedor y modelo en Admin → Integrations / AI Settings." });
+      return json({ success: false, code: "AI_IMAGE_PROVIDER_NOT_CONFIGURED", error: "Configura la clave, proveedor, modelo y base URL de visión en Admin → Integrations." });
     }
     if (!isImageProviderUsable(aiConfig)) {
       return json({
@@ -38,7 +41,7 @@ serve(async (req) => {
         code: isDeepSeekProvider(aiConfig) ? "AI_IMAGE_PROVIDER_UNSUPPORTED" : "AI_IMAGE_PROVIDER_NOT_CONFIGURED",
         error: isDeepSeekProvider(aiConfig)
           ? DEEPSEEK_IMAGE_LIMITATION
-          : "Configura proveedor, modelo y API key de visión en Admin → AI Settings e Integrations.",
+          : "El proveedor configurado no soporta visión o faltan sus credenciales. Configura un proveedor compatible en Admin → Integrations.",
       });
     }
 
