@@ -18,6 +18,7 @@ export type ProductCardProduct = Product & { categories?: Pick<Category, 'name_e
 interface ProductCardProps {
   product: ProductCardProduct;
   index?: number;
+  layout?: 'grid' | 'list';
   likeCount?: number;
   favCount?: number;
   isFavorite?: boolean;
@@ -28,6 +29,7 @@ interface ProductCardProps {
 export default function ProductCard({
   product,
   index = 0,
+  layout = 'grid',
   likeCount = 0,
   favCount = 0,
   isFavorite = false,
@@ -44,20 +46,21 @@ export default function ProductCard({
 
   const condition = product.condition_status === 'used' ? 'used' : 'new';
   const isTrending = showBadges && likeCount >= 5;
+  const isList = layout === 'list';
 
   const imageSource = images[0] ? optimizeImageUrl(images[0], { width: 640, quality: 74 }) : '';
   const imageSources = images[0] ? buildResponsiveImageSources(images[0], [320, 480, 640], 74) : undefined;
 
   return (
-    <div className="group catalog-product-card min-w-0 [content-visibility:auto] [contain-intrinsic-size:420px]">
-      <div className="relative rounded-2xl bg-card border border-border/50 overflow-hidden hover:border-primary/30 transition-all duration-300 hover:shadow-gold">
-        <Link to={`/products/${product.slug}`} className="block" aria-label={name}>
-          <div className="aspect-[4/3] bg-secondary relative overflow-hidden">
+    <div className={`group catalog-product-card min-w-0 [content-visibility:auto] [contain-intrinsic-size:420px] ${isList ? 'min-h-40' : ''}`}>
+      <div className={`relative overflow-hidden rounded-2xl border border-border/50 bg-card transition-all duration-300 hover:border-primary/30 hover:shadow-gold ${isList ? 'flex items-stretch' : ''}`}>
+        <Link to={`/products/${product.slug}`} className={`block ${isList ? 'w-32 shrink-0 sm:w-48' : ''}`} aria-label={name}>
+          <div className={`relative h-full bg-secondary ${isList ? 'aspect-square min-h-40' : 'aspect-[4/3]'} overflow-hidden`}>
             {images.length > 0 ? isProductVideo(images[0]) ? (
               <video
                 src={images[0]}
                 aria-label={name}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                className={`h-full w-full transition-transform duration-300 group-hover:scale-[1.03] ${isList ? 'object-contain p-2 sm:p-3' : 'object-cover'}`}
                 muted
                 loop
                 autoPlay
@@ -68,11 +71,11 @@ export default function ProductCard({
               <img
                 src={imageSource}
                 srcSet={imageSources}
-                sizes="(max-width: 639px) calc((100vw - 36px) / 2), (max-width: 1023px) 30vw, 240px"
+                sizes={isList ? '(max-width: 639px) 128px, 192px' : '(max-width: 639px) calc((100vw - 36px) / 2), (max-width: 1023px) 30vw, 240px'}
                 alt={name}
                 width={640}
                 height={480}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                className={`h-full w-full transition-transform duration-300 group-hover:scale-[1.03] ${isList ? 'object-contain p-2 sm:p-3' : 'object-cover'}`}
                 loading={index < 4 ? 'eager' : 'lazy'}
                 fetchPriority={index < 4 ? 'high' : 'low'}
                 decoding="async"
@@ -116,13 +119,13 @@ export default function ProductCard({
           <ShareMenu
             slug={product.slug}
             productName={name}
-            className="catalog-share-button min-h-11 min-w-11 rounded-full border border-white/[0.14] bg-background/60 text-foreground/80 shadow-sm backdrop-blur-md transition-colors hover:border-primary/40 hover:bg-background/85 hover:text-primary"
+            className="catalog-share-button min-h-11 min-w-11 rounded-full border border-border/70 bg-background/60 text-foreground/80 shadow-sm backdrop-blur-md transition-colors hover:border-primary/40 hover:bg-background/85 hover:text-primary"
           />
         </div>
         {/* Card info */}
-        <div className="p-3">
+        <div className={isList ? 'min-w-0 flex-1 p-3 sm:p-4' : 'p-3'}>
           <Link to={`/products/${product.slug}`} className="block min-w-0">
-            <h3 className="font-display font-semibold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors truncate">
+            <h3 className={`font-display font-semibold text-sm text-foreground transition-colors group-hover:text-primary sm:text-base ${isList ? 'line-clamp-2' : 'truncate'}`}>
               {name}
             </h3>
             <div className="flex items-center justify-between mt-1">

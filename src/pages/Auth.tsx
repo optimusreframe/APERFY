@@ -127,7 +127,7 @@ export default function Auth() {
   const isThrottled = cooldown > 0;
 
   const inputClass =
-    "w-full pl-11 pr-4 py-3.5 rounded-xl bg-[hsl(240_8%_6%)] border border-border/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/60 focus:shadow-[0_0_12px_-3px_hsl(43_76%_53%/0.3)] transition-all duration-300 text-sm shadow-[inset_0_2px_4px_hsl(0_0%_0%/0.3)]";
+    "w-full pl-11 pr-4 py-3.5 rounded-xl bg-card border border-border/70 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/60 focus:shadow-[0_0_12px_-3px_hsl(var(--primary)/0.3)] transition-all duration-300 text-sm shadow-[inset_0_2px_4px_hsl(var(--foreground)/0.08)]";
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">

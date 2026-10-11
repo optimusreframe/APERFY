@@ -81,10 +81,10 @@ export default function MobileStickyAddToCart({
         right: 'env(safe-area-inset-right, 0px)',
       }}
     >
-      <div className="relative flex min-h-16 items-center gap-2 border-t border-white/[0.1] bg-background/95 px-3 py-2 shadow-[0_-12px_32px_-18px_hsl(0_0%_0%/0.8)] backdrop-blur-xl">
+      <div className="relative flex min-h-16 items-center gap-2 border-t border-border/80 bg-background/95 px-3 py-2 shadow-[0_-12px_32px_-18px_hsl(var(--foreground)/0.22)] backdrop-blur-xl">
         <div
           ref={previewRef}
-          className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-white/[0.1] bg-card"
+          className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-border/70 bg-card"
         >
           {image ? (
             <img src={image} alt="" className="h-full w-full object-contain bg-white p-0.5" />
@@ -128,11 +128,11 @@ export default function MobileStickyAddToCart({
           <span className={`block h-2 w-2 rounded-full ${inStock ? 'bg-emerald-400' : 'bg-destructive'}`} />
         </div>
 
-        <div className="inline-flex shrink-0 items-center rounded-full border border-white/[0.08] bg-white/[0.05] p-0.5">
+        <div className="inline-flex shrink-0 items-center rounded-full border border-border/70 bg-secondary/70 p-0.5">
           <button
             type="button"
             onClick={() => setQuantity(Math.max(1, quantity - 1))}
-            className="flex h-11 w-11 items-center justify-center rounded-full touch-manipulation transition-colors hover:bg-white/[0.08]"
+            className="flex h-11 w-11 items-center justify-center rounded-full touch-manipulation transition-colors hover:bg-secondary"
             aria-label="decrease"
           >
             <Minus className="h-3.5 w-3.5" />
@@ -143,7 +143,7 @@ export default function MobileStickyAddToCart({
           <button
             type="button"
             onClick={() => setQuantity(quantity + 1)}
-            className="flex h-11 w-11 items-center justify-center rounded-full touch-manipulation transition-colors hover:bg-white/[0.08]"
+            className="flex h-11 w-11 items-center justify-center rounded-full touch-manipulation transition-colors hover:bg-secondary"
             aria-label="increase"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -156,7 +156,7 @@ export default function MobileStickyAddToCart({
           onClick={handleAdd}
           className={`group flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 font-bold text-[12px] touch-manipulation transition-all ${
             disabled
-              ? 'bg-white/[0.06] text-muted-foreground border border-white/[0.06]'
+              ? 'bg-secondary text-muted-foreground border border-border/70'
               : 'bg-gradient-gold text-primary-foreground shadow-[0_0_18px_hsl(var(--primary)/0.28)]'
           }`}
         >
