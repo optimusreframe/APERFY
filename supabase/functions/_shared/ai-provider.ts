@@ -1,6 +1,6 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { getIntegrationSecret } from './integration-secrets.ts'
-import { getAiProvider } from './ai-providers.ts'
+import { getAiProvider, normalizeAiModel } from './ai-providers.ts'
 
 export type AiProviderRole = 'text' | 'vision' | 'image' | 'video'
 
@@ -56,6 +56,31 @@ function setting(settings: SettingRow[], key: string) {
   return settings.find((row) => row.setting_key === key)?.setting_value?.trim() || ''
 }
 
+function normalizeBaseUrl(value: string, protocol: AiConfig['protocol']): string {
+  const trimmed = value.trim().replace(/\/+$/, '')
+  if (!trimmed) return trimmed
+
+  try {
+    const url = new URL(trimmed)
+    const suffixes = protocol === 'anthropic-messages'
+      ? ['/messages', '/chat/completions', '/responses']
+      : protocol === 'gemini-generate-content'
+        ? ['/models', '/generateContent']
+        : ['/chat/completions', '/responses']
+    for (const suffix of suffixes) {
+      if (url.pathname.endsWith(suffix)) {
+        url.pathname = url.pathname.slice(0, -suffix.length).replace(/\/+$/, '') || '/'
+        break
+      }
+    }
+    return url.toString().replace(/\/$/, '')
+  } catch {
+    // Keep custom gateway strings intact; fetch will return a useful provider
+    // error which is surfaced to the admin below.
+    return trimmed
+  }
+}
+
 async function loadConfig(
   adminClient: SupabaseClient,
   role: AiProviderRole,
@@ -76,14 +101,15 @@ async function loadConfig(
   const model = assigned?.model || setting(settings, legacyModelKey) || Deno.env.get(envModelKey) || (role === 'text' ? 'gpt-4o-mini' : '')
   const providerDefinition = getAiProvider(provider)
   const baseUrl = await getIntegrationSecret(adminClient, baseUrlSecretName)
+  const modelId = normalizeAiModel(provider, model)
 
   return {
     apiKey,
     // A saved assignment carries the provider-specific endpoint. Prefer it over
     // the legacy shared secret so switching from OpenAI to a native provider
     // cannot accidentally keep the previous provider's base URL.
-    baseUrl: (assigned?.baseUrl || baseUrl || providerDefinition.defaultBaseUrl).replace(/\/$/, ''),
-    model,
+    baseUrl: normalizeBaseUrl(assigned?.baseUrl || baseUrl || providerDefinition.defaultBaseUrl, providerDefinition.protocol),
+    model: modelId,
     provider,
     protocol: providerDefinition.protocol,
     role,

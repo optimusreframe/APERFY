@@ -92,3 +92,15 @@ export function getAiProvider(provider?: string | null): AiProviderDefinition {
 export function aiProviderSupports(provider: string | null | undefined, capability: AiCapability): boolean {
   return getAiProvider(provider).capabilities.includes(capability);
 }
+
+/**
+ * Keep provider IDs entered before a model rename usable at runtime. Custom
+ * gateway model IDs are never rewritten.
+ */
+export function normalizeAiModel(provider: string | null | undefined, model: string | null | undefined): string {
+  const value = (model || '').trim();
+  if ((provider || '').trim().toLowerCase() === 'anthropic' && /^claude-sonnet-5(?:[-.]5)$/i.test(value)) {
+    return 'claude-sonnet-5';
+  }
+  return value;
+}

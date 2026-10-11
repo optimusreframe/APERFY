@@ -48,8 +48,8 @@ export const AI_PROVIDERS: AiProviderDefinition[] = [
     defaultBaseUrl: "https://api.anthropic.com/v1",
     docsUrl: "https://docs.anthropic.com/en/api/messages",
     keyUrl: "https://console.anthropic.com/settings/keys",
-    modelPlaceholder: "claude-sonnet-4-6",
-    modelExamples: ["claude-sonnet-4-6", "claude-haiku-4-5-20251001"],
+    modelPlaceholder: "claude-sonnet-5",
+    modelExamples: ["claude-sonnet-5", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"],
     capabilities: ["text", "tools", "vision"],
     tutorial: [
       { title: "Abre Console", body: "En la consola de Anthropic entra a Settings → API keys. Es posible que primero debas configurar billing." },
@@ -166,4 +166,16 @@ export function getAiProvider(provider?: string | null): AiProviderDefinition {
   const value = (provider || "openai-compatible").trim().toLowerCase();
   return AI_PROVIDERS.find((item) => item.id === value)
     || AI_PROVIDERS.find((item) => item.id === "openai-compatible")!;
+}
+
+/**
+ * Keep known legacy model aliases working after a provider retires or renames
+ * a model. Custom provider model IDs are intentionally left untouched.
+ */
+export function normalizeAiModel(provider: string | null | undefined, model: string | null | undefined): string {
+  const value = (model || '').trim();
+  if ((provider || '').trim().toLowerCase() === 'anthropic' && /^claude-sonnet-5(?:[-.]5)$/i.test(value)) {
+    return 'claude-sonnet-5';
+  }
+  return value;
 }

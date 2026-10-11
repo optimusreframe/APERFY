@@ -82,17 +82,26 @@ async function aiProviderFailureResponse(response: Response, operation: string) 
   }
 
   const retryAfter = Number(response.headers.get("retry-after") || 0);
+  const safeDetail = providerMessage
+    .replace(/Bearer\s+[^\s]+/gi, "Bearer [redacted]")
+    .replace(/(?:sk|key|token)[-_][a-z0-9_-]{12,}/gi, "[redacted]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 280);
   const message = status === 429
     ? "El proveedor de IA está temporalmente limitado. Espera unos minutos y vuelve a intentarlo; no se guardaron cambios parciales."
     : status === 402
       ? "El proveedor de IA no tiene créditos disponibles. Revisa el saldo o configura otro proveedor."
-      : `${operation} no pudo completarse con el proveedor configurado (código ${status}).`;
+      : status === 404
+        ? `${operation} no pudo completarse (404). Revisa el Model ID y el Base URL del proveedor en AI Workflows.${safeDetail ? ` Detalle: ${safeDetail}` : ""}`
+        : `${operation} no pudo completarse con el proveedor configurado (código ${status}).${safeDetail ? ` Detalle: ${safeDetail}` : ""}`;
 
   console.error(`[${operation}] AI provider error`, { status, providerMessage: providerMessage.slice(0, 300) });
   return jsonResponse({
     success: false,
     code: status === 429 ? "AI_RATE_LIMITED" : status === 402 ? "AI_CREDITS_EXHAUSTED" : "AI_PROVIDER_ERROR",
     error: message,
+    ...(safeDetail ? { provider_detail: safeDetail } : {}),
     ...(status === 429 ? { retry_after_seconds: retryAfter > 0 ? retryAfter : 60 } : {}),
   });
 }

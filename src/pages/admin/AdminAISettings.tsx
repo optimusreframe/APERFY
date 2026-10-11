@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { AdminPageHeader, AdminSurface } from './_shared';
-import { AI_PROVIDERS, type AiCapability, type AiProviderDefinition, getAiProvider } from '@/lib/ai-providers';
+import { AI_PROVIDERS, type AiCapability, type AiProviderDefinition, getAiProvider, normalizeAiModel } from '@/lib/ai-providers';
 
 const KEYS = ['ai_provider', 'ai_model', 'ai_image_provider', 'ai_image_model', 'ai_provider_assignments', 'ai_custom_providers', 'ai_search_enabled', 'ai_discount_percent'] as const;
 type RoleKey = 'text' | 'vision' | 'image' | 'video';
@@ -103,17 +103,25 @@ export function AiProviderSetup({ embedded = false }: { embedded?: boolean } = {
     if (assignmentRow) {
       try {
         const parsed = JSON.parse(assignmentRow) as Partial<Record<RoleKey, Assignment>>;
-        for (const role of Object.keys(next) as RoleKey[]) if (parsed[role]?.provider) next[role] = { ...next[role], ...parsed[role] };
+        for (const role of Object.keys(next) as RoleKey[]) {
+          if (!parsed[role]?.provider) continue;
+          next[role] = {
+            ...next[role],
+            ...parsed[role],
+            model: normalizeAiModel(parsed[role]?.provider, parsed[role]?.model),
+          };
+        }
       } catch { /* fall back to legacy settings below */ }
     }
     const legacyProvider = data?.find((row) => row.setting_key === 'ai_provider')?.setting_value;
     const legacyModel = data?.find((row) => row.setting_key === 'ai_model')?.setting_value;
     const legacyImageProvider = data?.find((row) => row.setting_key === 'ai_image_provider')?.setting_value;
     const legacyImageModel = data?.find((row) => row.setting_key === 'ai_image_model')?.setting_value;
-    if (!assignmentRow && legacyProvider) next.text = { provider: legacyProvider, model: legacyModel || 'gpt-4o-mini' };
+    if (!assignmentRow && legacyProvider) next.text = { provider: legacyProvider, model: normalizeAiModel(legacyProvider, legacyModel || 'gpt-4o-mini') };
     if (!assignmentRow && legacyImageProvider) {
-      next.vision = { provider: legacyImageProvider, model: legacyImageModel || '' };
-      next.image = { provider: legacyImageProvider, model: legacyImageModel || '' };
+      const normalizedImageModel = normalizeAiModel(legacyImageProvider, legacyImageModel || '');
+      next.vision = { provider: legacyImageProvider, model: normalizedImageModel };
+      next.image = { provider: legacyImageProvider, model: normalizedImageModel };
     }
     setAssignments(next);
     const customRow = data?.find((row) => row.setting_key === 'ai_custom_providers')?.setting_value;
@@ -141,7 +149,7 @@ export function AiProviderSetup({ embedded = false }: { embedded?: boolean } = {
       toast({ title: 'CAPACIDAD NO COMPATIBLE', description: `${definition.label} no declara soporte para ${ROLE_META[role].title.toLowerCase()}.`, variant: 'destructive' });
       return;
     }
-    updateRole(role, { provider, model: role === 'image' ? (definition.imageModelPlaceholder || definition.modelPlaceholder) : definition.modelPlaceholder, baseUrl: definition.defaultBaseUrl });
+    updateRole(role, { provider, model: normalizeAiModel(provider, role === 'image' ? (definition.imageModelPlaceholder || definition.modelPlaceholder) : definition.modelPlaceholder), baseUrl: definition.defaultBaseUrl });
   };
 
   const addCustomProvider = () => {
