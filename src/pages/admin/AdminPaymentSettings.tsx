@@ -13,6 +13,14 @@ import { AdminPageHeader } from './_shared';
 import { CHECKOUT_PAYMENT_KEYS, getDefaultPaymentChannel, parsePaymentChannelSetting, paymentChannelFromKey } from '@/lib/payment-channels';
 
 const PAYMENT_KEYS = [...CHECKOUT_PAYMENT_KEYS, 'payment_zelle', 'payment_binance', 'payment_cashapp'] as const;
+type RateSource = 'bcv' | 'laslucas' | 'binance' | 'manual';
+
+const RATE_SOURCES: Array<{ value: RateSource; title: string; description: string }> = [
+  { value: 'bcv', title: 'BCV oficial', description: 'Referencia publicada por el Banco Central de Venezuela.' },
+  { value: 'laslucas', title: 'Las Lucas · BCV', description: 'Referencia BCV distribuida por Las Lucas.' },
+  { value: 'binance', title: 'Binance P2P', description: 'Mediana de anuncios USDT/VES para el mercado P2P.' },
+  { value: 'manual', title: 'Manual', description: 'Valor definido por el administrador.' },
+];
 
 interface PaymentConfig {
   active: boolean;
@@ -30,6 +38,7 @@ export default function AdminPaymentSettings() {
   const qc = useQueryClient();
   const [configs, setConfigs] = useState<Record<string, PaymentConfig>>({});
   const [pricingMode, setPricingMode] = useState<'global' | 'geo'>('geo');
+  const [rateSource, setRateSource] = useState<RateSource>('bcv');
   const [exchangeRate, setExchangeRate] = useState('');
   const [rateMeta, setRateMeta] = useState<{ source?: string; fetched_at?: string | null }>({});
 
@@ -39,16 +48,16 @@ export default function AdminPaymentSettings() {
       const { data, error } = await supabase
         .from('admin_settings')
         .select('*')
-        .in('setting_key', [...PAYMENT_KEYS, 'regional_pricing_mode']);
+        .in('setting_key', [...PAYMENT_KEYS, 'regional_pricing_mode', 'regional_pricing_rate_source']);
       if (error) throw error;
       return data;
     },
   });
 
-  const { data: savedRate } = useQuery({
-    queryKey: ['admin-currency-rate'],
+  const { data: savedRates } = useQuery({
+    queryKey: ['admin-currency-rates'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('currency_rates').select('*').eq('base_currency', 'USD').eq('quote_currency', 'VES').maybeSingle();
+      const { data, error } = await supabase.from('currency_rates').select('*').eq('base_currency', 'USD').eq('quote_currency', 'VES').order('updated_at', { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -66,6 +75,10 @@ export default function AdminPaymentSettings() {
         setPricingMode(s.setting_value === 'global' ? 'global' : 'geo');
         continue;
       }
+      if (s.setting_key === 'regional_pricing_rate_source') {
+        setRateSource(s.setting_value === 'laslucas' || s.setting_value === 'binance' || s.setting_value === 'manual' ? s.setting_value : 'bcv');
+        continue;
+      }
       map[s.setting_key] = paymentChannelFromKey(s.setting_key)
         ? parsePaymentChannelSetting(s.setting_key, s.setting_value)
         : (() => {
@@ -77,10 +90,15 @@ export default function AdminPaymentSettings() {
   }, [settings]);
 
   useEffect(() => {
-    if (!savedRate) return;
+    const savedRate = savedRates?.find((rate) => rate.source === rateSource);
+    if (!savedRate) {
+      setExchangeRate('');
+      setRateMeta({ source: rateSource });
+      return;
+    }
     setExchangeRate(String(savedRate.rate));
     setRateMeta({ source: savedRate.source, fetched_at: savedRate.fetched_at });
-  }, [savedRate]);
+  }, [savedRates, rateSource]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -105,14 +123,18 @@ export default function AdminPaymentSettings() {
         setting_key: 'regional_pricing_mode', setting_value: pricingMode,
       }, { onConflict: 'setting_key' });
       if (modeError) throw modeError;
+      const { error: sourceError } = await supabase.from('admin_settings').upsert({
+        setting_key: 'regional_pricing_rate_source', setting_value: rateSource,
+      }, { onConflict: 'setting_key' });
+      if (sourceError) throw sourceError;
       const numericRate = Number(exchangeRate);
-      if (Number.isFinite(numericRate) && numericRate > 0) {
+      if (rateSource === 'manual' && Number.isFinite(numericRate) && numericRate > 0) {
         const { error: rateError } = await supabase.from('currency_rates').upsert({
           base_currency: 'USD', quote_currency: 'VES', rate: numericRate,
-          source: rateMeta.source === 'bcv' ? 'bcv' : 'manual',
-          is_automatic: rateMeta.source === 'bcv', is_active: true,
+          source: 'manual', is_automatic: false, is_active: true,
+          fetched_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'base_currency,quote_currency' });
+        }, { onConflict: 'base_currency,quote_currency,source' });
         if (rateError) throw rateError;
       }
     },
@@ -127,16 +149,16 @@ export default function AdminPaymentSettings() {
 
   const refreshRateMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('storefront-pricing', { body: { action: 'refresh-rate' } });
+      const { data, error } = await supabase.functions.invoke('storefront-pricing', { body: { action: 'refresh-rate', source: rateSource } });
       if (error) throw error;
-      if (!data?.rate) throw new Error('No se pudo obtener la tasa BCV.');
-      return data.rate as number;
+      if (!data?.rate) throw new Error('No se pudo obtener la tasa de la fuente seleccionada.');
+      return data as { rate: number; source: RateSource; fetchedAt?: string | null };
     },
-    onSuccess: (rate) => {
-      setExchangeRate(String(rate));
-      setRateMeta({ source: 'bcv', fetched_at: new Date().toISOString() });
-      qc.invalidateQueries({ queryKey: ['admin-currency-rate'] });
-      toast({ title: 'Tasa BCV actualizada', description: `${rate} VES por USD.` });
+    onSuccess: (result) => {
+      setExchangeRate(String(result.rate));
+      setRateMeta({ source: result.source, fetched_at: result.fetchedAt ?? new Date().toISOString() });
+      qc.invalidateQueries({ queryKey: ['admin-currency-rates'] });
+      toast({ title: 'Tasa actualizada', description: `${result.rate} VES por USD.` });
     },
     onError: (error: unknown) => toast({ title: 'Error', description: error instanceof Error ? error.message : 'No se pudo actualizar la tasa.', variant: 'destructive' }),
   });
@@ -299,12 +321,51 @@ export default function AdminPaymentSettings() {
 
           <div className="rounded-2xl border border-border bg-card p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
-              <div><h2 className="font-display text-lg font-bold">Tasa USD → VES</h2><p className="mt-1 text-sm text-muted-foreground">Se consulta en el BCV y se guarda para convertir precios de Venezuela.</p></div>
-              <Button type="button" variant="outline" onClick={() => refreshRateMutation.mutate()} disabled={refreshRateMutation.isPending} className="gap-2"><RefreshCw className={`h-4 w-4 ${refreshRateMutation.isPending ? 'animate-spin' : ''}`} />Actualizar BCV</Button>
+              <div>
+                <h2 className="font-display text-lg font-bold">Fuente de tasa USD → VES</h2>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Elige qué referencia se usará para calcular VES en Venezuela. Las tasas se guardan por separado y cambiar de fuente no borra las anteriores.</p>
+              </div>
+              <Button type="button" variant="outline" onClick={() => refreshRateMutation.mutate()} disabled={refreshRateMutation.isPending || rateSource === 'manual'} className="gap-2">
+                <RefreshCw className={`h-4 w-4 ${refreshRateMutation.isPending ? 'animate-spin' : ''}`} />
+                {rateSource === 'manual' ? 'Tasa manual' : `Actualizar ${RATE_SOURCES.find((source) => source.value === rateSource)?.title}`}
+              </Button>
             </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {RATE_SOURCES.map((source) => (
+                <button
+                  key={source.value}
+                  type="button"
+                  onClick={() => setRateSource(source.value)}
+                  className={`rounded-xl border p-4 text-left transition-colors ${rateSource === source.value ? 'border-primary bg-primary/[0.08]' : 'border-border bg-background hover:border-primary/40'}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">{source.title}</span>
+                    <span className={`h-3 w-3 rounded-full border-2 ${rateSource === source.value ? 'border-primary bg-primary ring-2 ring-primary/20' : 'border-muted-foreground/40'}`} />
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">{source.description}</p>
+                </button>
+              ))}
+            </div>
+
             <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,260px)_1fr] md:items-end">
-              <div><Label>VES por 1 USD</Label><Input type="number" min="0.000001" step="0.000001" value={exchangeRate} onChange={(event) => { setExchangeRate(event.target.value); setRateMeta({ source: 'manual' }); }} className="mt-1 bg-background" placeholder="Ej. 876.7976" /></div>
-              <p className="text-xs text-muted-foreground">Fuente actual: <span className="font-semibold text-foreground">{rateMeta.source === 'bcv' ? 'BCV' : 'Manual'}</span>{rateMeta.fetched_at ? ` · ${new Date(rateMeta.fetched_at).toLocaleString()}` : ''}</p>
+              <div>
+                <Label>VES por 1 USD</Label>
+                <Input
+                  type="number"
+                  min="0.000001"
+                  step="0.000001"
+                  value={exchangeRate}
+                  readOnly={rateSource !== 'manual'}
+                  onChange={(event) => setExchangeRate(event.target.value)}
+                  className="mt-1 bg-background"
+                  placeholder="Ej. 876.7976"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Fuente activa: <span className="font-semibold text-foreground">{RATE_SOURCES.find((source) => source.value === rateSource)?.title}</span>
+                {rateMeta.fetched_at ? ` · ${new Date(rateMeta.fetched_at).toLocaleString()}` : ''}
+              </p>
             </div>
           </div>
         </TabsContent>

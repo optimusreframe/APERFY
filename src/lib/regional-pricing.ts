@@ -1,12 +1,15 @@
 export type PricingRegion = 'USA' | 'VENEZUELA';
 export type PricingMode = 'global' | 'geo';
 export type PricingCurrency = 'USD' | 'VES';
+export type PricingRateSource = 'bcv' | 'laslucas' | 'binance' | 'manual';
 
 export interface PricingContext {
   region: PricingRegion;
   mode: PricingMode;
   currency: PricingCurrency;
   bcvRate: number | null;
+  rateSource?: PricingRateSource | null;
+  rateUpdatedAt?: string | null;
 }
 
 export interface StorefrontPricingPayload {
@@ -14,6 +17,8 @@ export interface StorefrontPricingPayload {
   mode: PricingMode;
   currency: 'USD';
   bcvRate: number | null;
+  rateSource?: PricingRateSource | null;
+  rateUpdatedAt?: string | null;
 }
 
 export function isPricingRegion(value: unknown): value is PricingRegion {
@@ -25,7 +30,7 @@ export function isPricingMode(value: unknown): value is PricingMode {
 }
 
 export function getDefaultPricingContext(): PricingContext {
-  return { region: 'USA', mode: 'global', currency: 'USD', bcvRate: null };
+  return { region: 'USA', mode: 'global', currency: 'USD', bcvRate: null, rateSource: null, rateUpdatedAt: null };
 }
 
 export function canUseVes(context: PricingContext): boolean {

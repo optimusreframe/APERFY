@@ -7,17 +7,22 @@ const corsHeaders = {
 }
 
 const BCV_URL = 'https://www.bcv.org.ve/'
-const BCV_MIRROR_URL = 'https://bcv.today/api/v1/rate.json'
+const LAS_LUCAS_URL = 'https://laslucas.com/?c=bcv'
+const LAS_LUCAS_FIRESTORE_URL = 'https://firestore.googleapis.com/v1/projects/laslucas-7b4fc/databases/(default)/documents/data/currencies'
+const BINANCE_P2P_URL = 'https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search'
 const RATE_REFRESH_MS = 60 * 60 * 1000
 
 type PricingRegion = 'USA' | 'VENEZUELA'
 type PricingMode = 'global' | 'geo'
+type RateSource = 'bcv' | 'laslucas' | 'binance' | 'manual'
 
 type Pricing = {
   region: PricingRegion
   mode: PricingMode
   currency: 'USD'
   bcvRate: number | null
+  rateSource: RateSource | null
+  rateUpdatedAt: string | null
 }
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -51,24 +56,93 @@ export function parseBcvRate(html: string): number {
 }
 
 async function fetchBcvRate(): Promise<number> {
+  const response = await fetch(BCV_URL, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml',
+      'Accept-Language': 'es-VE,es;q=0.9,en;q=0.7',
+      'User-Agent': 'Mozilla/5.0 (compatible; APERFY/1.0; +https://aperfy.kpwr.dev)',
+    },
+  })
+  if (!response.ok) throw new Error(`BCV returned ${response.status}`)
+  return parseBcvRate(await response.text())
+}
+
+function firestoreNumber(value: unknown): number | null {
+  if (!value || typeof value !== 'object') return null
+  const field = value as Record<string, unknown>
+  const raw = field.doubleValue ?? field.integerValue ?? field.stringValue
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+async function fetchLasLucasRate(source: 'bcv' | 'binance'): Promise<number> {
+  const response = await fetch(LAS_LUCAS_FIRESTORE_URL, { headers: { Accept: 'application/json' } })
+  if (!response.ok) throw new Error(`Las Lucas returned ${response.status}`)
+  const payload = await response.json() as Record<string, unknown>
+  const fields = (payload.fields as Record<string, unknown> | undefined)?.USD as Record<string, unknown> | undefined
+  const usdFields = (fields?.mapValue as Record<string, unknown> | undefined)?.fields as Record<string, unknown> | undefined
+  const rate = firestoreNumber(usdFields?.[source])
+  if (!rate) throw new Error(`Las Lucas ${source} rate was not found`)
+  return rate
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
+}
+
+async function fetchBinanceRate(): Promise<number> {
+  const response = await fetch(BINANCE_P2P_URL, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      page: 1,
+      rows: 10,
+      payTypes: [],
+      publisherType: null,
+      asset: 'USDT',
+      fiat: 'VES',
+      // BUY returns the current sell offers a Venezuelan customer would use
+      // to acquire USDT, which is the useful direction for USD -> VES display.
+      tradeType: 'BUY',
+      transAmount: '',
+      countries: [],
+    }),
+  })
+  if (!response.ok) throw new Error(`Binance P2P returned ${response.status}`)
+  const payload = await response.json() as { data?: Array<{ adv?: { price?: unknown } }> }
+  const prices = (payload.data ?? []).map((item) => Number(item.adv?.price)).filter((value) => Number.isFinite(value) && value > 0)
+  if (!prices.length) throw new Error('Binance P2P rate was not found')
+  return median(prices)
+}
+
+function isRateSource(value: unknown): value is RateSource {
+  return value === 'bcv' || value === 'laslucas' || value === 'binance' || value === 'manual'
+}
+
+async function getRateSource(admin: SupabaseClient): Promise<RateSource> {
+  const { data } = await admin.from('admin_settings').select('setting_value').eq('setting_key', 'regional_pricing_rate_source').maybeSingle()
+  return isRateSource(data?.setting_value) ? data.setting_value : 'bcv'
+}
+
+async function fetchRate(source: Exclude<RateSource, 'manual'>): Promise<number> {
+  if (source === 'bcv') {
+    try {
+      return await fetchBcvRate()
+    } catch (error) {
+      // Las Lucas exposes the BCV value as a separate field and is used only
+      // as a transport fallback when the BCV site blocks the edge runtime.
+      console.warn('Direct BCV page unavailable; using Las Lucas BCV mirror', error)
+      return await fetchLasLucasRate('bcv')
+    }
+  }
+  if (source === 'laslucas') return fetchLasLucasRate('bcv')
   try {
-    const response = await fetch(BCV_URL, {
-      headers: {
-        Accept: 'text/html,application/xhtml+xml',
-        'Accept-Language': 'es-VE,es;q=0.9,en;q=0.7',
-        'User-Agent': 'Mozilla/5.0 (compatible; APERFY/1.0; +https://aperfy.kpwr.dev)',
-      },
-    })
-    if (!response.ok) throw new Error(`BCV returned ${response.status}`)
-    return parseBcvRate(await response.text())
-  } catch (primaryError) {
-    console.warn('Direct BCV page unavailable; trying the official-rate mirror', primaryError)
-    const mirrorResponse = await fetch(BCV_MIRROR_URL, { headers: { Accept: 'application/json' } })
-    if (!mirrorResponse.ok) throw primaryError
-    const mirrorPayload = await mirrorResponse.json() as { USD?: unknown }
-    const rate = Number(mirrorPayload.USD)
-    if (!Number.isFinite(rate) || rate <= 0) throw primaryError
-    return rate
+    return await fetchBinanceRate()
+  } catch (error) {
+    console.warn('Direct Binance P2P unavailable; using Las Lucas Binance reference', error)
+    return await fetchLasLucasRate('binance')
   }
 }
 
@@ -77,25 +151,29 @@ async function getMode(admin: SupabaseClient): Promise<PricingMode> {
   return data?.setting_value === 'global' ? 'global' : 'geo'
 }
 
-async function getRate(admin: SupabaseClient, refresh = false): Promise<number | null> {
-  const { data: current } = await admin.from('currency_rates').select('*').eq('base_currency', 'USD').eq('quote_currency', 'VES').eq('is_active', true).maybeSingle()
+async function getRate(admin: SupabaseClient, source: RateSource, refresh = false): Promise<{ rate: number; source: RateSource; fetchedAt: string | null } | null> {
+  const { data: current } = await admin.from('currency_rates').select('*').eq('base_currency', 'USD').eq('quote_currency', 'VES').eq('source', source).eq('is_active', true).order('updated_at', { ascending: false }).limit(1).maybeSingle()
   const fetchedAt = current?.fetched_at ? Date.parse(current.fetched_at) : 0
-  if (!refresh && current?.source === 'manual' && current?.rate) return Number(current.rate)
-  if (!refresh && current?.rate && fetchedAt && Date.now() - fetchedAt < RATE_REFRESH_MS) return Number(current.rate)
+  if (!refresh && current?.rate && (source === 'manual' || (fetchedAt && Date.now() - fetchedAt < RATE_REFRESH_MS))) {
+    return { rate: Number(current.rate), source, fetchedAt: current.fetched_at ?? null }
+  }
+  if (source === 'manual') return current?.rate ? { rate: Number(current.rate), source, fetchedAt: current.fetched_at ?? null } : null
 
   try {
-    const rate = await fetchBcvRate()
+    const rate = await fetchRate(source)
+    const fetchedAtValue = new Date().toISOString()
     const { error } = await admin.from('currency_rates').upsert({
       base_currency: 'USD', quote_currency: 'VES', rate,
-      source: 'bcv', is_automatic: true, is_active: true,
-      source_url: BCV_URL, fetched_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'base_currency,quote_currency' })
+      source, is_automatic: true, is_active: true,
+      source_url: source === 'bcv' ? BCV_URL : source === 'laslucas' ? LAS_LUCAS_URL : BINANCE_P2P_URL,
+      fetched_at: fetchedAtValue,
+      updated_at: fetchedAtValue,
+    }, { onConflict: 'base_currency,quote_currency,source' })
     if (error) throw error
-    return rate
+    return { rate, source, fetchedAt: fetchedAtValue }
   } catch (error) {
-    console.warn('Could not refresh BCV rate; using the last saved rate', error)
-    return current?.rate ? Number(current.rate) : null
+    console.warn(`Could not refresh ${source} rate; using the last saved rate`, error)
+    return current?.rate ? { rate: Number(current.rate), source, fetchedAt: current.fetched_at ?? null } : null
   }
 }
 
@@ -185,29 +263,45 @@ Deno.serve(async (req) => {
       variationIds?: unknown
       refresh?: boolean
       rate?: unknown
+      source?: unknown
     }
 
     if (body.action === 'refresh-rate') {
       const user = await requireAdmin(req, admin)
       if (!user) return json({ error: 'Admin access required' }, 403)
+      const requestedSource = isRateSource(body.source) ? body.source : await getRateSource(admin)
       const manualRate = Number(body.rate)
-      const rate = Number.isFinite(manualRate) && manualRate > 0 ? manualRate : await getRate(admin, true)
-      if (!rate) return json({ error: 'BCV rate is unavailable' }, 503)
+      if (requestedSource === 'manual' && (!Number.isFinite(manualRate) || manualRate <= 0)) {
+        return json({ error: 'A manual rate greater than zero is required' }, 400)
+      }
+      const resolved = Number.isFinite(manualRate) && manualRate > 0
+        ? { rate: manualRate, source: 'manual' as const, fetchedAt: new Date().toISOString() }
+        : await getRate(admin, requestedSource, true)
+      if (!resolved) return json({ error: `${requestedSource} rate is unavailable` }, 503)
       if (Number.isFinite(manualRate) && manualRate > 0) {
+        const fetchedAt = new Date().toISOString()
         const { error } = await admin.from('currency_rates').upsert({
           base_currency: 'USD', quote_currency: 'VES', rate: manualRate,
           source: 'manual', is_automatic: false, is_active: true,
-          updated_by: user.id, updated_at: new Date().toISOString(),
-        }, { onConflict: 'base_currency,quote_currency' })
+          updated_by: user.id, updated_at: fetchedAt, fetched_at: fetchedAt,
+        }, { onConflict: 'base_currency,quote_currency,source' })
         if (error) throw error
       }
-      return json({ ok: true, rate })
+      return json({ ok: true, rate: resolved.rate, source: resolved.source, fetchedAt: resolved.fetchedAt })
     }
 
     const region = getRegion(req)
     const mode = await getMode(admin)
-    const bcvRate = region === 'VENEZUELA' ? await getRate(admin, Boolean(body.refresh)) : null
-    const pricing: Pricing = { region, mode, currency: 'USD', bcvRate }
+    const rateSource = await getRateSource(admin)
+    const resolvedRate = region === 'VENEZUELA' ? await getRate(admin, rateSource, Boolean(body.refresh)) : null
+    const pricing: Pricing = {
+      region,
+      mode,
+      currency: 'USD',
+      bcvRate: resolvedRate?.rate ?? null,
+      rateSource: resolvedRate?.source ?? rateSource,
+      rateUpdatedAt: resolvedRate?.fetchedAt ?? null,
+    }
     const productSelect = 'id,name_en,name_es,description_en,description_es,slug,base_price,venezuela_price_usd,category_id,is_active,is_featured,images,created_at,updated_at,seller_name,return_policy_en,return_policy_es,return_window_days,condition_status,model_3d_url,inventory_enabled,stock_quantity,low_stock_threshold,inventory_source_key,categories(id,name_en,name_es,slug)'
 
     if (body.action === 'pricing') return json({ pricing })

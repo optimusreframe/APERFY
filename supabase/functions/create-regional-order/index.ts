@@ -8,6 +8,7 @@ const corsHeaders = {
 
 type PricingRegion = 'USA' | 'VENEZUELA'
 type PricingMode = 'global' | 'geo'
+type RateSource = 'bcv' | 'laslucas' | 'binance' | 'manual'
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -31,8 +32,10 @@ async function getPricing(admin: SupabaseClient, req: Request) {
   const region = getRegion(req)
   const { data: modeSetting } = await admin.from('admin_settings').select('setting_value').eq('setting_key', 'regional_pricing_mode').maybeSingle()
   const mode: PricingMode = modeSetting?.setting_value === 'global' ? 'global' : 'geo'
-  const { data: rate } = await admin.from('currency_rates').select('rate').eq('base_currency', 'USD').eq('quote_currency', 'VES').eq('is_active', true).maybeSingle()
-  return { region, mode, bcvRate: rate?.rate ? Number(rate.rate) : null }
+  const { data: sourceSetting } = await admin.from('admin_settings').select('setting_value').eq('setting_key', 'regional_pricing_rate_source').maybeSingle()
+  const rateSource: RateSource = sourceSetting?.setting_value === 'laslucas' || sourceSetting?.setting_value === 'binance' || sourceSetting?.setting_value === 'manual' ? sourceSetting.setting_value : 'bcv'
+  const { data: rate } = await admin.from('currency_rates').select('rate,fetched_at').eq('base_currency', 'USD').eq('quote_currency', 'VES').eq('source', rateSource).eq('is_active', true).order('updated_at', { ascending: false }).limit(1).maybeSingle()
+  return { region, mode, rateSource, rateUpdatedAt: rate?.fetched_at ?? null, bcvRate: rate?.rate ? Number(rate.rate) : null }
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -193,6 +196,7 @@ Deno.serve(async (req) => {
       pricing_region: pricing.region,
       pricing_mode: pricing.mode,
       pricing_currency: 'USD',
+      exchange_rate_source: pricing.rateSource,
       exchange_rate_ves_per_usd: pricing.bcvRate,
     }).select('id,total').single()
     if (orderError) throw orderError
@@ -213,7 +217,7 @@ Deno.serve(async (req) => {
     await admin.rpc('mark_abandoned_cart_converted', { p_order_id: order.id })
 
     const { data: savedOrder } = await admin.from('orders').select('id,total').eq('id', order.id).maybeSingle()
-    return json({ ok: true, orderId: order.id, total: Number(savedOrder?.total ?? order.total), pricing: { region: pricing.region, mode: pricing.mode, currency: 'USD', bcvRate: pricing.bcvRate } })
+    return json({ ok: true, orderId: order.id, total: Number(savedOrder?.total ?? order.total), pricing: { region: pricing.region, mode: pricing.mode, currency: 'USD', bcvRate: pricing.bcvRate, rateSource: pricing.rateSource, rateUpdatedAt: pricing.rateUpdatedAt } })
   } catch (error) {
     console.error('Regional order creation failed', error)
     return json({ error: error instanceof Error ? error.message : 'Could not create order' }, 400)

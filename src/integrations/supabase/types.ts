@@ -605,6 +605,7 @@ export type Database = {
           pricing_region: string
           pricing_mode: string
           pricing_currency: string
+          exchange_rate_source: string
           exchange_rate_ves_per_usd: number | null
           status: Database["public"]["Enums"]["order_status"]
           total: number
@@ -638,6 +639,7 @@ export type Database = {
           pricing_region?: string
           pricing_mode?: string
           pricing_currency?: string
+          exchange_rate_source?: string
           exchange_rate_ves_per_usd?: number | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
@@ -671,6 +673,7 @@ export type Database = {
           pricing_region?: string
           pricing_mode?: string
           pricing_currency?: string
+          exchange_rate_source?: string
           exchange_rate_ves_per_usd?: number | null
           status?: Database["public"]["Enums"]["order_status"]
           total?: number
