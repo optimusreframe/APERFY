@@ -78,8 +78,8 @@ function ProductActions({ product, onToggle, onEdit, onDelete, compact = false }
   compact?: boolean;
 }) {
   return (
-    <div className={`flex items-center justify-end gap-1.5 ${compact ? 'flex-wrap' : ''}`} onClick={(event) => event.stopPropagation()}>
-      <label className="flex min-h-11 items-center gap-1.5 rounded-lg px-1.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground">
+    <div className={`${compact ? 'grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-1' : 'flex items-center justify-end gap-1.5'}`} onClick={(event) => event.stopPropagation()}>
+      <label className="flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg px-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground">
         <Switch
           checked={product.is_active}
           onCheckedChange={(checked) => onToggle(product.id, 'is_active', checked)}
@@ -87,7 +87,7 @@ function ProductActions({ product, onToggle, onEdit, onDelete, compact = false }
         />
         <span className="hidden xl:inline">Activo</span>
       </label>
-      <label className="flex min-h-11 items-center gap-1.5 rounded-lg px-1.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground">
+      <label className="flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground">
         <Switch
           checked={product.is_featured}
           onCheckedChange={(checked) => onToggle(product.id, 'is_featured', checked)}
@@ -180,7 +180,7 @@ function ProductListView({ products, selectedProductIds, allProductsSelected, on
             tabIndex={0}
             onClick={() => onInspect(product)}
             onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onInspect(product); } }}
-            className={`grid cursor-pointer grid-cols-[44px_minmax(0,1fr)] items-center gap-x-2 gap-y-2 px-3 py-3 transition-colors hover:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:grid-cols-[44px_minmax(0,1fr)_auto] sm:gap-4 sm:px-4 ${selectedProductIds.includes(product.id) ? 'bg-destructive/[0.05]' : ''}`}
+            className={`grid min-w-0 cursor-pointer grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-3 transition-colors hover:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:gap-4 sm:px-4 ${selectedProductIds.includes(product.id) ? 'bg-destructive/[0.05]' : ''}`}
           >
             <SelectProduct product={product} checked={selectedProductIds.includes(product.id)} onChange={(checked) => onToggleSelected(product.id, checked)} />
             <div className="flex min-w-0 items-center gap-3">
@@ -196,7 +196,7 @@ function ProductListView({ products, selectedProductIds, allProductsSelected, on
                 <p className="mt-1 font-mono text-sm font-semibold text-primary">${Number(product.base_price).toFixed(2)}</p>
               </div>
             </div>
-            <ProductActions product={product} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />
+            <ProductActions product={product} compact onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />
           </div>
         ))}
       </div>

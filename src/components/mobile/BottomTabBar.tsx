@@ -30,11 +30,11 @@ export default function BottomTabBar() {
   return (
     <nav
       aria-label="Navegación principal"
-      className="mac-bottom-tabs fixed inset-x-0 bottom-0 z-[70] lg:hidden"
+      className="mac-bottom-tabs pointer-events-none fixed inset-x-0 bottom-0 z-[70] lg:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
         <div
-          className="mx-auto mb-0 w-[calc(100%-1rem)] max-w-xl rounded-2xl border border-border/80 bg-card/90 backdrop-blur-2xl"
+          className="pointer-events-auto mx-auto mb-0 w-[calc(100%-1rem)] max-w-xl rounded-2xl border border-border/80 bg-card/90 backdrop-blur-2xl"
           style={{
             background: 'hsl(var(--card) / 0.88)',
             boxShadow: '0 12px 40px -8px hsl(var(--foreground) / 0.18), 0 0 0 1px hsl(var(--primary) / 0.08)',

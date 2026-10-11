@@ -31,9 +31,9 @@ function StatCard({
 }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border ${
-        accent ? 'border-primary/30 bg-gradient-to-br from-primary/10 to-card/40' : 'border-border/60 bg-card/40'
-      } backdrop-blur-xl p-4 group hover:border-primary/40 transition-colors`}
+      className={`relative min-w-0 overflow-hidden rounded-xl border ${
+        accent ? 'border-primary/30 bg-gradient-to-br from-primary/10 to-card' : 'border-border/60 bg-card'
+      } p-4 group hover:border-primary/40 transition-colors`}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
   const ts = `${now.toISOString().slice(0, 10)} · ${now.toTimeString().slice(0, 5)}`;
 
   return (
-    <div className="space-y-8 max-w-[1400px] mx-auto">
+    <div className="admin-dashboard mx-auto w-full min-w-0 max-w-[1400px] space-y-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
@@ -127,7 +127,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Bento KPI grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid min-w-0 grid-cols-1 min-[360px]:grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <StatCard
           label="Revenue"
           value={`$${(orderStats?.totalRevenue ?? 0).toFixed(2)}`}
@@ -149,7 +149,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Recent orders — Palantir table */}
-      <div className="rounded-xl border border-border/60 bg-card/40 backdrop-blur-xl overflow-hidden">
+      <div className="min-w-0 overflow-hidden rounded-xl border border-border/60 bg-card">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/60">
           <div className="flex items-center gap-2">
             <ClipboardList className="w-4 h-4 text-primary/80" strokeWidth={1.5} />
