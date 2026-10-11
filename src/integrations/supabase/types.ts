@@ -968,10 +968,15 @@ export type Database = {
       product_variations: {
         Row: {
           created_at: string
+          description_en: string
+          description_es: string
           dimensions: string | null
           id: string
           image_url: string | null
+          images: Json
+          inventory_enabled: boolean
           is_active: boolean
+          low_stock_threshold: number
           material_id: string | null
           name_en: string
           name_es: string
@@ -979,6 +984,7 @@ export type Database = {
           price_override: number | null
           price_override_venezuela: number | null
           product_id: string
+          stock_quantity: number
           type: string
           use_manual_price: boolean
           value: string
@@ -986,10 +992,15 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          description_en?: string
+          description_es?: string
           dimensions?: string | null
           id?: string
           image_url?: string | null
+          images?: Json
+          inventory_enabled?: boolean
           is_active?: boolean
+          low_stock_threshold?: number
           material_id?: string | null
           name_en: string
           name_es?: string
@@ -997,6 +1008,7 @@ export type Database = {
           price_override?: number | null
           price_override_venezuela?: number | null
           product_id: string
+          stock_quantity?: number
           type?: string
           use_manual_price?: boolean
           value?: string
@@ -1004,10 +1016,15 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          description_en?: string
+          description_es?: string
           dimensions?: string | null
           id?: string
           image_url?: string | null
+          images?: Json
+          inventory_enabled?: boolean
           is_active?: boolean
+          low_stock_threshold?: number
           material_id?: string | null
           name_en?: string
           name_es?: string
@@ -1015,6 +1032,7 @@ export type Database = {
           price_override?: number | null
           price_override_venezuela?: number | null
           product_id?: string
+          stock_quantity?: number
           type?: string
           use_manual_price?: boolean
           value?: string
@@ -1032,6 +1050,7 @@ export type Database = {
       }
       products: {
         Row: {
+          allows_special_notes: boolean
           base_price: number
           brand: string | null
           venezuela_price_usd?: number | null
@@ -1062,6 +1081,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allows_special_notes?: boolean
           base_price?: number
           brand?: string | null
           venezuela_price_usd?: number | null
@@ -1092,6 +1112,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allows_special_notes?: boolean
           base_price?: number
           brand?: string | null
           venezuela_price_usd?: number | null

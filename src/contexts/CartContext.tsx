@@ -111,11 +111,18 @@ function loadSavedCart(): CartItem[] {
   }
 }
 
+function sameCartConfiguration(left: CartItem, right: CartItem): boolean {
+  if (left.productId !== right.productId) return false;
+  const leftVariations = left.selectedVariations.map((variation) => variation.id).sort();
+  const rightVariations = right.selectedVariations.map((variation) => variation.id).sort();
+  return leftVariations.length === rightVariations.length && leftVariations.every((id, index) => id === rightVariations[index]);
+}
+
 export function mergeCartItem(items: CartItem[], item: CartItem): CartItem[] {
-  const existing = items.find(i => i.productId === item.productId);
+  const existing = items.find(i => sameCartConfiguration(i, item));
   if (existing) {
     return items.map(i =>
-      i.productId === item.productId
+      sameCartConfiguration(i, item)
         ? { ...item, quantity: Math.min(i.quantity + item.quantity, 100) }
         : i
     );

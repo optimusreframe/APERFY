@@ -137,7 +137,9 @@ Deno.serve(async (req) => {
     const orderItems = items.map((item) => {
       const product = productMap.get(item.productId)!
       if (!product.is_active) throw new Error('One or more products are no longer available')
-      if (product.inventory_enabled && item.quantity > Number(product.stock_quantity)) throw new Error('Insufficient stock')
+      // Stock is checked atomically by reserve_stock_for_order_internal after
+      // the authoritative order rows exist. That function handles both the
+      // legacy product bucket and selected variant buckets.
       let computedPrice = resolveProductPrice(product, pricing)
       let manualSizePrice: number | null = null
       const selectedVariations = item.variations.map((selected) => {

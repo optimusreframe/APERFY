@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import type { Category, Product } from '@/lib/model-types';
 import { optimizeImageUrl } from '@/lib/image-url';
 
-export type AdminProduct = Pick<Product, 'id' | 'brand' | 'name_en' | 'name_es' | 'description_en' | 'description_es' | 'slug' | 'base_price' | 'venezuela_price_usd' | 'venezuela_price_mode' | 'venezuela_manual_mode' | 'venezuela_markup_percent' | 'condition_status' | 'seller_name' | 'return_policy_en' | 'return_policy_es' | 'return_window_days' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
+export type AdminProduct = Pick<Product, 'id' | 'brand' | 'name_en' | 'name_es' | 'description_en' | 'description_es' | 'allows_special_notes' | 'slug' | 'base_price' | 'venezuela_price_usd' | 'venezuela_price_mode' | 'venezuela_manual_mode' | 'venezuela_markup_percent' | 'condition_status' | 'seller_name' | 'return_policy_en' | 'return_policy_es' | 'return_window_days' | 'category_id' | 'is_active' | 'is_featured' | 'images'> & {
   inventory_enabled: Product['inventory_enabled'];
   stock_quantity: Product['stock_quantity'];
   low_stock_threshold: Product['low_stock_threshold'];

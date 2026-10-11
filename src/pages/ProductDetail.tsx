@@ -40,6 +40,15 @@ type StorefrontProduct = Product & { categories: Pick<Category, 'name_en' | 'nam
 type RelatedProduct = Product & { categories: Pick<Category, 'name_en' | 'name_es'> | null };
 const PRODUCT_LIGHTBOX_HISTORY_KEY = '__aperfy_product_image_lightbox';
 
+function getVariationImages(variation: Variation): string[] {
+  const storedImages = Array.isArray(variation.images)
+    ? variation.images.filter((image): image is string => typeof image === 'string' && image.length > 0)
+    : [];
+  return storedImages.length > 0
+    ? storedImages
+    : (variation.image_url ? [variation.image_url] : []);
+}
+
 
 
 // ─── Lightbox Component ───
@@ -499,14 +508,31 @@ export default function ProductDetail() {
   const selectedWeight = selectedSizeVar ? Number(selectedSizeVar.weight_grams || 0) : null;
   const selectedDimensions = selectedSizeVar?.dimensions || null;
   const baseImages = useMemo(() => product ? (Array.isArray(product.images) ? product.images.filter((image): image is string => typeof image === 'string') : []) : [], [product]);
+  const selectedVariationRows = useMemo(() => Object.values(selectedVariations)
+    .map((varId) => variations.find((variation) => variation.id === varId))
+    .filter((variation): variation is Variation => Boolean(variation)), [selectedVariations, variations]);
+  const needsVariation = Object.keys(variationsByType).length > 0 && Object.keys(variationsByType).some((type) => !selectedVariations[type]);
 
-  // If any selected variation has an image_url, show it as the hero image (override)
-  const variationImage = useMemo(() => Object.values(selectedVariations)
-    .map(varId => variations.find((vr) => vr.id === varId))
-    .find((variation) => variation?.image_url)?.image_url || null, [selectedVariations, variations]);
-  const images = useMemo(() => variationImage ? [variationImage, ...baseImages.filter(i => i !== variationImage)] : baseImages, [baseImages, variationImage]);
-  const inventoryState = getInventoryState(product ?? {});
-  const inventoryStock = getInventoryStock(product ?? {});
+  // A selected variation replaces the product gallery. Additional selected
+  // option images are kept in the same gallery, followed by product media.
+  const variationImages = useMemo(() => selectedVariationRows.flatMap(getVariationImages), [selectedVariationRows]);
+  const images = useMemo(() => {
+    const combined = [...variationImages, ...baseImages];
+    return combined.filter((image, index) => combined.indexOf(image) === index);
+  }, [baseImages, variationImages]);
+  const variantInventory = useMemo(() => {
+    if (!variations.length || needsVariation) return null;
+    const tracked = selectedVariationRows.filter((variation) => variation.inventory_enabled);
+    if (!tracked.length) return { inventory_enabled: false };
+    return {
+      inventory_enabled: true,
+      stock_quantity: Math.min(...tracked.map((variation) => Math.max(0, Number(variation.stock_quantity ?? 0)))),
+      low_stock_threshold: Math.min(...tracked.map((variation) => Math.max(0, Number(variation.low_stock_threshold ?? 3)))),
+    };
+  }, [needsVariation, selectedVariationRows, variations.length]);
+  const inventorySource = variations.length > 0 ? (variantInventory ?? {}) : (product ?? {});
+  const inventoryState = needsVariation ? 'untracked' : getInventoryState(inventorySource);
+  const inventoryStock = needsVariation ? null : getInventoryStock(inventorySource);
   const quantityLimit = inventoryStock === null ? 99 : Math.max(1, inventoryStock);
   const inventoryLabel = inventoryState === 'sold_out'
     ? t.product.outOfStock
@@ -525,14 +551,21 @@ export default function ProductDetail() {
 
   // When the user picks a variation that has its own image, jump to it.
   useEffect(() => {
-    if (variationImage) setSelectedImage(0);
-  }, [variationImage]);
+    setSelectedImage(0);
+  }, [selectedVariations, variationImages]);
+
+  const variantDescription = selectedVariationRows
+    .map((variation) => language === 'es' ? variation.description_es : variation.description_en)
+    .map((description) => description?.trim())
+    .filter((description): description is string => Boolean(description))
+    .join('\n\n');
+  const descriptionForDisplay = variantDescription || (language === 'es' ? product?.description_es : product?.description_en) || '';
 
   // ─── Dynamic SEO + OG meta ───
   useEffect(() => {
     if (!product) return;
     const name = language === 'es' ? product.name_es : product.name_en;
-    const desc = (language === 'es' ? product.description_es : product.description_en) || `${name} · APERFY`;
+    const desc = descriptionForDisplay || `${name} · APERFY`;
     const img = baseImages[0] || '';
     const url = typeof window !== 'undefined' ? window.location.href : '';
 
@@ -571,13 +604,17 @@ export default function ProductDetail() {
     });
 
     return () => { document.title = 'APERFY'; };
-  }, [product, language, baseImages, inventoryState]);
+  }, [product, language, baseImages, inventoryState, descriptionForDisplay]);
 
 
 
 
   const handleAddToCart = useCallback(() => {
     if (!product) return;
+    if (needsVariation) {
+      toast({ title: language === 'es' ? 'Selecciona una variante' : 'Choose a variant', variant: 'destructive' });
+      return;
+    }
     if (inventoryState === 'sold_out') {
       toast({ title: language === 'es' ? 'Producto agotado' : 'Product sold out', variant: 'destructive' });
       return;
@@ -601,7 +638,7 @@ export default function ProductDetail() {
       dimensions: selectedDimensions || undefined,
     });
     toast({ title: language === 'es' ? 'Agregado al carrito' : 'Added to cart' });
-  }, [product, language, images, quantity, unitPrice, selectedVariations, variations, notes, selectedWeight, selectedDimensions, addToCart, toast, inventoryState]);
+  }, [product, language, images, quantity, unitPrice, selectedVariations, variations, notes, selectedWeight, selectedDimensions, addToCart, toast, inventoryState, needsVariation]);
 
   if (isLoading) {
     return (
@@ -965,9 +1002,9 @@ export default function ProductDetail() {
                                 {type === 'color' && (
                                   <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: v.value }} />
                                 )}
-                                {v.image_url && (
+                                {getVariationImages(v)[0] && (
                                   <span className="w-5 h-5 rounded overflow-hidden border border-white/10 shrink-0">
-                                    <img src={optimizeImageUrl(v.image_url, { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className="w-full h-full object-cover" />
+                                    <img src={optimizeImageUrl(getVariationImages(v)[0], { width: 160, quality: 70 })} alt="" width={64} height={64} decoding="async" className="w-full h-full object-cover" />
                                   </span>
                                 )}
                                 <span className="font-medium">{language === 'es' ? v.name_es : v.name_en}</span>
@@ -975,6 +1012,13 @@ export default function ProductDetail() {
                               {isSize && (vWeight || v.dimensions || vPrice) && (
                                 <span className="text-[9px] text-muted-foreground font-mono tabular-nums">
                                   {[vWeight && `${vWeight}g`, v.dimensions && `${v.dimensions}mm`, vPrice && formatRegionalPrice(vPrice, pricing, currency)].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
+                              {v.inventory_enabled && (
+                                <span className={`text-[9px] font-mono ${Number(v.stock_quantity || 0) <= 0 ? 'text-destructive/90' : Number(v.stock_quantity || 0) <= Number(v.low_stock_threshold || 3) ? 'text-amber-400/90' : 'text-muted-foreground'}`}>
+                                  {Number(v.stock_quantity || 0) <= 0
+                                    ? (language === 'es' ? 'Agotado' : 'Sold out')
+                                    : `${Number(v.stock_quantity)} ${language === 'es' ? 'disponibles' : 'available'}`}
                                 </span>
                               )}
                             </motion.button>
@@ -1037,7 +1081,7 @@ export default function ProductDetail() {
               <motion.div whileTap={{ scale: 0.99 }}>
                 <Button
                   onClick={handleAddToCart}
-                  disabled={inventoryState === 'sold_out'}
+                  disabled={inventoryState === 'sold_out' || needsVariation}
                   className="w-full bg-gradient-gold text-primary-foreground font-bold gap-2 h-12 text-[14px] shadow-[0_0_30px_hsl(var(--primary)/0.25)] hover:shadow-[0_0_50px_hsl(var(--primary)/0.5)] transition-all rounded-full tracking-tight"
                 >
                   <ShoppingCart className="w-4 h-4" />
@@ -1066,20 +1110,22 @@ export default function ProductDetail() {
               {language === 'es' ? 'Acerca de este producto' : 'About this product'}
             </h2>
             <p className="text-muted-foreground leading-relaxed text-[15px] whitespace-pre-wrap">
-              {language === 'es' ? product.description_es : product.description_en}
+              {descriptionForDisplay}
             </p>
 
-            {/* Notes input */}
-            <div className="mt-8">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">{t.product.specialNotes}</div>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder={t.product.specialNotesPlaceholder}
-                className="bg-white/[0.02] border-white/[0.06] rounded-xl focus-visible:ring-primary/30"
-                rows={3}
-              />
-            </div>
+            {/* Notes input is only relevant for products that accept custom requests. */}
+            {product.allows_special_notes && (
+              <div className="mt-8">
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-3">{t.product.specialNotes}</div>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={t.product.specialNotesPlaceholder}
+                  className="bg-white/[0.02] border-white/[0.06] rounded-xl focus-visible:ring-primary/30"
+                  rows={3}
+                />
+              </div>
+            )}
 
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               <GlassSection className="p-4" delay={0.05}>
@@ -1161,13 +1207,10 @@ export default function ProductDetail() {
         totalPriceLabel={displayTotalPrice}
         quantity={quantity}
         setQuantity={setQuantity}
-        needsVariation={
-          Object.keys(variationsByType).length > 0 &&
-          Object.keys(variationsByType).some((type) => !selectedVariations[type])
-        }
+        needsVariation={needsVariation}
         onAdd={handleAddToCart}
         productName={language === 'es' ? product.name_es : product.name_en}
-        inStock={inventoryState !== 'sold_out'}
+        inStock={inventoryState !== 'sold_out' && !needsVariation}
       />
 
 

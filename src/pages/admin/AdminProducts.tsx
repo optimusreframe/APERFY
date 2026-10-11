@@ -56,6 +56,7 @@ interface ProductForm {
   inventory_enabled: boolean;
   stock_quantity: number;
   low_stock_threshold: number;
+  allows_special_notes: boolean;
 }
 
 interface MediaItem {
@@ -113,9 +114,11 @@ const empty: ProductForm = {
   return_policy_es: 'Devoluciones de 30 días para artículos elegibles. Contacta a APERFY antes de devolver un producto.',
   return_window_days: 30, category_id: '', is_active: true, is_featured: false,
   inventory_enabled: false, stock_quantity: 0, low_stock_threshold: 3,
+  allows_special_notes: false,
 };
 
 const MAX_MEDIA = 5;
+const MAX_VARIATION_MEDIA = 5;
 const ACCEPT_MEDIA = 'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm';
 
 const COMMON_COLORS = [
@@ -412,6 +415,8 @@ export default function AdminProducts() {
     id?: string;
     name_en: string;
     name_es: string;
+    description_en: string;
+    description_es: string;
     type: string;
     weight_grams: number;
     material_id: string;
@@ -421,7 +426,11 @@ export default function AdminProducts() {
     price_override_venezuela: number | null;
     use_manual_price: boolean;
     image_url: string | null;
-    _imageFile?: File;
+    images: string[];
+    inventory_enabled: boolean;
+    stock_quantity: number;
+    low_stock_threshold: number;
+    _imageFiles?: Array<{ file: File; preview: string }>;
     _isNew?: boolean;
     _deleted?: boolean;
     _uploadingImage?: boolean;
@@ -432,6 +441,8 @@ export default function AdminProducts() {
   const createEmptyVariation = (overrides: Partial<VariationRow> = {}): VariationRow => ({
     name_en: '',
     name_es: '',
+    description_en: '',
+    description_es: '',
     type: 'color',
     weight_grams: 0,
     material_id: '',
@@ -441,6 +452,10 @@ export default function AdminProducts() {
     price_override_venezuela: null,
     use_manual_price: false,
     image_url: null,
+    images: [],
+    inventory_enabled: true,
+    stock_quantity: 0,
+    low_stock_threshold: 3,
     _isNew: true,
     ...overrides,
   });
@@ -556,7 +571,7 @@ export default function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, brand, name_en, name_es, slug, base_price, venezuela_price_usd, venezuela_price_mode, venezuela_manual_mode, venezuela_markup_percent, condition_status, seller_name, return_policy_en, return_policy_es, return_window_days, is_active, is_featured, category_id, images, created_at, description_en, description_es, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
+        .select('id, brand, name_en, name_es, slug, base_price, venezuela_price_usd, venezuela_price_mode, venezuela_manual_mode, venezuela_markup_percent, condition_status, seller_name, return_policy_en, return_policy_es, return_window_days, is_active, is_featured, category_id, images, created_at, description_en, description_es, allows_special_notes, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -714,12 +729,18 @@ export default function AdminProducts() {
         markupPercent: manualMarkup,
         globalMarkupPercent: globalVenezuelaMarkupPercent,
       });
+      const hasVariants = productVariations.some((variation) => !variation._deleted);
       const payload = {
         ...f,
         category_id: f.category_id || null,
         base_price: basePrice,
         venezuela_price_usd: venezuelaPrice,
         venezuela_markup_percent: manualMarkup,
+        // Variant inventory is authoritative whenever at least one active
+        // variant exists. Keep the legacy product fields available for
+        // products without variants, but never let both ledgers compete.
+        inventory_enabled: hasVariants ? false : f.inventory_enabled,
+        stock_quantity: hasVariants ? 0 : f.stock_quantity,
       };
       const invalidVariation = productVariations.find((variation) => {
         if (variation._deleted) return false;
@@ -772,17 +793,23 @@ export default function AdminProducts() {
             ? Number(v.price_override)
             : 0;
 
-          let variationImageUrl = v.image_url;
-          if (v._imageFile) {
-            variationImageUrl = await uploadMedia(v._imageFile, productId);
+          const variationImageUrls: string[] = [];
+          for (const image of v.images) {
+            if (!image) continue;
+            if (image.startsWith('blob:')) {
+              const pending = v._imageFiles?.find((item) => item.preview === image);
+              if (pending) variationImageUrls.push(await uploadMedia(pending.file, productId));
+            } else {
+              variationImageUrls.push(image);
+            }
           }
-          // Object URLs are local previews only and must never be persisted.
-          if (variationImageUrl?.startsWith('blob:')) variationImageUrl = null;
 
           const varPayload = {
             product_id: productId,
             name_en: nameEn,
             name_es: nameEs,
+            description_en: v.description_en.trim(),
+            description_es: v.description_es.trim(),
             type: v.type || 'size',
             weight_grams: v.weight_grams || null,
             dimensions: v.dimensions || null,
@@ -791,7 +818,11 @@ export default function AdminProducts() {
             price_override: v.use_manual_price && v.price_override !== null ? Number(v.price_override) : null,
             price_override_venezuela: v.use_manual_price && v.price_override_venezuela !== null ? Number(v.price_override_venezuela) : null,
             use_manual_price: !!v.use_manual_price,
-            image_url: variationImageUrl || null,
+            image_url: variationImageUrls[0] || null,
+            images: variationImageUrls,
+            inventory_enabled: !!v.inventory_enabled,
+            stock_quantity: Math.max(0, Number(v.stock_quantity) || 0),
+            low_stock_threshold: Math.max(0, Number(v.low_stock_threshold) || 0),
             value: `${v.type || 'custom'}: ${nameEs}`,
             is_active: v.is_active,
           };
@@ -922,6 +953,7 @@ export default function AdminProducts() {
       return_window_days: Number(p.return_window_days || 30),
       category_id: p.category_id || '', is_active: p.is_active, is_featured: p.is_featured,
       inventory_enabled: p.inventory_enabled, stock_quantity: p.stock_quantity, low_stock_threshold: p.low_stock_threshold,
+      allows_special_notes: !!p.allows_special_notes,
     });
     const existingImages = Array.isArray(p.images) ? p.images.filter((url): url is string => typeof url === 'string') : [];
     setMediaFiles(existingImages.map((url, i) => ({
@@ -933,20 +965,32 @@ export default function AdminProducts() {
     // Load existing variations
     setLoadingVariations(true);
     supabase.from('product_variations').select('*').eq('product_id', p.id).order('created_at').then(({ data }) => {
-      setProductVariations((data || []).map((v) => ({
-        id: v.id,
-        name_en: v.name_en,
-        name_es: v.name_es,
-        type: v.type,
-        weight_grams: v.weight_grams || 0,
-        material_id: v.material_id || '',
-        dimensions: v.dimensions || '',
-        is_active: v.is_active,
-        price_override: v.price_override !== null && v.price_override !== undefined ? Number(v.price_override) : null,
-        price_override_venezuela: v.price_override_venezuela !== null && v.price_override_venezuela !== undefined ? Number(v.price_override_venezuela) : null,
-        use_manual_price: !!v.use_manual_price,
-        image_url: v.image_url || null,
-      })));
+      setProductVariations((data || []).map((v) => {
+        const storedImages = Array.isArray(v.images)
+          ? v.images.filter((image): image is string => typeof image === 'string' && image.length > 0)
+          : [];
+        const images = storedImages.length > 0 ? storedImages : (v.image_url ? [v.image_url] : []);
+        return {
+          id: v.id,
+          name_en: v.name_en,
+          name_es: v.name_es,
+          description_en: v.description_en || '',
+          description_es: v.description_es || '',
+          type: v.type,
+          weight_grams: v.weight_grams || 0,
+          material_id: v.material_id || '',
+          dimensions: v.dimensions || '',
+          is_active: v.is_active,
+          price_override: v.price_override !== null && v.price_override !== undefined ? Number(v.price_override) : null,
+          price_override_venezuela: v.price_override_venezuela !== null && v.price_override_venezuela !== undefined ? Number(v.price_override_venezuela) : null,
+          use_manual_price: !!v.use_manual_price,
+          image_url: images[0] || null,
+          images,
+          inventory_enabled: !!v.inventory_enabled,
+          stock_quantity: Number(v.stock_quantity || 0),
+          low_stock_threshold: Number(v.low_stock_threshold ?? 3),
+        };
+      }));
       setLoadingVariations(false);
     });
 
@@ -2581,6 +2625,7 @@ export default function AdminProducts() {
                   { id: 4, label: 'Publicar', icon: CheckCircle2, desc: 'Revisar y guardar' },
                 ];
                 const liveTitle = (form.name_es || form.name_en || (editId ? 'Editar producto' : 'Nuevo producto'));
+                const hasVariants = productVariations.some((variation) => !variation._deleted);
                 const stepProgress = ((wizardStep + 1) / WIZARD_STEPS.length) * 100;
                 const stepError = getWizardStepError(wizardStep, form);
                 const completed = (step: number) => step < wizardStep && !getWizardStepError(step, form);
@@ -3011,7 +3056,14 @@ export default function AdminProducts() {
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2"><Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} /><Label>Activo</Label></div>
                   <div className="flex items-center gap-2"><Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} /><Label>Destacado</Label></div>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={form.allows_special_notes} onCheckedChange={(c) => setForm({ ...form, allows_special_notes: c })} />
+                    <Label>Permitir notas especiales</Label>
+                  </div>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Actívalo solo para productos personalizables. Cuando está apagado, la tienda no solicitará notas o instrucciones especiales.
+                </p>
 
                 <div className="grid gap-4 rounded-xl border border-border bg-secondary/40 p-4 md:grid-cols-2">
                   <div className="space-y-2">
@@ -3037,9 +3089,17 @@ export default function AdminProducts() {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <Label className="font-semibold">Controlar inventario</Label>
-                      <p className="text-xs text-muted-foreground mt-1">El checkout reservará unidades y mostrará disponible, pocas unidades o agotado.</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {hasVariants
+                          ? 'Este producto tiene variantes: el stock global queda desactivado y cada variante controla sus propias unidades.'
+                          : 'El checkout reservará unidades y mostrará disponible, pocas unidades o agotado.'}
+                      </p>
                     </div>
-                    <Switch checked={form.inventory_enabled} onCheckedChange={(checked) => setForm({ ...form, inventory_enabled: checked })} />
+                    <Switch
+                      checked={!hasVariants && form.inventory_enabled}
+                      disabled={hasVariants}
+                      onCheckedChange={(checked) => setForm({ ...form, inventory_enabled: checked })}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -3049,7 +3109,7 @@ export default function AdminProducts() {
                         min="0"
                         step="1"
                         value={form.stock_quantity}
-                        disabled={!form.inventory_enabled}
+                        disabled={!form.inventory_enabled || hasVariants}
                         onChange={(e) => setForm({ ...form, stock_quantity: Math.max(0, parseInt(e.target.value, 10) || 0) })}
                         className="bg-background"
                       />
@@ -3062,7 +3122,7 @@ export default function AdminProducts() {
                         min="0"
                         step="1"
                         value={form.low_stock_threshold}
-                        disabled={!form.inventory_enabled}
+                        disabled={!form.inventory_enabled || hasVariants}
                         onChange={(e) => setForm({ ...form, low_stock_threshold: Math.max(0, parseInt(e.target.value, 10) || 0) })}
                         className="bg-background"
                       />
@@ -3174,6 +3234,40 @@ export default function AdminProducts() {
                               }}
                               placeholder="e.g. Small"
                               className="bg-background text-sm h-8"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Descripción (ES)</Label>
+                            <Textarea
+                              value={variation.description_es}
+                              onChange={(e) => {
+                                setProductVariations(prev => {
+                                  const updated = [...prev];
+                                  updated[actualIdx] = { ...updated[actualIdx], description_es: e.target.value };
+                                  return updated;
+                                });
+                              }}
+                              placeholder="Descripción específica de esta variante"
+                              className="min-h-20 bg-background text-sm"
+                              maxLength={5000}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Descripción (EN)</Label>
+                            <Textarea
+                              value={variation.description_en}
+                              onChange={(e) => {
+                                setProductVariations(prev => {
+                                  const updated = [...prev];
+                                  updated[actualIdx] = { ...updated[actualIdx], description_en: e.target.value };
+                                  return updated;
+                                });
+                              }}
+                              placeholder="Description specific to this variation"
+                              className="min-h-20 bg-background text-sm"
+                              maxLength={5000}
                             />
                           </div>
                         </div>
@@ -3314,23 +3408,34 @@ export default function AdminProducts() {
                           </div>
                         </div>
 
-                        {/* Imagen opcional por variación */}
-                        <div className="space-y-1">
-                          <Label className="text-xs flex items-center gap-1.5">
-                            <Image className="w-3 h-3" /> Imagen de variación
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">opcional</span>
-                          </Label>
-                          <div className="flex items-center gap-2">
-                            {variation.image_url ? (
-                              <div className="relative group w-16 h-16 rounded-lg overflow-hidden border border-border shrink-0">
-                                <img src={variation.image_url} alt="" className="w-full h-full object-cover" />
+                        {/* Galería opcional por variación */}
+                        <div className="space-y-2 rounded-lg border border-border/70 bg-background/30 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <Label className="text-xs flex items-center gap-1.5">
+                              <Image className="w-3 h-3" /> Imágenes de variación
+                              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{variation.images.length}/{MAX_VARIATION_MEDIA}</span>
+                            </Label>
+                            <span className="text-[10px] text-muted-foreground">La primera será la portada de esta variante</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {variation.images.length > 0 ? variation.images.map((image, imageIndex) => (
+                              <div key={`${image}-${imageIndex}`} className="relative group w-16 h-16 rounded-lg overflow-hidden border border-border bg-background">
+                                <img src={image} alt={`${variation.name_es || variation.name_en || 'Variante'} ${imageIndex + 1}`} className="w-full h-full object-cover" />
                                 <button
                                   type="button"
+                                  aria-label="Eliminar imagen de variante"
                                   onClick={() => {
                                     setProductVariations(prev => {
                                       const updated = [...prev];
-                                      if (updated[actualIdx].image_url?.startsWith('blob:')) URL.revokeObjectURL(updated[actualIdx].image_url);
-                                      updated[actualIdx] = { ...updated[actualIdx], image_url: null, _imageFile: undefined };
+                                      const current = updated[actualIdx];
+                                      const removed = current.images[imageIndex];
+                                      if (removed.startsWith('blob:')) URL.revokeObjectURL(removed);
+                                      updated[actualIdx] = {
+                                        ...current,
+                                        images: current.images.filter((_, idx) => idx !== imageIndex),
+                                        image_url: current.images.filter((_, idx) => idx !== imageIndex)[0] || null,
+                                        _imageFiles: current._imageFiles?.filter((item) => item.preview !== removed),
+                                      };
                                       return updated;
                                     });
                                   }}
@@ -3338,93 +3443,167 @@ export default function AdminProducts() {
                                 >
                                   <X className="w-3 h-3 text-white" />
                                 </button>
+                                {imageIndex === 0 && <span className="absolute bottom-0 inset-x-0 bg-primary/90 px-1 py-0.5 text-center text-[8px] font-semibold text-primary-foreground">PORTADA</span>}
                               </div>
-                            ) : (
+                            )) : (
                               <div className="w-16 h-16 rounded-lg border border-dashed border-border flex items-center justify-center bg-background shrink-0">
                                 <ImagePlus className="w-5 h-5 text-muted-foreground" />
                               </div>
                             )}
-                            <div className="flex flex-col gap-1 flex-1">
-                              <input
-                                type="file"
-                                accept="image/*"
-                                id={`var-img-${actualIdx}`}
-                                className="hidden"
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (!file) return;
-                                  const v = await validateMediaFile(file);
-                                  if (!v.valid) { toast({ title: v.error || 'Archivo inválido', variant: 'destructive' }); return; }
-                                  const preview = URL.createObjectURL(file);
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              id={`var-img-${actualIdx}`}
+                              className="hidden"
+                              onChange={async (e) => {
+                                const files = Array.from(e.target.files || []).slice(0, Math.max(0, MAX_VARIATION_MEDIA - variation.images.length));
+                                if (files.length === 0) {
+                                  toast({ title: `Máximo ${MAX_VARIATION_MEDIA} imágenes por variante`, variant: 'destructive' });
+                                  e.target.value = '';
+                                  return;
+                                }
+                                const newItems: Array<{ file: File; preview: string }> = [];
+                                for (const file of files) {
+                                  const validation = await validateMediaFile(file);
+                                  if (!validation.valid) {
+                                    toast({ title: validation.error || 'Archivo inválido', variant: 'destructive' });
+                                    continue;
+                                  }
+                                  newItems.push({ file, preview: URL.createObjectURL(file) });
+                                }
+                                if (newItems.length > 0) {
                                   setProductVariations(prev => {
-                                    const u = [...prev];
-                                    const previousPreview = u[actualIdx].image_url;
-                                    if (previousPreview?.startsWith('blob:')) URL.revokeObjectURL(previousPreview);
-                                    u[actualIdx] = {
-                                      ...u[actualIdx],
-                                      image_url: preview,
-                                      _imageFile: file,
+                                    const updated = [...prev];
+                                    const current = updated[actualIdx];
+                                    const images = [...current.images, ...newItems.map((item) => item.preview)].slice(0, MAX_VARIATION_MEDIA);
+                                    updated[actualIdx] = {
+                                      ...current,
+                                      images,
+                                      image_url: images[0] || null,
+                                      _imageFiles: [...(current._imageFiles || []), ...newItems].slice(0, MAX_VARIATION_MEDIA),
                                       _uploadingImage: false,
                                     };
+                                    return updated;
+                                  });
+                                }
+                                e.target.value = '';
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              disabled={variation._uploadingImage || variation.images.length >= MAX_VARIATION_MEDIA}
+                              onClick={() => document.getElementById(`var-img-${actualIdx}`)?.click()}
+                            >
+                              {variation._uploadingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                              Subir imágenes
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs gap-1 text-primary"
+                              disabled={variation._generatingImage || variation.images.length >= MAX_VARIATION_MEDIA || !(variation._imageFiles?.[0]?.preview || variation.images[0] || mediaFiles[0]?.preview)}
+                              title={!(variation._imageFiles?.[0]?.preview || variation.images[0] || mediaFiles[0]?.preview) ? 'Sube primero una imagen principal o una foto para esta variante' : 'Cada clic agrega una nueva imagen generada a la galería'}
+                              onClick={async () => {
+                                setProductVariations(prev => { const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _generatingImage: true }; return u; });
+                                try {
+                                  const base = variation._imageFiles?.[0]?.file
+                                    ? await fileToBase64(variation._imageFiles[0].file)
+                                    : variation.images[0] || mediaFiles[0]?.preview;
+                                  if (!base) throw new Error('Necesitas una imagen principal primero.');
+                                  const variantDesc = `${variation.name_es || variation.name_en || 'variation'}${variation.dimensions ? ` (${variation.dimensions}mm)` : ''}${variation.weight_grams ? `, ${variation.weight_grams}g` : ''}`;
+                                  const { data, error } = await supabase.functions.invoke('ai-product-import', {
+                                    body: {
+                                      action: 'generate_image',
+                                      sourceImage: base,
+                                      backgroundMode: 'system_workshop',
+                                      prompt_addition: `Same product, identical design, color and texture. Show this specific variation: ${variantDesc}. Clean studio background, premium product photography.`,
+                                    },
+                                  });
+                                  if (error || !data?.success) throw new Error(error?.message || data?.error || 'Falló la generación');
+                                  const { url: generated } = getPersistedAiImage(data.data);
+                                  setProductVariations(prev => {
+                                    const u = [...prev];
+                                    const current = u[actualIdx];
+                                    if (current.images.length < MAX_VARIATION_MEDIA) {
+                                      u[actualIdx] = {
+                                        ...current,
+                                        images: [...current.images, generated],
+                                        image_url: current.images[0] || generated,
+                                        _generatingImage: false,
+                                      };
+                                    } else {
+                                      u[actualIdx] = { ...current, _generatingImage: false };
+                                    }
                                     return u;
                                   });
-                                  e.target.value = '';
+                                  toast({ title: '✨ Imagen agregada a la variante' });
+                                } catch (err: unknown) {
+                                  toast({ title: 'Error al generar', description: getErrorMessage(err), variant: 'destructive' });
+                                  setProductVariations(prev => { const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _generatingImage: false }; return u; });
+                                }
+                              }}
+                            >
+                              {variation._generatingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                              Generar otra con IA
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-3 rounded-lg border border-border/70 bg-background/30 p-3 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <Label className="text-xs font-semibold">Stock de esta variante</Label>
+                              <Switch
+                                checked={variation.inventory_enabled}
+                                onCheckedChange={(checked) => {
+                                  setProductVariations(prev => {
+                                    const updated = [...prev];
+                                    updated[actualIdx] = { ...updated[actualIdx], inventory_enabled: checked };
+                                    return updated;
+                                  });
                                 }}
                               />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs gap-1"
-                                disabled={variation._uploadingImage}
-                                onClick={() => document.getElementById(`var-img-${actualIdx}`)?.click()}
-                              >
-                                {variation._uploadingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                                {variation.image_url ? 'Reemplazar' : 'Subir'}
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs gap-1 text-primary"
-                                disabled={variation._generatingImage || !(variation.image_url || variation._imageFile || mediaFiles[0]?.preview)}
-                                title={!variation.image_url && !variation._imageFile && !mediaFiles[0]?.preview ? 'Sube primero una imagen principal o una foto para esta variante' : variation.image_url ? 'Generar con IA usando la foto de esta variante' : 'Generar con IA usando la imagen principal como referencia'}
-                                onClick={async () => {
-                                  setProductVariations(prev => { const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _generatingImage: true }; return u; });
-                                  try {
-                                    const base = variation._imageFile
-                                      ? await fileToBase64(variation._imageFile)
-                                      : variation.image_url || mediaFiles[0]?.preview;
-                                    if (!base) throw new Error('Necesitas una imagen principal primero.');
-                                    const variantDesc = `${variation.name_es || variation.name_en || 'variation'}${variation.dimensions ? ` (${variation.dimensions}mm)` : ''}${variation.weight_grams ? `, ${variation.weight_grams}g` : ''}`;
-                                    const { data, error } = await supabase.functions.invoke('ai-product-import', {
-                                      body: {
-                                        action: 'generate_image',
-                                        sourceImage: base,
-                                        backgroundMode: 'system_workshop',
-                                        prompt_addition: `Same product, identical design, color and texture. Show this specific variation: ${variantDesc}. Clean studio background, premium product photography.`,
-                                      },
-                                    });
-                                    if (error || !data?.success) throw new Error(error?.message || data?.error || 'Falló la generación');
-                                    const { url: generated } = getPersistedAiImage(data.data);
-                                    setProductVariations(prev => {
-                                      const u = [...prev];
-                                      const previousPreview = u[actualIdx].image_url;
-                                      if (previousPreview?.startsWith('blob:')) URL.revokeObjectURL(previousPreview);
-                                      u[actualIdx] = { ...u[actualIdx], image_url: generated, _imageFile: undefined, _generatingImage: false };
-                                      return u;
-                                    });
-                                    toast({ title: '✨ Imagen generada' });
-                                  } catch (err: unknown) {
-                                    toast({ title: 'Error al generar', description: getErrorMessage(err), variant: 'destructive' });
-                                    setProductVariations(prev => { const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _generatingImage: false }; return u; });
-                                  }
-                                }}
-                              >
-                                {variation._generatingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                Generar con IA
-                              </Button>
                             </div>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={variation.stock_quantity}
+                              disabled={!variation.inventory_enabled}
+                              onChange={(e) => {
+                                setProductVariations(prev => {
+                                  const updated = [...prev];
+                                  updated[actualIdx] = { ...updated[actualIdx], stock_quantity: Math.max(0, parseInt(e.target.value, 10) || 0) };
+                                  return updated;
+                                });
+                              }}
+                              className="bg-background text-sm"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Umbral de pocas unidades</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={variation.low_stock_threshold}
+                              disabled={!variation.inventory_enabled}
+                              onChange={(e) => {
+                                setProductVariations(prev => {
+                                  const updated = [...prev];
+                                  updated[actualIdx] = { ...updated[actualIdx], low_stock_threshold: Math.max(0, parseInt(e.target.value, 10) || 0) };
+                                  return updated;
+                                });
+                              }}
+                              className="bg-background text-sm"
+                            />
                           </div>
                         </div>
 

@@ -201,6 +201,7 @@ function publicProduct(row: Record<string, unknown>, pricing: Pricing) {
     name_es: row.name_es,
     description_en: row.description_en,
     description_es: row.description_es,
+    allows_special_notes: Boolean(row.allows_special_notes),
     slug: row.slug,
     base_price: effectivePrice,
     category_id: row.category_id,
@@ -227,6 +228,12 @@ function publicProduct(row: Record<string, unknown>, pricing: Pricing) {
 function publicVariation(row: Record<string, unknown>, pricing: Pricing) {
   const useVenezuela = pricing.mode === 'geo' && pricing.region === 'VENEZUELA'
   const venezuelaOverride = row.price_override_venezuela == null ? null : Number(row.price_override_venezuela)
+  const storedImages = Array.isArray(row.images)
+    ? row.images.filter((image): image is string => typeof image === 'string' && image.length > 0)
+    : []
+  const images = storedImages.length > 0
+    ? storedImages
+    : (typeof row.image_url === 'string' && row.image_url ? [row.image_url] : [])
   return {
     id: row.id,
     product_id: row.product_id,
@@ -243,6 +250,12 @@ function publicVariation(row: Record<string, unknown>, pricing: Pricing) {
     weight_grams: row.weight_grams,
     dimensions: row.dimensions,
     image_url: row.image_url,
+    images,
+    description_en: row.description_en || '',
+    description_es: row.description_es || '',
+    inventory_enabled: Boolean(row.inventory_enabled),
+    stock_quantity: Number(row.stock_quantity ?? 0),
+    low_stock_threshold: Number(row.low_stock_threshold ?? 3),
   }
 }
 
@@ -313,7 +326,7 @@ Deno.serve(async (req) => {
       rateUpdatedAt: resolvedRate?.fetchedAt ?? null,
       globalVenezuelaMarkupPercent,
     }
-    const productSelect = 'id,brand,name_en,name_es,description_en,description_es,slug,base_price,venezuela_price_usd,venezuela_price_mode,venezuela_manual_mode,venezuela_markup_percent,category_id,is_active,is_featured,images,created_at,updated_at,seller_name,return_policy_en,return_policy_es,return_window_days,condition_status,model_3d_url,inventory_enabled,stock_quantity,low_stock_threshold,inventory_source_key,categories(id,name_en,name_es,slug)'
+    const productSelect = 'id,brand,name_en,name_es,description_en,description_es,allows_special_notes,slug,base_price,venezuela_price_usd,venezuela_price_mode,venezuela_manual_mode,venezuela_markup_percent,category_id,is_active,is_featured,images,created_at,updated_at,seller_name,return_policy_en,return_policy_es,return_window_days,condition_status,model_3d_url,inventory_enabled,stock_quantity,low_stock_threshold,inventory_source_key,categories(id,name_en,name_es,slug)'
 
     if (body.action === 'pricing') return json({ pricing })
 
