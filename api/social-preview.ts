@@ -63,6 +63,24 @@ async function fetchSupabaseRows<T>(table: string, query: Record<string, string>
   return await response.json() as T[];
 }
 
+async function fetchSupabaseRpc<T>(functionName: string, body: Record<string, unknown>): Promise<T[]> {
+  const { url, key } = getSupabaseConfig();
+  if (!url || !key) return [];
+  const response = await fetch(`${url.replace(/\/$/, '')}/rest/v1/rpc/${functionName}`, {
+    method: 'POST',
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) return [];
+  const data = await response.json();
+  return Array.isArray(data) ? data as T[] : [data as T];
+}
+
 function parseSettings(value: unknown): SeoSettings {
   if (typeof value !== 'string') return DEFAULTS;
   try {
@@ -115,7 +133,7 @@ export default {
     const origin = getOrigin(request, settings);
     const canonical = new URL(pathname, `${origin}/`).toString();
     const spanish = (request.headers.get('accept-language') || '').toLowerCase().includes('es');
-    const productRows = slug ? await fetchSupabaseRows<Product>('products', { select: 'slug,name_es,name_en,description_es,description_en,images,updated_at', slug: `eq.${slug}`, is_active: 'eq.true', limit: '1' }) : [];
+    const productRows = slug ? await fetchSupabaseRpc<Product>('get_product_social_preview', { p_slug: slug }) : [];
     const product = productRows[0];
     const title = product ? `${spanish ? product.name_es : product.name_en} · ${settings.site_name}` : (spanish ? settings.title_es : settings.title_en);
     const description = product ? ((spanish ? product.description_es : product.description_en)?.trim() || `${title} · ${settings.site_name}`) : (pathname.startsWith('/ask') ? (spanish ? `Solicita un producto · ${settings.site_name}` : `Request a product · ${settings.site_name}`) : pathname.startsWith('/contact') ? (spanish ? `Contacto · ${settings.site_name}` : `Contact · ${settings.site_name}`) : (spanish ? settings.description_es : settings.description_en));
