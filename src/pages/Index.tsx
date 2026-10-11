@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Boxes, Check, ChevronDown, Grid2X2, List, Search, ShoppingBag, SlidersHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import CatalogFiltersDialog, { type CatalogFilterSection } from '@/components/CatalogFiltersDialog';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -225,7 +224,6 @@ export default function Index() {
         language={language}
         initialSection={filterDialogSection}
       />
-      <Footer />
     </>;
   }
 
@@ -286,6 +284,5 @@ export default function Index() {
         initialSection={filterDialogSection}
       />
     </main>
-    <Footer />
   </>;
 }

@@ -5,7 +5,6 @@ import { MailX, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 
 type Status = 'loading' | 'valid' | 'already' | 'invalid' | 'success' | 'error';
 
@@ -78,7 +77,6 @@ export default function EmailUnsubscribe() {
           </motion.div>
         </div>
       </section>
-      <Footer />
     </div>
   );
 }

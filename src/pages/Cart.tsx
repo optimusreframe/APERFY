@@ -5,7 +5,6 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -378,7 +377,6 @@ export default function Cart() {
         )}
       </div>
 
-      <Footer />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -17,39 +17,41 @@ import PageTransition from "@/components/motion/PageTransition";
 import InstallPWAPopup from "@/components/InstallPWAPopup";
 import CartAddedToast from "./components/CartAddedToast";
 import MacAppShell from "@/components/layout/MacAppShell";
+import AppErrorBoundary from "@/components/AppErrorBoundary";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
 
-const Index = lazy(() => import('./pages/Index'));
-const NotFound = lazy(() => import('./pages/NotFound'));
-const Auth = lazy(() => import('./pages/Auth'));
-const ResetPassword = lazy(() => import('./pages/ResetPassword'));
-const ProductDetail = lazy(() => import('./pages/ProductDetail'));
-const Cart = lazy(() => import('./pages/Cart'));
-const Checkout = lazy(() => import('./pages/Checkout'));
-const Orders = lazy(() => import('./pages/Orders'));
-const Profile = lazy(() => import('./pages/Profile'));
-const Favorites = lazy(() => import('./pages/Favorites'));
-const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
-const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
-const AdminProducts = lazy(() => import('./pages/admin/AdminProducts'));
-const AdminCategories = lazy(() => import('./pages/admin/AdminCategories'));
-const AdminMaterials = lazy(() => import('./pages/admin/AdminMaterials'));
-const AdminIntegrations = lazy(() => import('./pages/admin/AdminIntegrations'));
-const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications'));
-const AdminOrders = lazy(() => import('./pages/admin/AdminOrders'));
-const AdminFinance = lazy(() => import('./pages/admin/AdminFinance'));
-const AdminRequests = lazy(() => import('./pages/admin/AdminRequests'));
-const AdminQuestions = lazy(() => import('./pages/admin/AdminQuestions'));
-const AdminPaymentSettings = lazy(() => import('./pages/admin/AdminPaymentSettings'));
-const AdminShipping = lazy(() => import('./pages/admin/AdminShipping'));
-const AdminLogs = lazy(() => import('./pages/admin/AdminLogs'));
-const AdminDiscounts = lazy(() => import('./pages/admin/AdminDiscounts'));
-const AdminBackgroundQA = lazy(() => import('./pages/admin/AdminBackgroundQA'));
-const AdminHomepage = lazy(() => import('./pages/admin/AdminHomepage'));
-const AdminStorefrontLayout = lazy(() => import('./pages/admin/AdminStorefrontLayout'));
-const AdminInventoryImport = lazy(() => import('./pages/admin/AdminInventoryImport'));
-const RequestModel = lazy(() => import('./pages/RequestModel'));
-const Contact = lazy(() => import('./pages/Contact'));
-const EmailUnsubscribe = lazy(() => import('./pages/EmailUnsubscribe'));
+const Index = lazyWithRetry(() => import('./pages/Index'), 'index');
+const NotFound = lazyWithRetry(() => import('./pages/NotFound'), 'not-found');
+const Auth = lazyWithRetry(() => import('./pages/Auth'), 'auth');
+const ResetPassword = lazyWithRetry(() => import('./pages/ResetPassword'), 'reset-password');
+const ProductDetail = lazyWithRetry(() => import('./pages/ProductDetail'), 'product-detail');
+const Cart = lazyWithRetry(() => import('./pages/Cart'), 'cart');
+const Checkout = lazyWithRetry(() => import('./pages/Checkout'), 'checkout');
+const Orders = lazyWithRetry(() => import('./pages/Orders'), 'orders');
+const Profile = lazyWithRetry(() => import('./pages/Profile'), 'profile');
+const Favorites = lazyWithRetry(() => import('./pages/Favorites'), 'favorites');
+const AdminLayout = lazyWithRetry(() => import('./pages/admin/AdminLayout'), 'admin-layout');
+const AdminDashboard = lazyWithRetry(() => import('./pages/admin/AdminDashboard'), 'admin-dashboard');
+const AdminProducts = lazyWithRetry(() => import('./pages/admin/AdminProducts'), 'admin-products');
+const AdminCategories = lazyWithRetry(() => import('./pages/admin/AdminCategories'), 'admin-categories');
+const AdminMaterials = lazyWithRetry(() => import('./pages/admin/AdminMaterials'), 'admin-materials');
+const AdminIntegrations = lazyWithRetry(() => import('./pages/admin/AdminIntegrations'), 'admin-integrations');
+const AdminNotifications = lazyWithRetry(() => import('./pages/admin/AdminNotifications'), 'admin-notifications');
+const AdminOrders = lazyWithRetry(() => import('./pages/admin/AdminOrders'), 'admin-orders');
+const AdminFinance = lazyWithRetry(() => import('./pages/admin/AdminFinance'), 'admin-finance');
+const AdminRequests = lazyWithRetry(() => import('./pages/admin/AdminRequests'), 'admin-requests');
+const AdminQuestions = lazyWithRetry(() => import('./pages/admin/AdminQuestions'), 'admin-questions');
+const AdminPaymentSettings = lazyWithRetry(() => import('./pages/admin/AdminPaymentSettings'), 'admin-payment-settings');
+const AdminShipping = lazyWithRetry(() => import('./pages/admin/AdminShipping'), 'admin-shipping');
+const AdminLogs = lazyWithRetry(() => import('./pages/admin/AdminLogs'), 'admin-logs');
+const AdminDiscounts = lazyWithRetry(() => import('./pages/admin/AdminDiscounts'), 'admin-discounts');
+const AdminBackgroundQA = lazyWithRetry(() => import('./pages/admin/AdminBackgroundQA'), 'admin-background-qa');
+const AdminHomepage = lazyWithRetry(() => import('./pages/admin/AdminHomepage'), 'admin-homepage');
+const AdminStorefrontLayout = lazyWithRetry(() => import('./pages/admin/AdminStorefrontLayout'), 'admin-storefront-layout');
+const AdminInventoryImport = lazyWithRetry(() => import('./pages/admin/AdminInventoryImport'), 'admin-inventory-import');
+const RequestModel = lazyWithRetry(() => import('./pages/RequestModel'), 'request-model');
+const Contact = lazyWithRetry(() => import('./pages/Contact'), 'contact');
+const EmailUnsubscribe = lazyWithRetry(() => import('./pages/EmailUnsubscribe'), 'email-unsubscribe');
 
 const queryClient = new QueryClient();
 
@@ -137,8 +139,10 @@ const App = () => (
                   <Toaster />
                   <Sonner />
                   <BrowserRouter>
-                    <AppContent />
-                    <BulkImportBanner />
+                    <AppErrorBoundary>
+                      <AppContent />
+                      <BulkImportBanner />
+                    </AppErrorBoundary>
                   </BrowserRouter>
                 </TooltipProvider>
               </BulkImportProvider>

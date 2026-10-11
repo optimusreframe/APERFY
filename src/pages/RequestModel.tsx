@@ -2,7 +2,6 @@ import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, X, Link as LinkIcon, Send, Image as ImageIcon, ArrowRight, User, Mail, Phone, Package, FileText } from 'lucide-react';
 import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -423,7 +422,6 @@ export default function RequestModel() {
           </AnimatePresence>
         </div>
       </section>
-      <Footer />
     </div>
   );
 }

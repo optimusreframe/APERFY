@@ -8,7 +8,6 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { useRegionalPricing } from '@/contexts/RegionalPricingContext';
 import { supabase } from '@/integrations/supabase/client';
 import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, MessageCircle, Send, CreditCard, CheckCircle2, ExternalLink, Truck, Shield, Clock, ChevronDown, Lock, Check, ArrowLeft, Zap, Cog, Package, Search, MapPin, ChevronUp } from 'lucide-react';
@@ -1551,7 +1550,6 @@ export default function Checkout() {
           )}
         </AnimatePresence>
       </motion.div>
-      <Footer />
     </div>
   );
 }

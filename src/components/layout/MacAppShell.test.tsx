@@ -36,6 +36,7 @@ describe('MacAppShell', () => {
     expect(screen.queryByText(/available now/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/how it works/i)).not.toBeInTheDocument();
     expect(screen.getByText('Store content')).toBeInTheDocument();
+    expect(screen.getByTestId('aperfy-footer')).toBeInTheDocument();
   });
 
   it('changes the language from Spanish to English when the language button is pressed', () => {

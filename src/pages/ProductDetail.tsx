@@ -10,7 +10,6 @@ import { useRegionalPricing } from '@/contexts/RegionalPricingContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -732,7 +731,6 @@ export default function ProductDetail() {
           productName={language === 'es' ? product.name_es : product.name_en}
           inStock={inventoryState !== 'sold_out' && !needsVariation}
         />
-        <Footer />
       </div>
     );
   }
@@ -1288,7 +1286,6 @@ export default function ProductDetail() {
       />
 
 
-      <Footer />
     </div>
   );
 }

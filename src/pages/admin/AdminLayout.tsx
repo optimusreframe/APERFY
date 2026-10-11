@@ -7,6 +7,7 @@ import { Activity } from 'lucide-react';
 import NotificationBell from '@/components/admin/NotificationBell';
 import ThemeToggle from '@/components/ThemeToggle';
 import { supabase } from '@/integrations/supabase/client';
+import Footer from '@/components/Footer';
 
 const AUTO_RATE_SOURCES = ['bcv', 'laslucas', 'binance'] as const;
 
@@ -83,6 +84,7 @@ export default function AdminLayout() {
           </header>
           <main className="mac-admin-main min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-3 sm:p-4 md:p-6 lg:p-8">
             <Outlet />
+            <Footer />
           </main>
         </div>
       </div>
