@@ -39,6 +39,23 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+async function getFunctionErrorMessage(error: unknown, data: unknown, fallback: string) {
+  if (data && typeof data === 'object' && typeof (data as Record<string, unknown>).error === 'string') {
+    return String((data as Record<string, unknown>).error);
+  }
+  const context = error && typeof error === 'object' ? (error as { context?: unknown }).context : undefined;
+  if (context instanceof Response) {
+    try {
+      const payload = await context.clone().json() as Record<string, unknown>;
+      if (typeof payload.error === 'string') return payload.error;
+      if (typeof payload.message === 'string') return payload.message;
+    } catch {
+      // Keep the SDK error below as the final fallback.
+    }
+  }
+  return getErrorMessage(error, fallback);
+}
+
 export function BulkImportProvider({ children }: { children: ReactNode }) {
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -79,7 +96,9 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
               existingCategories: categories.map((category) => ({ slug: category.slug, name_en: category.name_en, name_es: category.name_es })),
             },
           });
-          if (scrapeError || !scrapeData?.success) throw new Error(scrapeData?.error || 'Scrape failed');
+          if (scrapeError || !scrapeData?.success) {
+            throw new Error(await getFunctionErrorMessage(scrapeError, scrapeData, 'No se pudo extraer el producto'));
+          }
           const productInfo = scrapeData.data;
 
           setItems(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'generating', name: productInfo.name_es } : r));
@@ -99,9 +118,29 @@ export function BulkImportProvider({ children }: { children: ReactNode }) {
               });
               if (imgData?.success && typeof imgData.data?.generated_image === 'string') {
                 persistedImageUrl = imgData.data.generated_image;
+              } else if (imgData && !imgData.success && typeof imgData.error === 'string') {
+                // Image generation is optional during import; preserve the
+                // product import and surface the reason in the activity log.
+                logActivity({
+                  action: 'bulk_import_image_warning',
+                  category: 'info',
+                  entity_type: 'product',
+                  title: `Imagen no generada: ${productInfo.name_es || currentUrl}`,
+                  details: String(imgData.error),
+                  metadata: { url: currentUrl, error: imgData.error },
+                });
               }
-            } catch {
-              // Continue without image
+            } catch (imageError: unknown) {
+              // Continue without image. The import itself must not be lost
+              // because an optional image provider is rate-limited.
+              logActivity({
+                action: 'bulk_import_image_warning',
+                category: 'info',
+                entity_type: 'product',
+                title: `Imagen no generada: ${productInfo.name_es || currentUrl}`,
+                details: getErrorMessage(imageError),
+                metadata: { url: currentUrl, error: getErrorMessage(imageError) },
+              });
             }
           }
 

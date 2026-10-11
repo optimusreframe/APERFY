@@ -81,6 +81,24 @@ interface AiProductData {
   [key: string]: unknown;
 }
 
+interface AiPhotoCandidate {
+  id: string;
+  name: string;
+  brand: string;
+  model: string;
+  category: string;
+  description: string;
+  attributes: string[];
+  search_query: string;
+  market_reference_price: number;
+  suggested_price: number;
+  confidence: 'high' | 'medium' | 'low';
+  market_sources?: Array<{ title: string; price: number; url: string; source: string }>;
+  price_source?: string;
+  matched_listings_count?: number;
+  selected: boolean;
+}
+
 const empty: ProductForm = {
   name_en: '', name_es: '', description_en: '', description_es: '',
   slug: '', base_price: 0, venezuela_price_usd: 0, venezuela_price_mode: 'global', venezuela_manual_mode: 'fixed', venezuela_markup_percent: DEFAULT_VENEZUELA_MARKUP_PERCENT, condition_status: 'new', seller_name: 'APERFY',
@@ -265,6 +283,9 @@ export default function AdminProducts() {
   const [aiStoredImagePath, setAiStoredImagePath] = useState<string | null>(null);
   const [aiPersistingImage, setAiPersistingImage] = useState(false);
   const [aiData, setAiData] = useState<AiProductData | null>(null);
+  const [aiPhotoCandidates, setAiPhotoCandidates] = useState<AiPhotoCandidate[]>([]);
+  const [aiPhotoMode, setAiPhotoMode] = useState(false);
+  const [aiPhotoImporting, setAiPhotoImporting] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
   const [aiProgressStep, setAiProgressStep] = useState(0);
@@ -313,6 +334,7 @@ export default function AdminProducts() {
   const [editAiBgMode, setEditAiBgMode] = useState<string>('system_workshop');
   const [editAiCustomBg, setEditAiCustomBg] = useState<string | null>(null);
   const [editAiGenerating, setEditAiGenerating] = useState(false);
+  const [editAiSourceSyncing, setEditAiSourceSyncing] = useState(false);
   const [editEnhancing, setEditEnhancing] = useState(false);
   const [editTranslating, setEditTranslating] = useState(false);
   const [editAiProgressStep, setEditAiProgressStep] = useState(0);
@@ -810,6 +832,9 @@ export default function AdminProducts() {
     setAiStoredImagePath(null);
     setAiPersistingImage(false);
     setAiData(null);
+    setAiPhotoCandidates([]);
+    setAiPhotoMode(false);
+    setAiPhotoImporting(false);
     setAiExtractedImages([]);
     setAiSelectedSourceImage(null);
     setAiBgMode('system_workshop');
@@ -1091,6 +1116,8 @@ export default function AdminProducts() {
       if (error) throw new Error(await getFunctionErrorMessage(error, data, 'No se pudo extraer el producto'));
       if (!data?.success) throw new Error(data?.error || 'Error al extraer datos');
 
+      setAiPhotoMode(false);
+      setAiPhotoCandidates([]);
       setAiData({ ...data.data, market_reference_price: data.data.suggested_price, suggested_price: suggestRetailPrice(Number(data.data.suggested_price || 0), aiDiscountPercent), discount_percent: aiDiscountPercent });
       setAiExtractedImages(data.data.extracted_images || []);
 
@@ -1156,6 +1183,45 @@ export default function AdminProducts() {
     window.localStorage.setItem('admin-products-view', mode);
   };
 
+  const handleAiImportPhotoCandidates = async () => {
+    const selected = aiPhotoCandidates.filter((candidate) => candidate.selected);
+    if (!aiOriginalImage || selected.length === 0) {
+      toast({ title: 'Selecciona al menos un producto', description: 'Marca los productos que quieres importar.', variant: 'destructive' });
+      return;
+    }
+    setAiPhotoImporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-from-photo', {
+        body: {
+          action: 'import_products',
+          imageData: aiOriginalImage,
+          products: selected.map(({ selected: _selected, ...candidate }) => candidate),
+          globalMarkupPercent: globalVenezuelaMarkupPercent,
+        },
+      });
+      if (error || !data?.success) throw new Error(await getFunctionErrorMessage(error, data, 'No se pudieron importar los productos detectados'));
+      const created = Array.isArray(data.data?.created) ? data.data.created.length : selected.length;
+      const failed = Array.isArray(data.data?.errors) ? data.data.errors.length : 0;
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      qc.invalidateQueries({ queryKey: ['admin-product-count'] });
+      await logActivity({
+        action: 'ai_photo_import_complete',
+        category: failed > 0 ? 'error' : 'import',
+        entity_type: 'product',
+        title: `Importación desde imagen: ${created} creados`,
+        details: failed > 0 ? `${failed} producto(s) no pudieron importarse.` : 'Productos detectados e imagen original guardada en Storage.',
+        metadata: { created, failed },
+      });
+      setAiOpen(false);
+      resetAi();
+      toast({ title: '✓ Importación desde imagen completada', description: `${created} producto(s) creados${failed ? `, ${failed} con error` : ''}.`, variant: failed > 0 ? 'destructive' : 'default' });
+    } catch (error: unknown) {
+      toast({ title: 'Error importando desde imagen', description: getErrorMessage(error), variant: 'destructive' });
+    } finally {
+      setAiPhotoImporting(false);
+    }
+  };
+
   const handleAiPhotoAnalyze = async () => {
     if (aiLoading || aiImageLoading || aiPersistingImage) {
       toast({ title: 'Análisis en curso', description: 'Espera a que termine la operación de IA actual.' });
@@ -1169,12 +1235,46 @@ export default function AdminProducts() {
     setAiLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('ai-product-from-photo', {
-        body: { imageData: aiOriginalImage, discountPercent: aiDiscountPercent, searchEnabled: aiSearchEnabled },
+        // Image import is explicitly an identification/search workflow. The
+        // function still degrades to the vision estimate when Firecrawl is not
+        // configured, but it should not silently skip the lookup.
+        body: { imageData: aiOriginalImage, discountPercent: aiDiscountPercent, searchEnabled: true },
       });
       if (error) throw new Error(await getFunctionErrorMessage(error, data, 'No se pudo extraer el producto'));
       if (!data?.success) throw new Error(data?.error || 'NO SE PUDO ANALIZAR LA FOTO');
-      const product = data.data;
-      setAiData({ ...product, name_es: product.name || '', name_en: product.name || '', description_es: product.description || '', description_en: product.description || '', slug: slugify(product.name || 'producto'), suggested_category: '', colors: [], materials: [] });
+      const rawProducts = Array.isArray(data.data?.products) ? data.data.products : [data.data];
+      const candidates: AiPhotoCandidate[] = rawProducts.slice(0, 8).map((product: Record<string, unknown>, index: number) => ({
+        id: typeof product.id === 'string' ? product.id : `photo-${index + 1}`,
+        name: typeof product.name === 'string' ? product.name : `Producto detectado ${index + 1}`,
+        brand: typeof product.brand === 'string' ? product.brand : '',
+        model: typeof product.model === 'string' ? product.model : '',
+        category: typeof product.category === 'string' ? product.category : '',
+        description: typeof product.description === 'string' ? product.description : '',
+        attributes: Array.isArray(product.attributes) ? product.attributes.filter((item): item is string => typeof item === 'string') : [],
+        search_query: typeof product.search_query === 'string' ? product.search_query : '',
+        market_reference_price: Number(product.market_reference_price) || 0,
+        suggested_price: Number(product.suggested_price) || 0,
+        confidence: product.confidence === 'high' || product.confidence === 'medium' ? product.confidence : 'low',
+        market_sources: Array.isArray(product.market_sources) ? product.market_sources : [],
+        price_source: typeof product.price_source === 'string' ? product.price_source : undefined,
+        matched_listings_count: Number(product.matched_listings_count) || 0,
+        selected: true,
+      }));
+      const first = candidates[0];
+      if (!first) throw new Error('La IA no identificó productos claros en la imagen.');
+      setAiPhotoCandidates(candidates);
+      setAiPhotoMode(true);
+      setAiData({
+        ...first,
+        name_es: first.name,
+        name_en: first.name,
+        description_es: first.description,
+        description_en: first.description,
+        slug: slugify(first.name),
+        suggested_category: slugify(first.category),
+        colors: [],
+        materials: first.attributes,
+      });
       setAiSelectedSourceImage(aiOriginalImage);
       setAiStep('review');
     } catch (e: unknown) {
@@ -1192,6 +1292,8 @@ export default function AdminProducts() {
     setAiOriginalImage(b64);
     setAiOriginalImageFile(file);
     setAiSelectedSourceImage(null);
+    setAiPhotoCandidates([]);
+    setAiPhotoMode(false);
   };
 
   const handleAiClipboardPaste = async () => {
@@ -1211,6 +1313,8 @@ export default function AdminProducts() {
       setAiOriginalImage(b64);
       setAiOriginalImageFile(file);
       setAiSelectedSourceImage(null);
+      setAiPhotoCandidates([]);
+      setAiPhotoMode(false);
       toast({ title: 'Imagen pegada', description: 'La imagen del portapapeles está lista para analizar.' });
     } catch (error: unknown) {
       console.error('Clipboard image read failed:', error);
@@ -1258,6 +1362,30 @@ export default function AdminProducts() {
     if (!file) return;
     const b64 = await fileToBase64(file);
     setEditAiSourceImage(b64);
+    e.target.value = '';
+  };
+
+  const handleUseMainImageForAi = async () => {
+    const mainImage = mediaFiles[0];
+    if (!mainImage || mainImage.type === 'video') {
+      toast({ title: 'La portada debe ser una imagen', description: 'Sube o selecciona una imagen principal para usarla como referencia.', variant: 'destructive' });
+      return;
+    }
+
+    setEditAiSourceSyncing(true);
+    try {
+      setEditAiSourceImage(mainImage.file ? await fileToBase64(mainImage.file) : mainImage.preview);
+    } catch (error: unknown) {
+      toast({ title: 'No se pudo cargar la portada', description: getErrorMessage(error), variant: 'destructive' });
+    } finally {
+      setEditAiSourceSyncing(false);
+    }
+  };
+
+  const toggleEditAiImageGenerator = () => {
+    const nextOpen = !editAiImageOpen;
+    setEditAiImageOpen(nextOpen);
+    if (nextOpen && !editAiSourceImage) void handleUseMainImageForAi();
   };
 
   const handleEditAiBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1701,7 +1829,8 @@ export default function AdminProducts() {
                            <Clipboard className="h-4 w-4" /> PEGAR DESDE PORTAPAPELES
                          </Button>
                        )}
-                       <Button type="button" variant="outline" onClick={handleAiPhotoAnalyze} disabled={!aiOriginalImage || aiLoading} className="w-full gap-2 uppercase"><Sparkles className="h-4 w-4" /> ANALYZE PHOTO &amp; SUGGEST PRICE</Button>
+                       <Button type="button" variant="outline" onClick={handleAiPhotoAnalyze} disabled={!aiOriginalImage || aiLoading} className="w-full gap-2 uppercase"><Sparkles className="h-4 w-4" /> DETECTAR PRODUCTOS E IMPORTAR DESDE IMAGEN</Button>
+                       <p className="text-[11px] text-muted-foreground">La IA puede detectar uno o varios productos visibles, leer marcas/modelos y preparar una ficha para cada uno.</p>
                     </div>
 
                     <Button
@@ -1770,6 +1899,38 @@ export default function AdminProducts() {
                 {/* ── STEP: REVIEW ── */}
                 {aiStep === 'review' && aiData && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                    {aiPhotoMode && aiPhotoCandidates.length > 0 && (
+                      <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold">Productos detectados en la imagen</p>
+                            <p className="text-xs text-muted-foreground">Selecciona todos o solo los que quieres importar. La imagen original se guardará en cada ficha.</p>
+                          </div>
+                          <span className="text-xs font-mono text-primary whitespace-nowrap">{aiPhotoCandidates.filter((candidate) => candidate.selected).length}/{aiPhotoCandidates.length}</span>
+                        </div>
+                        <div className="space-y-2">
+                          {aiPhotoCandidates.map((candidate) => (
+                            <label key={candidate.id} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${candidate.selected ? 'border-primary/50 bg-primary/10' : 'border-border bg-background/40'}`}>
+                              <Checkbox
+                                checked={candidate.selected}
+                                onCheckedChange={(checked) => setAiPhotoCandidates((current) => current.map((item) => item.id === candidate.id ? { ...item, selected: checked === true } : item))}
+                                className="mt-0.5"
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                                  {candidate.name}
+                                  {candidate.brand && <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{candidate.brand}</span>}
+                                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase text-muted-foreground">{candidate.confidence}</span>
+                                </span>
+                                <span className="mt-1 block text-xs text-muted-foreground">{candidate.description}</span>
+                                <span className="mt-1 block text-[11px] text-primary">Precio sugerido: ${candidate.suggested_price.toFixed(2)} · {candidate.matched_listings_count || 0} referencias encontradas</span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">La ficha editable que aparece debajo muestra el primer producto como vista previa. La importación múltiple usa la información detectada de cada producto seleccionado.</p>
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {/* Left: Image area */}
                       <div className="space-y-4">
@@ -2129,11 +2290,12 @@ export default function AdminProducts() {
                         ← Volver
                       </Button>
                       <Button
-                        onClick={handleAiSaveProduct}
+                        onClick={aiPhotoMode ? handleAiImportPhotoCandidates : handleAiSaveProduct}
+                        disabled={aiPhotoMode ? aiPhotoImporting || aiPhotoCandidates.every((candidate) => !candidate.selected) : false}
                         className="flex-1 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground gap-2 font-semibold"
                       >
-                        <Plus className="w-4 h-4" />
-                        Crear Producto
+                        {aiPhotoImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                        {aiPhotoMode ? `Importar ${aiPhotoCandidates.filter((candidate) => candidate.selected).length} producto(s)` : 'Crear Producto'}
                       </Button>
                     </div>
                   </motion.div>
@@ -2143,7 +2305,7 @@ export default function AdminProducts() {
           </Dialog>
 
           {/* ── ADD/EDIT PRODUCT DIALOG ── */}
-          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(createEmptyProductForm()); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); setEditAiImageOpen(false); setEditAiSourceImage(null); setEditAiCustomBg(null); setDeleteFromEditOpen(false); setWizardStep(0); } else { if (!editId) setForm(createEmptyProductForm()); setWizardStep(0); } }}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(createEmptyProductForm()); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); setEditAiImageOpen(false); setEditAiSourceImage(null); setEditAiSourceSyncing(false); setEditAiCustomBg(null); setDeleteFromEditOpen(false); setWizardStep(0); } else { if (!editId) setForm(createEmptyProductForm()); setWizardStep(0); } }}>
             <DialogTrigger asChild>
               <Button className="min-h-11 flex-1 gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground sm:flex-none"><Plus className="w-4 h-4" />Agregar Producto</Button>
             </DialogTrigger>
@@ -2319,7 +2481,7 @@ export default function AdminProducts() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setEditAiImageOpen(!editAiImageOpen)}
+                        onClick={toggleEditAiImageGenerator}
                         className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
                       >
                         <Wand2 className="w-3 h-3" />
@@ -2336,10 +2498,19 @@ export default function AdminProducts() {
                           >
                             <div className="p-4 rounded-xl bg-secondary/50 border border-primary/20 space-y-4">
                               <div className="space-y-2">
-                                <Label className="text-xs font-semibold flex items-center gap-1">
-                                  <ImagePlus className="w-3 h-3 text-primary" />
-                                  Foto original del producto
-                                </Label>
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <Label className="text-xs font-semibold flex items-center gap-1">
+                                    <ImagePlus className="w-3 h-3 text-primary" />
+                                    Foto original del producto
+                                  </Label>
+                                  {mediaFiles[0]?.type !== 'video' && (
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => void handleUseMainImageForAi()} disabled={editAiSourceSyncing} className="h-8 gap-1.5 px-2 text-[11px] text-primary hover:bg-primary/10">
+                                      {editAiSourceSyncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <ImagePlus className="h-3 w-3" />}
+                                      Usar portada actual
+                                    </Button>
+                                  )}
+                                </div>
+                                <p className="text-[11px] leading-5 text-muted-foreground">Al abrir este generador se carga automáticamente la primera imagen de arriba. Puedes reemplazarla si quieres usar otra referencia.</p>
                                 {editAiSourceImage ? (
                                   <div className="relative inline-block">
                                     <img src={editAiSourceImage} alt="Source" className="w-24 h-24 object-cover rounded-lg" />
@@ -2401,7 +2572,7 @@ export default function AdminProducts() {
                               <Button
                                 type="button"
                                 onClick={handleEditAiGenerateImage}
-                                disabled={!editAiSourceImage || editAiGenerating}
+                                disabled={!editAiSourceImage || editAiGenerating || editAiSourceSyncing}
                                 className="w-full gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground"
                               >
                                 {editAiGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}

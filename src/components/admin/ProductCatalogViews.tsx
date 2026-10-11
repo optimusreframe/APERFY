@@ -1,6 +1,8 @@
-import { Image, Pencil, Star, Trash2 } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { CircleDollarSign, ExternalLink, Image, MapPin, Package, Pencil, Star, Tag, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -36,8 +38,21 @@ type ProductCatalogViewsProps = {
   onDelete: (productId: string) => void;
 };
 
-function ProductImage({ product, className = 'h-14 w-14' }: { product: AdminProduct; className?: string }) {
+function ProductImage({ product, className = 'h-14 w-14', onClick }: { product: AdminProduct; className?: string; onClick?: () => void }) {
   const image = Array.isArray(product.images) && typeof product.images[0] === 'string' ? product.images[0] : null;
+  if (image && onClick) {
+    return (
+      <button
+        type="button"
+        onClick={(event) => { event.stopPropagation(); onClick(); }}
+        className={`${className} group relative shrink-0 overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
+        aria-label={`Ver imagen grande de ${product.name_es || product.name_en}`}
+      >
+        <img src={optimizeImageUrl(image, { width: 240, quality: 72 })} alt={product.name_es || product.name_en} loading="lazy" className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" />
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/55 px-1 py-0.5 text-[9px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">Ampliar</span>
+      </button>
+    );
+  }
   return image ? (
     <img src={optimizeImageUrl(image, { width: 240, quality: 72 })} alt={product.name_es || product.name_en} loading="lazy" className={`${className} shrink-0 rounded-xl object-cover`} />
   ) : (
@@ -49,7 +64,7 @@ function ProductImage({ product, className = 'h-14 w-14' }: { product: AdminProd
 
 function SelectProduct({ product, checked, onChange }: { product: AdminProduct; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <span className="flex min-h-11 min-w-11 items-center justify-center">
+    <span className="flex min-h-11 min-w-11 items-center justify-center" onClick={(event) => event.stopPropagation()}>
       <Checkbox checked={checked} onCheckedChange={(next) => onChange(next === true)} aria-label={`Seleccionar ${product.name_es || product.name_en}`} />
     </span>
   );
@@ -63,7 +78,7 @@ function ProductActions({ product, onToggle, onEdit, onDelete, compact = false }
   compact?: boolean;
 }) {
   return (
-    <div className={`flex items-center justify-end gap-1.5 ${compact ? 'flex-wrap' : ''}`}>
+    <div className={`flex items-center justify-end gap-1.5 ${compact ? 'flex-wrap' : ''}`} onClick={(event) => event.stopPropagation()}>
       <label className="flex min-h-11 items-center gap-1.5 rounded-lg px-1.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground">
         <Switch
           checked={product.is_active}
@@ -150,7 +165,7 @@ function BulkProductTable({
   );
 }
 
-function ProductListView({ products, selectedProductIds, allProductsSelected, onToggleAll, onToggleSelected, onToggle, onEdit, onDelete }: Pick<ProductCatalogViewsProps, 'products' | 'selectedProductIds' | 'allProductsSelected' | 'onToggleAll' | 'onToggleSelected' | 'onToggle' | 'onEdit' | 'onDelete'>) {
+function ProductListView({ products, selectedProductIds, allProductsSelected, onToggleAll, onToggleSelected, onToggle, onEdit, onDelete, onInspect, onPreviewImage }: Pick<ProductCatalogViewsProps, 'products' | 'selectedProductIds' | 'allProductsSelected' | 'onToggleAll' | 'onToggleSelected' | 'onToggle' | 'onEdit' | 'onDelete'> & { onInspect: (product: AdminProduct) => void; onPreviewImage: (product: AdminProduct) => void }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border/70 bg-card/70">
       <div className="hidden items-center gap-4 border-b border-border/70 bg-secondary/20 px-4 py-3 text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground lg:grid lg:grid-cols-[44px_minmax(0,1fr)_auto]">
@@ -159,10 +174,17 @@ function ProductListView({ products, selectedProductIds, allProductsSelected, on
       </div>
       <div className="divide-y divide-border/60">
         {products.map((product) => (
-          <div key={product.id} className={`grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-2 gap-y-2 px-3 py-3 sm:grid-cols-[44px_minmax(0,1fr)_auto] sm:gap-4 sm:px-4 ${selectedProductIds.includes(product.id) ? 'bg-destructive/[0.05]' : ''}`}>
+          <div
+            key={product.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => onInspect(product)}
+            onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onInspect(product); } }}
+            className={`grid cursor-pointer grid-cols-[44px_minmax(0,1fr)] items-center gap-x-2 gap-y-2 px-3 py-3 transition-colors hover:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:grid-cols-[44px_minmax(0,1fr)_auto] sm:gap-4 sm:px-4 ${selectedProductIds.includes(product.id) ? 'bg-destructive/[0.05]' : ''}`}
+          >
             <SelectProduct product={product} checked={selectedProductIds.includes(product.id)} onChange={(checked) => onToggleSelected(product.id, checked)} />
             <div className="flex min-w-0 items-center gap-3">
-              <ProductImage product={product} />
+              <ProductImage product={product} onClick={() => onPreviewImage(product)} />
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-2">
                   <p className="truncate text-sm font-semibold text-foreground sm:text-base">{product.name_es || product.name_en}</p>
@@ -181,13 +203,20 @@ function ProductListView({ products, selectedProductIds, allProductsSelected, on
   );
 }
 
-function ProductGridView({ products, selectedProductIds, onToggleSelected, onToggle, onEdit, onDelete }: Pick<ProductCatalogViewsProps, 'products' | 'selectedProductIds' | 'onToggleSelected' | 'onToggle' | 'onEdit' | 'onDelete'>) {
+function ProductGridView({ products, selectedProductIds, onToggleSelected, onToggle, onEdit, onDelete, onInspect, onPreviewImage }: Pick<ProductCatalogViewsProps, 'products' | 'selectedProductIds' | 'onToggleSelected' | 'onToggle' | 'onEdit' | 'onDelete'> & { onInspect: (product: AdminProduct) => void; onPreviewImage: (product: AdminProduct) => void }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4">
       {products.map((product) => (
-        <article key={product.id} className={`min-w-0 overflow-hidden rounded-2xl border bg-card/70 shadow-[0_16px_40px_hsl(220_35%_2%/.18)] transition-colors ${selectedProductIds.includes(product.id) ? 'border-destructive/60' : 'border-border/70 hover:border-primary/40'}`}>
+        <article
+          key={product.id}
+          role="button"
+          tabIndex={0}
+          onClick={() => onInspect(product)}
+          onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onInspect(product); } }}
+          className={`min-w-0 cursor-pointer overflow-hidden rounded-2xl border bg-card/70 shadow-[0_16px_40px_hsl(220_35%_2%/.18)] transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${selectedProductIds.includes(product.id) ? 'border-destructive/60' : 'border-border/70'}`}
+        >
           <div className="relative aspect-[4/3] overflow-hidden bg-secondary">
-            <ProductImage product={product} className="h-full w-full rounded-none" />
+            <ProductImage product={product} className="h-full w-full rounded-none" onClick={() => onPreviewImage(product)} />
             <div className="absolute left-2 top-2 rounded-md bg-background/85 px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground backdrop-blur-sm">
               {product.is_active ? 'Activo' : 'Oculto'}
             </div>
@@ -214,11 +243,112 @@ function ProductGridView({ products, selectedProductIds, onToggleSelected, onTog
 }
 
 export default function ProductCatalogViews(props: ProductCatalogViewsProps) {
+  const [inspectedProduct, setInspectedProduct] = useState<AdminProduct | null>(null);
+  const [previewProduct, setPreviewProduct] = useState<AdminProduct | null>(null);
+
   if (props.products.length === 0) {
     return <div className="rounded-2xl border border-dashed border-border/80 bg-card/40 px-5 py-14 text-center text-sm text-muted-foreground">No hay productos aún.</div>;
   }
 
-  if (props.bulkEditMode) return <BulkProductTable {...props} />;
-  if (props.viewMode === 'grid') return <ProductGridView {...props} />;
-  return <ProductListView {...props} />;
+  const openPreview = (product: AdminProduct) => setPreviewProduct(product);
+  const openInspect = (product: AdminProduct) => setInspectedProduct(product);
+  const closeInspect = () => setInspectedProduct(null);
+  const inspectedImage = inspectedProduct && Array.isArray(inspectedProduct.images) && typeof inspectedProduct.images[0] === 'string' ? inspectedProduct.images[0] : null;
+  const inspectedCategory = inspectedProduct?.categories?.name_es || 'Sin categoría';
+  const inspectedDescription = inspectedProduct?.description_es || inspectedProduct?.description_en || 'Sin descripción disponible.';
+
+  const view = props.bulkEditMode
+    ? <BulkProductTable {...props} />
+    : props.viewMode === 'grid'
+      ? <ProductGridView {...props} onInspect={openInspect} onPreviewImage={openPreview} />
+      : <ProductListView {...props} onInspect={openInspect} onPreviewImage={openPreview} />;
+
+  return (
+    <>
+      {view}
+
+      <Dialog open={Boolean(previewProduct)} onOpenChange={(open) => !open && setPreviewProduct(null)}>
+        <DialogContent className="max-w-[min(92vw,760px)] border-border/80 bg-card/98 p-4 sm:p-5">
+          <DialogHeader className="pr-8">
+            <DialogTitle className="truncate text-base">{previewProduct?.name_es || previewProduct?.name_en || 'Imagen del producto'}</DialogTitle>
+            <DialogDescription>Vista ampliada · haz clic fuera o presiona Esc para cerrar.</DialogDescription>
+          </DialogHeader>
+          {previewProduct && Array.isArray(previewProduct.images) && typeof previewProduct.images[0] === 'string' && (
+            <div className="flex max-h-[70vh] items-center justify-center overflow-hidden rounded-xl border border-border/70 bg-secondary/40 p-2">
+              <img
+                src={optimizeImageUrl(previewProduct.images[0], { width: 1200, quality: 84 })}
+                alt={previewProduct.name_es || previewProduct.name_en}
+                className="max-h-[68vh] w-auto max-w-full rounded-lg object-contain"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(inspectedProduct)} onOpenChange={(open) => !open && closeInspect()}>
+        <DialogContent className="max-h-[88vh] max-w-2xl overflow-y-auto border-border/80 bg-card/98 p-0">
+          {inspectedProduct && (
+            <>
+              <div className="border-b border-border/70 bg-secondary/20 p-5 pr-12 sm:p-6">
+                <div className="flex items-start gap-4">
+                  {inspectedImage ? (
+                    <button type="button" onClick={() => openPreview(inspectedProduct)} className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                      <img src={optimizeImageUrl(inspectedImage, { width: 240, quality: 78 })} alt="" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                      <span className="absolute inset-x-0 bottom-0 bg-black/55 py-0.5 text-[9px] text-white">Ampliar</span>
+                    </button>
+                  ) : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-secondary text-muted-foreground"><Image className="h-6 w-6" /></div>}
+                  <DialogHeader className="min-w-0 text-left">
+                    <DialogTitle className="text-xl leading-tight">{inspectedProduct.name_es || inspectedProduct.name_en}</DialogTitle>
+                    <DialogDescription className="truncate">{inspectedProduct.slug}</DialogDescription>
+                    <div className="flex flex-wrap gap-2 pt-1 text-[10px] font-mono uppercase tracking-wider">
+                      <span className="rounded-full bg-primary/15 px-2 py-1 text-primary">{inspectedProduct.condition_status === 'used' ? 'Used' : 'New'}</span>
+                      <span className={`rounded-full px-2 py-1 ${inspectedProduct.is_active ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground'}`}>{inspectedProduct.is_active ? 'Activo' : 'Oculto'}</span>
+                    </div>
+                  </DialogHeader>
+                </div>
+              </div>
+
+              <div className="space-y-5 p-5 sm:p-6">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <InfoStat icon={<CircleDollarSign className="h-4 w-4" />} label="Precio USA" value={`$${Number(inspectedProduct.base_price || 0).toFixed(2)} USD`} />
+                  <InfoStat icon={<MapPin className="h-4 w-4" />} label="Precio Venezuela" value={`$${Number(inspectedProduct.venezuela_price_usd || 0).toFixed(2)} USD`} />
+                  <InfoStat icon={<Tag className="h-4 w-4" />} label="Categoría" value={inspectedCategory} />
+                  <InfoStat icon={<Package className="h-4 w-4" />} label="Inventario" value={inspectedProduct.inventory_enabled ? `${inspectedProduct.stock_quantity} disponibles` : 'Sin inventario'} />
+                </div>
+
+                <section className="space-y-2">
+                  <h3 className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">Descripción</h3>
+                  <p className="whitespace-pre-wrap text-sm leading-6 text-foreground/85">{inspectedDescription}</p>
+                </section>
+
+                <div className="grid gap-4 border-t border-border/70 pt-4 text-sm sm:grid-cols-2">
+                  <DetailLine label="Vendedor" value={inspectedProduct.seller_name || 'APERFY'} />
+                  <DetailLine label="Devoluciones" value={`${inspectedProduct.return_window_days || 0} días`} />
+                  <DetailLine label="Precio Venezuela" value={inspectedProduct.venezuela_price_mode === 'manual' ? 'Manual' : 'Global'} />
+                  <DetailLine label="Destacado" value={inspectedProduct.is_featured ? 'Sí' : 'No'} />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/70 pt-4">
+                  {inspectedProduct.slug && (
+                    <Button type="button" variant="ghost" asChild className="gap-2 text-muted-foreground">
+                      <a href={`/products/${inspectedProduct.slug}`} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /> Ver tienda</a>
+                    </Button>
+                  )}
+                  <Button type="button" onClick={() => { const product = inspectedProduct; closeInspect(); props.onEdit(product); }} className="gap-2"><Pencil className="h-4 w-4" /> Editar producto</Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function InfoStat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return <div className="rounded-xl border border-border/70 bg-secondary/30 p-3"><div className="flex items-center gap-2 text-primary"><span>{icon}</span><span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{label}</span></div><p className="mt-1 text-sm font-semibold">{value}</p></div>;
+}
+
+function DetailLine({ label, value }: { label: string; value: string }) {
+  return <div><span className="block text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{label}</span><span className="mt-1 block text-foreground/85">{value}</span></div>;
 }

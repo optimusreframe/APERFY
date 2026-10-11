@@ -159,7 +159,17 @@ export function aiChatCompletionsUrl(config: AiConfig) {
 }
 
 export function aiHeaders(config: AiConfig) {
-  return { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' }
+  const isOpenRouter = config.provider.trim().toLowerCase() === 'openrouter'
+  return {
+    Authorization: `Bearer ${config.apiKey}`,
+    'Content-Type': 'application/json',
+    ...(isOpenRouter ? {
+      // OpenRouter uses these optional headers for application attribution and
+      // keeps them useful for provider-side support without exposing secrets.
+      'HTTP-Referer': 'https://aperfy.kpwr.dev',
+      'X-Title': 'APERFY',
+    } : {}),
+  }
 }
 
 function responseFromPayload(payload: unknown, status = 200) {

@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Calculator } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 
 /**
- * Inline retail margin calculator for general APERFY products.
- * Shows margin in $ and %.
+ * Inline retail margin estimator for general APERFY products.
+ * It is intentionally local: it helps an operator evaluate a price but does
+ * not change or persist the product's price/cost fields.
  */
 export default function MarginCalculator({
   defaultPrice = 0,
@@ -21,26 +22,35 @@ export default function MarginCalculator({
   const [cost, setCost] = useState<number>(defaultCostPerKg);
   const [shipping, setShipping] = useState<number>(0);
 
-  const productCost = useMemo(() => cost, [cost]);
-  const margin = useMemo(() => price - productCost - shipping, [price, productCost, shipping]);
+  useEffect(() => setPrice(defaultPrice), [defaultPrice]);
+  useEffect(() => setWeight(defaultWeight), [defaultWeight]);
+  useEffect(() => setCost(defaultCostPerKg), [defaultCostPerKg]);
+
+  const productCost = useMemo(() => (cost * weight) / 1000, [cost, weight]);
+  const totalCost = useMemo(() => productCost + shipping, [productCost, shipping]);
+  const margin = useMemo(() => price - totalCost, [price, totalCost]);
   const marginPct = useMemo(() => (price > 0 ? (margin / price) * 100 : 0), [margin, price]);
 
   const healthy = marginPct >= 40;
   const warn = marginPct >= 20 && marginPct < 40;
 
   return (
-    <div className="rounded-xl border border-white/10 bg-card/40 backdrop-blur-xl p-4 space-y-3">
+    <div className="space-y-3 rounded-xl border border-white/10 bg-card/40 p-4 backdrop-blur-xl">
       <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">
         <Calculator className="w-3.5 h-3.5" /> Calculadora de margen
       </div>
+      <p className="text-xs leading-5 text-muted-foreground">
+        Estimación interna: calcula el costo del producto usando costo por kg, peso y envío. No modifica ni guarda el precio del producto.
+      </p>
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Precio" value={price} onChange={setPrice} prefix="$" />
+        <Field label="Precio USA" value={price} onChange={setPrice} prefix="$" />
         <Field label="Costo/kg" value={cost} onChange={setCost} prefix="$" />
         <Field label="Peso (g)" value={weight} onChange={setWeight} />
         <Field label="Envío" value={shipping} onChange={setShipping} prefix="$" />
       </div>
       <div className="pt-2 border-t border-white/[0.06] space-y-1.5 font-mono text-[11px]">
         <Row label="COSTO DEL PRODUCTO" value={`$${productCost.toFixed(2)}`} muted />
+        <Row label="COSTO TOTAL + ENVÍO" value={`$${totalCost.toFixed(2)}`} muted />
         <Row label="Margen" value={`$${margin.toFixed(2)}`} accent={margin >= 0 ? 'gold' : 'destructive'} />
         <Row
           label="Margen %"
