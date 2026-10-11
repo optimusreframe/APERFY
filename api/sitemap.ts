@@ -4,6 +4,22 @@ function escapeXml(value: string) {
   return value.replace(/[<>&'"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[character] ?? character);
 }
 
+async function fetchSitemapProducts(supabaseUrl: string, supabaseKey: string) {
+  const response = await fetch(supabaseUrl.replace(/\/$/, '') + '/rest/v1/rpc/get_active_product_sitemap', {
+    method: 'POST',
+    headers: {
+      apikey: supabaseKey,
+      Authorization: 'Bearer ' + supabaseKey,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  });
+  if (!response.ok) return [] as SitemapProduct[];
+  const data = await response.json();
+  return Array.isArray(data) ? data as SitemapProduct[] : [];
+}
+
 export default {
   async fetch() {
     const baseUrl = (process.env.SITE_URL || 'https://aperfy.kpwr.dev').replace(/\/$/, '');
@@ -11,13 +27,7 @@ export default {
     const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
     let products: SitemapProduct[] = [];
     if (supabaseUrl && supabaseKey) {
-      const endpoint = new URL(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/products`);
-      endpoint.searchParams.set('select', 'slug,updated_at');
-      endpoint.searchParams.set('is_active', 'eq.true');
-      endpoint.searchParams.set('order', 'updated_at.desc');
-      endpoint.searchParams.set('limit', '1000');
-      const response = await fetch(endpoint, { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}`, Accept: 'application/json' } });
-      if (response.ok) products = await response.json() as SitemapProduct[];
+      products = await fetchSitemapProducts(supabaseUrl, supabaseKey);
     }
     const entries = [
       `<url><loc>${baseUrl}/</loc></url>`,
