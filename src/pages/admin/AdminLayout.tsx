@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import AdminSidebar from './AdminSidebar';
 import { Activity } from 'lucide-react';
 import NotificationBell from '@/components/admin/NotificationBell';
+import ThemeToggle from '@/components/ThemeToggle';
 import { supabase } from '@/integrations/supabase/client';
 
 const AUTO_RATE_SOURCES = ['bcv', 'laslucas', 'binance'] as const;
@@ -52,18 +53,19 @@ export default function AdminLayout() {
 
   return (
     <SidebarProvider>
-      <div className="mac-admin-layout flex h-full min-h-0 w-full overflow-hidden bg-[radial-gradient(circle_at_75%_0%,hsl(var(--primary)/.08),transparent_32%),linear-gradient(180deg,hsl(220_18%_9%),hsl(220_20%_6%))]">
+      <div className="mac-admin-layout flex h-full min-h-0 w-full overflow-hidden bg-background text-foreground">
         <AdminSidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* Command bar */}
-          <header className="mac-admin-toolbar sticky top-0 z-30 h-14 flex items-center gap-3 border-b border-white/[0.08] px-4 bg-[hsl(220_18%_9%/.82)] backdrop-blur-2xl">
+          <header className="mac-admin-toolbar sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card px-3 sm:px-4">
             <SidebarTrigger className="h-11 w-11 text-foreground/80 hover:text-foreground" />
             <div className="hidden md:flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
               <span>APERFY</span>
               <span className="text-border">/</span>
               <span className="text-foreground/90">{current}</span>
             </div>
-            <div className="md:hidden font-display text-sm text-foreground">
+            <div className="flex min-w-0 items-center gap-2 md:hidden">
+              <img src="/logo.png" alt="APERFY" className="h-7 w-7 shrink-0 object-contain" />
               <span className="aperfy-wordmark"><span>APER</span><span>FY</span></span>
             </div>
             <div className="ml-auto flex items-center gap-3">
@@ -75,6 +77,7 @@ export default function AdminLayout() {
                 <Activity className="w-3 h-3 text-primary/70" />
                 <span>{sessionId}</span>
               </div>
+              <ThemeToggle />
               <NotificationBell />
             </div>
           </header>

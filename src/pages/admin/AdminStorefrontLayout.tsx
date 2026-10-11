@@ -67,7 +67,7 @@ export default function AdminStorefrontLayout() {
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><LayoutTemplate className="h-5 w-5" /></div>
             <div><h2 className="font-semibold uppercase">DISEÑO PÚBLICO</h2><p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">Asigna una composición independiente para móvil, iPad y desktop. El storefront cambia automáticamente según el ancho de pantalla; los productos, inventario, carrito, precios y contenido permanecen intactos.</p></div>
           </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-xl border border-white/[0.08] bg-black/15 px-3 py-2 text-xs text-muted-foreground"><Moon className="h-3.5 w-3.5" /><span>/</span><Sun className="h-3.5 w-3.5 text-primary" />Tema controlado por el selector público</div>
+          <div className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground"><Moon className="h-3.5 w-3.5" /><span>/</span><Sun className="h-3.5 w-3.5 text-primary" />Tema controlado por el selector público</div>
         </div>
       </AdminSurface>
 
@@ -113,7 +113,7 @@ export default function AdminStorefrontLayout() {
               type="button"
               onClick={() => setDraft((current) => ({ ...current, [activeDevice]: option.id }))}
               aria-pressed={selected}
-              className={`group text-left rounded-2xl border p-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${selected ? 'border-primary bg-primary/[0.08] shadow-[0_0_0_1px_hsl(var(--primary)/.18),0_24px_70px_hsl(var(--primary)/.12)]' : 'border-white/[0.08] bg-[hsl(220_17%_12%/.72)] hover:border-primary/40'}`}
+                className={`group text-left rounded-2xl border p-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${selected ? 'border-primary bg-primary/[0.08] shadow-[0_0_0_1px_hsl(var(--primary)/.18),0_24px_70px_hsl(var(--primary)/.12)]' : 'border-border bg-card hover:border-primary/40'}`}
             >
               <div className="relative">
                 <LayoutPreview design={option.id} />

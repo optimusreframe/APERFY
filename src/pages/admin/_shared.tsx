@@ -32,7 +32,7 @@ export function AdminPageHeader({
 export function AdminSurface({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={`rounded-2xl border border-white/[0.08] bg-[hsl(220_17%_12%/.72)] shadow-[0_24px_80px_hsl(220_35%_2%/.22)] backdrop-blur-2xl overflow-hidden ${className}`}
+      className={`rounded-2xl border border-border bg-card shadow-[0_12px_34px_hsl(var(--foreground)/.06)] overflow-hidden ${className}`}
     >
       {children}
     </div>

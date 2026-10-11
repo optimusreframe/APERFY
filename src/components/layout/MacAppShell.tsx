@@ -47,7 +47,7 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
         <div className="mt-auto rounded-xl border border-primary/20 bg-primary/[0.07] p-3"><p className="text-xs font-semibold">{es ? 'Nuevos productos cada día' : 'New products every day'}</p><p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{es ? 'Lo publicado es lo disponible.' : 'What is published is what is available.'}</p></div>
       </aside>}
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="mac-titlebar flex h-14 shrink-0 items-center gap-3 border-b border-border/70 px-3 sm:px-5" aria-label={isAdmin ? 'APERFY Admin Console' : 'APERFY'}>
+        {!isAdmin && <header className="mac-titlebar flex h-14 shrink-0 items-center gap-3 border-b border-border/70 px-3 sm:px-5" aria-label="APERFY">
           <div className="mac-traffic-lights hidden items-center gap-2 sm:flex" aria-hidden="true"><span className="mac-light bg-[#ff5f57]" /><span className="mac-light bg-[#febc2e]" /><span className="mac-light bg-[#28c840]" /></div>
           <Link to="/" className="flex items-center gap-2 lg:hidden"><img src="/logo.png" alt="APERFY" className="h-7 w-7 rounded-lg object-contain" /><span className="aperfy-wordmark text-sm"><span>APER</span><span>FY</span></span></Link>
           <div className="hidden flex-1 items-center justify-center lg:flex"><span className="text-xs font-medium tracking-[.02em] text-muted-foreground">{isAdmin ? 'APERFY Console · operations and catalog' : (es ? 'APERFY · oportunidades disponibles ahora' : 'APERFY · live opportunities')}</span></div>
@@ -60,7 +60,7 @@ export default function MacAppShell({ children, variant = 'store' }: MacAppShell
             <Link to={accountPath} className="mac-toolbar-button" aria-label={user ? (es ? 'Abrir cuenta' : 'Open account') : (es ? 'Iniciar sesión' : 'Sign in')}><UserRound className="h-4 w-4" /></Link>
           </div>}
           {isAdmin && <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground"><span className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary))]" />{es ? 'En vivo' : 'Live'}</div>}
-        </header>
+        </header>}
         <div ref={contentScrollRef} data-testid="mac-content-scroll" className={`mac-content-scroll flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain ${hasMobileTabs ? 'mac-store-content' : ''}`}>{children}</div>
         {!isAdmin && <BottomTabBar />}
         <ScrollToTopButton

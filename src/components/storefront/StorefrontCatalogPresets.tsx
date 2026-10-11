@@ -39,11 +39,13 @@ function PresetControls({ es, search, setSearch, searchPlaceholder, openFilters,
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={searchPlaceholder} aria-label={searchPlaceholder} />
       </div>
       <div className="storefront-preset-control-row">
-        <button type="button" onClick={() => openFilters('suggested')} className="storefront-preset-filter-button"><SlidersHorizontal className="h-4 w-4" />{es ? 'Más filtros' : 'More filters'}{activeFilterCount > 0 && <span>{activeFilterCount}</span>}</button>
-        <button type="button" onClick={() => openFilters('category')} className="storefront-preset-filter-button">{categoryLabel}<ChevronRight className="h-3.5 w-3.5 rotate-90" /></button>
-        <button type="button" onClick={() => openFilters('price')} className="storefront-preset-filter-button">{priceLabel}<ChevronRight className="h-3.5 w-3.5 rotate-90" /></button>
-        <button type="button" onClick={() => openFilters('availability')} className="storefront-preset-filter-button hidden sm:inline-flex">{availabilityLabel}<ChevronRight className="h-3.5 w-3.5 rotate-90" /></button>
-        <button type="button" onClick={() => openFilters('sort')} className="storefront-preset-filter-button hidden md:inline-flex">{sortLabel}<ChevronRight className="h-3.5 w-3.5 rotate-90" /></button>
+        <div className="storefront-preset-filter-buttons">
+          <button type="button" onClick={() => openFilters('suggested')} className="storefront-preset-filter-button"><SlidersHorizontal className="h-4 w-4" />{es ? 'Más filtros' : 'More filters'}{activeFilterCount > 0 && <span>{activeFilterCount}</span>}</button>
+          <button type="button" onClick={() => openFilters('category')} className="storefront-preset-filter-button">{categoryLabel}<ChevronRight className="h-3.5 w-3.5 rotate-90" /></button>
+          <button type="button" onClick={() => openFilters('price')} className="storefront-preset-filter-button">{priceLabel}<ChevronRight className="h-3.5 w-3.5 rotate-90" /></button>
+          <button type="button" onClick={() => openFilters('availability')} className="storefront-preset-filter-button hidden sm:inline-flex">{availabilityLabel}<ChevronRight className="h-3.5 w-3.5 rotate-90" /></button>
+          <button type="button" onClick={() => openFilters('sort')} className="storefront-preset-filter-button hidden md:inline-flex">{sortLabel}<ChevronRight className="h-3.5 w-3.5 rotate-90" /></button>
+        </div>
         <div className="storefront-preset-view-toggle" role="group" aria-label={es ? 'Vista del catálogo' : 'Catalog view'}>
           <button type="button" onClick={() => setViewMode('grid')} aria-pressed={viewMode === 'grid'}><Grid2X2 className="h-4 w-4" /></button>
           <button type="button" onClick={() => setViewMode('list')} aria-pressed={viewMode === 'list'}><List className="h-4 w-4" /></button>

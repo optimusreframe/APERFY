@@ -6,6 +6,7 @@ import AdminLayout from './AdminLayout';
 
 vi.mock('./AdminSidebar', () => ({ default: () => <nav aria-label="Admin navigation" /> }));
 vi.mock('@/components/admin/NotificationBell', () => ({ default: () => <button aria-label="Notifications" /> }));
+vi.mock('@/components/ThemeToggle', () => ({ default: () => <button aria-label="Toggle theme" /> }));
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: { functions: { invoke: vi.fn().mockResolvedValue({ data: null, error: null }) } },
 }));

@@ -88,6 +88,11 @@
   body:has(.mac-admin-layout) .mac-admin-layout > .group.peer > div:nth-child(2) {
     position: absolute; inset: 0 auto auto 0; height: 100%;
   }
+  .mac-admin-layout { background: hsl(var(--background)); color: hsl(var(--foreground)); }
+  .mac-admin-layout .mac-admin-toolbar { background: hsl(var(--card)); border-color: hsl(var(--border)); }
+  .mac-admin-layout .mac-admin-main { background: hsl(var(--background)); }
+  .mac-admin-layout [data-sidebar="sidebar"] { background: hsl(var(--sidebar-background)); color: hsl(var(--sidebar-foreground)); }
+  .mac-admin-layout [class*="backdrop-blur"] { backdrop-filter: none !important; }
   .mac-admin-layout input, .mac-admin-layout textarea, .mac-admin-layout button, .mac-admin-layout [role="combobox"] { color-scheme: dark; }
   [data-aperfy-surface="dialog"] { animation-duration: .22s; box-shadow: 0 28px 90px hsl(220 35% 2% / .7), inset 0 1px hsl(0 0% 100% / .06); }
   [data-aperfy-surface="dialog"]:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
@@ -160,11 +165,12 @@
   .storefront-preset-search { display: flex; align-items: center; gap: .7rem; min-height: 3rem; padding: 0 .95rem; border: 1px solid hsl(var(--border)); border-radius: .8rem; background: hsl(var(--card) / .82); color: hsl(var(--muted-foreground)); }
   .storefront-preset-search input { width: 100%; border: 0; outline: 0; background: transparent; color: hsl(var(--foreground)); font-size: .86rem; }
   .storefront-preset-search input::placeholder { color: hsl(var(--muted-foreground)); }
-  .storefront-preset-control-row { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; margin-top: .7rem; }
+  .storefront-preset-control-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: .7rem; margin-top: .7rem; }
+  .storefront-preset-filter-buttons { display: flex; min-width: 0; align-items: center; gap: .55rem; flex-wrap: wrap; }
   .storefront-preset-filter-button { display: inline-flex; align-items: center; gap: .35rem; min-height: 2.35rem; padding: 0 .8rem; border: 1px solid hsl(var(--border)); border-radius: 999px; background: hsl(var(--card) / .65); color: hsl(var(--muted-foreground)); font-size: .72rem; white-space: nowrap; transition: border-color .18s ease, color .18s ease, background .18s ease; }
   .storefront-preset-filter-button:hover { border-color: hsl(var(--primary) / .55); color: hsl(var(--foreground)); background: hsl(var(--primary) / .08); }
   .storefront-preset-filter-button span { display: inline-flex; min-width: 1.15rem; height: 1.15rem; align-items: center; justify-content: center; border-radius: 999px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: .62rem; }
-  .storefront-preset-view-toggle { display: inline-flex; margin-left: auto; padding: .2rem; border: 1px solid hsl(var(--border)); border-radius: 999px; background: hsl(var(--card) / .7); }
+  .storefront-preset-view-toggle { display: inline-flex; flex-shrink: 0; padding: .2rem; border: 1px solid hsl(var(--border)); border-radius: 999px; background: hsl(var(--card)); }
   .storefront-preset-view-toggle button { display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: 999px; color: hsl(var(--muted-foreground)); }
   .storefront-preset-view-toggle button[aria-pressed="true"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
   .storefront-preset-empty { grid-column: 1 / -1; padding: 4rem 1rem; border: 1px dashed hsl(var(--border)); border-radius: 1rem; color: hsl(var(--muted-foreground)); text-align: center; }
@@ -390,6 +396,8 @@
     .design3-products, .design4-products { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 560px) {
+    .storefront-preset-control-row { grid-template-columns: minmax(0, 1fr) auto; }
+    .storefront-preset-filter-buttons { align-items: flex-start; }
     .storefront-preset { padding: 1rem .85rem 6rem; }
     .storefront-preset h1 { font-size: 2.55rem; }
     .design2-hero { border-radius: 1.1rem; }
@@ -513,6 +521,36 @@
     background: radial-gradient(circle at 50% -10%, hsl(0 0% 100% / .92), transparent 42%), hsl(var(--background));
     color: hsl(var(--foreground));
   }
+  html:not(.dark) body:has(.mac-admin-layout) {
+    --background: 220 20% 97%; --foreground: 220 15% 11%;
+    --card: 0 0% 100%; --card-foreground: 220 15% 11%;
+    --popover: 0 0% 100%; --popover-foreground: 220 15% 11%;
+    --primary: 142 72% 38%; --primary-foreground: 0 0% 100%;
+    --secondary: 220 16% 94%; --secondary-foreground: 220 15% 11%;
+    --muted: 220 16% 94%; --muted-foreground: 220 10% 42%;
+    --border: 220 16% 87%; --input: 220 16% 87%; --ring: 142 72% 38%;
+    --sidebar-background: 0 0% 100%; --sidebar-foreground: 220 15% 11%; --sidebar-primary: 142 72% 38%; --sidebar-primary-foreground: 0 0% 100%; --sidebar-accent: 220 16% 94%; --sidebar-accent-foreground: 220 15% 11%; --sidebar-border: 220 16% 87%; --sidebar-ring: 142 72% 38%;
+    background: hsl(var(--background)); color: hsl(var(--foreground));
+  }
+  html:not(.dark) .mac-admin-layout,
+  html:not(.dark) .mac-admin-layout .mac-admin-toolbar,
+  html:not(.dark) .mac-admin-layout .mac-admin-main { background: hsl(var(--background)); color: hsl(var(--foreground)); }
+  html:not(.dark) .mac-admin-layout .mac-admin-toolbar { background: hsl(var(--card)); }
+  html:not(.dark) .mac-admin-layout [data-sidebar="sidebar"] { background: hsl(var(--sidebar-background)); color: hsl(var(--sidebar-foreground)); }
+  html:not(.dark) .mac-workspace .storefront-design2 .design2-hero {
+    border: 1px solid hsl(var(--border));
+    background: linear-gradient(120deg, hsl(0 0% 100%), hsl(220 20% 96%) 58%, hsl(142 34% 92%));
+    color: hsl(var(--foreground));
+    box-shadow: 0 24px 60px hsl(var(--foreground) / .1);
+  }
+  html:not(.dark) .mac-workspace .storefront-design2 .design2-hero-copy h1 { color: hsl(var(--foreground)); }
+  html:not(.dark) .mac-workspace .storefront-design2 .design2-hero-copy > p:not(.design2-eyebrow) { color: hsl(var(--muted-foreground)); }
+  html:not(.dark) .mac-workspace .storefront-design2 .design2-service-note { color: hsl(var(--muted-foreground)); }
+  html:not(.dark) .mac-workspace .storefront-design2 .design2-hero-product { background: hsl(var(--secondary)); }
+  html:not(.dark) .mac-workspace .storefront-design2 .design2-category-chip::after { background: linear-gradient(transparent, hsl(220 20% 12% / .72)); }
+  html:not(.dark) .mac-workspace .storefront-design2 .design2-category-chip span { color: white; }
+  html:not(.dark) .mac-workspace .storefront-design3 .design3-hero-label { border-color: hsl(var(--border)); background: hsl(var(--card) / .96); color: hsl(var(--foreground)); backdrop-filter: none; }
+  html:not(.dark) .mac-workspace .storefront-design3 .design3-hero-label strong { color: hsl(var(--foreground)); }
   html:not(.dark) .mac-workspace .mac-window {
     background: linear-gradient(145deg, hsl(0 0% 100% / .98), hsl(220 18% 98% / .98) 48%, hsl(220 18% 94% / .98));
     box-shadow: 0 32px 100px hsl(220 20% 20% / .14), inset 0 1px hsl(0 0% 100% / .8);
