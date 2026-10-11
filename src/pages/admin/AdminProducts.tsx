@@ -31,6 +31,7 @@ import { getErrorMessage } from '@/lib/model-types';
 import { readClipboardImage } from '@/lib/image-clipboard';
 import ProductCatalogViews, { type AdminProduct, type BulkEdit, type BulkField, type ProductViewMode } from '@/components/admin/ProductCatalogViews';
 import { calculateVenezuelaUsdPrice, DEFAULT_VENEZUELA_MARKUP_PERCENT, normalizeVenezuelaMarkup, type VenezuelaManualMode, type VenezuelaPriceMode } from '@/lib/venezuela-pricing';
+import { getVariationTranslationPayload } from './variationTranslation';
 
 // ── Types ──
 interface ProductForm {
@@ -435,6 +436,7 @@ export default function AdminProducts() {
     _deleted?: boolean;
     _uploadingImage?: boolean;
     _generatingImage?: boolean;
+    _translating?: boolean;
   }
   const [productVariations, setProductVariations] = useState<VariationRow[]>([]);
   const [loadingVariations, setLoadingVariations] = useState(false);
@@ -1809,20 +1811,46 @@ export default function AdminProducts() {
 
   const handleEditVariationTranslate = async (idx: number) => {
     const variation = productVariations[idx];
-    if (!variation.name_es) return;
+    if (!variation) return;
+    const translationPayload = getVariationTranslationPayload(variation);
+    if (!translationPayload) {
+      toast({ title: 'Completa un nombre o descripción primero', variant: 'destructive' });
+      return;
+    }
+
+    setProductVariations(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], _translating: true };
+      return updated;
+    });
+
     try {
       const { data, error } = await supabase.functions.invoke('ai-product-import', {
-        body: { action: 'translate', direction: 'es_to_en', name_es: variation.name_es, description_es: '' },
+        body: { action: 'translate', ...translationPayload },
       });
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'No se pudo generar la traducción');
+      if (error) throw new Error(await getFunctionErrorMessage(error, data, 'No se pudo generar los textos de la variante'));
+      if (!data?.success || !data.data) throw new Error(data?.error || 'No se pudo generar los textos de la variante');
+
       setProductVariations(prev => {
         const updated = [...prev];
-        updated[idx] = { ...updated[idx], name_en: data.data.name_en };
+        updated[idx] = {
+          ...updated[idx],
+          name_en: typeof data.data.name_en === 'string' ? data.data.name_en : updated[idx].name_en,
+          description_en: typeof data.data.description_en === 'string' ? data.data.description_en : updated[idx].description_en,
+          name_es: typeof data.data.name_es === 'string' ? data.data.name_es : updated[idx].name_es,
+          description_es: typeof data.data.description_es === 'string' ? data.data.description_es : updated[idx].description_es,
+          _translating: false,
+        };
         return updated;
       });
+      toast({ title: '✓', description: 'Nombre y descripción de la variante generados' });
     } catch (e: unknown) {
-      toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
+      toast({ title: 'Error generando textos', description: getErrorMessage(e), variant: 'destructive' });
+      setProductVariations(prev => {
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], _translating: false };
+        return updated;
+      });
     }
   };
 
@@ -3217,10 +3245,12 @@ export default function AdminProducts() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEditVariationTranslate(actualIdx)}
-                                disabled={!variation.name_es}
+                                disabled={variation._translating || !getVariationTranslationPayload(variation)}
+                                title="Generar nombre y descripción de esta variante con IA"
+                                aria-label="Generar nombre y descripción de esta variante con IA"
                                 className="text-[10px] h-5 px-1.5 gap-0.5 text-primary"
                               >
-                                <RefreshCw className="w-2.5 h-2.5" /> AI
+                                {variation._translating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />} AI
                               </Button>
                             </div>
                             <Input
