@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useBulkImport } from '@/contexts/BulkImportContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, LayoutGrid, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler, Check, Clipboard } from 'lucide-react';
+import { Plus, Pencil, Trash2, Image, Sparkles, Link2, Upload, X, GripVertical, Film, RefreshCw, Wand2, ImagePlus, Lock, Unlock, Languages, List, LayoutGrid, CheckCircle2, AlertCircle, Loader2, Save, XCircle, Weight, Ruler, Check, Clipboard, Search } from 'lucide-react';
 import { logActivity } from '@/lib/activity-log';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,8 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -86,6 +88,8 @@ interface AiProductData {
 interface AiPhotoCandidate {
   id: string;
   name: string;
+  name_es?: string;
+  description_es?: string;
   brand: string;
   model: string;
   category: string;
@@ -118,6 +122,101 @@ const COMMON_COLORS = [
   'Negro', 'Blanco', 'Gris', 'Rojo', 'Azul', 'Verde', 'Amarillo',
   'Naranja', 'Morado', 'Rosa', 'Dorado', 'Plateado', 'Marrón', 'Transparente'
 ];
+
+type CategoryOption = {
+  id: string;
+  slug: string;
+  name_es: string;
+  name_en?: string | null;
+};
+
+function CategoryPicker({
+  categories,
+  value,
+  onChange,
+  onCreate,
+  creating = false,
+  placeholder = 'Seleccionar categoría...',
+  valueMode = 'id',
+}: {
+  categories: CategoryOption[];
+  value: string;
+  onChange: (value: string) => void;
+  onCreate?: (name: string) => void | Promise<void>;
+  creating?: boolean;
+  placeholder?: string;
+  valueMode?: 'id' | 'slug';
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const sortedCategories = [...categories].sort((a, b) =>
+    a.name_es.localeCompare(b.name_es, 'es', { sensitivity: 'base' }),
+  );
+  const selected = categories.find((category) => category.id === value || category.slug === value);
+  const normalizedSearch = search.trim().toLocaleLowerCase('es');
+  const filteredCategories = sortedCategories.filter((category) => {
+    if (!normalizedSearch) return true;
+    return [category.name_es, category.name_en || '', category.slug]
+      .some((field) => field.toLocaleLowerCase('es').includes(normalizedSearch));
+  });
+  const canCreate = Boolean(
+    onCreate && normalizedSearch && !sortedCategories.some((category) =>
+      [category.name_es, category.name_en || '', category.slug]
+        .some((field) => field.toLocaleLowerCase('es') === normalizedSearch),
+    ),
+  );
+
+  return (
+    <Popover open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setSearch(''); }}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" className="w-full justify-between bg-secondary font-normal">
+          <span className={selected ? 'truncate text-foreground' : 'truncate text-muted-foreground'}>
+            {selected?.name_es || placeholder}
+          </span>
+          <Search className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] min-w-[240px] p-0" onOpenAutoFocus={(event) => event.preventDefault()}>
+        <Command shouldFilter={false}>
+          <CommandInput value={search} onValueChange={setSearch} placeholder="Buscar categoría..." />
+          <CommandList className="max-h-64">
+            <CommandEmpty>{canCreate ? 'No existe todavía. Puedes crearla abajo.' : 'No se encontraron categorías.'}</CommandEmpty>
+            {filteredCategories.map((category) => (
+              <CommandItem
+                key={category.id}
+                value={`${category.name_es} ${category.slug}`}
+                onSelect={() => {
+                  const isSelected = category.id === value || category.slug === value;
+                  onChange(isSelected ? '' : valueMode === 'slug' ? category.slug : category.id);
+                  setOpen(false);
+                  setSearch('');
+                }}
+              >
+                <Check className={`mr-2 h-4 w-4 ${category.id === value || category.slug === value ? 'opacity-100' : 'opacity-0'}`} />
+                <span className="truncate">{category.name_es}</span>
+              </CommandItem>
+            ))}
+            {canCreate && (
+              <CommandItem
+                value={`crear ${search}`}
+                disabled={creating}
+                onSelect={async () => {
+                  await onCreate?.(search.trim());
+                  setOpen(false);
+                  setSearch('');
+                }}
+                className="border-t border-border text-primary"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {creating ? 'Creando...' : `Crear “${search.trim()}”`}
+              </CommandItem>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ── AI Progress Log ──
 const AI_PROGRESS_MESSAGES = [
@@ -322,6 +421,7 @@ export default function AdminProducts() {
     price_override_venezuela: number | null;
     use_manual_price: boolean;
     image_url: string | null;
+    _imageFile?: File;
     _isNew?: boolean;
     _deleted?: boolean;
     _uploadingImage?: boolean;
@@ -471,7 +571,7 @@ export default function AdminProducts() {
   const { data: categories = [] } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('categories').select('*').eq('is_active', true).order('name_en');
+      const { data, error } = await supabase.from('categories').select('*').eq('is_active', true).order('name_es');
       if (error) throw error;
       return data;
     },
@@ -649,7 +749,8 @@ export default function AdminProducts() {
             imageUrls.push(url);
           }
         }
-        await supabase.from('products').update({ images: imageUrls }).eq('id', productId);
+        const { error: imageUpdateError } = await supabase.from('products').update({ images: imageUrls }).eq('id', productId);
+        if (imageUpdateError) throw imageUpdateError;
       }
       // Save variations. Always reconcile the collection so deleting the last
       // variant also removes it from the database.
@@ -671,6 +772,13 @@ export default function AdminProducts() {
             ? Number(v.price_override)
             : 0;
 
+          let variationImageUrl = v.image_url;
+          if (v._imageFile) {
+            variationImageUrl = await uploadMedia(v._imageFile, productId);
+          }
+          // Object URLs are local previews only and must never be persisted.
+          if (variationImageUrl?.startsWith('blob:')) variationImageUrl = null;
+
           const varPayload = {
             product_id: productId,
             name_en: nameEn,
@@ -683,7 +791,7 @@ export default function AdminProducts() {
             price_override: v.use_manual_price && v.price_override !== null ? Number(v.price_override) : null,
             price_override_venezuela: v.use_manual_price && v.price_override_venezuela !== null ? Number(v.price_override_venezuela) : null,
             use_manual_price: !!v.use_manual_price,
-            image_url: v.image_url || null,
+            image_url: variationImageUrl || null,
             value: `${v.type || 'custom'}: ${nameEs}`,
             is_active: v.is_active,
           };
@@ -1148,11 +1256,24 @@ export default function AdminProducts() {
 
       setAiPhotoMode(false);
       setAiPhotoCandidates([]);
-      setAiData({ ...data.data, market_reference_price: data.data.suggested_price, suggested_price: suggestRetailPrice(Number(data.data.suggested_price || 0), aiDiscountPercent), discount_percent: aiDiscountPercent });
-      setAiExtractedImages(data.data.extracted_images || []);
+      let importedData = { ...data.data };
+      const spanishNeedsReview = !String(importedData.name_es || '').trim()
+        || !String(importedData.description_es || '').trim()
+        || (String(importedData.name_en || '').trim() && String(importedData.name_es || '').trim().toLocaleLowerCase() === String(importedData.name_en || '').trim().toLocaleLowerCase())
+        || (String(importedData.description_en || '').trim() && String(importedData.description_es || '').trim().toLocaleLowerCase() === String(importedData.description_en || '').trim().toLocaleLowerCase());
+      if (spanishNeedsReview && (importedData.name_en || importedData.description_en)) {
+        try {
+          const translated = await translateEnglishToSpanish(String(importedData.name_en || ''), String(importedData.description_en || ''));
+          if (translated) importedData = { ...importedData, ...translated };
+        } catch {
+          toast({ title: 'Revisa el español', description: 'La ficha se importó, pero puedes usar el botón “Español” para traducir estos campos.' });
+        }
+      }
+      setAiData({ ...importedData, market_reference_price: importedData.suggested_price, suggested_price: suggestRetailPrice(Number(importedData.suggested_price || 0), aiDiscountPercent), discount_percent: aiDiscountPercent });
+      setAiExtractedImages(importedData.extracted_images || []);
 
       // Determine best source image: manual upload > AI reference > first extracted
-      const bestImage = aiOriginalImage || data.data.reference_image_url || data.data.extracted_images?.[0] || null;
+      const bestImage = aiOriginalImage || importedData.reference_image_url || importedData.extracted_images?.[0] || null;
       if (!aiOriginalImage) {
         setAiSelectedSourceImage(bestImage);
       }
@@ -1222,12 +1343,31 @@ export default function AdminProducts() {
     setAiPhotoImporting(true);
     try {
       const imageSource = selected.length === 1 && aiStoredImageUrl ? aiStoredImageUrl : aiOriginalImage;
+      const localizedProducts = [];
+      for (const candidate of selected) {
+        let localized = {
+          ...candidate,
+          name_en: candidate.name,
+          description_en: candidate.description,
+          name_es: candidate.name_es || candidate.name,
+          description_es: candidate.description_es || candidate.description,
+        };
+        if (!candidate.name_es || !candidate.description_es) {
+          try {
+            const translated = await translateEnglishToSpanish(candidate.name, candidate.description);
+            if (translated) localized = { ...localized, ...translated };
+          } catch {
+            // The importer still works with the detected text if translation is unavailable.
+          }
+        }
+        localizedProducts.push(localized);
+      }
       const { data, error } = await supabase.functions.invoke('ai-product-from-photo', {
         body: {
           action: 'import_products',
           imageData: aiOriginalImage,
           imageSource,
-          products: selected.map(({ selected: _selected, ...candidate }) => candidate),
+          products: localizedProducts.map(({ selected: _selected, ...candidate }) => candidate),
           globalMarkupPercent: globalVenezuelaMarkupPercent,
         },
       });
@@ -1294,13 +1434,24 @@ export default function AdminProducts() {
       }));
       const first = candidates[0];
       if (!first) throw new Error('La IA no identificó productos claros en la imagen.');
+      let photoNameEs = first.name;
+      let photoDescriptionEs = first.description;
+      try {
+        const translated = await translateEnglishToSpanish(first.name, first.description);
+        if (translated) {
+          photoNameEs = translated.name_es || photoNameEs;
+          photoDescriptionEs = translated.description_es || photoDescriptionEs;
+        }
+      } catch {
+        toast({ title: 'Revisa el español', description: 'La ficha fue detectada, pero puedes usar el botón “Español” antes de importarla.' });
+      }
       setAiPhotoCandidates(candidates);
       setAiPhotoMode(true);
       setAiData({
         ...first,
-        name_es: first.name,
+        name_es: photoNameEs,
         name_en: first.name,
-        description_es: first.description,
+        description_es: photoDescriptionEs,
         description_en: first.description,
         slug: slugify(first.name),
         suggested_category: slugify(first.category),
@@ -1367,7 +1518,7 @@ export default function AdminProducts() {
     setTranslating(true);
     try {
       const { data, error } = await supabase.functions.invoke('ai-product-import', {
-        body: { action: 'translate', name_es: aiData.name_es, description_es: aiData.description_es },
+        body: { action: 'translate', direction: 'es_to_en', name_es: aiData.name_es, description_es: aiData.description_es },
       });
       if (error) throw new Error(await getFunctionErrorMessage(error, data, 'No se pudo generar la traducción'));
       if (!data?.success) throw new Error(data?.error || 'No se pudo generar la traducción');
@@ -1381,6 +1532,38 @@ export default function AdminProducts() {
         return updated;
       });
       toast({ title: '✓', description: 'Traducción generada' });
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  const translateEnglishToSpanish = async (nameEn: string, descriptionEn: string) => {
+    if (!nameEn && !descriptionEn) return null;
+    const { data, error } = await supabase.functions.invoke('ai-product-import', {
+      body: { action: 'translate', direction: 'en_to_es', name_en: nameEn, description_en: descriptionEn },
+    });
+    if (error) throw new Error(await getFunctionErrorMessage(error, data, 'No se pudo generar la versión en español'));
+    if (!data?.success || !data.data) throw new Error(data?.error || 'No se pudo generar la versión en español');
+    return {
+      name_es: typeof data.data.name_es === 'string' ? data.data.name_es : '',
+      description_es: typeof data.data.description_es === 'string' ? data.data.description_es : '',
+    };
+  };
+
+  const handleTranslateToSpanish = async () => {
+    if (!aiData?.name_en && !aiData?.description_en) return;
+    setTranslating(true);
+    try {
+      const translated = await translateEnglishToSpanish(aiData.name_en || '', aiData.description_en || '');
+      if (!translated) return;
+      setAiData((prev) => prev ? ({
+        ...prev,
+        name_es: translated.name_es || prev.name_es,
+        description_es: translated.description_es || prev.description_es,
+      }) : prev);
+      toast({ title: '✓', description: 'Versión en español generada' });
     } catch (e: unknown) {
       toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
     } finally {
@@ -1505,7 +1688,19 @@ export default function AdminProducts() {
       if (error) throw new Error(await getFunctionErrorMessage(error, data, 'No se pudo mejorar el producto'));
       if (!data?.success) throw new Error(data?.error || 'Error');
 
-      const enhanced = data.data;
+      let enhanced = data.data;
+      const enhancedSpanishNeedsReview = !String(enhanced.name_es || '').trim()
+        || !String(enhanced.description_es || '').trim()
+        || (String(enhanced.name_en || '').trim() && String(enhanced.name_es || '').trim().toLocaleLowerCase() === String(enhanced.name_en || '').trim().toLocaleLowerCase())
+        || (String(enhanced.description_en || '').trim() && String(enhanced.description_es || '').trim().toLocaleLowerCase() === String(enhanced.description_en || '').trim().toLocaleLowerCase());
+      if (enhancedSpanishNeedsReview && (enhanced.name_en || enhanced.description_en)) {
+        try {
+          const translated = await translateEnglishToSpanish(String(enhanced.name_en || ''), String(enhanced.description_en || ''));
+          if (translated) enhanced = { ...enhanced, ...translated };
+        } catch {
+          // The editor remains usable and exposes the manual Spanish action below.
+        }
+      }
       const matchedCat = categories.find((c) => c.slug === enhanced.suggested_category);
 
       setForm(prev => ({
@@ -1531,7 +1726,7 @@ export default function AdminProducts() {
     setEditTranslating(true);
     try {
       const { data, error } = await supabase.functions.invoke('ai-product-import', {
-        body: { action: 'translate', name_es: form.name_es, description_es: form.description_es },
+        body: { action: 'translate', direction: 'es_to_en', name_es: form.name_es, description_es: form.description_es },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'No se pudo generar la traducción');
@@ -1549,12 +1744,31 @@ export default function AdminProducts() {
     }
   };
 
+  const handleEditTranslateToSpanish = async () => {
+    if (!form.name_en && !form.description_en) return;
+    setEditTranslating(true);
+    try {
+      const translated = await translateEnglishToSpanish(form.name_en, form.description_en);
+      if (!translated) return;
+      setForm((prev) => ({
+        ...prev,
+        name_es: translated.name_es || prev.name_es,
+        description_es: translated.description_es || prev.description_es,
+      }));
+      toast({ title: '✓', description: 'Versión en español generada' });
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
+    } finally {
+      setEditTranslating(false);
+    }
+  };
+
   const handleEditVariationTranslate = async (idx: number) => {
     const variation = productVariations[idx];
     if (!variation.name_es) return;
     try {
       const { data, error } = await supabase.functions.invoke('ai-product-import', {
-        body: { action: 'translate', name_es: variation.name_es, description_es: '' },
+        body: { action: 'translate', direction: 'es_to_en', name_es: variation.name_es, description_es: '' },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'No se pudo generar la traducción');
@@ -1568,20 +1782,27 @@ export default function AdminProducts() {
     }
   };
 
-  const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) return;
+  const handleCreateCategory = async (requestedName = newCategoryName, target: 'ai' | 'form' = 'ai') => {
+    const categoryName = requestedName.trim();
+    if (!categoryName) return;
     setCreatingCategory(true);
     try {
-      const catSlug = slugify(newCategoryName);
+      const catSlug = slugify(categoryName);
       const { data, error } = await supabase.from('categories').insert({
-        name_es: newCategoryName.trim(),
-        name_en: newCategoryName.trim(),
+        name_es: categoryName,
+        name_en: categoryName,
         slug: catSlug,
         is_active: true,
       }).select().single();
       if (error) throw error;
-      qc.invalidateQueries({ queryKey: ['admin-categories'] });
-      setAiData((prev) => prev ? ({ ...prev, suggested_category: data.slug }) : prev);
+      qc.setQueryData(['admin-categories'], (current: CategoryOption[] | undefined) =>
+        [...(current || []), data as CategoryOption].sort((a, b) => a.name_es.localeCompare(b.name_es, 'es', { sensitivity: 'base' })),
+      );
+      if (target === 'ai') {
+        setAiData((prev) => prev ? ({ ...prev, suggested_category: data.slug }) : prev);
+      } else {
+        setForm((prev) => ({ ...prev, category_id: data.id }));
+      }
       setNewCategoryName('');
       toast({ title: '✓', description: 'Categoría creada' });
     } catch (e: unknown) {
@@ -2145,7 +2366,14 @@ export default function AdminProducts() {
                       <div className="space-y-4">
                         {/* Spanish Name */}
                         <div className="space-y-1">
-                          <Label className="text-xs">Nombre</Label>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs">Nombre (ES)</Label>
+                            {(aiData.name_en || aiData.description_en) && (
+                              <Button type="button" variant="ghost" size="sm" onClick={handleTranslateToSpanish} disabled={translating} className="h-6 gap-1 px-2 text-xs text-primary">
+                                {translating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Languages className="h-3 w-3" />} Español
+                              </Button>
+                            )}
+                          </div>
                           <Input value={aiData.name_es} onChange={(e) => setAiData({ ...aiData, name_es: e.target.value })} className="bg-secondary text-sm" />
                         </div>
 
@@ -2249,41 +2477,16 @@ export default function AdminProducts() {
                           {/* Category with inline creation */}
                           <div className="space-y-1">
                             <Label className="text-xs">Categoría</Label>
-                            <Select value={aiData.suggested_category} onValueChange={(v) => {
-                              if (v === '__new__') {
-                                setNewCategoryName('');
-                              } else {
-                                setAiData({ ...aiData, suggested_category: v });
-                              }
-                            }}>
-                              <SelectTrigger className="bg-secondary text-sm"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                              <SelectContent>
-                                {categories.map((c) => (
-                                  <SelectItem key={c.id} value={c.slug}>{c.name_es}</SelectItem>
-                                ))}
-                                <SelectItem value="__new__">+ Crear nueva categoría</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <CategoryPicker
+                              categories={categories}
+                              value={aiData.suggested_category || ''}
+                              onChange={(value) => setAiData({ ...aiData, suggested_category: value })}
+                              onCreate={(name) => handleCreateCategory(name, 'ai')}
+                              creating={creatingCategory}
+                              valueMode="slug"
+                            />
                           </div>
                         </div>
-
-                        {/* Inline new category creation */}
-                        {(aiData.suggested_category === '__new__' || (!categories.find((c) => c.slug === aiData.suggested_category) && aiData.suggested_category)) && (
-                          <div className="flex gap-2 items-end">
-                            <div className="flex-1 space-y-1">
-                              <Label className="text-xs">Nueva categoría</Label>
-                              <Input
-                                value={newCategoryName || aiData.suggested_category_name_es || ''}
-                                onChange={(e) => setNewCategoryName(e.target.value)}
-                                className="bg-secondary text-sm"
-                                placeholder="Nombre de la categoría"
-                              />
-                            </div>
-                            <Button size="sm" onClick={handleCreateCategory} disabled={creatingCategory} className="gap-1">
-                              <Plus className="w-3 h-3" /> Crear
-                            </Button>
-                          </div>
-                        )}
 
                         {/* Materials Multi-Select */}
                         <div className="space-y-2">
@@ -2671,7 +2874,14 @@ export default function AdminProducts() {
                     <p className="text-xs text-muted-foreground">Fabricante o marca comercial del producto. Déjalo vacío si no se conoce.</p>
                   </div>
                   <div className="space-y-2">
-                    <Label>Nombre (ES)</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Nombre (ES)</Label>
+                      {(form.name_en || form.description_en) && (
+                        <Button type="button" variant="ghost" size="sm" onClick={handleEditTranslateToSpanish} disabled={editTranslating} className="h-6 gap-1 px-2 text-xs text-primary">
+                          {editTranslating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Languages className="h-3 w-3" />} Español
+                        </Button>
+                      )}
+                    </div>
                     <Input value={form.name_es} onChange={(e) => setForm({ ...form, name_es: e.target.value })} className="bg-secondary" maxLength={255} required />
                     {fieldErrors.name_es && <p className="text-xs text-destructive">{fieldErrors.name_es}</p>}
                   </div>
@@ -2778,14 +2988,13 @@ export default function AdminProducts() {
                   </div>
                   <div className="space-y-2">
                     <Label>Categoría</Label>
-                    <Select value={form.category_id} onValueChange={(v) => setForm({ ...form, category_id: v })}>
-                      <SelectTrigger className="bg-secondary"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
-                      <SelectContent>
-                        {categories.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.name_es}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <CategoryPicker
+                      categories={categories}
+                      value={form.category_id}
+                      onChange={(value) => setForm({ ...form, category_id: value })}
+                      onCreate={(name) => handleCreateCategory(name, 'form')}
+                      creating={creatingCategory}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Condición</Label>
@@ -3120,7 +3329,8 @@ export default function AdminProducts() {
                                   onClick={() => {
                                     setProductVariations(prev => {
                                       const updated = [...prev];
-                                      updated[actualIdx] = { ...updated[actualIdx], image_url: null };
+                                      if (updated[actualIdx].image_url?.startsWith('blob:')) URL.revokeObjectURL(updated[actualIdx].image_url);
+                                      updated[actualIdx] = { ...updated[actualIdx], image_url: null, _imageFile: undefined };
                                       return updated;
                                     });
                                   }}
@@ -3145,21 +3355,17 @@ export default function AdminProducts() {
                                   if (!file) return;
                                   const v = await validateMediaFile(file);
                                   if (!v.valid) { toast({ title: v.error || 'Archivo inválido', variant: 'destructive' }); return; }
-
-                                  setProductVariations(prev => {
-                                    const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _uploadingImage: true }; return u;
-                                  });
-                                  const fileName = `${editId || 'new'}/var-${Date.now()}-${sanitizeFileName(file.name)}`;
-                                  const { error: upErr } = await supabase.storage.from('product-images').upload(fileName, file, { upsert: true });
-                                  if (upErr) {
-                                    toast({ title: 'Error al subir', description: upErr.message, variant: 'destructive' });
-                                    setProductVariations(prev => { const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _uploadingImage: false }; return u; });
-                                    return;
-                                  }
-                                  const { data: pub } = supabase.storage.from('product-images').getPublicUrl(fileName);
+                                  const preview = URL.createObjectURL(file);
                                   setProductVariations(prev => {
                                     const u = [...prev];
-                                    u[actualIdx] = { ...u[actualIdx], image_url: pub.publicUrl, _uploadingImage: false };
+                                    const previousPreview = u[actualIdx].image_url;
+                                    if (previousPreview?.startsWith('blob:')) URL.revokeObjectURL(previousPreview);
+                                    u[actualIdx] = {
+                                      ...u[actualIdx],
+                                      image_url: preview,
+                                      _imageFile: file,
+                                      _uploadingImage: false,
+                                    };
                                     return u;
                                   });
                                   e.target.value = '';
@@ -3181,13 +3387,15 @@ export default function AdminProducts() {
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 text-xs gap-1 text-primary"
-                                disabled={variation._generatingImage || !(variation.image_url || mediaFiles[0]?.preview)}
-                                title={!variation.image_url && !mediaFiles[0]?.preview ? 'Sube primero una imagen principal o una foto para esta variante' : variation.image_url ? 'Generar con IA usando la foto de esta variante' : 'Generar con IA usando la imagen principal como referencia'}
+                                disabled={variation._generatingImage || !(variation.image_url || variation._imageFile || mediaFiles[0]?.preview)}
+                                title={!variation.image_url && !variation._imageFile && !mediaFiles[0]?.preview ? 'Sube primero una imagen principal o una foto para esta variante' : variation.image_url ? 'Generar con IA usando la foto de esta variante' : 'Generar con IA usando la imagen principal como referencia'}
                                 onClick={async () => {
-                                  const base = variation.image_url || mediaFiles[0]?.preview;
-                                  if (!base) { toast({ title: 'Necesitas una imagen principal primero', variant: 'destructive' }); return; }
                                   setProductVariations(prev => { const u = [...prev]; u[actualIdx] = { ...u[actualIdx], _generatingImage: true }; return u; });
                                   try {
+                                    const base = variation._imageFile
+                                      ? await fileToBase64(variation._imageFile)
+                                      : variation.image_url || mediaFiles[0]?.preview;
+                                    if (!base) throw new Error('Necesitas una imagen principal primero.');
                                     const variantDesc = `${variation.name_es || variation.name_en || 'variation'}${variation.dimensions ? ` (${variation.dimensions}mm)` : ''}${variation.weight_grams ? `, ${variation.weight_grams}g` : ''}`;
                                     const { data, error } = await supabase.functions.invoke('ai-product-import', {
                                       body: {
@@ -3201,7 +3409,9 @@ export default function AdminProducts() {
                                     const { url: generated } = getPersistedAiImage(data.data);
                                     setProductVariations(prev => {
                                       const u = [...prev];
-                                      u[actualIdx] = { ...u[actualIdx], image_url: generated, _generatingImage: false };
+                                      const previousPreview = u[actualIdx].image_url;
+                                      if (previousPreview?.startsWith('blob:')) URL.revokeObjectURL(previousPreview);
+                                      u[actualIdx] = { ...u[actualIdx], image_url: generated, _imageFile: undefined, _generatingImage: false };
                                       return u;
                                     });
                                     toast({ title: '✨ Imagen generada' });

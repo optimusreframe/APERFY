@@ -43,17 +43,22 @@ function clampDiscount(value: unknown) { return Math.min(90, Math.max(0, Number(
 function normalizeConfidence(value: unknown) { return value === "high" || value === "medium" || value === "low" ? value : "low"; }
 function normalizeCandidate(value: unknown, index: number) {
   const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
-  const name = normalizeText(source.name || source.title, `Producto detectado ${index + 1}`);
+  const nameEn = normalizeText(source.name_en || source.name || source.title, `Producto detectado ${index + 1}`);
+  const nameEs = normalizeText(source.name_es, nameEn);
   const attributes = Array.isArray(source.attributes) ? source.attributes.filter((item): item is string => typeof item === "string").map((item) => item.trim().slice(0, 160)).filter(Boolean).slice(0, 12) : [];
   return {
     id: `photo-${index + 1}`,
-    name,
+    name: nameEn,
+    name_en: nameEn,
+    name_es: nameEs,
     brand: normalizeText(source.brand),
     model: normalizeText(source.model),
     category: normalizeText(source.category),
-    description: normalizeText(source.description, `Producto identificado en la imagen: ${name}.`),
+    description: normalizeText(source.description_en || source.description, `Product identified in the image: ${nameEn}.`),
+    description_en: normalizeText(source.description_en || source.description, `Product identified in the image: ${nameEn}.`),
+    description_es: normalizeText(source.description_es, `Producto identificado en la imagen: ${nameEs}.`),
     attributes,
-    search_query: normalizeText(source.search_query, [source.brand, source.model, name].filter(Boolean).join(" ").slice(0, 180)),
+    search_query: normalizeText(source.search_query, [source.brand, source.model, nameEn].filter(Boolean).join(" ").slice(0, 180)),
     market_reference_price: Math.max(0, Number(source.market_reference_price) || 0),
     suggested_price: Math.max(0, Number(source.suggested_price) || 0),
     confidence: normalizeConfidence(source.confidence),
@@ -117,7 +122,7 @@ async function importSelectedProducts(adminClient: ReturnType<typeof createClien
     const matchedCategory = categoryRows.find((category) => [category.slug, category.name_en, category.name_es].some((value) => normalized(String(value || "")) === categoryText));
     const basePrice = Math.round(Math.max(0, Number(candidate.suggested_price || candidate.market_reference_price) || 0) * 100) / 100;
     try {
-      const { data: product, error: insertError } = await adminClient.from("products").insert({ name_en: candidate.name, name_es: candidate.name, brand: candidate.brand || null, description_en: candidate.description, description_es: candidate.description, slug: productSlug, base_price: basePrice, venezuela_price_usd: priceWithMarkup(basePrice, globalMarkup), venezuela_price_mode: "global", venezuela_manual_mode: "fixed", venezuela_markup_percent: null, category_id: matchedCategory?.id || null, is_active: true, is_featured: false, images: [] }).select("id").single();
+      const { data: product, error: insertError } = await adminClient.from("products").insert({ name_en: candidate.name_en, name_es: candidate.name_es, brand: candidate.brand || null, description_en: candidate.description_en, description_es: candidate.description_es, slug: productSlug, base_price: basePrice, venezuela_price_usd: priceWithMarkup(basePrice, globalMarkup), venezuela_price_mode: "global", venezuela_manual_mode: "fixed", venezuela_markup_percent: null, category_id: matchedCategory?.id || null, is_active: true, is_featured: false, images: [] }).select("id").single();
       if (insertError || !product) throw insertError || new Error("No se pudo crear el producto.");
       try {
         const persisted = await persistImageSource(adminClient, imageSource, { bucket: "product-images", folder: "ai-photo-imports", ownerId: userId, label: productSlug });

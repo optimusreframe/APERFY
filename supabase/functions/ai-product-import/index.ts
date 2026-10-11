@@ -607,8 +607,9 @@ serve(async (req) => {
 
 STRICT RULES:
 - Product name (name_en, name_es): Create a TOTALLY NEW name. MAX 4 WORDS. Short, catchy, commercial. NEVER copy the original name.
+- name_es MUST be written in natural Spanish and name_en MUST be written in natural English. If the source is only in English, translate the Spanish fields; never copy English text into name_es or description_es.
 - brand: Extract the manufacturer or commercial brand exactly when it is visible in the source. Return an empty string when the brand is unknown; never invent one from the product category.
-- Description (description_en, description_es): MAX 150 characters each. 2-3 short sentences. Attractive and concise.
+- Description (description_en, description_es): MAX 150 characters each. 2-3 short sentences. Attractive and concise. description_es MUST be Spanish and description_en MUST be English.
 - reference_image_url: From the list of extracted images below, pick the SINGLE BEST image URL that shows the product most clearly (front view, clean, high-res). If no good image, return empty string.
 - slug: URL-friendly, lowercase, hyphens only, based on the new name.
 - ${priceInstruction}
@@ -1059,12 +1060,18 @@ Luxury technology product display of the EXACT same physical product on a matte 
     // ── ACTION: translate ──
     if (action === "translate") {
       const ai = textAi as AiRuntime;
-      const { name_es, description_es } = body;
-      if (!name_es && !description_es) {
-        return new Response(JSON.stringify({ error: "Spanish text required" }), {
+      const direction = body.direction === "en_to_es" ? "en_to_es" : "es_to_en";
+      const sourceName = direction === "en_to_es" ? body.name_en : body.name_es;
+      const sourceDescription = direction === "en_to_es" ? body.description_en : body.description_es;
+      if (!sourceName && !sourceDescription) {
+        return new Response(JSON.stringify({ error: direction === "en_to_es" ? "English text required" : "Spanish text required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      const targetLanguage = direction === "en_to_es" ? "Spanish" : "English";
+      const targetNameKey = direction === "en_to_es" ? "name_es" : "name_en";
+      const targetDescriptionKey = direction === "en_to_es" ? "description_es" : "description_en";
 
       const translateTool = {
         type: "function" as const,
@@ -1074,18 +1081,18 @@ Luxury technology product display of the EXACT same physical product on a matte 
           parameters: {
             type: "object",
             properties: {
-              name_en: { type: "string", description: "Product name in English" },
-              description_en: { type: "string", description: "Product description in English" },
+              [targetNameKey]: { type: "string", description: `Product name in ${targetLanguage}` },
+              [targetDescriptionKey]: { type: "string", description: `Product description in ${targetLanguage}` },
             },
-            required: ["name_en", "description_en"],
+            required: [targetNameKey, targetDescriptionKey],
             additionalProperties: false,
           },
         },
       };
       const translatedResult = await callStructuredAi(ai, {
         messages: [
-          { role: "system", content: "You are a translator for a curated shopping e-commerce store. Translate the given Spanish product name and description to English. Keep it compelling and suitable for an online store." },
-          { role: "user", content: `Translate to English:\nName: ${name_es || ''}\nDescription: ${description_es || ''}` },
+          { role: "system", content: `You are a professional translator for a curated shopping e-commerce store. Translate the provided product name and description into ${targetLanguage}. Preserve brand names, model numbers, measurements, and factual meaning. Return only the requested structured fields.` },
+          { role: "user", content: `Translate to ${targetLanguage}:\nName: ${sourceName || ''}\nDescription: ${sourceDescription || ''}` },
         ],
         tool: translateTool,
         fallbackSchema: JSON.stringify(translateTool.function.parameters),

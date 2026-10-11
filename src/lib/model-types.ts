@@ -17,7 +17,23 @@ export type OrderItem = Database['public']['Tables']['order_items']['Row']
 export type DynamicRecord = Record<string, unknown>
 
 export function getErrorMessage(error: unknown, fallback = 'Something went wrong') {
-  return error instanceof Error ? error.message : fallback
+  if (error instanceof Error && error.message) return error.message
+
+  // Supabase/PostgREST errors are plain objects rather than Error instances.
+  // Preserve their useful diagnostics instead of reducing every failed save
+  // to the unhelpful "Something went wrong" message.
+  if (error && typeof error === 'object') {
+    const candidate = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown }
+    const message = typeof candidate.message === 'string' ? candidate.message.trim() : ''
+    if (message) {
+      const context = [candidate.details, candidate.hint]
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map((value) => value.trim())
+      return [message, ...context].join(' — ')
+    }
+  }
+
+  return fallback
 }
 
 export function asRecord(value: unknown): DynamicRecord {
