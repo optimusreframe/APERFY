@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,7 +24,7 @@ import { productCommandBarClassName } from './productDetailLayout';
 import { getInventoryLabel, getInventoryState, getInventoryStock } from '@/lib/inventory';
 import { buildResponsiveImageSources, optimizeImageUrl } from '@/lib/image-url';
 import { filterEmptySpecifications } from '@/lib/product-specifications';
-import { adjustProductImageZoom, PRODUCT_IMAGE_ZOOM } from './productImageZoom';
+import { adjustProductImageZoom, isProductImageTap, PRODUCT_IMAGE_ZOOM } from './productImageZoom';
 import { isProductVideo } from '@/lib/product-media';
 import Model3DViewer from '@/components/Model3DViewer';
 import type { Category, Material, Product } from '@/lib/model-types';
@@ -64,6 +65,7 @@ function ImageLightbox({
     lastY: number;
     startZoom: number;
     startDistance: number | null;
+    startTime: number;
   } | null>(null);
 
   const resetZoom = useCallback(() => {
@@ -130,6 +132,7 @@ function ImageLightbox({
       lastY: first.clientY,
       startZoom: zoom,
       startDistance: getTouchDistance(event.touches),
+      startTime: performance.now(),
     };
   };
   const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -156,9 +159,14 @@ function ImageLightbox({
     event.preventDefault();
     const gesture = touchGesture.current;
     touchGesture.current = null;
-    if (!gesture || zoom > 1 || gesture.startDistance) return;
+    if (!gesture) return;
     const first = event.changedTouches.item(0);
-    if (!first || Math.abs(first.clientX - gesture.startX) < 48 || Math.abs(first.clientX - gesture.startX) < Math.abs(first.clientY - gesture.startY)) return;
+    if (!first || gesture.startDistance !== null) return;
+    if (isProductImageTap(gesture.startX, gesture.startY, first.clientX, first.clientY, performance.now() - gesture.startTime)) {
+      if (zoom > PRODUCT_IMAGE_ZOOM.min) resetZoom();
+      return;
+    }
+    if (zoom > PRODUCT_IMAGE_ZOOM.min || Math.abs(first.clientX - gesture.startX) < 48 || Math.abs(first.clientX - gesture.startX) < Math.abs(first.clientY - gesture.startY)) return;
     if (first.clientX < gesture.startX) setIndex(i => (i + 1) % images.length);
     else setIndex(i => (i - 1 + images.length) % images.length);
     resetZoom();
@@ -167,7 +175,7 @@ function ImageLightbox({
     ? { zoomIn: 'Acercar', zoomOut: 'Alejar', reset: 'Restablecer', back: 'Volver', close: 'Cerrar zoom' }
     : { zoomIn: 'Zoom in', zoomOut: 'Zoom out', reset: 'Reset', back: 'Back', close: 'Close zoom' };
 
-  return (
+  return createPortal((
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -175,7 +183,7 @@ function ImageLightbox({
       role="dialog"
       aria-modal="true"
       aria-label={altText}
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background/95 backdrop-blur-xl"
+      className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-background/95 backdrop-blur-xl"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       {/* Close affordance stays reachable in the top thumb zone. */}
@@ -249,6 +257,10 @@ function ImageLightbox({
               transformOrigin: 'center center',
               transition: isDragging ? 'none' : 'transform 0.2s ease-out',
             }}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (zoom > PRODUCT_IMAGE_ZOOM.min) resetZoom();
+            }}
             draggable={false}
           />
         )}
@@ -286,11 +298,11 @@ function ImageLightbox({
           </Button>
           <Button
             variant="ghost"
-            onClick={() => changeZoom(-PRODUCT_IMAGE_ZOOM.step)}
+            onClick={resetZoom}
             disabled={zoom <= PRODUCT_IMAGE_ZOOM.min}
             aria-label={labels.zoomOut}
             title={labels.zoomOut}
-            className="min-h-11 rounded-xl px-2.5 text-xs text-foreground hover:bg-white/[0.08]"
+            className="min-h-11 min-w-11 rounded-xl px-2.5 text-xs text-foreground hover:bg-white/[0.08] disabled:opacity-40"
           >
             <ZoomOut className="h-4 w-4" />
             <span className="hidden sm:inline">{labels.zoomOut}</span>
@@ -320,7 +332,7 @@ function ImageLightbox({
         </div>
       </div>
     </motion.div>
-  );
+  ), document.body);
 }
 
 // ─── Glass Section ───
