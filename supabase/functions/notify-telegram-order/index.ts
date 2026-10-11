@@ -90,10 +90,25 @@ Deno.serve(async (req) => {
     channel = body.channel === 'telegram' ? 'telegram' : 'whatsapp'
   } catch { return json({ error: 'Invalid JSON' }, 400) }
   if (!orderId) return json({ error: 'orderId is required' }, 400)
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId)) {
+    return json({ error: 'Invalid orderId' }, 400)
+  }
 
   const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authorization } } })
   const { data: userData, error: userError } = await userClient.auth.getUser()
   if (userError || !userData.user) return json({ error: 'Authentication required' }, 401)
+
+  const { data: rateLimit, error: rateLimitError } = await userClient.rpc('consume_rate_limit', {
+    p_action: 'order-channel-notification',
+    p_key: userData.user.id,
+    p_max_attempts: 5,
+    p_window_seconds: 600,
+  })
+  if (rateLimitError) return json({ error: 'Notification protection is temporarily unavailable' }, 503)
+  if (!rateLimit || typeof rateLimit !== 'object' || !('allowed' in rateLimit) || rateLimit.allowed !== true) {
+    const retryAfter = rateLimit && typeof rateLimit === 'object' && 'retry_after_seconds' in rateLimit ? Number(rateLimit.retry_after_seconds) : 60
+    return new Response(JSON.stringify({ error: 'Too many notification attempts' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(Math.max(1, retryAfter)) } })
+  }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey)
   const telegramToken = await getIntegrationSecret(adminClient, 'TELEGRAM_BOT_TOKEN')

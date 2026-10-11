@@ -60,24 +60,6 @@ function getRetryAfterSeconds(error: unknown): number {
   return 60
 }
 
-function parseJwtClaims(token: string): Record<string, unknown> | null {
-  const parts = token.split('.')
-  if (parts.length < 2) {
-    return null
-  }
-
-  try {
-    const payload = parts[1]
-      .replaceAll('-', '+')
-      .replaceAll('_', '/')
-      .padEnd(Math.ceil(parts[1].length / 4) * 4, '=')
-
-    return JSON.parse(atob(payload)) as Record<string, unknown>
-  } catch {
-    return null
-  }
-}
-
 // Move a message to the dead letter queue and log the reason.
 async function moveToDlq(
   supabase: ReturnType<typeof createClient>,
@@ -119,8 +101,9 @@ Deno.serve(async (req) => {
   const cronSecret = await getIntegrationSecret(createClient(supabaseUrl, supabaseServiceKey), 'EMAIL_QUEUE_CRON_SECRET')
   const authHeader = req.headers.get('Authorization')
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length).trim() : ''
-  const claims = token ? parseJwtClaims(token) : null
-  const serviceRoleCall = claims?.role === 'service_role'
+  const verificationClient = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const { data: verifiedClaims } = token ? await verificationClient.auth.getClaims(token) : { data: null }
+  const serviceRoleCall = verifiedClaims?.claims?.role === 'service_role'
   const cronCall = Boolean(cronSecret && req.headers.get('x-cron-secret') === cronSecret)
   if (!serviceRoleCall && !cronCall) {
     return new Response(

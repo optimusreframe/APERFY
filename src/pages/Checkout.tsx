@@ -804,6 +804,19 @@ export default function Checkout() {
       toast({ title: t.checkout.error, description: `Try again in ${formatRetryTime(retryAfterMs)}`, variant: 'destructive' });
       return null;
     }
+    const { data: serverRateLimit, error: serverRateLimitError } = await supabase.rpc('consume_rate_limit', {
+      p_action: 'checkout-order',
+      p_key: user.id,
+      p_max_attempts: 3,
+      p_window_seconds: 300,
+    });
+    if (serverRateLimitError) {
+      throw new Error(language === 'es' ? 'La protección del checkout no está disponible. Intenta nuevamente.' : 'Checkout protection is temporarily unavailable. Please try again.');
+    }
+    if (!serverRateLimit || typeof serverRateLimit !== 'object' || !('allowed' in serverRateLimit) || serverRateLimit.allowed !== true) {
+      const retryAfter = serverRateLimit && typeof serverRateLimit === 'object' && 'retry_after_seconds' in serverRateLimit ? Number(serverRateLimit.retry_after_seconds) : 60;
+      throw new Error(language === 'es' ? `Demasiados intentos. Intenta nuevamente en ${formatRetryTime(retryAfter * 1000)}.` : `Too many attempts. Try again in ${formatRetryTime(retryAfter * 1000)}.`);
+    }
     const productIds = items.map(i => i.productId);
     const { data: currentProducts, error: priceError } = await supabase
       .from('products').select('id, base_price, is_active, inventory_enabled, stock_quantity').in('id', productIds);
@@ -878,6 +891,12 @@ export default function Checkout() {
         ? (language === 'es' ? 'El producto se agotó mientras completabas el pedido.' : 'The product sold out while you were checking out.')
         : (language === 'es' ? 'No pudimos reservar el inventario.' : 'We could not reserve inventory.'));
     }
+    // Mark the authenticated recovery snapshot as converted. Failure here is
+    // non-blocking: the order and inventory reservation are already complete.
+    await supabase.rpc('mark_abandoned_cart_converted', { p_order_id: order.id })
+      .then(({ error }) => {
+        if (error) console.warn('Cart recovery conversion tracking failed:', error.message);
+      });
     return order.id;
   };
 
