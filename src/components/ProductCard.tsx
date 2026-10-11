@@ -54,8 +54,8 @@ export default function ProductCard({
   return (
     <div className={`group catalog-product-card min-w-0 [content-visibility:auto] [contain-intrinsic-size:420px] ${isList ? 'min-h-40' : ''}`}>
       <div className={`relative overflow-hidden rounded-2xl border border-border/50 bg-card transition-all duration-300 hover:border-primary/30 hover:shadow-gold ${isList ? 'flex items-stretch' : ''}`}>
-        <Link to={`/products/${product.slug}`} className={`block ${isList ? 'w-32 shrink-0 sm:w-48' : ''}`} aria-label={name}>
-          <div className={`relative h-full bg-secondary ${isList ? 'aspect-square min-h-40' : 'aspect-[4/3]'} overflow-hidden`}>
+        <Link to={`/products/${product.slug}`} className={`block ${isList ? 'w-36 shrink-0 sm:w-48' : ''}`} aria-label={name}>
+          <div className={`relative h-full bg-secondary ${isList ? 'aspect-square' : 'aspect-[4/3]'} overflow-hidden`}>
             {images.length > 0 ? isProductVideo(images[0]) ? (
               <video
                 src={images[0]}
@@ -71,7 +71,7 @@ export default function ProductCard({
               <img
                 src={imageSource}
                 srcSet={imageSources}
-                sizes={isList ? '(max-width: 639px) 128px, 192px' : '(max-width: 639px) calc((100vw - 36px) / 2), (max-width: 1023px) 30vw, 240px'}
+                sizes={isList ? '(max-width: 639px) 144px, 192px' : '(max-width: 639px) calc((100vw - 36px) / 2), (max-width: 1023px) 30vw, 240px'}
                 alt={name}
                 width={640}
                 height={480}
@@ -123,7 +123,7 @@ export default function ProductCard({
           />
         </div>
         {/* Card info */}
-        <div className={isList ? 'min-w-0 flex-1 p-3 sm:p-4' : 'p-3'}>
+        <div className={isList ? 'min-w-0 flex-1 p-3 pr-14 sm:p-4 sm:pr-16' : 'p-3'}>
           <Link to={`/products/${product.slug}`} className="block min-w-0">
             <h3 className={`font-display font-semibold text-sm text-foreground transition-colors group-hover:text-primary sm:text-base ${isList ? 'line-clamp-2' : 'truncate'}`}>
               {name}

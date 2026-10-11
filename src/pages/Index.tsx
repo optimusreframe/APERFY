@@ -197,15 +197,17 @@ export default function Index() {
           <div className="w-full xl:w-[min(100%,42rem)]">
             <div className="relative w-full"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder={copy.searchPlaceholder} aria-label={copy.searchPlaceholder} className="h-11 w-full rounded-xl border border-border bg-card pl-10 pr-4 outline-none transition-shadow focus:ring-2 focus:ring-primary/30" /></div>
             <div ref={filterBarRef} className="relative mt-3">
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label={es ? 'Filtros del catálogo' : 'Catalog filters'}>
+              <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center">
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-wrap gap-2 pb-1 md:flex-nowrap md:overflow-x-auto md:px-0.5 md:touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label={es ? 'Filtros del catálogo' : 'Catalog filters'}>
                   <FilterChip active={activeFilterCount > 0} onClick={() => openFilters('suggested')} showChevron={false} icon={<SlidersHorizontal className="h-3.5 w-3.5" />}>{es ? 'Más filtros' : 'More filters'}{activeFilterCount > 0 && <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">{activeFilterCount}</span>}</FilterChip>
                   <FilterChip active={filters.category !== 'all'} open={openQuickFilter === 'category'} onClick={() => setOpenQuickFilter(openQuickFilter === 'category' ? null : 'category')}>{categoryLabel}</FilterChip>
                   <FilterChip active={filters.price !== 'all'} open={openQuickFilter === 'price'} onClick={() => setOpenQuickFilter(openQuickFilter === 'price' ? null : 'price')}>{priceLabel}</FilterChip>
                   <FilterChip active={filters.availability !== 'all'} open={openQuickFilter === 'availability'} onClick={() => setOpenQuickFilter(openQuickFilter === 'availability' ? null : 'availability')}>{availabilityLabel}</FilterChip>
                   <FilterChip active={filters.sorting !== 'relevant'} open={openQuickFilter === 'sort'} onClick={() => setOpenQuickFilter(openQuickFilter === 'sort' ? null : 'sort')}>{sortLabel}</FilterChip>
+                  </div>
                 </div>
-                <div role="group" aria-label={es ? 'Vista del catálogo' : 'Catalog view'} className="flex shrink-0 items-center rounded-full border border-border/80 bg-card/75 p-0.5">
+                <div role="group" aria-label={es ? 'Vista del catálogo' : 'Catalog view'} className="flex shrink-0 self-end items-center rounded-full border border-border/80 bg-card/75 p-0.5 md:self-auto">
                 <button type="button" onClick={() => setViewMode('grid')} aria-pressed={viewMode === 'grid'} aria-label={es ? 'Vista de cuadrícula' : 'Grid view'} className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}><Grid2X2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
                 <button type="button" onClick={() => setViewMode('list')} aria-pressed={viewMode === 'list'} aria-label={es ? 'Vista de lista' : 'List view'} className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}><List className="h-4 w-4" aria-hidden="true" /></button>
                 </div>
