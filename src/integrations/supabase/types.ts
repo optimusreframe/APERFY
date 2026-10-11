@@ -756,6 +756,7 @@ export type Database = {
           comment: string | null
           created_at: string
           id: string
+          is_verified: boolean
           media: Json | null
           product_id: string
           rating: number
@@ -766,6 +767,7 @@ export type Database = {
           comment?: string | null
           created_at?: string
           id?: string
+          is_verified?: boolean
           media?: Json | null
           product_id: string
           rating?: number
@@ -776,6 +778,7 @@ export type Database = {
           comment?: string | null
           created_at?: string
           id?: string
+          is_verified?: boolean
           media?: Json | null
           product_id?: string
           rating?: number
@@ -791,6 +794,116 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      product_questions: {
+        Row: {
+          answer: string | null
+          answered_at: string | null
+          answered_by: string | null
+          created_at: string
+          id: string
+          is_public: boolean
+          product_id: string
+          question: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answer?: string | null
+          answered_at?: string | null
+          answered_by?: string | null
+          created_at?: string
+          id?: string
+          is_public?: boolean
+          product_id: string
+          question: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answer?: string | null
+          answered_at?: string | null
+          answered_by?: string | null
+          created_at?: string
+          id?: string
+          is_public?: boolean
+          product_id?: string
+          question?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_questions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      abandoned_carts: {
+        Row: {
+          converted_order_id: string | null
+          created_at: string
+          id: string
+          items: Json
+          last_activity_at: string
+          locale: string
+          recovery_sent_at: string | null
+          subtotal: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          converted_order_id?: string | null
+          created_at?: string
+          id?: string
+          items?: Json
+          last_activity_at?: string
+          locale?: string
+          recovery_sent_at?: string | null
+          subtotal?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          converted_order_id?: string | null
+          created_at?: string
+          id?: string
+          items?: Json
+          last_activity_at?: string
+          locale?: string
+          recovery_sent_at?: string | null
+          subtotal?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      rate_limit_buckets: {
+        Row: {
+          action: string
+          attempts: number
+          scope_key: string
+          updated_at: string
+          window_started_at: string
+        }
+        Insert: {
+          action: string
+          attempts?: number
+          scope_key: string
+          updated_at?: string
+          window_started_at?: string
+        }
+        Update: {
+          action?: string
+          attempts?: number
+          scope_key?: string
+          updated_at?: string
+          window_started_at?: string
+        }
+        Relationships: []
       }
       product_variations: {
         Row: {
@@ -872,6 +985,10 @@ export type Database = {
           model_3d_url: string | null
           name_en: string
           name_es: string
+          return_policy_en: string
+          return_policy_es: string
+          return_window_days: number
+          seller_name: string
           stock_quantity: number
           slug: string
           updated_at: string
@@ -893,6 +1010,10 @@ export type Database = {
           model_3d_url?: string | null
           name_en: string
           name_es: string
+          return_policy_en?: string
+          return_policy_es?: string
+          return_window_days?: number
+          seller_name?: string
           stock_quantity?: number
           slug: string
           updated_at?: string
@@ -914,6 +1035,10 @@ export type Database = {
           model_3d_url?: string | null
           name_en?: string
           name_es?: string
+          return_policy_en?: string
+          return_policy_es?: string
+          return_window_days?: number
+          seller_name?: string
           stock_quantity?: number
           slug?: string
           updated_at?: string
@@ -1137,6 +1262,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      clear_abandoned_cart: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      consume_rate_limit: {
+        Args: {
+          p_action: string
+          p_key?: string
+          p_max_attempts?: number
+          p_window_seconds?: number
+        }
+        Returns: Json
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -1154,6 +1292,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      mark_abandoned_cart_converted: {
+        Args: { p_order_id: string }
         Returns: boolean
       }
       record_order_payment_event: {
@@ -1186,6 +1328,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      upsert_abandoned_cart: {
+        Args: { p_items: Json; p_locale?: string; p_subtotal: number }
+        Returns: string
       }
     }
     Enums: {

@@ -1092,6 +1092,17 @@ export default function ProductDetail() {
                 rows={3}
               />
             </div>
+
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              <GlassSection className="p-4" delay={0.05}>
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">{language === 'es' ? 'Vendido por' : 'Sold by'}</div>
+                <p className="mt-2 font-semibold">{product.seller_name || 'APERFY'}</p>
+              </GlassSection>
+              <GlassSection className="p-4" delay={0.1}>
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">{language === 'es' ? 'Devoluciones' : 'Returns'}</div>
+                <p className="mt-2 text-sm leading-5 text-muted-foreground">{language === 'es' ? (product.return_policy_es || 'Devoluciones de 30 días para artículos elegibles.') : (product.return_policy_en || '30-day returns for eligible items.')}</p>
+              </GlassSection>
+            </div>
           </motion.section>
 
           {/* Key/Value details */}

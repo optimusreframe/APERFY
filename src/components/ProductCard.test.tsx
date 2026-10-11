@@ -23,7 +23,8 @@ describe('ProductCard', () => {
               base_price: 25, condition_status: 'used', category_id: null, created_at: '', updated_at: '',
               description_en: null, description_es: null, images: [], inventory_enabled: true,
               inventory_source_key: null, is_active: true, is_featured: false, low_stock_threshold: 3,
-              model_3d_url: null, stock_quantity: 1,
+              model_3d_url: null, stock_quantity: 1, seller_name: 'APERFY',
+              return_policy_en: null, return_policy_es: null, return_window_days: 30,
             }}
           />
         </LanguageProvider>

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface CartItem {
   productId: string;
@@ -121,6 +122,7 @@ export function mergeCartItem(items: CartItem[], item: CartItem): CartItem[] {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [items, setItems] = useState<CartItem[]>(loadCart);
   const [savedItems, setSavedItems] = useState<CartItem[]>(loadSavedCart);
   const [lastAdded, setLastAdded] = useState<{ item: CartItem; at: number } | null>(null);
@@ -134,6 +136,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (discount) localStorage.setItem(DISCOUNT_KEY, JSON.stringify(discount));
     else localStorage.removeItem(DISCOUNT_KEY);
   }, [discount]);
+
+  // Keep a small, authenticated snapshot for recovery messaging. The snapshot
+  // contains product presentation data only; it never contains payment data.
+  // Debouncing avoids a network write for every quantity click.
+  useEffect(() => {
+    if (!user || items.length === 0) return;
+    const timeout = window.setTimeout(() => {
+      const recoveryItems = items.map(({ productId, productName, productImage, slug, quantity, unitPrice, selectedVariations }) => ({
+        productId, productName, productImage, slug, quantity, unitPrice, selectedVariations,
+      }));
+      const subtotal = items.reduce((sum, item) => {
+        const variationTotal = item.selectedVariations.reduce((variationSum, variation) => variationSum + variation.priceModifier, 0);
+        return sum + (item.unitPrice + variationTotal) * item.quantity;
+      }, 0);
+      void supabase.rpc('upsert_abandoned_cart', {
+        p_items: recoveryItems,
+        p_subtotal: subtotal,
+        p_locale: 'es',
+      }).then(({ error }) => {
+        if (error) console.warn('Cart recovery snapshot failed:', error.message);
+      });
+    }, 1200);
+    return () => window.clearTimeout(timeout);
+  }, [items, user]);
 
   const addToCart = (item: CartItem) => {
     const result = cartItemSchema.safeParse(item);

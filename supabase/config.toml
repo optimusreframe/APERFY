@@ -17,3 +17,5 @@ project_id = "xftxyvgplghnelawkhvl"
     verify_jwt = true
   [functions.search-address]
     verify_jwt = true
+  [functions.recover-abandoned-carts]
+    verify_jwt = false

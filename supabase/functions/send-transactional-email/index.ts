@@ -20,10 +20,6 @@ function generateToken(): string {
     .join('')
 }
 
-// Auth note: this function uses verify_jwt = true in config.toml, so Supabase's
-// gateway validates the caller's JWT (anon or service_role) before the request
-// reaches this code. No in-function auth check is needed.
-
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -32,6 +28,7 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
 
   if (!supabaseUrl || !supabaseServiceKey) {
     console.error('Missing required environment variables')
@@ -42,6 +39,46 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     )
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const authHeader = req.headers.get('Authorization') || ''
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  const { data: verifiedClaims } = token ? await supabase.auth.getClaims(token) : { data: null }
+  if (!verifiedClaims?.claims) {
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+  const serviceRoleCall = verifiedClaims.claims.role === 'service_role'
+  const callerId = typeof verifiedClaims.claims.sub === 'string' ? verifiedClaims.claims.sub : ''
+  let callerEmail = ''
+  let callerIsAdmin = false
+  if (!serviceRoleCall) {
+    if (!callerId) return new Response(JSON.stringify({ error: 'Invalid authenticated subject' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    const [{ data: callerUser }, { data: adminRole }] = await Promise.all([
+      supabase.auth.admin.getUserById(callerId),
+      supabase.from('user_roles').select('role').eq('user_id', callerId).eq('role', 'admin').maybeSingle(),
+    ])
+    callerEmail = callerUser.user?.email?.trim().toLowerCase() || ''
+    callerIsAdmin = Boolean(adminRole)
+    if (!callerEmail) return new Response(JSON.stringify({ error: 'Authenticated email is required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    if (!supabaseAnonKey) return new Response(JSON.stringify({ error: 'Rate-limit configuration is incomplete' }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: authHeader } } })
+    const { data: rateLimit, error: rateLimitError } = await userClient.rpc('consume_rate_limit', {
+      p_action: 'transactional-email',
+      p_key: callerId,
+      p_max_attempts: callerIsAdmin ? 30 : 5,
+      p_window_seconds: 300,
+    })
+    if (rateLimitError || !(rateLimit && typeof rateLimit === 'object' && 'allowed' in rateLimit && rateLimit.allowed === true)) {
+      const retryAfter = rateLimit && typeof rateLimit === 'object' && 'retry_after_seconds' in rateLimit ? Number(rateLimit.retry_after_seconds) : 60
+      return new Response(JSON.stringify({ error: 'Too many email requests' }), {
+        status: rateLimitError ? 503 : 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(Math.max(1, retryAfter)) },
+      })
+    }
   }
 
   // Parse request body
@@ -79,6 +116,13 @@ Deno.serve(async (req) => {
     )
   }
 
+  if (!serviceRoleCall && !callerIsAdmin && !['order-confirmation', 'model-request-received'].includes(templateName)) {
+    return new Response(JSON.stringify({ error: 'Template not allowed for this account' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+  if (!serviceRoleCall && !callerIsAdmin && typeof recipientEmail === 'string' && recipientEmail.trim().toLowerCase() !== callerEmail) {
+    return new Response(JSON.stringify({ error: 'Email recipient must match the authenticated account' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
   // 1. Look up template from registry (early — needed to resolve recipient)
   const template = TEMPLATES[templateName]
 
@@ -112,8 +156,7 @@ Deno.serve(async (req) => {
     )
   }
 
-  // Create Supabase client with service role (bypasses RLS)
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  // Continue with the service-role client after the caller was authenticated and rate-limited.
   const fromEmail = await getIntegrationSecret(supabase, 'RESEND_FROM_EMAIL')
   const fromName = await getIntegrationSecret(supabase, 'RESEND_FROM_NAME') || 'APERFY'
   if (!fromEmail) {

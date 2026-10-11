@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Star, ImagePlus, X } from 'lucide-react';
+import { Star, ImagePlus, X, BadgeCheck, MessageCircleQuestion } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import type { Database } from '@/integrations/supabase/types';
 import type { ProfileSummary, Review } from '@/lib/model-types';
 
 interface ProductReviewsProps {
@@ -44,6 +45,10 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
   const [mediaFiles, setMediaFiles] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [question, setQuestion] = useState('');
+  const [submittingQuestion, setSubmittingQuestion] = useState(false);
+
+  type ProductQuestion = Database['public']['Tables']['product_questions']['Row'];
 
   const { data: reviews = [] } = useQuery({
     queryKey: ['product-reviews', productId],
@@ -55,6 +60,19 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: questions = [] } = useQuery({
+    queryKey: ['product-questions', productId, user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_questions')
+        .select('*')
+        .eq('product_id', productId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as ProductQuestion[];
     },
   });
 
@@ -141,6 +159,25 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
     setNewRating(5);
     queryClient.invalidateQueries({ queryKey: ['product-reviews', productId] });
     setSubmitting(false);
+  };
+
+  const handleQuestion = async () => {
+    const value = question.trim();
+    if (!user || value.length < 3 || value.length > 2000) return;
+    setSubmittingQuestion(true);
+    const { error } = await supabase.from('product_questions').insert({
+      product_id: productId,
+      user_id: user.id,
+      question: value,
+    });
+    setSubmittingQuestion(false);
+    if (error) {
+      toast({ title: language === 'es' ? 'No se pudo enviar la pregunta' : 'Could not submit question', variant: 'destructive' });
+      return;
+    }
+    setQuestion('');
+    queryClient.invalidateQueries({ queryKey: ['product-questions', productId] });
+    toast({ title: language === 'es' ? 'Pregunta enviada' : 'Question submitted' });
   };
 
   return (
@@ -234,7 +271,10 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <p className="font-medium text-sm">{profile?.full_name || (language === 'es' ? 'Usuario' : 'User')}</p>
+                    <p className="flex items-center gap-1.5 font-medium text-sm">
+                      {profile?.full_name || (language === 'es' ? 'Usuario' : 'User')}
+                      {review.is_verified && <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary"><BadgeCheck className="h-3.5 w-3.5" />{language === 'es' ? 'Compra verificada' : 'Verified purchase'}</span>}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(review.created_at).toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US')}
                     </p>
@@ -260,6 +300,36 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
           })}
         </div>
       )}
+
+      <section className="space-y-4 border-t border-white/[0.06] pt-8">
+        <div className="flex items-center gap-3">
+          <MessageCircleQuestion className="h-5 w-5 text-primary" />
+          <h2 className="font-display font-bold text-2xl">{language === 'es' ? 'Preguntas y respuestas' : 'Questions & answers'}</h2>
+        </div>
+        {user ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-white/[0.06] bg-card p-4 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1">
+              <label htmlFor="product-question" className="mb-2 block text-sm font-medium">{language === 'es' ? '¿Qué quieres saber sobre este producto?' : 'What would you like to know about this product?'}</label>
+              <Textarea id="product-question" value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={2000} rows={2} placeholder={language === 'es' ? 'Escribe una pregunta…' : 'Ask a question…'} className="bg-secondary border-border" />
+            </div>
+            <Button type="button" onClick={() => void handleQuestion()} disabled={submittingQuestion || question.trim().length < 3} className="min-h-11">{submittingQuestion ? '…' : (language === 'es' ? 'Preguntar' : 'Ask')}</Button>
+          </div>
+        ) : (
+          <p className="rounded-xl border border-white/[0.06] bg-card p-4 text-sm text-muted-foreground">{language === 'es' ? 'Inicia sesión para hacer una pregunta.' : 'Sign in to ask a question.'}</p>
+        )}
+        {questions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{language === 'es' ? 'Todavía no hay preguntas.' : 'No questions yet.'}</p>
+        ) : (
+          <div className="space-y-3">
+            {questions.map((item) => (
+              <div key={item.id} className="rounded-xl border border-white/[0.06] bg-card p-4 text-sm">
+                <p className="font-medium">Q: {item.question}</p>
+                {item.answer ? <p className="mt-2 text-muted-foreground"><span className="font-semibold text-primary">A:</span> {item.answer}</p> : <p className="mt-2 text-xs text-muted-foreground">{language === 'es' ? 'Pendiente de respuesta del equipo APERFY.' : 'Waiting for an APERFY answer.'}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

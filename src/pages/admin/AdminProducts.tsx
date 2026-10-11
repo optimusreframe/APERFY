@@ -38,6 +38,10 @@ interface ProductForm {
   slug: string;
   base_price: number;
   condition_status: 'new' | 'used';
+  seller_name: string;
+  return_policy_en: string;
+  return_policy_es: string;
+  return_window_days: number;
   category_id: string;
   is_active: boolean;
   is_featured: boolean;
@@ -74,7 +78,10 @@ interface AiProductData {
 
 const empty: ProductForm = {
   name_en: '', name_es: '', description_en: '', description_es: '',
-  slug: '', base_price: 0, condition_status: 'new', category_id: '', is_active: true, is_featured: false,
+  slug: '', base_price: 0, condition_status: 'new', seller_name: 'APERFY',
+  return_policy_en: '30-day returns for eligible items. Contact APERFY before returning a product.',
+  return_policy_es: 'Devoluciones de 30 días para artículos elegibles. Contacta a APERFY antes de devolver un producto.',
+  return_window_days: 30, category_id: '', is_active: true, is_featured: false,
   inventory_enabled: false, stock_quantity: 0, low_stock_threshold: 3,
 };
 
@@ -349,7 +356,7 @@ export default function AdminProducts() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name_en, name_es, slug, base_price, condition_status, is_active, is_featured, category_id, images, created_at, description_en, description_es, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
+        .select('id, name_en, name_es, slug, base_price, condition_status, seller_name, return_policy_en, return_policy_es, return_window_days, is_active, is_featured, category_id, images, created_at, description_en, description_es, inventory_enabled, stock_quantity, low_stock_threshold, categories(name_en, name_es)')
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -654,6 +661,10 @@ export default function AdminProducts() {
       description_en: p.description_en || '', description_es: p.description_es || '',
       slug: p.slug, base_price: p.base_price,
       condition_status: p.condition_status === 'used' ? 'used' : 'new',
+      seller_name: p.seller_name || 'APERFY',
+      return_policy_en: p.return_policy_en || empty.return_policy_en,
+      return_policy_es: p.return_policy_es || empty.return_policy_es,
+      return_window_days: Number(p.return_window_days || 30),
       category_id: p.category_id || '', is_active: p.is_active, is_featured: p.is_featured,
       inventory_enabled: p.inventory_enabled, stock_quantity: p.stock_quantity, low_stock_threshold: p.low_stock_threshold,
     });
@@ -1248,6 +1259,10 @@ export default function AdminProducts() {
       slug: aiData.slug || slugify(aiData.name_es || ''),
       base_price: aiData.suggested_price || 0,
       condition_status: 'new',
+      seller_name: empty.seller_name,
+      return_policy_en: empty.return_policy_en,
+      return_policy_es: empty.return_policy_es,
+      return_window_days: empty.return_window_days,
       category_id: matchedCat?.id || '',
       is_active: true,
       is_featured: false,
@@ -2262,6 +2277,26 @@ export default function AdminProducts() {
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2"><Switch checked={form.is_active} onCheckedChange={(c) => setForm({ ...form, is_active: c })} /><Label>Activo</Label></div>
                   <div className="flex items-center gap-2"><Switch checked={form.is_featured} onCheckedChange={(c) => setForm({ ...form, is_featured: c })} /><Label>Destacado</Label></div>
+                </div>
+
+                <div className="grid gap-4 rounded-xl border border-border bg-secondary/40 p-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Vendedor</Label>
+                    <Input value={form.seller_name} onChange={(event) => setForm({ ...form, seller_name: event.target.value })} className="bg-secondary" maxLength={120} />
+                    <p className="text-xs text-muted-foreground">Se muestra junto a la política de devolución.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Días de devolución</Label>
+                    <Input type="number" min="0" max="365" value={form.return_window_days} onChange={(event) => setForm({ ...form, return_window_days: Number(event.target.value) || 0 })} className="bg-secondary" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Política de devolución (ES)</Label>
+                    <Textarea value={form.return_policy_es} onChange={(event) => setForm({ ...form, return_policy_es: event.target.value })} className="bg-secondary" rows={3} maxLength={1000} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Return policy (EN)</Label>
+                    <Textarea value={form.return_policy_en} onChange={(event) => setForm({ ...form, return_policy_en: event.target.value })} className="bg-secondary" rows={3} maxLength={1000} />
+                  </div>
                 </div>
 
                 <div className="rounded-xl border border-border bg-secondary/40 p-4 space-y-3">

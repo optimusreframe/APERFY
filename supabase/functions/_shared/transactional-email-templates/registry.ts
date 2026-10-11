@@ -17,6 +17,7 @@ import { template as orderDelivered } from './order-delivered.tsx'
 import { template as orderCancelled } from './order-cancelled.tsx'
 import { template as paymentReceived } from './payment-received.tsx'
 import { template as modelRequestReceived } from './model-request-received.tsx'
+import { template as cartRecovery } from './cart-recovery.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'order-confirmation': orderConfirmation,
@@ -27,4 +28,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'order-cancelled': orderCancelled,
   'payment-received': paymentReceived,
   'model-request-received': modelRequestReceived,
+  'cart-recovery': cartRecovery,
 }

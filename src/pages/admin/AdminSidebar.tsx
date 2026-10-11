@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, Sparkles, FlaskConical, Settings2, FileUp, LayoutTemplate, BellRing, DollarSign } from 'lucide-react';
+import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, Sparkles, FlaskConical, Settings2, FileUp, LayoutTemplate, BellRing, DollarSign, MessageCircleQuestion } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -36,6 +36,7 @@ const groups = [
       { title: 'ORDERS', url: '/admin/orders', icon: ClipboardList },
       { title: 'FINANCE', url: '/admin/finance', icon: DollarSign },
       { title: 'REQUESTS', url: '/admin/requests', icon: MessageSquare },
+      { title: 'PRODUCT Q&A', url: '/admin/questions', icon: MessageCircleQuestion },
       { title: 'DISCOUNTS', url: '/admin/discounts', icon: Percent },
       { title: 'SHIPPING', url: '/admin/shipping', icon: Truck },
       { title: 'PAYMENTS', url: '/admin/payments', icon: CreditCard },
