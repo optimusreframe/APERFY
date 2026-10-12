@@ -32,6 +32,7 @@ import { readClipboardImage } from '@/lib/image-clipboard';
 import ProductCatalogViews, { type AdminProduct, type BulkEdit, type BulkField, type ProductViewMode } from '@/components/admin/ProductCatalogViews';
 import { calculateVenezuelaUsdPrice, DEFAULT_VENEZUELA_MARKUP_PERCENT, normalizeVenezuelaMarkup, type VenezuelaManualMode, type VenezuelaPriceMode } from '@/lib/venezuela-pricing';
 import { getVariationTranslationPayload } from './variationTranslation';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 // ── Types ──
 interface ProductForm {
@@ -380,6 +381,7 @@ function parsePriceReferences(value: unknown): PriceReference[] {
 // ── MAIN COMPONENT ──
 // ══════════════════════════════════════════════════════════════
 export default function AdminProducts() {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState<number>(0); // 0=Media, 1=Identity, 2=Pricing, 3=Variations, 4=Review
   const [aiOpen, setAiOpen] = useState(false);
@@ -2102,8 +2104,8 @@ export default function AdminProducts() {
   return (
     <div className="max-w-[1400px] mx-auto">
       <AdminPageHeader
-        eyebrow="catalog · products"
-        title="Productos"
+        eyebrow={t.admin.products.eyebrow}
+        title={t.admin.products.title}
         actions={
         <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           <Button
@@ -2112,10 +2114,10 @@ export default function AdminProducts() {
             onClick={() => void runBulkAiOperation('images')}
             disabled={Boolean(bulkAiJob)}
             className="min-h-11 flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10 sm:flex-none"
-            title={selectedProductIds.length > 0 ? 'Regenera la imagen principal de los productos seleccionados usando el fondo APERFY' : 'Sin selección, regenera únicamente productos sin una imagen AI registrada'}
+            title={selectedProductIds.length > 0 ? t.admin.products.regenerateImagesSelected : t.admin.products.regenerateImagesMissing}
           >
             {bulkAiJob?.kind === 'images' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-            Regenerar imágenes
+            {t.admin.products.regenerateImages}
           </Button>
           <Button
             type="button"
@@ -2123,17 +2125,17 @@ export default function AdminProducts() {
             onClick={() => void runBulkAiOperation('reprice')}
             disabled={Boolean(bulkAiJob)}
             className="min-h-11 flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10 sm:flex-none"
-            title={selectedProductIds.length > 0 ? 'Busca precios de mercado para los productos seleccionados' : 'Sin selección, busca precios únicamente para productos sin Precio AI registrado'}
+            title={selectedProductIds.length > 0 ? t.admin.products.repriceSelected : t.admin.products.repriceMissing}
           >
             {bulkAiJob?.kind === 'reprice' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Reprice
+            {t.admin.products.reprice}
           </Button>
           {/* AI Import Studio Button */}
           <Dialog open={aiOpen} onOpenChange={(o) => { setAiOpen(o); if (!o) resetAi(); }}>
             <DialogTrigger asChild>
               <Button variant="outline" className="min-h-11 flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10 sm:flex-none">
                 <Sparkles className="w-4 h-4" />
-                AI Import Studio
+                {t.admin.products.aiImportStudio}
               </Button>
             </DialogTrigger>
             <DialogContent className="flex h-[min(900px,90vh)] max-h-[90vh] max-w-4xl flex-col overflow-hidden bg-card border-border p-0">
@@ -2731,7 +2733,7 @@ export default function AdminProducts() {
           {/* ── ADD/EDIT PRODUCT DIALOG ── */}
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setEditId(null); setForm(createEmptyProductForm()); setMediaFiles([]); setFieldErrors({}); setProductVariations([]); setEditAiImageOpen(false); setEditAiSourceImage(null); setEditAiSourceSyncing(false); setEditAiCustomBg(null); setDeleteFromEditOpen(false); setWizardStep(0); } else { if (!editId) setForm(createEmptyProductForm()); setWizardStep(0); } }}>
             <DialogTrigger asChild>
-              <Button className="min-h-11 flex-1 gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground sm:flex-none"><Plus className="w-4 h-4" />Agregar Producto</Button>
+              <Button className="min-h-11 flex-1 gap-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground sm:flex-none"><Plus className="w-4 h-4" />{t.admin.products.addProduct}</Button>
             </DialogTrigger>
             <DialogContent className="flex h-[min(920px,92vh)] max-h-[92vh] w-[95vw] max-w-6xl flex-col gap-0 overflow-hidden bg-card border-border p-0">
               <DialogHeader className="sr-only"><DialogTitle>{editId ? 'Editar' : 'Agregar'} Producto</DialogTitle></DialogHeader>
@@ -3821,8 +3823,8 @@ export default function AdminProducts() {
           <motion.div initial={{ opacity: 0, y: -8, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }} exit={{ opacity: 0, y: -8, height: 0 }} className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/[0.08] px-4 py-3">
             <div className="flex items-center gap-3 text-sm">
               <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-destructive/15 px-2 font-semibold text-destructive">{selectedProductIds.length}</span>
-              <span>producto(s) seleccionado(s)</span>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedProductIds([])} className="h-8 text-muted-foreground hover:text-foreground">Limpiar selección</Button>
+              <span>{t.admin.products.selectAll}: {selectedProductIds.length}</span>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedProductIds([])} className="h-8 text-muted-foreground hover:text-foreground">{t.admin.products.cancel}</Button>
             </div>
             <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)} className="gap-1.5"><Trash2 className="h-4 w-4" /> Eliminar seleccionados</Button>
           </motion.div>
@@ -3833,7 +3835,7 @@ export default function AdminProducts() {
         {bulkAiJob && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mb-4 rounded-xl border border-primary/25 bg-primary/[0.06] px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="font-medium">{bulkAiJob.kind === 'images' ? 'Regenerando imágenes' : 'Haciendo Reprice USA'} · {bulkAiJob.completed}/{bulkAiJob.total}</span>
+              <span className="font-medium">{bulkAiJob.kind === 'images' ? t.admin.products.regenerateImages : t.admin.products.reprice} · {bulkAiJob.completed}/{bulkAiJob.total}</span>
               <span className="font-mono text-xs text-muted-foreground">{bulkAiJob.succeeded} OK · {bulkAiJob.skipped} omitidos · {bulkAiJob.failed} errores</span>
             </div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
@@ -3908,32 +3910,32 @@ export default function AdminProducts() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3 text-sm">
             <span className="flex min-h-11 items-center gap-2 rounded-lg border border-border/70 bg-background/30 px-2.5">
-              <Checkbox checked={allProductsSelected} onCheckedChange={(checked) => setSelectedProductIds(toggleAllBulkSelection(selectedProductIds, visibleProductIds, checked === true))} aria-label={allProductsSelected ? 'Deseleccionar todos' : 'Seleccionar todos'} />
-              <span className="hidden text-xs text-muted-foreground sm:inline">Seleccionar todos</span>
+              <Checkbox checked={allProductsSelected} onCheckedChange={(checked) => setSelectedProductIds(toggleAllBulkSelection(selectedProductIds, visibleProductIds, checked === true))} aria-label={t.admin.products.selectAll} />
+              <span className="hidden text-xs text-muted-foreground sm:inline">{t.admin.products.selectAll}</span>
             </span>
-            {bulkEditMode && bulkEditCount > 0 && <span className="text-xs text-muted-foreground">{bulkEditCount} modificados</span>}
+            {bulkEditMode && bulkEditCount > 0 && <span className="text-xs text-muted-foreground">{bulkEditCount} {t.admin.products.modified}</span>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex min-h-11 flex-1 items-center rounded-lg border border-border/70 bg-background/30 p-1 sm:flex-none">
               <Button type="button" variant={productViewMode === 'list' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleProductViewChange('list')} aria-pressed={productViewMode === 'list'} className="min-h-9 flex-1 gap-2 sm:flex-none">
-                <List className="h-4 w-4" /> <span>Lista</span>
+                <List className="h-4 w-4" /> <span>{t.admin.products.list}</span>
               </Button>
               <Button type="button" variant={productViewMode === 'grid' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleProductViewChange('grid')} aria-pressed={productViewMode === 'grid'} className="min-h-9 flex-1 gap-2 sm:flex-none">
-                <LayoutGrid className="h-4 w-4" /> <span>Grid</span>
+                <LayoutGrid className="h-4 w-4" /> <span>{t.admin.products.grid}</span>
               </Button>
             </div>
             {bulkEditMode ? (
               <>
                 <Button variant="outline" size="sm" onClick={() => { setBulkEditMode(false); setBulkEdits({}); }} className="min-h-11 gap-1">
-                  <XCircle className="h-4 w-4" /> Cancelar
+                  <XCircle className="h-4 w-4" /> {t.admin.products.cancel}
                 </Button>
                 <Button size="sm" onClick={handleBulkSave} disabled={bulkSaving || bulkEditCount === 0} className="min-h-11 gap-1 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-                  <Save className="h-4 w-4" /> {bulkSaving ? 'Guardando...' : 'Guardar cambios'}
+                  <Save className="h-4 w-4" /> {bulkSaving ? '…' : t.admin.products.saveChanges}
                 </Button>
               </>
             ) : (
               <Button variant="outline" size="sm" onClick={() => setBulkEditMode(true)} className="min-h-11 gap-1">
-                <Pencil className="h-4 w-4" /> Editar en lote
+                <Pencil className="h-4 w-4" /> {t.admin.products.bulkEdit}
               </Button>
             )}
           </div>
