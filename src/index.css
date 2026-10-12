@@ -119,7 +119,10 @@
   .auth-page-content { min-height: 100%; }
   .request-stepper { min-width: 0; }
   .request-step { min-width: 0; }
-  .request-page { flex: 0 0 auto; overflow: visible; }
+  /* Decorative glows and the submit-button sweep are intentionally larger
+     than the request page. Clip them at the page boundary so they cannot
+     enlarge the scrollable width on mobile/tablet or shift the form layout. */
+  .request-page { flex: 0 0 auto; min-width: 0; overflow-x: clip; overflow-y: visible; }
   .mac-content-scroll { min-width: 0; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; scrollbar-color: hsl(var(--primary) / .38) transparent; scrollbar-width: thin; }
   /* Store navigation is fixed like a native mobile tab bar. Reserve its
      footprint in the scroll viewport so cards and checkout actions never sit
