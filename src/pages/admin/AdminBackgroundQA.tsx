@@ -777,9 +777,14 @@ export default function AdminBackgroundQA() {
         </Card>
 
         {/* ── Preset QA runner (existing) ── */}
-        <Card className="p-4 space-y-4">
-          <h2 className="text-lg font-semibold">Preset QA Runner</h2>
-          <div className="grid md:grid-cols-2 gap-4">
+        <Card className="min-w-0 overflow-hidden p-4 space-y-4 sm:p-5">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold">Preset QA Runner</h2>
+            <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+              Selecciona una imagen de producto y, si hace falta, un fondo personalizado para probar los cinco presets.
+            </p>
+          </div>
+          <div className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2">
             <ProductImageSourcePicker
               label="Source Image (the product)"
               value={sourceImage}
@@ -793,9 +798,9 @@ export default function AdminBackgroundQA() {
               uploadFolder="background-qa-custom"
             />
           </div>
-          <div className="flex gap-2 items-center flex-wrap">
-            <Button onClick={runAll} disabled={!sourceImage}>Run all 5 presets</Button>
-            <span className="text-xs text-muted-foreground">
+          <div className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            <Button onClick={runAll} disabled={!sourceImage} className="w-full shrink-0 sm:w-auto">Run all 5 presets</Button>
+            <span className="min-w-0 break-words text-xs text-muted-foreground">
               <code className="font-mono">system_workshop</code> will use:{' '}
               <strong>{officialBg ? 'Text prompt + official background reference' : 'Text prompt only'}</strong>
             </span>

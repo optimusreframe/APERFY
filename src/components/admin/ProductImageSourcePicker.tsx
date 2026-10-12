@@ -151,26 +151,42 @@ export default function ProductImageSourcePicker({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 max-w-full space-y-2 overflow-hidden">
       {label && <Label>{label}</Label>}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)} className="min-w-0">
         <TabsList
           className={(() => {
             const cols = (hideLibrary ? 0 : 1) + 2 + (showComposedResults ? 1 : 0);
             const map: Record<number, string> = { 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' };
-            return `grid w-full min-w-0 overflow-hidden ${map[cols] || 'grid-cols-3'} [&>button]:min-w-0 [&>button]:truncate [&>button]:px-1 sm:[&>button]:px-3`;
+            return `grid h-auto w-full min-w-0 gap-1 overflow-hidden ${map[cols] || 'grid-cols-3'} [&>button]:min-w-0 [&>button]:truncate [&>button]:px-1.5 sm:[&>button]:px-3`;
           })()}
         >
-          {!hideLibrary && <TabsTrigger value="library">Product Library</TabsTrigger>}
-          <TabsTrigger value="upload">Upload Image</TabsTrigger>
-          <TabsTrigger value="url">Image URL</TabsTrigger>
-          {showComposedResults && <TabsTrigger value="composed">Composed Results</TabsTrigger>}
+          {!hideLibrary && (
+            <TabsTrigger value="library">
+              <span className="sm:hidden">Library</span>
+              <span className="hidden sm:inline">Product Library</span>
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="upload">
+            <span className="sm:hidden">Upload</span>
+            <span className="hidden sm:inline">Upload Image</span>
+          </TabsTrigger>
+          <TabsTrigger value="url">
+            <span className="sm:hidden">URL</span>
+            <span className="hidden sm:inline">Image URL</span>
+          </TabsTrigger>
+          {showComposedResults && (
+            <TabsTrigger value="composed">
+              <span className="sm:hidden">Results</span>
+              <span className="hidden sm:inline">Composed Results</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
 
 
         {!hideLibrary && (
-          <TabsContent value="library" className="space-y-2">
+          <TabsContent value="library" className="min-w-0 space-y-2">
             <div className="relative">
               <Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -183,7 +199,7 @@ export default function ProductImageSourcePicker({
             {loadingProducts ? (
               <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin" /></div>
             ) : (
-              <div className="max-h-72 overflow-y-auto border rounded p-2 space-y-2">
+              <div className="max-h-72 min-w-0 max-w-full overflow-x-hidden overflow-y-auto rounded border p-2 space-y-2">
                 {filteredProducts.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-4">No products found.</p>
                 )}
@@ -192,8 +208,8 @@ export default function ProductImageSourcePicker({
                   const main = imgs[0];
                   const selected = selectedProductId === p.id;
                   return (
-                    <div key={p.id} className={`border rounded p-2 ${selected ? 'ring-2 ring-primary' : ''}`}>
-                      <div className="flex gap-2 items-center">
+                    <div key={p.id} className={`min-w-0 rounded border p-2 ${selected ? 'ring-2 ring-primary' : ''}`}>
+                      <div className="flex min-w-0 items-center gap-2">
                         <div className="w-12 h-12 bg-muted rounded overflow-hidden flex-shrink-0">
                           {main ? (
                             <img src={main} alt={p.name_en} className="w-full h-full object-cover" />
@@ -209,7 +225,7 @@ export default function ProductImageSourcePicker({
                           <Button
                             size="sm"
                             variant={value === main ? 'default' : 'outline'}
-                            className="h-7 text-[10px]"
+                            className="h-7 shrink-0 px-2 text-[10px]"
                             onClick={() => {
                               setSelectedProductId(p.id);
                               onChange(main);
@@ -245,7 +261,7 @@ export default function ProductImageSourcePicker({
           </TabsContent>
         )}
 
-        <TabsContent value="upload" className="space-y-2">
+        <TabsContent value="upload" className="min-w-0 space-y-2">
           <input
             ref={fileRef}
             type="file"
@@ -274,7 +290,7 @@ export default function ProductImageSourcePicker({
           </p>
         </TabsContent>
 
-        <TabsContent value="url" className="space-y-2">
+        <TabsContent value="url" className="min-w-0 space-y-2">
           <Input
             placeholder="https://..."
             value={urlInput}
@@ -286,8 +302,8 @@ export default function ProductImageSourcePicker({
         </TabsContent>
 
         {showComposedResults && (
-          <TabsContent value="composed" className="space-y-2">
-            <div className="flex gap-2 items-center">
+          <TabsContent value="composed" className="min-w-0 space-y-2">
+            <div className="flex min-w-0 items-center gap-2">
               <select
                 className="text-xs border rounded px-2 py-1 bg-background"
                 value={composedFilter}
@@ -302,7 +318,7 @@ export default function ProductImageSourcePicker({
             {loadingComposed ? (
               <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin" /></div>
             ) : (
-              <div className="max-h-72 overflow-y-auto border rounded p-2 grid grid-cols-3 gap-2">
+              <div className="grid max-h-72 min-w-0 max-w-full grid-cols-2 gap-2 overflow-x-hidden overflow-y-auto rounded border p-2 sm:grid-cols-3">
                 {composed.filter((c) => composedFilter === 'all' || c.method === composedFilter).length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-4 col-span-3">No composed results yet.</p>
                 )}
@@ -332,11 +348,11 @@ export default function ProductImageSourcePicker({
 
 
       {value && (
-        <div className="flex gap-2 items-start mt-2">
+        <div className="mt-2 flex min-w-0 items-start gap-2">
           <div className="w-20 h-20 bg-muted rounded border overflow-hidden flex-shrink-0">
             <img src={value} alt="selected" className="w-full h-full object-cover" />
           </div>
-          <div className="text-[10px] text-muted-foreground break-all flex-1">
+          <div className="min-w-0 flex-1 break-all text-[10px] text-muted-foreground">
             {value}
           </div>
         </div>

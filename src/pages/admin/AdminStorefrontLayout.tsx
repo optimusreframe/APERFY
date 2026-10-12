@@ -6,18 +6,19 @@ import { useStorefrontLayout } from '@/contexts/StorefrontLayoutContext';
 import { STOREFRONT_DESIGNS, STOREFRONT_DEVICES, type StorefrontDesign, type StorefrontDevice, type StorefrontLayoutConfig } from '@/lib/storefront-layout';
 import { AdminPageHeader, AdminSurface } from './_shared';
 
-function LayoutPreview({ design }: { design: StorefrontDesign }) {
+function LayoutPreview({ design, compact = false }: { design: StorefrontDesign; compact?: boolean }) {
+  const previewClass = `layout-preview${compact ? ' layout-preview-compact' : ''}`;
   if (design === 'design2') {
-    return <div className="layout-preview layout-preview-design2" aria-hidden="true"><div className="layout-preview-top"><span /><span /><span /><i /></div><div className="layout-preview-tech-hero"><small>APERFY · TECH ACCESSORIES</small><strong>Technology that moves with you.</strong><em /><b>Shop now →</b><div className="layout-preview-device" /></div><div className="layout-preview-tech-rail"><span /><span /><span /><span /></div><div className="layout-preview-nav"><span /><span /><span /><span /><span /></div></div>;
+    return <div className={`${previewClass} layout-preview-design2`} aria-hidden="true"><div className="layout-preview-top"><span /><span /><span /><i /></div><div className="layout-preview-tech-hero"><small>APERFY · TECH ACCESSORIES</small><strong>Technology that moves with you.</strong><em /><b>Shop now →</b><div className="layout-preview-device" /></div><div className="layout-preview-tech-rail"><span /><span /><span /><span /></div><div className="layout-preview-nav"><span /><span /><span /><span /><span /></div></div>;
   }
   if (design === 'design3') {
-    return <div className="layout-preview layout-preview-design3" aria-hidden="true"><div className="layout-preview-top"><span /><span /><span /><i /></div><div className="layout-preview-luxury-hero"><div><small>APERFY · PRIVATE SELECTION</small><strong>Find something that feels like yours.</strong><em /><b>View collection →</b></div><div className="layout-preview-luxury-image" /></div><div className="layout-preview-luxury-card"><i /><span /><b /></div><div className="layout-preview-nav"><span /><span /><span /><span /><span /></div></div>;
+    return <div className={`${previewClass} layout-preview-design3`} aria-hidden="true"><div className="layout-preview-top"><span /><span /><span /><i /></div><div className="layout-preview-luxury-hero"><div><small>APERFY · PRIVATE SELECTION</small><strong>Find something that feels like yours.</strong><em /><b>View collection →</b></div><div className="layout-preview-luxury-image" /></div><div className="layout-preview-luxury-card"><i /><span /><b /></div><div className="layout-preview-nav"><span /><span /><span /><span /><span /></div></div>;
   }
   if (design === 'design4') {
-    return <div className="layout-preview layout-preview-design4" aria-hidden="true"><div className="layout-preview-top"><span /><span /><span /><i /></div><div className="layout-preview-drops-top"><strong>APER<span>FY</span></strong><small>DROPS</small><i>Shipping across USA</i></div><div className="layout-preview-drops-search" /><div className="layout-preview-drops-banner"><strong>New arrivals</strong><span>The next drop lands here first.</span></div><div className="layout-preview-drops-grid"><span /><span /><span /><span /></div><div className="layout-preview-nav"><span /><span /><span /><span /><span /></div></div>;
+    return <div className={`${previewClass} layout-preview-design4`} aria-hidden="true"><div className="layout-preview-top"><span /><span /><span /><i /></div><div className="layout-preview-drops-top"><strong>APER<span>FY</span></strong><small>DROPS</small><i>Shipping across USA</i></div><div className="layout-preview-drops-search" /><div className="layout-preview-drops-banner"><strong>New arrivals</strong><span>The next drop lands here first.</span></div><div className="layout-preview-drops-grid"><span /><span /><span /><span /></div><div className="layout-preview-nav"><span /><span /><span /><span /><span /></div></div>;
   }
   return (
-    <div className={`layout-preview layout-preview-${design}`} aria-hidden="true">
+    <div className={`${previewClass} layout-preview-${design}`} aria-hidden="true">
       <div className="layout-preview-top"><span /><span /><span /><i /></div>
       <div className="layout-preview-body">
         <div className="layout-preview-copy"><small>APERFY</small><strong>{design === 'design4' ? 'Drops & novedades' : design === 'design3' ? 'Tu selección' : design === 'design2' ? 'Tech. Sin límites.' : 'Ofertas disponibles'}</strong><em /></div>
@@ -55,7 +56,7 @@ export default function AdminStorefrontLayout() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6 pb-20">
       <AdminPageHeader
         eyebrow="STOREFRONT · EXPERIENCIA PÚBLICA"
         title="LAYOUT DE TIENDA"
@@ -117,7 +118,7 @@ export default function AdminStorefrontLayout() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-1"><div className="flex min-w-0 items-center gap-3 text-xs uppercase tracking-[.16em] text-muted-foreground"><span className="hidden h-px w-8 bg-border/70 sm:block" /><span>Diseños para {STOREFRONT_DEVICES.find((device) => device.id === activeDevice)?.label}</span><span className="h-px w-8 bg-border/70 sm:block" /></div><div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1" role="group" aria-label="Vista de diseños"><Button type="button" size="icon" variant={viewMode === 'grid' ? 'secondary' : 'ghost'} className="h-8 w-8" aria-label="Vista en grid" onClick={() => setViewMode('grid')}><Grid2X2 className="h-4 w-4" /></Button><Button type="button" size="icon" variant={viewMode === 'single' ? 'secondary' : 'ghost'} className="h-8 w-8" aria-label="Vista individual" onClick={() => setViewMode('single')}><LayoutGrid className="h-4 w-4" /></Button><Button type="button" size="icon" variant={viewMode === 'list' ? 'secondary' : 'ghost'} className="h-8 w-8" aria-label="Vista en lista" onClick={() => setViewMode('list')}><Rows3 className="h-4 w-4" /></Button></div></div>
 
-      <div className={viewMode === 'grid' ? 'grid gap-4 sm:grid-cols-2' : viewMode === 'single' ? 'mx-auto grid max-w-3xl gap-4' : 'grid gap-3'}>
+      <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-3 sm:gap-4' : viewMode === 'single' ? 'mx-auto grid max-w-3xl gap-4' : 'grid gap-3'}>
         {STOREFRONT_DESIGNS.map((option) => {
           const selected = draft[activeDevice] === option.id;
           return (
@@ -126,10 +127,10 @@ export default function AdminStorefrontLayout() {
               type="button"
               onClick={() => setDraft((current) => ({ ...current, [activeDevice]: option.id }))}
               aria-pressed={selected}
-                className={`group text-left rounded-2xl border p-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${viewMode === 'list' ? 'flex items-center gap-4' : ''} ${selected ? 'border-primary bg-primary/[0.08] shadow-[0_0_0_1px_hsl(var(--primary)/.18),0_24px_70px_hsl(var(--primary)/.12)]' : 'border-border bg-card hover:border-primary/40'}`}
+                className={`group text-left rounded-2xl border p-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${viewMode === 'list' ? 'layout-design-option-list flex items-center gap-3 sm:gap-4' : ''} ${selected ? 'border-primary bg-primary/[0.08] shadow-[0_0_0_1px_hsl(var(--primary)/.18),0_24px_70px_hsl(var(--primary)/.12)]' : 'border-border bg-card hover:border-primary/40'}`}
             >
-              <div className={`relative ${viewMode === 'list' ? 'w-40 shrink-0 sm:w-56' : ''}`}>
-                <LayoutPreview design={option.id} />
+              <div className={`relative ${viewMode === 'list' ? 'w-28 shrink-0 sm:w-40' : ''}`}>
+                <LayoutPreview design={option.id} compact={viewMode === 'list'} />
                 {selected && <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"><Check className="h-4 w-4" /></span>}
               </div>
               <div className={viewMode === 'list' ? 'min-w-0 flex-1 py-1 pr-2' : 'px-2 pb-2 pt-4'}>

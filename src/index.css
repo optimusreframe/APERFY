@@ -468,7 +468,46 @@
 
   .layout-preview { position: relative; overflow: hidden; min-height: 220px; border-radius: 1rem; border: 1px solid hsl(var(--border) / .8); background: hsl(220 22% 8%); color: hsl(220 24% 97%); transition: min-height .28s ease, transform .28s ease; }
   .layout-preview:hover { transform: translateY(-2px); }
-  .group.flex .layout-preview { min-height: 150px; }
+  .layout-preview-compact { min-height: 0; height: 124px; border-radius: .75rem; }
+  .layout-preview-compact .layout-preview-top { height: 18px; gap: 3px; padding: 0 8px; }
+  .layout-preview-compact .layout-preview-top span { width: 4px; height: 4px; }
+  .layout-preview-compact .layout-preview-top i { width: 28px; height: 3px; }
+  .layout-preview-compact .layout-preview-body { padding: 11px 9px 20px; }
+  .layout-preview-compact .layout-preview-copy { gap: 3px; }
+  .layout-preview-compact .layout-preview-copy small { font-size: 5px; }
+  .layout-preview-compact .layout-preview-copy strong { font-size: 12px; }
+  .layout-preview-compact .layout-preview-copy em { height: 3px; }
+  .layout-preview-compact .layout-preview-search { height: 15px; margin-top: 8px; }
+  .layout-preview-compact .layout-preview-cards { gap: 4px; margin-top: 8px; }
+  .layout-preview-compact .layout-preview-cards span { height: 35px; border-radius: 5px; }
+  .layout-preview-compact .layout-preview-nav { inset: auto 6px 5px; height: 15px; padding: 3px 6px; }
+  .layout-preview-compact .layout-preview-tech-hero { min-height: 69px; gap: 4px; padding: 10px 9px; }
+  .layout-preview-compact .layout-preview-tech-hero small, .layout-preview-compact .layout-preview-luxury-hero small { font-size: 4px; }
+  .layout-preview-compact .layout-preview-tech-hero strong { font-size: 10px; }
+  .layout-preview-compact .layout-preview-tech-hero em { height: 3px; }
+  .layout-preview-compact .layout-preview-tech-hero b { padding: 3px 4px; font-size: 4px; }
+  .layout-preview-compact .layout-preview-device { right: 10%; bottom: -12px; width: 54px; height: 82px; border-radius: 8px 8px 0 0; }
+  .layout-preview-compact .layout-preview-tech-rail { gap: 3px; padding: 6px 8px 1px; }
+  .layout-preview-compact .layout-preview-tech-rail span { height: 15px; border-radius: 4px; }
+  .layout-preview-compact .layout-preview-luxury-hero { min-height: 75px; gap: 5px; padding: 8px; }
+  .layout-preview-compact .layout-preview-luxury-hero > div:first-child { gap: 3px; padding-bottom: 3px; }
+  .layout-preview-compact .layout-preview-luxury-hero strong { font-size: 10px; }
+  .layout-preview-compact .layout-preview-luxury-hero em { height: 3px; }
+  .layout-preview-compact .layout-preview-luxury-hero b { font-size: 4px; }
+  .layout-preview-compact .layout-preview-luxury-image { border-radius: 6px; }
+  .layout-preview-compact .layout-preview-luxury-card { grid-template-columns: 23px 1fr 20px; gap: 4px; margin: -8px 8px 0; padding: 4px; border-radius: 5px; }
+  .layout-preview-compact .layout-preview-luxury-card i { height: 14px; border-radius: 3px; }
+  .layout-preview-compact .layout-preview-luxury-card span { height: 3px; }
+  .layout-preview-compact .layout-preview-luxury-card b { height: 13px; }
+  .layout-preview-compact .layout-preview-drops-top { gap: 3px; padding: 8px 8px 4px; }
+  .layout-preview-compact .layout-preview-drops-top strong { font-size: 9px; }
+  .layout-preview-compact .layout-preview-drops-top small, .layout-preview-compact .layout-preview-drops-top i { font-size: 4px; }
+  .layout-preview-compact .layout-preview-drops-search { height: 13px; margin: 0 8px 5px; }
+  .layout-preview-compact .layout-preview-drops-banner { gap: 2px; margin: 0 8px; padding: 7px; border-radius: 5px; }
+  .layout-preview-compact .layout-preview-drops-banner strong { font-size: 4px; }
+  .layout-preview-compact .layout-preview-drops-banner span { font-size: 9px; }
+  .layout-preview-compact .layout-preview-drops-grid { gap: 3px; margin: 5px 8px 20px; }
+  .layout-preview-compact .layout-preview-drops-grid span { height: 22px; border-radius: 3px; }
   .layout-preview-top { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 12px; border-bottom: 1px solid hsl(0 0% 100% / .1); background: hsl(220 22% 12%); }
   .layout-preview-top span { width: 5px; height: 5px; border-radius: 999px; background: hsl(var(--primary)); opacity: .8; }
   .layout-preview-top i { width: 52px; height: 4px; border-radius: 999px; margin-left: auto; background: hsl(0 0% 100% / .12); }

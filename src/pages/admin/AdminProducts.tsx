@@ -3907,16 +3907,16 @@ export default function AdminProducts() {
       </AlertDialog>
 
       <div className="mb-4 rounded-2xl border border-border/70 bg-card/50 p-3 sm:p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3 text-sm">
-            <span className="flex min-h-11 items-center gap-2 rounded-lg border border-border/70 bg-background/30 px-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 shrink-0 items-center gap-3 text-sm">
+            <span className="flex min-h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-border/70 bg-background/30 px-2.5 sm:w-auto sm:justify-start">
               <Checkbox checked={allProductsSelected} onCheckedChange={(checked) => setSelectedProductIds(toggleAllBulkSelection(selectedProductIds, visibleProductIds, checked === true))} aria-label={t.admin.products.selectAll} />
-              <span className="hidden text-xs text-muted-foreground sm:inline">{t.admin.products.selectAll}</span>
+              <span className="sr-only text-xs text-muted-foreground sm:not-sr-only">{t.admin.products.selectAll}</span>
             </span>
             {bulkEditMode && bulkEditCount > 0 && <span className="text-xs text-muted-foreground">{bulkEditCount} {t.admin.products.modified}</span>}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex min-h-11 flex-1 items-center rounded-lg border border-border/70 bg-background/30 p-1 sm:flex-none">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+            <div className="flex min-h-11 min-w-0 flex-1 items-center rounded-lg border border-border/70 bg-background/30 p-1 sm:flex-none">
               <Button type="button" variant={productViewMode === 'list' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleProductViewChange('list')} aria-pressed={productViewMode === 'list'} className="min-h-9 flex-1 gap-2 sm:flex-none">
                 <List className="h-4 w-4" /> <span>{t.admin.products.list}</span>
               </Button>
@@ -3935,7 +3935,7 @@ export default function AdminProducts() {
               </>
             ) : (
               <Button variant="outline" size="sm" onClick={() => setBulkEditMode(true)} className="min-h-11 gap-1">
-                <Pencil className="h-4 w-4" /> {t.admin.products.bulkEdit}
+                <Pencil className="h-4 w-4" /> <span className="hidden sm:inline">{t.admin.products.bulkEdit}</span><span className="sr-only sm:hidden">{t.admin.products.bulkEdit}</span>
               </Button>
             )}
           </div>
