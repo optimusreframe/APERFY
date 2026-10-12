@@ -70,10 +70,10 @@ export default function AdminSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="h-full max-h-full min-h-0 border-r border-sidebar-border bg-sidebar">
+    <Sidebar collapsible="icon" variant="floating" className="admin-sidebar h-full max-h-full min-h-0 border border-sidebar-border bg-sidebar">
       <SidebarHeader className="h-14 border-b border-border/60 px-3 flex items-center justify-center">
         <div className="flex items-center gap-2 w-full">
-          <img src="/logo.png" alt="APERFY" className="w-7 h-7 object-contain shrink-0" />
+          <NavLink to="/" end reloadDocument className="flex shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60" aria-label="APERFY home"><img src="/logo.png" alt="APERFY" className="w-7 h-7 object-contain" /></NavLink>
           {!collapsed && (
             <div className="flex flex-col leading-none min-w-0">
               <span className="aperfy-wordmark text-sm truncate"><span>APER</span><span>FY</span></span>

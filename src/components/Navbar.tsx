@@ -142,7 +142,7 @@ export default function Navbar() {
                       {isAdmin ? (
                         <>
                           <DropdownMenuItem asChild>
-                            <Link to="/admin" className="gap-2 cursor-pointer text-primary">
+                            <Link to="/admin" reloadDocument className="gap-2 cursor-pointer text-primary">
                               <Shield className="w-4 h-4" /> {t.nav.admin}
                             </Link>
                           </DropdownMenuItem>
@@ -280,7 +280,7 @@ export default function Navbar() {
                   {user ? (
                     <>
                       {isAdmin ? (
-                        <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-primary hover:bg-primary/10">
+                        <Link to="/admin" reloadDocument onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-primary hover:bg-primary/10">
                           <Shield className="w-4 h-4" /> {t.nav.admin}
                         </Link>
                       ) : (

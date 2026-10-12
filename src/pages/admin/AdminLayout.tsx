@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import AdminSidebar from './AdminSidebar';
 import { Activity } from 'lucide-react';
@@ -59,7 +59,7 @@ export default function AdminLayout() {
 
   return (
     <SidebarProvider>
-      <div className="mac-admin-layout flex h-full min-h-0 w-full overflow-hidden bg-background text-foreground">
+      <div className="mac-admin-layout admin-sidebar-stage flex h-full min-h-0 w-full overflow-hidden bg-background text-foreground">
         <AdminSidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* Command bar */}
@@ -71,7 +71,7 @@ export default function AdminLayout() {
               <span className="text-foreground/90">{current}</span>
             </div>
             <div className="flex min-w-0 items-center gap-2 md:hidden">
-              <img src="/logo.png" alt="APERFY" className="h-7 w-7 shrink-0 object-contain" />
+              <Link to="/" reloadDocument aria-label="APERFY home" className="shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"><img src="/logo.png" alt="APERFY" className="h-7 w-7 object-contain" /></Link>
               <span className="aperfy-wordmark"><span>APER</span><span>FY</span></span>
             </div>
             <div className="ml-auto flex items-center gap-3">

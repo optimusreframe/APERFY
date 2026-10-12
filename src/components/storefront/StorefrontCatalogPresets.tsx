@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { ArrowRight, ChevronRight, Grid2X2, List, Search, SlidersHorizontal, Sparkles, Truck, Zap } from 'lucide-react';
+import { ArrowRight, ChevronRight, Grid2X2, List, Search, SlidersHorizontal, Sparkles, Square, Truck, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ProductCard, { type ProductCardProduct } from '@/components/ProductCard';
 import StorefrontProductTile from './StorefrontProductTile';
@@ -7,7 +7,7 @@ import type { CatalogFilterSection } from '@/components/CatalogFiltersDialog';
 import type { CatalogFilters } from '@/lib/storefront-filters';
 import type { StorefrontProduct } from '@/lib/storefront-products';
 
-type CatalogView = 'grid' | 'list';
+type CatalogView = 'featured' | 'grid' | 'list';
 
 interface PresetControlsProps {
   es: boolean;
@@ -47,6 +47,7 @@ function PresetControls({ es, search, setSearch, searchPlaceholder, openFilters,
           <button type="button" onClick={() => openFilters('sort')} className="storefront-preset-filter-button hidden md:inline-flex">{sortLabel}<ChevronRight className="h-3.5 w-3.5 rotate-90" /></button>
         </div>
         <div className="storefront-preset-view-toggle" role="group" aria-label={es ? 'Vista del catálogo' : 'Catalog view'}>
+          <button type="button" onClick={() => setViewMode('featured')} aria-pressed={viewMode === 'featured'} aria-label={es ? 'Un producto grande por fila' : 'One large product per row'} title={es ? 'Un producto grande por fila' : 'One large product per row'}><Square className="h-3.5 w-3.5" /></button>
           <button type="button" onClick={() => setViewMode('grid')} aria-pressed={viewMode === 'grid'}><Grid2X2 className="h-4 w-4" /></button>
           <button type="button" onClick={() => setViewMode('list')} aria-pressed={viewMode === 'list'}><List className="h-4 w-4" /></button>
         </div>
@@ -93,7 +94,7 @@ export function TechCatalogPreset({ copy, es, products, visible, categories, ...
       <section id="design2-best-sellers" className="design2-products-section">
         <div className="design2-section-heading"><div><p>{es ? 'SELECCIÓN APERFY' : 'APERFY SELECTION'}</p><h2>{es ? 'Más buscados' : 'Best sellers'}</h2></div><span>{visible.length.toString().padStart(2, '0')} {es ? 'ITEMS' : 'ITEMS'}</span></div>
         <PresetControls es={es} {...controls} />
-        <div className="design2-products-list">{bestSellers.length > 0 ? bestSellers.map((product, index) => <ProductCard key={product.id} product={product} index={index} layout={controls.viewMode === 'list' ? 'list' : 'grid'} showBadges />) : <p className="storefront-preset-empty">{es ? 'No hay productos con esos filtros.' : 'No products match these filters.'}</p>}</div>
+        <div className={`design2-products-list is-${controls.viewMode}`}>{bestSellers.length > 0 ? bestSellers.map((product, index) => <ProductCard key={product.id} product={product} index={index} layout={controls.viewMode === 'list' ? 'list' : 'grid'} showBadges />) : <p className="storefront-preset-empty">{es ? 'No hay productos con esos filtros.' : 'No products match these filters.'}</p>}</div>
       </section>
     </main>
   );
@@ -108,7 +109,7 @@ export function LuxuryCatalogPreset({ copy, es, products, visible, categories, .
         <div className="design3-hero-copy"><p className="design3-kicker">APERFY · {es ? 'SELECCIÓN PRIVADA' : 'PRIVATE SELECTION'}</p><h1>{es ? 'Encuentra algo que se sienta tuyo.' : 'Find something that feels like yours.'}</h1><p>{es ? 'Objetos elegidos con intención, presentados con espacio para descubrirlos.' : 'Objects chosen with intention, presented with room to discover them.'}</p><Link to="#design3-collection" className="design3-link">{es ? 'Ver colección' : 'View collection'}<ArrowRight className="h-4 w-4" /></Link></div><Link to={hero ? `/products/${hero.slug}` : '#design3-collection'} className="design3-hero-image"><FeatureImage product={hero} /><div className="design3-hero-label"><span>{hero?.brand || 'APERFY'}</span><strong>{hero ? (es ? hero.name_es : hero.name_en) : copy.highlight}</strong></div></Link>
       </section>
       <section className="design3-category-section"><div className="design3-section-heading"><p>{es ? 'DESCUBRE POR CATEGORÍA' : 'DISCOVER BY CATEGORY'}</p><h2>{es ? 'Una colección para cada momento.' : 'A collection for every moment.'}</h2></div><div className="design3-category-rail">{categoryProducts.map(({ slug, label, product }) => <Link key={slug} to={`/?category=${slug}`} className="design3-category-item"><FeatureImage product={product} /><span>{label}</span></Link>)}</div></section>
-      <section id="design3-collection" className="design3-collection"><div className="design3-section-heading design3-collection-heading"><div><p>{es ? 'CURATED NOW' : 'CURATED NOW'}</p><h2>{es ? 'Piezas destacadas' : 'Featured pieces'}</h2></div><PresetControls es={es} {...controls} /></div><div className={`design3-products ${controls.viewMode === 'list' ? 'is-list' : ''}`}>{visible.length > 0 ? visible.map((product, index) => <StorefrontProductTile key={product.id} product={product} index={index} variant="luxury" />) : <p className="storefront-preset-empty">{es ? 'No hay productos con esos filtros.' : 'No products match these filters.'}</p>}</div></section>
+      <section id="design3-collection" className="design3-collection"><div className="design3-section-heading design3-collection-heading"><div><p>{es ? 'CURATED NOW' : 'CURATED NOW'}</p><h2>{es ? 'Piezas destacadas' : 'Featured pieces'}</h2></div><PresetControls es={es} {...controls} /></div><div className={`design3-products is-${controls.viewMode}`}>{visible.length > 0 ? visible.map((product, index) => <StorefrontProductTile key={product.id} product={product} index={index} variant="luxury" />) : <p className="storefront-preset-empty">{es ? 'No hay productos con esos filtros.' : 'No products match these filters.'}</p>}</div></section>
     </main>
   );
 }
@@ -121,7 +122,7 @@ export function DropsCatalogPreset({ copy, es, products, visible, categories, ..
       <section className="design4-topline"><div className="design4-mark"><span>APER</span><b>FY</b><small>DROPS</small></div><div className="design4-shipping"><Truck className="h-4 w-4" />{es ? 'Envío a todo USA' : 'Shipping across USA'}</div><Link to="/ask" className="design4-request">{es ? '¿No lo encuentras?' : 'Can’t find it?'}<ArrowRight className="h-4 w-4" /></Link></section>
       <section className="design4-hero"><div><p className="design4-kicker"><Zap className="h-4 w-4" />{es ? 'NUEVOS INGRESOS' : 'NEW ARRIVALS'}</p><h1>{es ? 'Lo nuevo llega primero aquí.' : 'The next drop lands here first.'}</h1><p>{es ? 'Compara marcas, encuentra disponibilidad y compra antes de que se agote.' : 'Compare brands, find availability and shop before it sells out.'}</p></div><div className="design4-hero-media"><FeatureImage product={hero} /><span>{hero?.categories ? (es ? hero.categories.name_es : hero.categories.name_en) : 'APERFY DROP'}</span></div></section>
       {brands.length > 0 && <section className="design4-brands"><p>{es ? 'MARCAS QUE ESTAMOS SIGUIENDO' : 'BRANDS WE ARE WATCHING'}</p><div>{brands.map((brand) => <span key={brand}>{brand}</span>)}</div></section>}
-      <section className="design4-catalog"><div className="design4-catalog-heading"><div><p>{es ? 'CATÁLOGO ACTIVO' : 'LIVE CATALOG'}</p><h2>{es ? 'Nuevas oportunidades' : 'New opportunities'}</h2></div><span>{visible.length.toString().padStart(2, '0')} {es ? 'PRODUCTOS' : 'PRODUCTS'}</span></div><PresetControls es={es} {...controls} /><div className={`design4-products ${controls.viewMode === 'list' ? 'is-list' : ''}`}>{visible.length > 0 ? visible.map((product, index) => <StorefrontProductTile key={product.id} product={product} index={index} variant="drops" />) : <p className="storefront-preset-empty">{es ? 'No hay productos con esos filtros.' : 'No products match these filters.'}</p>}</div><div className="design4-category-footer">{categories.slice(0, 6).map(([slug, label]) => <Link key={slug} to={`/?category=${slug}`}>{label}<ArrowRight className="h-3.5 w-3.5" /></Link>)}</div></section>
+      <section className="design4-catalog"><div className="design4-catalog-heading"><div><p>{es ? 'CATÁLOGO ACTIVO' : 'LIVE CATALOG'}</p><h2>{es ? 'Nuevas oportunidades' : 'New opportunities'}</h2></div><span>{visible.length.toString().padStart(2, '0')} {es ? 'PRODUCTOS' : 'PRODUCTS'}</span></div><PresetControls es={es} {...controls} /><div className={`design4-products is-${controls.viewMode}`}>{visible.length > 0 ? visible.map((product, index) => <StorefrontProductTile key={product.id} product={product} index={index} variant="drops" />) : <p className="storefront-preset-empty">{es ? 'No hay productos con esos filtros.' : 'No products match these filters.'}</p>}</div><div className="design4-category-footer">{categories.slice(0, 6).map(([slug, label]) => <Link key={slug} to={`/?category=${slug}`}>{label}<ArrowRight className="h-3.5 w-3.5" /></Link>)}</div></section>
     </main>
   );
 }

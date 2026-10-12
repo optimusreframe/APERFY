@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { ArrowRight, Boxes, Check, ChevronDown, Grid2X2, List, Search, ShoppingBag, SlidersHorizontal } from 'lucide-react';
+import { ArrowRight, Boxes, Check, ChevronDown, Grid2X2, List, Search, ShoppingBag, SlidersHorizontal, Square } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/ProductCard';
@@ -19,11 +19,12 @@ import { DropsCatalogPreset, LuxuryCatalogPreset, TechCatalogPreset } from '@/co
 const CATALOG_VIEW_STORAGE_KEY = 'aperfy-catalog-view';
 const reveal = { initial: { opacity: 0, y: 18 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '-10% 0px' }, transition: { duration: .4, ease: [0.2, 0, 1, 1] } } as const;
 
-type CatalogView = 'grid' | 'list';
+type CatalogView = 'featured' | 'grid' | 'list';
 
 function readCatalogView(): CatalogView {
   if (typeof window === 'undefined') return 'grid';
-  return window.localStorage.getItem(CATALOG_VIEW_STORAGE_KEY) === 'list' ? 'list' : 'grid';
+  const stored = window.localStorage.getItem(CATALOG_VIEW_STORAGE_KEY);
+  return stored === 'featured' || stored === 'list' || stored === 'grid' ? stored : 'grid';
 }
 
 type QuickFilterKey = 'category' | 'price' | 'availability' | 'sort';
@@ -159,7 +160,7 @@ export default function Index() {
   const quickFacets = useMemo(() => getCatalogFilterFacets(products, deferredSearch, filters), [products, deferredSearch, filters]);
   const draftFacets = useMemo(() => getCatalogFilterFacets(products, deferredSearch, draftFilters), [products, deferredSearch, draftFilters]);
   const draftResultCount = draftFacets.resultCount;
-  const gridClassName = viewMode === 'grid' ? 'grid grid-cols-1 min-[520px]:grid-cols-2 gap-4 md:grid-cols-3 2xl:grid-cols-4' : 'grid gap-3 sm:gap-4';
+  const gridClassName = viewMode === 'featured' ? 'grid grid-cols-1 gap-4 sm:gap-5' : viewMode === 'grid' ? 'grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 2xl:grid-cols-4' : 'grid grid-cols-1 gap-3 sm:gap-4';
   const activeFilterCount = [
     filters.category !== 'all',
     filters.price !== 'all',
@@ -253,7 +254,8 @@ export default function Index() {
                   </div>
                 </div>
                 <div role="group" aria-label={es ? 'Vista del catálogo' : 'Catalog view'} className="flex shrink-0 self-start items-center rounded-full border border-border/80 bg-card/75 p-0.5">
-                <button type="button" onClick={() => setViewMode('grid')} aria-pressed={viewMode === 'grid'} aria-label={es ? 'Vista de cuadrícula' : 'Grid view'} className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}><Grid2X2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
+                <button type="button" onClick={() => setViewMode('featured')} aria-pressed={viewMode === 'featured'} aria-label={es ? 'Un producto grande por fila' : 'One large product per row'} title={es ? 'Un producto grande por fila' : 'One large product per row'} className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${viewMode === 'featured' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}><Square className="h-3.5 w-3.5" aria-hidden="true" /></button>
+                <button type="button" onClick={() => setViewMode('grid')} aria-pressed={viewMode === 'grid'} aria-label={es ? 'Dos productos por fila' : 'Two products per row'} title={es ? 'Dos productos por fila' : 'Two products per row'} className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}><Grid2X2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
                 <button type="button" onClick={() => setViewMode('list')} aria-pressed={viewMode === 'list'} aria-label={es ? 'Vista de lista' : 'List view'} className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}><List className="h-4 w-4" aria-hidden="true" /></button>
                 </div>
               </div>
@@ -262,7 +264,7 @@ export default function Index() {
           </div>
         </div>
 
-        {isLoading && <div data-storefront-grid className={gridClassName}>{Array.from({ length: 8 }).map((_, index) => <div key={index} className={`${viewMode === 'grid' ? 'aspect-[4/5]' : 'h-40'} animate-pulse rounded-2xl bg-muted`} />)}</div>}
+        {isLoading && <div data-storefront-grid className={gridClassName}>{Array.from({ length: 8 }).map((_, index) => <div key={index} className={`${viewMode === 'list' ? 'h-40' : 'aspect-[4/3]'} animate-pulse rounded-2xl bg-muted`} />)}</div>}
         {isError && <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center text-sm text-muted-foreground">{es ? 'No pudimos cargar las ofertas disponibles. Intenta de nuevo en unos segundos.' : 'We could not load available deals. Try again in a few seconds.'}</div>}
         {!isLoading && !isError && visible.length > 0 && <div data-storefront-grid className={gridClassName}>{visible.map((product, index) => <ProductCard key={product.id} product={product} index={index} layout={viewMode} showBadges />)}</div>}
         {!isLoading && !isError && visible.length === 0 && <div className="rounded-2xl border border-dashed border-border p-12 text-center"><Boxes className="mx-auto h-6 w-6 text-primary" /><p className="mt-4 font-semibold">{es ? 'No hay ofertas con esos filtros.' : 'No deals match those filters.'}</p><p className="mt-2 text-sm text-muted-foreground">{es ? 'Prueba otra búsqueda o solicita un producto específico.' : 'Try another search or request a specific product.'}</p><Link to="/ask" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline">{copy.secondaryCta}<ArrowRight className="h-4 w-4" /></Link></div>}
