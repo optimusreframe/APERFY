@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, LayoutTemplate, Loader2, Monitor, Moon, Save, Smartphone, Sun, Tablet } from 'lucide-react';
+import { Check, Grid2X2, LayoutGrid, LayoutTemplate, Loader2, Monitor, Moon, Rows3, Save, Smartphone, Sun, Tablet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useStorefrontLayout } from '@/contexts/StorefrontLayoutContext';
@@ -35,8 +35,10 @@ export default function AdminStorefrontLayout() {
   const [draft, setDraft] = useState<StorefrontLayoutConfig>(config);
   const [activeDevice, setActiveDevice] = useState<StorefrontDevice>('mobile');
   const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'single' | 'list'>('grid');
 
   useEffect(() => { setDraft(config); }, [config]);
+  const isDirty = JSON.stringify(draft) !== JSON.stringify(config);
 
   if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
@@ -60,6 +62,17 @@ export default function AdminStorefrontLayout() {
         meta="ELIGE UN DISEÑO PARA CADA TIPO DE PANTALLA"
         actions={<Button onClick={() => void save()} disabled={saving} className="gap-2 uppercase"><Save className="h-4 w-4" />{saving ? 'GUARDANDO' : 'GUARDAR DISEÑO'}</Button>}
       />
+
+      <div className="sticky top-2 z-20 -mx-1 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/80 bg-background/95 p-2 shadow-lg backdrop-blur-md">
+        <div className="flex min-w-0 items-center gap-1 overflow-x-auto scrollbar-hide" role="group" aria-label="Dispositivo de previsualización">
+          {STOREFRONT_DEVICES.map((device) => {
+            const Icon = device.id === 'mobile' ? Smartphone : device.id === 'tablet' ? Tablet : Monitor;
+            const selected = activeDevice === device.id;
+            return <Button key={device.id} type="button" size="sm" variant={selected ? 'default' : 'ghost'} onClick={() => setActiveDevice(device.id)} className="shrink-0 gap-1.5 text-xs"><Icon className="h-3.5 w-3.5" />{device.label}</Button>;
+          })}
+        </div>
+        <Button type="button" size="sm" onClick={() => void save()} disabled={!isDirty || saving} className="shrink-0 gap-1.5 uppercase shadow-md"><Save className="h-3.5 w-3.5" />{saving ? 'GUARDANDO' : 'GUARDAR'}</Button>
+      </div>
 
       <AdminSurface className="p-5 md:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -102,9 +115,9 @@ export default function AdminStorefrontLayout() {
         </div>
       </AdminSurface>
 
-      <div className="flex items-center gap-3 px-1 text-xs uppercase tracking-[.16em] text-muted-foreground"><span className="h-px flex-1 bg-border/70" /><span>Diseños para {STOREFRONT_DEVICES.find((device) => device.id === activeDevice)?.label}</span><span className="h-px flex-1 bg-border/70" /></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1"><div className="flex min-w-0 items-center gap-3 text-xs uppercase tracking-[.16em] text-muted-foreground"><span className="hidden h-px w-8 bg-border/70 sm:block" /><span>Diseños para {STOREFRONT_DEVICES.find((device) => device.id === activeDevice)?.label}</span><span className="h-px w-8 bg-border/70 sm:block" /></div><div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1" role="group" aria-label="Vista de diseños"><Button type="button" size="icon" variant={viewMode === 'grid' ? 'secondary' : 'ghost'} className="h-8 w-8" aria-label="Vista en grid" onClick={() => setViewMode('grid')}><Grid2X2 className="h-4 w-4" /></Button><Button type="button" size="icon" variant={viewMode === 'single' ? 'secondary' : 'ghost'} className="h-8 w-8" aria-label="Vista individual" onClick={() => setViewMode('single')}><LayoutGrid className="h-4 w-4" /></Button><Button type="button" size="icon" variant={viewMode === 'list' ? 'secondary' : 'ghost'} className="h-8 w-8" aria-label="Vista en lista" onClick={() => setViewMode('list')}><Rows3 className="h-4 w-4" /></Button></div></div>
 
-      <div className="grid gap-5 md:grid-cols-2">
+      <div className={viewMode === 'grid' ? 'grid gap-4 sm:grid-cols-2' : viewMode === 'single' ? 'mx-auto grid max-w-3xl gap-4' : 'grid gap-3'}>
         {STOREFRONT_DESIGNS.map((option) => {
           const selected = draft[activeDevice] === option.id;
           return (
@@ -113,13 +126,13 @@ export default function AdminStorefrontLayout() {
               type="button"
               onClick={() => setDraft((current) => ({ ...current, [activeDevice]: option.id }))}
               aria-pressed={selected}
-                className={`group text-left rounded-2xl border p-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${selected ? 'border-primary bg-primary/[0.08] shadow-[0_0_0_1px_hsl(var(--primary)/.18),0_24px_70px_hsl(var(--primary)/.12)]' : 'border-border bg-card hover:border-primary/40'}`}
+                className={`group text-left rounded-2xl border p-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${viewMode === 'list' ? 'flex items-center gap-4' : ''} ${selected ? 'border-primary bg-primary/[0.08] shadow-[0_0_0_1px_hsl(var(--primary)/.18),0_24px_70px_hsl(var(--primary)/.12)]' : 'border-border bg-card hover:border-primary/40'}`}
             >
-              <div className="relative">
+              <div className={`relative ${viewMode === 'list' ? 'w-40 shrink-0 sm:w-56' : ''}`}>
                 <LayoutPreview design={option.id} />
                 {selected && <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"><Check className="h-4 w-4" /></span>}
               </div>
-              <div className="px-2 pb-2 pt-4">
+              <div className={viewMode === 'list' ? 'min-w-0 flex-1 py-1 pr-2' : 'px-2 pb-2 pt-4'}>
                 <div className="flex items-baseline justify-between gap-3"><h3 className="font-display text-lg font-bold">{option.name}</h3><span className="text-[10px] font-mono uppercase tracking-[.16em] text-primary">{option.reference}</span></div>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{option.summary}</p>
                 <div className="mt-3 flex flex-wrap gap-2">{option.traits.map((trait) => <span key={trait} className="rounded-full border border-border/70 bg-background/40 px-2.5 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{trait}</span>)}</div>
@@ -130,6 +143,7 @@ export default function AdminStorefrontLayout() {
       </div>
 
       <AdminSurface className="p-5 md:p-6"><p className="text-xs leading-relaxed text-muted-foreground"><span className="font-semibold text-foreground">Nota:</span> el tema claro u oscuro se mantiene como preferencia del visitante desde el icono de tema del encabezado. Así cada diseño se puede revisar en ambos modos sin forzar una preferencia global al cliente.</p></AdminSurface>
+      <div className="sticky bottom-4 z-20 flex justify-end pointer-events-none"><Button type="button" onClick={() => void save()} disabled={!isDirty || saving} className="pointer-events-auto gap-2 rounded-full px-5 uppercase shadow-[0_14px_40px_hsl(var(--primary)/.25)]"><Save className="h-4 w-4" />{saving ? 'GUARDANDO' : 'GUARDAR CAMBIOS'}</Button></div>
     </div>
   );
 }

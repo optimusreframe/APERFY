@@ -127,6 +127,7 @@ export default function AdminCategories() {
       />
 
       <AdminSurface>
+        <div className="hidden overflow-x-auto lg:block">
         <Table>
           <TableHeader>
             <TableRow className="border-border">
@@ -159,6 +160,17 @@ export default function AdminCategories() {
             )}
           </TableBody>
         </Table>
+        </div>
+        <div className="divide-y divide-border/60 lg:hidden">
+          {categories.map((cat: Category) => (
+            <div key={cat.id} className="flex items-center gap-3 p-4">
+              <div className="min-w-0 flex-1"><div className="truncate font-medium">{cat.name_es || cat.name_en}</div><div className="mt-1 truncate text-xs text-muted-foreground">{cat.name_en} · {cat.slug}</div></div>
+              <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] uppercase ${cat.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{cat.is_active ? 'Active' : 'Inactive'}</span>
+              <div className="flex shrink-0"><Button variant="ghost" size="icon" aria-label={`Edit ${cat.name_en}`} onClick={() => openEdit(cat)}><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="icon" aria-label={`Delete ${cat.name_en}`} onClick={() => del.mutate(cat.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button></div>
+            </div>
+          ))}
+          {categories.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">No categories yet.</p>}
+        </div>
       </AdminSurface>
     </div>
   );

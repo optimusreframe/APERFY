@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BellRing, Code2, Eye, Loader2, Mail, MessageCircle, Save, Send, Smartphone, Variable } from 'lucide-react';
+import { BellRing, Bold, Code2, Eye, Italic, Loader2, Mail, MessageCircle, Plus, Save, Send, Smartphone, Variable } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AdminPageHeader, AdminSurface } from './_shared';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -27,6 +28,7 @@ const CHANNELS: Array<{ value: Channel; label: string; icon: typeof Mail }> = [
 const fallbackVariables = ['customer_name', 'order_code', 'total', 'payment_method', 'items_summary', 'shipping_address', 'phone', 'email', 'logo_url'];
 
 const initialDraft: Draft = { name: '', subject: '', body_text: '', body_html: '', enabled: true };
+const initialNewTemplate = { name: '', event_key: 'custom.event', locale: 'es', body_text: '', subject: '' };
 
 function replacePreview(template: string, draft: Draft): string {
   const values: Record<string, string> = {
@@ -44,6 +46,8 @@ export default function AdminNotifications() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(initialDraft);
   const [activeField, setActiveField] = useState<'subject' | 'body_text' | 'body_html'>('body_text');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newTemplate, setNewTemplate] = useState(initialNewTemplate);
 
   const { data: templates = [], isLoading, isError, error } = useQuery({
     queryKey: ['admin-notification-templates'],
@@ -79,9 +83,40 @@ export default function AdminNotifications() {
     onError: (saveError: unknown) => toast({ title: 'NO SE PUDO GUARDAR', description: saveError instanceof Error ? saveError.message : 'Revisa la migración y los permisos de administrador.', variant: 'destructive' }),
   });
 
+  const createTemplate = useMutation({
+    mutationFn: async () => {
+      if (!newTemplate.name.trim()) throw new Error('El nombre interno es obligatorio.');
+      const { data, error } = await supabase.from('notification_templates').insert({
+        channel,
+        event_key: newTemplate.event_key.trim().toLowerCase().replace(/\s+/g, '.'),
+        locale: newTemplate.locale,
+        name: newTemplate.name.trim(),
+        subject: newTemplate.subject.trim() || null,
+        body_text: newTemplate.body_text,
+        body_html: null,
+        enabled: true,
+      }).select('*').single();
+      if (error) throw error;
+      return data as Template;
+    },
+    onSuccess: async (created) => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-notification-templates'] });
+      setSelectedId(created.id);
+      setNewTemplate(initialNewTemplate);
+      setCreateOpen(false);
+      toast({ title: 'PLANTILLA CREADA', description: `Disponible en ${channel.toUpperCase()}.` });
+    },
+    onError: (createError: unknown) => toast({ title: 'NO SE PUDO CREAR', description: createError instanceof Error ? createError.message : 'Revisa permisos y vuelve a intentarlo.', variant: 'destructive' }),
+  });
+
   const appendVariable = (variable: string) => {
     const token = `{{${variable}}}`;
     setDraft((current) => ({ ...current, [activeField]: `${current[activeField] || ''}${current[activeField] ? ' ' : ''}${token}` }));
+  };
+
+  const insertFormat = (format: 'bold' | 'italic' | 'code') => {
+    const markers = format === 'bold' ? ['**', '**'] : format === 'italic' ? ['_', '_'] : ['`', '`'];
+    setDraft((current) => ({ ...current, [activeField]: `${current[activeField] || ''}${current[activeField] ? ' ' : ''}${markers[0]}texto${markers[1]}` }));
   };
 
   const variableList = selected?.variables && Array.isArray(selected.variables)
@@ -115,7 +150,7 @@ export default function AdminNotifications() {
         </AdminSurface>
 
         <AdminSurface className="min-h-[520px] p-3">
-          <div className="mb-3 flex items-center gap-2 px-2 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground"><Variable className="h-3.5 w-3.5 text-primary" /> Eventos · {channel}</div>
+          <div className="mb-3 flex items-center justify-between gap-2 px-2"><div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground"><Variable className="h-3.5 w-3.5 text-primary" /> Eventos · {channel}</div><Button type="button" size="sm" variant="outline" className="h-8 gap-1.5 text-[10px] uppercase" onClick={() => setCreateOpen(true)}><Plus className="h-3.5 w-3.5" /> Añadir</Button></div>
           <div className="space-y-1">
             {channelTemplates.map((template) => (
               <button key={template.id} type="button" onClick={() => setSelectedId(template.id)} className={`w-full rounded-xl border p-3 text-left transition-colors ${selected?.id === template.id ? 'border-primary/40 bg-primary/[0.07]' : 'border-transparent hover:border-white/[0.08] hover:bg-white/[0.03]'}`}>
@@ -134,7 +169,7 @@ export default function AdminNotifications() {
               <div className="space-y-4">
                 <div className="space-y-2"><Label>Nombre interno</Label><Input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /></div>
                 {channel === 'email' && <div className="space-y-2"><Label>Asunto <span className="text-muted-foreground">· click para insertar variables</span></Label><Input onFocus={() => setActiveField('subject')} value={draft.subject || ''} onChange={(event) => setDraft((current) => ({ ...current, subject: event.target.value }))} /></div>}
-                <div className="flex flex-wrap gap-2 rounded-xl border border-white/[0.08] bg-black/15 p-3"><span className="mr-1 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground"><Variable className="h-3.5 w-3.5" /> Variables</span>{variableList.map((variable) => <button key={variable} type="button" onClick={() => appendVariable(variable)} className="rounded-md border border-primary/20 bg-primary/[0.06] px-2 py-1 text-[10px] font-mono text-primary hover:bg-primary/15">{`{{${variable}}}`}</button>)}</div>
+                <div className="space-y-3 rounded-xl border border-white/[0.08] bg-black/15 p-3"><div className="flex flex-wrap items-center gap-2"><span className="mr-1 flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground"><Variable className="h-3.5 w-3.5" /> Variables</span>{variableList.map((variable) => <button key={variable} type="button" onClick={() => appendVariable(variable)} className="rounded-md border border-primary/20 bg-primary/[0.06] px-2 py-1 text-[10px] font-mono text-primary hover:bg-primary/15">{`{{${variable}}}`}</button>)}</div><div className="flex flex-wrap items-center gap-1.5 border-t border-white/[0.08] pt-3"><span className="mr-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Formato</span><Button type="button" size="icon" variant="outline" className="h-7 w-7" aria-label="Negrita" onClick={() => insertFormat('bold')}><Bold className="h-3.5 w-3.5" /></Button><Button type="button" size="icon" variant="outline" className="h-7 w-7" aria-label="Cursiva" onClick={() => insertFormat('italic')}><Italic className="h-3.5 w-3.5" /></Button><Button type="button" size="icon" variant="outline" className="h-7 w-7" aria-label="Código" onClick={() => insertFormat('code')}><Code2 className="h-3.5 w-3.5" /></Button><span className="text-[10px] text-muted-foreground">Inserta marcadores y variables sin salir del editor.</span></div></div>
                 <div className="space-y-2"><Label>Mensaje de texto <span className="text-muted-foreground">· texto plano para WhatsApp, Telegram y fallback email</span></Label><Textarea onFocus={() => setActiveField('body_text')} value={draft.body_text} onChange={(event) => setDraft((current) => ({ ...current, body_text: event.target.value }))} className="min-h-52 font-mono text-xs leading-5" /></div>
                 {channel === 'email' && <div className="space-y-2"><Label>HTML premium <span className="text-muted-foreground">· opcional, se usa sobre texto plano</span></Label><Textarea onFocus={() => setActiveField('body_html')} value={draft.body_html || ''} onChange={(event) => setDraft((current) => ({ ...current, body_html: event.target.value }))} className="min-h-64 font-mono text-xs leading-5" /></div>}
               </div>
@@ -143,6 +178,20 @@ export default function AdminNotifications() {
           </> : <div className="flex min-h-[420px] items-center justify-center text-center text-sm text-muted-foreground">Selecciona una plantilla para editarla.</div>}
         </AdminSurface>
       </div>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Crear plantilla · {channel.toUpperCase()}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2"><Label>Nombre interno</Label><Input value={newTemplate.name} onChange={(event) => setNewTemplate((current) => ({ ...current, name: event.target.value }))} placeholder="Confirmación de pedido" /></div>
+            <div className="space-y-2"><Label>Evento</Label><Input value={newTemplate.event_key} onChange={(event) => setNewTemplate((current) => ({ ...current, event_key: event.target.value }))} placeholder="order.confirmed" /></div>
+            <div className="space-y-2"><Label>Idioma</Label><select value={newTemplate.locale} onChange={(event) => setNewTemplate((current) => ({ ...current, locale: event.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="es">Español</option><option value="en">English</option></select></div>
+            {channel === 'email' && <div className="space-y-2"><Label>Asunto</Label><Input value={newTemplate.subject} onChange={(event) => setNewTemplate((current) => ({ ...current, subject: event.target.value }))} /></div>}
+            <div className="space-y-2"><Label>Mensaje inicial</Label><Textarea value={newTemplate.body_text} onChange={(event) => setNewTemplate((current) => ({ ...current, body_text: event.target.value }))} className="min-h-32" placeholder="Escribe el mensaje y luego inserta variables desde el editor." /></div>
+          </div>
+          <DialogFooter><Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button><Button type="button" onClick={() => createTemplate.mutate()} disabled={createTemplate.isPending}>{createTemplate.isPending ? 'CREANDO' : 'CREAR PLANTILLA'}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

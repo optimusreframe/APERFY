@@ -183,7 +183,7 @@ export default function AdminDiscounts() {
         }
       />
       <AdminSurface>
-        <div className="overflow-x-auto">
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/60 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
@@ -225,6 +225,15 @@ export default function AdminDiscounts() {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="divide-y divide-border/60 lg:hidden">
+          {codes.map(d => (
+            <div key={d.id} className="space-y-3 p-4">
+              <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2 font-mono font-semibold"><Tag className="h-3.5 w-3.5 shrink-0 text-primary" />{d.code}</div><div className="mt-1 text-xs text-muted-foreground">{d.discount_type === 'percentage' ? `${d.discount_value}%` : `$${d.discount_value}`} · min ${Number(d.min_purchase).toFixed(0)}</div></div><span className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-mono uppercase ${d.is_active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-muted/40 text-muted-foreground'}`}>{d.is_active ? 'live' : 'off'}</span></div>
+              <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground"><span>{d.current_uses}{d.max_uses ? `/${d.max_uses}` : ''} usos</span><span>{d.expires_at ? new Date(d.expires_at).toLocaleDateString() : 'Sin vencimiento'}</span><div className="flex"><Button size="sm" variant="ghost" aria-label={`Edit ${d.code}`} onClick={() => openEdit(d)}><Pencil className="h-3.5 w-3.5" /></Button><Button size="sm" variant="ghost" aria-label={`Delete ${d.code}`} onClick={() => handleDelete(d.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button></div></div>
+            </div>
+          ))}
+          {codes.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">No discount codes yet.</p>}
         </div>
       </AdminSurface>
     </div>

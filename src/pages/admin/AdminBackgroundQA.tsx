@@ -507,7 +507,7 @@ export default function AdminBackgroundQA() {
 
   return (
     <TooltipProvider>
-      <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+      <div className="admin-bgqa w-full min-w-0 max-w-[1600px] space-y-6 p-3 sm:p-6 mx-auto">
         <div>
           <h1 className="text-2xl font-bold">Background Studio &amp; QA</h1>
           <p className="text-sm text-muted-foreground">
@@ -536,7 +536,7 @@ export default function AdminBackgroundQA() {
           </div>
 
           <div className="flex gap-4 items-start flex-wrap">
-            <div className="w-56 h-56 bg-muted rounded border flex items-center justify-center overflow-hidden">
+            <div className="h-56 w-full max-w-56 bg-muted rounded border flex items-center justify-center overflow-hidden">
               {officialBg ? (
                 <img src={officialBg} alt="Official background" className="w-full h-full object-cover" />
               ) : (
@@ -658,7 +658,7 @@ export default function AdminBackgroundQA() {
             <div className="flex items-center gap-2">
               <Label className="text-xs">Filter:</Label>
               <Select value={filterPreset} onValueChange={(v) => setFilterPreset(v as 'all' | BgPreset)}>
-                <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-full text-xs sm:w-[200px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All presets</SelectItem>
                   {BG_PRESETS.map((p) => (
@@ -679,7 +679,7 @@ export default function AdminBackgroundQA() {
               No background candidates yet. Generate some above.
             </p>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
               {filteredCandidates.map((c) => (
                 <Card key={c.id} className={`p-3 space-y-2 flex flex-col ${c.is_active ? 'ring-2 ring-emerald-500' : ''}`}>
                   <div className="aspect-square bg-muted rounded overflow-hidden">
@@ -871,7 +871,7 @@ export default function AdminBackgroundQA() {
           ) : composedResults.filter(r => composedMethodFilter === 'all' || r.method === composedMethodFilter).length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">No composed results yet.</p>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
               {composedResults
                 .filter(r => composedMethodFilter === 'all' || r.method === composedMethodFilter)
                 .map((r) => (
@@ -996,7 +996,7 @@ export default function AdminBackgroundQA() {
               {/* Non-AI placement controls */}
               <details className="text-xs">
                 <summary className="cursor-pointer text-muted-foreground">Non-AI placement options</summary>
-                <div className="grid grid-cols-3 gap-2 mt-2">
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <div>
                     <Label className="text-[10px]">Size</Label>
                     <Select value={nonAiSize} onValueChange={(v) => setNonAiSize(v as NonAiPlacement['productSize'])}>
@@ -1042,7 +1042,7 @@ export default function AdminBackgroundQA() {
                 </Button>
               </details>
 
-              <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Background candidate</p>
                   {previewing && (

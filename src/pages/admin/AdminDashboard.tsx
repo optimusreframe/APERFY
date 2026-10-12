@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Package, Tags, Layers, ClipboardList, DollarSign, TrendingUp, ArrowUpRight, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, BellRing, ClipboardList, DollarSign, Layers, LayoutTemplate, Package, SearchCheck, Tags, TrendingUp, type LucideIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,6 +21,7 @@ function StatCard({
   meta,
   accent,
   loading,
+  href,
 }: {
   label: string;
   value: string | number;
@@ -28,9 +29,12 @@ function StatCard({
   meta?: string;
   accent?: boolean;
   loading?: boolean;
+  href: string;
 }) {
   return (
-    <div
+    <Link
+      to={href}
+      aria-label={`Open ${label}`}
       className={`relative min-w-0 overflow-hidden rounded-xl border ${
         accent ? 'border-primary/30 bg-gradient-to-br from-primary/10 to-card' : 'border-border/60 bg-card'
       } p-4 group hover:border-primary/40 transition-colors`}
@@ -48,7 +52,7 @@ function StatCard({
       )}
       {meta && <div className="mt-1.5 text-[11px] font-mono text-muted-foreground/70">{meta}</div>}
       <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-    </div>
+    </Link>
   );
 }
 
@@ -135,6 +139,7 @@ export default function AdminDashboard() {
           meta={`${orderStats?.totalOrders ?? 0} ${t.admin.dashboard.ordersTotal}`}
           accent
           loading={loadingStats}
+          href="/admin/finance"
         />
         <StatCard
           label={t.admin.dashboard.orders7d}
@@ -142,10 +147,20 @@ export default function AdminDashboard() {
           icon={TrendingUp}
           meta={`${orderStats?.pending ?? 0} ${t.admin.dashboard.pending}`}
           loading={loadingStats}
+          href="/admin/orders"
         />
-        <StatCard label={t.admin.dashboard.products} value={productCount ?? 0} icon={Package} loading={loadingProducts} />
-        <StatCard label={t.admin.dashboard.categories} value={categoryCount ?? 0} icon={Tags} loading={loadingCategories} />
-        <StatCard label={t.admin.dashboard.variants} value={materialCount ?? 0} icon={Layers} loading={loadingMaterials} />
+        <StatCard label={t.admin.dashboard.products} value={productCount ?? 0} icon={Package} loading={loadingProducts} href="/admin/products" />
+        <StatCard label={t.admin.dashboard.categories} value={categoryCount ?? 0} icon={Tags} loading={loadingCategories} href="/admin/categories" />
+        <StatCard label={t.admin.dashboard.variants} value={materialCount ?? 0} icon={Layers} loading={loadingMaterials} href="/admin/variants" />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { href: '/admin/products', icon: Package, label: 'Catálogo', detail: 'Gestionar productos, imágenes y precios' },
+          { href: '/admin/notifications', icon: BellRing, label: 'Notification Studio', detail: 'Crear y editar canales' },
+          { href: '/admin/storefront-layout', icon: LayoutTemplate, label: 'Store Layout', detail: 'Ajustar experiencia por dispositivo' },
+          { href: '/admin/seo', icon: SearchCheck, label: 'SEO & Social', detail: 'Previews, Google y buscadores' },
+        ].map(({ href, icon: Icon, label, detail }) => <Link key={href} to={href} className="group flex min-w-0 items-center gap-3 rounded-xl border border-border/60 bg-card p-4 transition-colors hover:border-primary/50 hover:bg-primary/[0.04]"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary"><Icon className="h-4 w-4" /></span><span className="min-w-0"><span className="block text-sm font-semibold text-foreground">{label}</span><span className="mt-1 block truncate text-xs text-muted-foreground">{detail}</span></span><ArrowUpRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" /></Link>)}
       </div>
 
       {/* Recent orders — Palantir table */}

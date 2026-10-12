@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, LayoutTemplate, Loader2, Save } from 'lucide-react';
+import { Eye, Languages, LayoutTemplate, Loader2, Save } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,10 +32,15 @@ const COPY_FIELDS: Array<{ key: keyof Omit<HomepageHeroConfig, 'enabled'>; label
   { key: 'secondary_cta_en', label: 'Secondary button', maxLength: 50 },
 ];
 
+const CONTENT_FIELD_NAMES = ['eyebrow', 'title', 'highlight', 'description', 'primary_cta', 'secondary_cta'] as const;
+type ContentFieldName = typeof CONTENT_FIELD_NAMES[number];
+type TranslationDirection = 'es_to_en' | 'en_to_es';
+
 export default function AdminHomepage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [config, setConfig] = useState<HomepageHeroConfig>(DEFAULT_HOMEPAGE_HERO_CONFIG);
+  const [translating, setTranslating] = useState<TranslationDirection | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin-homepage-hero-settings'],
@@ -74,6 +79,37 @@ export default function AdminHomepage() {
     setConfig((current) => ({ ...current, [key]: value }));
   };
 
+  const translateContent = async (direction: TranslationDirection) => {
+    const sourceLocale = direction === 'es_to_en' ? 'es' : 'en';
+    const targetLocale = direction === 'es_to_en' ? 'en' : 'es';
+    const fields = Object.fromEntries(CONTENT_FIELD_NAMES.map((name) => [name, config[`${name}_${sourceLocale}` as keyof HomepageHeroConfig]]));
+    if (!Object.values(fields).some((value) => String(value || '').trim())) {
+      toast({ title: 'CONTENIDO VACÍO', description: 'Escribe primero el contenido del idioma de origen.', variant: 'destructive' });
+      return;
+    }
+    setTranslating(direction);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-product-import', {
+        body: { action: 'translate_content', direction, fields },
+      });
+      if (error) throw error;
+      if (!data?.success || !data.data) throw new Error(data?.error || 'No se pudo traducir el contenido.');
+      setConfig((current) => {
+        const next = { ...current };
+        for (const name of CONTENT_FIELD_NAMES) {
+          const value = data.data[name as ContentFieldName];
+          if (typeof value === 'string' && value.trim()) next[`${name}_${targetLocale}` as keyof HomepageHeroConfig] = value.trim() as never;
+        }
+        return next;
+      });
+      toast({ title: 'TRADUCCIÓN LISTA', description: `Contenido generado en ${targetLocale === 'en' ? 'English' : 'Español'}. Revisa y guarda los cambios.` });
+    } catch (error) {
+      toast({ title: 'ERROR DE TRADUCCIÓN', description: error instanceof Error ? error.message : 'No se pudo traducir el contenido.', variant: 'destructive' });
+    } finally {
+      setTranslating(null);
+    }
+  };
+
   if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   if (isError) return <AdminSurface className="mx-auto flex max-w-2xl flex-col items-center gap-4 p-8 text-center"><p className="font-semibold uppercase">NO SE PUDO CARGAR HOME PAGE</p><p className="text-sm text-muted-foreground">No se muestran valores editables hasta confirmar la lectura actual de Supabase.</p><Button variant="outline" onClick={() => refetch()}>REINTENTAR</Button></AdminSurface>;
 
@@ -100,8 +136,10 @@ export default function AdminHomepage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {(['es', 'en'] as const).map((locale) => {
           const fields = COPY_FIELDS.filter(({ key }) => key.endsWith(`_${locale}`));
+          const direction: TranslationDirection = locale === 'es' ? 'es_to_en' : 'en_to_es';
+          const targetLabel = locale === 'es' ? 'ENGLISH' : 'ESPAÑOL';
           return <AdminSurface key={locale} className="p-5 md:p-6">
-            <div className="border-b border-white/[0.08] pb-4"><p className="text-[10px] font-mono uppercase tracking-[.2em] text-primary">{locale === 'es' ? 'Contenido público' : 'Public content'}</p><h2 className="mt-1 font-semibold uppercase">{locale === 'es' ? 'ESPAÑOL' : 'ENGLISH'}</h2></div>
+            <div className="flex flex-col gap-3 border-b border-white/[0.08] pb-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-[10px] font-mono uppercase tracking-[.2em] text-primary">{locale === 'es' ? 'Contenido público' : 'Public content'}</p><h2 className="mt-1 font-semibold uppercase">{locale === 'es' ? 'ESPAÑOL' : 'ENGLISH'}</h2></div><Button type="button" size="sm" variant="outline" className="w-full gap-1.5 text-[10px] uppercase sm:w-auto" onClick={() => void translateContent(direction)} disabled={translating !== null}><Languages className="h-3.5 w-3.5" />{translating === direction ? 'TRADUCIENDO' : `TRADUCIR A ${targetLabel}`}</Button></div>
             <div className="mt-5 space-y-4">
               {fields.map(({ key, label, maxLength, multiline }) => <div key={key} className="space-y-2"><Label htmlFor={`homepage-${key}`} className="text-xs uppercase tracking-wider">{label}</Label>{multiline ? <Textarea id={`homepage-${key}`} value={config[key]} onChange={(event) => updateField(key, event.target.value)} className="min-h-28 border-white/10 bg-black/20" maxLength={maxLength} /> : <Input id={`homepage-${key}`} value={config[key]} onChange={(event) => updateField(key, event.target.value)} className="border-white/10 bg-black/20" maxLength={maxLength} />}</div>)}
             </div>

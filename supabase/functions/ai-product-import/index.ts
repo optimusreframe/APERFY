@@ -540,7 +540,7 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!supabaseUrl || !serviceRoleKey) throw new Error("Supabase service configuration is missing");
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const textActions = new Set(["scrape", "refresh_price", "translate", "enhance_product"]);
+    const textActions = new Set(["scrape", "refresh_price", "translate", "translate_content", "enhance_product"]);
     const textAi = textActions.has(action) ? await loadAiConfig(adminClient) : null;
     if (textActions.has(action) && !textAi) throw new Error("AI text provider is not configured in Admin → Integrations");
 
@@ -1154,6 +1154,58 @@ Luxury technology product display of the EXACT same physical product on a matte 
       });
     }
 
+    // ── ACTION: translate_content ──
+    // Generic admin copy translation used by merchandising/content editors.
+    // It intentionally returns only the requested fields so internal metadata
+    // and unrelated settings can never be sent to the model or overwritten.
+    if (action === "translate_content") {
+      const ai = textAi as AiRuntime;
+      const direction = body.direction === "en_to_es" ? "en_to_es" : "es_to_en";
+      const fields = body.fields && typeof body.fields === "object" ? body.fields as Record<string, unknown> : {};
+      const entries = Object.entries(fields)
+        .filter(([key, value]) => /^[a-z][a-z0-9_]{1,48}$/.test(key) && typeof value === "string")
+        .map(([key, value]) => [key, String(value).trim()] as const)
+        .filter(([, value]) => value.length > 0)
+        .slice(0, 32);
+      if (entries.length === 0) {
+        return jsonResponse({ error: "At least one source field is required" }, 400);
+      }
+      const targetLanguage = direction === "en_to_es" ? "Spanish" : "English";
+      const properties = Object.fromEntries(entries.map(([key]) => [key, {
+        type: "string",
+        description: `Natural ${targetLanguage} translation for the field ${key}`,
+      }]));
+      const translateTool = {
+        type: "function" as const,
+        function: {
+          name: "translate_content",
+          description: `Translate the supplied editorial fields to ${targetLanguage}`,
+          parameters: {
+            type: "object",
+            properties,
+            required: entries.map(([key]) => key),
+            additionalProperties: false,
+          },
+        },
+      };
+      const translatedResult = await callStructuredAi(ai, {
+        messages: [
+          { role: "system", content: `You are a senior bilingual ecommerce editor for APERFY. Translate every field to natural ${targetLanguage}. Preserve brand names, product names, numbers, punctuation intent, CTA brevity and formatting tokens. Return only the requested fields.` },
+          { role: "user", content: `Translate these editorial fields to ${targetLanguage}:\n${entries.map(([key, value]) => `${key}: ${value}`).join("\n")}` },
+        ],
+        tool: translateTool,
+        fallbackSchema: JSON.stringify(translateTool.function.parameters),
+        maxTokens: 1200,
+      });
+      if (!translatedResult.response.ok) return await aiProviderFailureResponse(translatedResult.response, "La traducción de contenido");
+      if (!translatedResult.data || typeof translatedResult.data !== "object") throw new Error("El proveedor no devolvió una traducción válida.");
+      const translated = Object.fromEntries(entries.map(([key, source]) => {
+        const value = (translatedResult.data as Record<string, unknown>)[key];
+        return [key, typeof value === "string" && value.trim() ? value.trim() : source];
+      }));
+      return jsonResponse({ success: true, data: translated });
+    }
+
     // ── ACTION: enhance_product ──
     if (action === "enhance_product") {
       const { name_es, description_es, existingCategories, imageUrl } = body;
@@ -1479,7 +1531,7 @@ Preserve the exact same physical product from the source image. Do not redesign 
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action. Use 'scrape', 'refresh_price', 'generate_image', 'generate_angle', 'generate_background_reference', 'translate', or 'enhance_product'." }), {
+    return new Response(JSON.stringify({ error: "Invalid action. Use 'scrape', 'refresh_price', 'generate_image', 'generate_angle', 'generate_background_reference', 'translate', 'translate_content', or 'enhance_product'." }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 

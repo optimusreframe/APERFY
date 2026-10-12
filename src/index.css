@@ -91,7 +91,12 @@
   .mac-admin-layout { background: hsl(var(--background)); color: hsl(var(--foreground)); }
   .mac-admin-layout .mac-admin-toolbar { background: hsl(var(--card)); border-color: hsl(var(--border)); }
   .mac-admin-layout .mac-admin-main { background: hsl(var(--background)); }
-  .mac-admin-layout [data-sidebar="sidebar"] { background: hsl(var(--sidebar-background)); color: hsl(var(--sidebar-foreground)); }
+  .mac-admin-layout .admin-route-content { width: 100%; min-width: 0; }
+  .mac-admin-layout [data-sidebar="sidebar"] { background: hsl(var(--sidebar-background)); color: hsl(var(--sidebar-foreground)); border-radius: 0 1.15rem 1.15rem 0; box-shadow: 18px 0 42px hsl(220 34% 3% / .16), inset -1px 0 hsl(var(--sidebar-border) / .7); }
+  .mac-admin-layout [data-sidebar="sidebar"] .bar { box-shadow: 0 0 16px hsl(var(--primary) / .9); }
+  .mac-admin-layout .mac-admin-main > * { min-width: 0; }
+  .mac-admin-layout .mac-admin-main table { min-width: 100%; }
+  .mac-admin-layout .mac-admin-main .overflow-x-auto { max-width: 100%; scrollbar-width: thin; }
   .mac-admin-layout [class*="backdrop-blur"] { backdrop-filter: none !important; }
   .mac-admin-layout input, .mac-admin-layout textarea, .mac-admin-layout button, .mac-admin-layout [role="combobox"] { color-scheme: dark; }
   html:has(.mac-admin-layout), body:has(.mac-admin-layout) { max-width: 100vw; overflow-x: hidden; }
@@ -100,6 +105,12 @@
     .mac-admin-layout .mac-admin-main { width: 100%; max-width: 100%; min-width: 0; padding: .75rem; }
     .mac-admin-layout .mac-admin-main > * { min-width: 0; max-width: 100%; }
     .admin-dashboard { gap: 1.5rem; }
+    .mac-admin-layout .mac-admin-main h1 { overflow-wrap: anywhere; }
+    .mac-admin-layout .mac-admin-main [data-radix-collection-item] { min-width: 0; }
+    .admin-bgqa { padding: .75rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mac-admin-layout [data-sidebar="sidebar"], .mac-admin-layout [data-sidebar="sidebar"] *, .mac-admin-layout .layout-preview { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
   }
   [data-aperfy-surface="dialog"] { animation-duration: .22s; box-shadow: 0 28px 90px hsl(220 35% 2% / .7), inset 0 1px hsl(0 0% 100% / .06); }
   [data-aperfy-surface="dialog"]:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
@@ -455,7 +466,9 @@
     .request-step > div + div { display: none; }
   }
 
-  .layout-preview { position: relative; overflow: hidden; min-height: 220px; border-radius: 1rem; border: 1px solid hsl(var(--border) / .8); background: hsl(220 22% 8%); color: hsl(220 24% 97%); }
+  .layout-preview { position: relative; overflow: hidden; min-height: 220px; border-radius: 1rem; border: 1px solid hsl(var(--border) / .8); background: hsl(220 22% 8%); color: hsl(220 24% 97%); transition: min-height .28s ease, transform .28s ease; }
+  .layout-preview:hover { transform: translateY(-2px); }
+  .group.flex .layout-preview { min-height: 150px; }
   .layout-preview-top { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 12px; border-bottom: 1px solid hsl(0 0% 100% / .1); background: hsl(220 22% 12%); }
   .layout-preview-top span { width: 5px; height: 5px; border-radius: 999px; background: hsl(var(--primary)); opacity: .8; }
   .layout-preview-top i { width: 52px; height: 4px; border-radius: 999px; margin-left: auto; background: hsl(0 0% 100% / .12); }
