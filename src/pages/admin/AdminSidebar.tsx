@@ -1,6 +1,7 @@
 import { LayoutDashboard, Package, Tags, Layers, LogOut, ClipboardList, MessageSquare, CreditCard, Truck, ScrollText, Percent, FlaskConical, Settings2, FileUp, LayoutTemplate, BellRing, DollarSign, MessageCircleQuestion, PanelsTopLeft, SearchCheck } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/i18n/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import {
   Sidebar,
@@ -18,48 +19,49 @@ import {
 
 const groups = [
   {
-    label: 'OVERVIEW',
-    items: [{ title: 'DASHBOARD', url: '/admin', icon: LayoutDashboard }],
+    label: 'overview',
+    items: [{ key: 'dashboard', url: '/admin', icon: LayoutDashboard }],
   },
   {
-    label: 'CATALOG',
+    label: 'catalog',
     items: [
-      { title: 'PRODUCTS', url: '/admin/products', icon: Package },
-      { title: 'CATEGORIES', url: '/admin/categories', icon: Tags },
-      { title: 'INVENTORY IMPORT', url: '/admin/inventory-import', icon: FileUp },
-      { title: 'VARIANTS', url: '/admin/variants', icon: Layers },
+      { key: 'products', url: '/admin/products', icon: Package },
+      { key: 'categories', url: '/admin/categories', icon: Tags },
+      { key: 'inventoryImport', url: '/admin/inventory-import', icon: FileUp },
+      { key: 'variants', url: '/admin/variants', icon: Layers },
     ],
   },
   {
-    label: 'OPERATIONS',
+    label: 'operations',
     items: [
-      { title: 'ORDERS', url: '/admin/orders', icon: ClipboardList },
-      { title: 'FINANCE', url: '/admin/finance', icon: DollarSign },
-      { title: 'REQUESTS', url: '/admin/requests', icon: MessageSquare },
-      { title: 'PRODUCT Q&A', url: '/admin/questions', icon: MessageCircleQuestion },
-      { title: 'DISCOUNTS', url: '/admin/discounts', icon: Percent },
-      { title: 'SHIPPING', url: '/admin/shipping', icon: Truck },
-      { title: 'PAYMENTS', url: '/admin/payments', icon: CreditCard },
+      { key: 'orders', url: '/admin/orders', icon: ClipboardList },
+      { key: 'finance', url: '/admin/finance', icon: DollarSign },
+      { key: 'requests', url: '/admin/requests', icon: MessageSquare },
+      { key: 'questions', url: '/admin/questions', icon: MessageCircleQuestion },
+      { key: 'discounts', url: '/admin/discounts', icon: Percent },
+      { key: 'shipping', url: '/admin/shipping', icon: Truck },
+      { key: 'payments', url: '/admin/payments', icon: CreditCard },
     ],
   },
   {
-    label: 'SYSTEM',
+    label: 'system',
     items: [
-      { title: 'LOGS', url: '/admin/logs', icon: ScrollText },
-      { title: 'BACKGROUND QA', url: '/admin/background-qa', icon: FlaskConical },
-      { title: 'HOME PAGE', url: '/admin/homepage', icon: LayoutTemplate },
-      { title: 'STORE LAYOUT', url: '/admin/storefront-layout', icon: PanelsTopLeft },
-      { title: 'SEO & SOCIAL', url: '/admin/seo', icon: SearchCheck },
-      { title: 'AI & INTEGRATIONS', url: '/admin/integrations', icon: Settings2 },
-      { title: 'NOTIFICATIONS', url: '/admin/notifications', icon: BellRing },
+      { key: 'logs', url: '/admin/logs', icon: ScrollText },
+      { key: 'backgroundQa', url: '/admin/background-qa', icon: FlaskConical },
+      { key: 'homepage', url: '/admin/homepage', icon: LayoutTemplate },
+      { key: 'storefrontLayout', url: '/admin/storefront-layout', icon: PanelsTopLeft },
+      { key: 'seo', url: '/admin/seo', icon: SearchCheck },
+      { key: 'integrations', url: '/admin/integrations', icon: Settings2 },
+      { key: 'notifications', url: '/admin/notifications', icon: BellRing },
     ],
   },
-];
+] as const;
 
 export default function AdminSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { signOut } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -88,13 +90,13 @@ export default function AdminSidebar() {
           <SidebarGroup key={group.label} className="mb-1">
             {!collapsed && (
               <SidebarGroupLabel className="text-[9px] font-mono uppercase tracking-[0.22em] text-muted-foreground/60 px-2">
-                {group.label}
+                {t.admin.navigation.groups[group.label]}
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={item.key}>
                     <SidebarMenuButton asChild className="h-11 min-h-11 group/item">
                       <NavLink
                         to={item.url}
@@ -104,7 +106,7 @@ export default function AdminSidebar() {
                       >
                         <span className="bar absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-gradient-to-b from-primary to-primary/40 opacity-0 transition-opacity" />
                         <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                        {!collapsed && <span className="truncate">{item.title}</span>}
+                        {!collapsed && <span className="truncate">{t.admin.navigation.items[item.key]}</span>}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -123,7 +125,7 @@ export default function AdminSidebar() {
               className="h-11 min-h-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             >
               <LogOut className="h-4 w-4" strokeWidth={1.5} />
-              {!collapsed && <span className="text-sm">SIGN OUT</span>}
+              {!collapsed && <span className="text-sm">{t.nav.logout}</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

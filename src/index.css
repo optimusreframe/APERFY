@@ -509,7 +509,8 @@
   @media (max-width: 390px) {
     .storefront-toolbar-actions { gap: 0; }
     .storefront-toolbar-actions .mac-toolbar-button { min-width: 38px; padding-left: .3rem; padding-right: .3rem; }
-    .storefront-toolbar-actions .storefront-language-button { display: none; }
+    .storefront-toolbar-actions .storefront-language-button { min-width: 34px; padding-left: .35rem; padding-right: .35rem; }
+    .storefront-toolbar-actions .storefront-language-button .language-toggle-value { display: none; }
     .storefront-currency-selector { gap: .25rem; padding-left: .45rem; padding-right: .45rem; }
     .storefront-currency-selector select { padding-right: .45rem; }
   }

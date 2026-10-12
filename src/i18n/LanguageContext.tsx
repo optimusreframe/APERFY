@@ -12,11 +12,11 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 function detectLanguage(): Language {
-  const stored = localStorage.getItem('aperfy-lang');
+  const stored = window.localStorage.getItem('aperfy-lang');
   if (stored === 'en' || stored === 'es') return stored;
 
-  const browserLang = navigator.language || 'en';
-  return browserLang.startsWith('es') ? 'es' : 'en';
+  const browserLanguages = [...(navigator.languages || []), navigator.language || 'en'];
+  return browserLanguages.some((locale) => locale.toLowerCase().startsWith('es')) ? 'es' : 'en';
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {

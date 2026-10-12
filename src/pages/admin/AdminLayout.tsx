@@ -6,40 +6,44 @@ import AdminSidebar from './AdminSidebar';
 import { Activity } from 'lucide-react';
 import NotificationBell from '@/components/admin/NotificationBell';
 import ThemeToggle from '@/components/ThemeToggle';
+import LanguageToggle from '@/components/LanguageToggle';
 import { supabase } from '@/integrations/supabase/client';
 import Footer from '@/components/Footer';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 const AUTO_RATE_SOURCES = ['bcv', 'laslucas', 'binance'] as const;
 
 const routeLabels: Record<string, string> = {
-  '/admin': 'DASHBOARD',
-  '/admin/products': 'PRODUCTS',
-  '/admin/categories': 'CATEGORIES',
-  '/admin/inventory-import': 'INVENTORY IMPORT',
-  '/admin/variants': 'VARIANTS',
-  '/admin/materials': 'VARIANTS',
-  '/admin/orders': 'ORDERS',
-  '/admin/finance': 'FINANCE',
-  '/admin/requests': 'REQUESTS',
-  '/admin/questions': 'PRODUCT Q&A',
-  '/admin/payments': 'PAYMENTS',
-  '/admin/shipping': 'SHIPPING',
-  '/admin/discounts': 'DISCOUNTS',
-  '/admin/logs': 'LOGS',
-  '/admin/ai-settings': 'AI & INTEGRATIONS',
-  '/admin/integrations': 'AI & INTEGRATIONS',
-  '/admin/notifications': 'NOTIFICATION STUDIO',
-  '/admin/background-qa': 'BACKGROUND QA',
-  '/admin/homepage': 'HOME PAGE',
-  '/admin/storefront-layout': 'STORE LAYOUT',
-  '/admin/seo': 'SEO & SOCIAL',
+  '/admin': 'dashboard',
+  '/admin/products': 'products',
+  '/admin/categories': 'categories',
+  '/admin/inventory-import': 'inventoryImport',
+  '/admin/variants': 'variants',
+  '/admin/materials': 'variants',
+  '/admin/orders': 'orders',
+  '/admin/finance': 'finance',
+  '/admin/requests': 'requests',
+  '/admin/questions': 'questions',
+  '/admin/payments': 'payments',
+  '/admin/shipping': 'shipping',
+  '/admin/discounts': 'discounts',
+  '/admin/logs': 'logs',
+  '/admin/ai-settings': 'integrations',
+  '/admin/integrations': 'integrations',
+  '/admin/notifications': 'notifications',
+  '/admin/background-qa': 'backgroundQa',
+  '/admin/homepage': 'homepage',
+  '/admin/storefront-layout': 'storefrontLayout',
+  '/admin/seo': 'seo',
 };
 
 export default function AdminLayout() {
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
   const ratesRefreshStarted = useRef(false);
-  const current = routeLabels[location.pathname] || 'Console';
+  const currentKey = routeLabels[location.pathname] as keyof typeof t.admin.navigation.items | undefined;
+  const current = currentKey ? t.admin.navigation.items[currentKey] : t.admin.console;
   const sessionId = 'SES-' + Math.floor(Date.now() / 1000).toString(36).toUpperCase().slice(-6);
 
   useEffect(() => {
@@ -79,6 +83,7 @@ export default function AdminLayout() {
                 <Activity className="w-3 h-3 text-primary/70" />
                 <span>{sessionId}</span>
               </div>
+              <LanguageToggle />
               <ThemeToggle />
               <NotificationBell />
             </div>

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import TestMemoryRouter from '@/test/TestMemoryRouter';
@@ -31,5 +31,25 @@ describe('AdminLayout', () => {
 
     expect(screen.getByRole('main')).toHaveClass('flex-1', 'overflow-y-auto');
     expect(screen.getByTestId('aperfy-footer')).toBeInTheDocument();
+  });
+
+  it('exposes the shared language toggle in the admin shell', () => {
+    localStorage.setItem('aperfy-lang', 'en');
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TestMemoryRouter initialEntries={['/admin']}>
+          <LanguageProvider>
+            <AdminLayout />
+          </LanguageProvider>
+        </TestMemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const languageButton = screen.getByRole('button', { name: 'Toggle language' });
+    expect(languageButton).toHaveTextContent('en');
+    fireEvent.click(languageButton);
+    expect(screen.getByRole('button', { name: 'Cambiar idioma' })).toHaveTextContent('es');
+    expect(screen.getByText('Panel')).toBeInTheDocument();
   });
 });

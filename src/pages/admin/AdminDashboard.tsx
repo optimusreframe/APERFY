@@ -117,10 +117,10 @@ export default function AdminDashboard() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <div className="text-[11px] font-mono uppercase tracking-[0.22em] text-muted-foreground mb-2">
-            overview · realtime
+            {t.admin.dashboard.eyebrow}
           </div>
           <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-            Dashboard
+            {t.admin.dashboard.title}
           </h1>
         </div>
         <div className="text-[11px] font-mono text-muted-foreground/70 tabular-nums">{ts}</div>
@@ -129,23 +129,23 @@ export default function AdminDashboard() {
       {/* Bento KPI grid */}
       <div className="grid min-w-0 grid-cols-1 min-[360px]:grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <StatCard
-          label="Revenue"
+          label={t.admin.dashboard.revenue}
           value={`$${(orderStats?.totalRevenue ?? 0).toFixed(2)}`}
           icon={DollarSign}
-          meta={`${orderStats?.totalOrders ?? 0} orders total`}
+          meta={`${orderStats?.totalOrders ?? 0} ${t.admin.dashboard.ordersTotal}`}
           accent
           loading={loadingStats}
         />
         <StatCard
-          label="Orders · 7d"
+          label={t.admin.dashboard.orders7d}
           value={orderStats?.last7 ?? 0}
           icon={TrendingUp}
-          meta={`${orderStats?.pending ?? 0} pending`}
+          meta={`${orderStats?.pending ?? 0} ${t.admin.dashboard.pending}`}
           loading={loadingStats}
         />
-        <StatCard label="Products" value={productCount ?? 0} icon={Package} loading={loadingProducts} />
-        <StatCard label="Categories" value={categoryCount ?? 0} icon={Tags} loading={loadingCategories} />
-        <StatCard label="VARIANTS" value={materialCount ?? 0} icon={Layers} loading={loadingMaterials} />
+        <StatCard label={t.admin.dashboard.products} value={productCount ?? 0} icon={Package} loading={loadingProducts} />
+        <StatCard label={t.admin.dashboard.categories} value={categoryCount ?? 0} icon={Tags} loading={loadingCategories} />
+        <StatCard label={t.admin.dashboard.variants} value={materialCount ?? 0} icon={Layers} loading={loadingMaterials} />
       </div>
 
       {/* Recent orders — Palantir table */}
@@ -153,24 +153,24 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/60">
           <div className="flex items-center gap-2">
             <ClipboardList className="w-4 h-4 text-primary/80" strokeWidth={1.5} />
-            <h2 className="font-display text-sm font-semibold text-foreground">{t.dashboard.recentOrders}</h2>
+            <h2 className="font-display text-sm font-semibold text-foreground">{t.admin.dashboard.recentOrders}</h2>
             <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground ml-2">
-              live · last 6
+              {t.admin.dashboard.liveLast6}
             </span>
           </div>
           <Link
             to="/admin/orders"
             className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-primary transition-colors"
           >
-            view all <ArrowUpRight className="w-3 h-3" />
+            {t.admin.dashboard.viewAll} <ArrowUpRight className="w-3 h-3" />
           </Link>
         </div>
         <div className="divide-y divide-border/40">
           <div className="hidden md:grid grid-cols-[1fr_120px_120px_120px] gap-3 px-4 py-2 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground/70 bg-background/30">
-            <div>Customer</div>
-            <div>Date</div>
-            <div className="text-right">Total</div>
-            <div className="text-right">Status</div>
+            <div>{t.admin.dashboard.customer}</div>
+            <div>{t.admin.dashboard.date}</div>
+            <div className="text-right">{t.admin.dashboard.total}</div>
+            <div className="text-right">{t.admin.dashboard.status}</div>
           </div>
           {loadingOrders
             ? Array.from({ length: 4 }).map((_, i) => (
@@ -179,7 +179,7 @@ export default function AdminDashboard() {
                 </div>
               ))
             : orders.length === 0
-              ? <p className="px-4 py-8 text-sm text-muted-foreground text-center">{t.dashboard.noOrders}</p>
+              ? <p className="px-4 py-8 text-sm text-muted-foreground text-center">{t.admin.dashboard.noOrders}</p>
               : orders.map((order) => (
                   <div
                     key={order.id}
@@ -187,7 +187,7 @@ export default function AdminDashboard() {
                   >
                     <div className="min-w-0">
                       <div className="text-sm text-foreground truncate font-medium">
-                        {order.user_id ? `${t.dashboard.customer} · ${order.user_id.slice(0, 8)}` : t.dashboard.customer}
+                        {order.user_id ? `${t.admin.dashboard.customer} · ${order.user_id.slice(0, 8)}` : t.admin.dashboard.customer}
                       </div>
                       <div className="text-[10px] font-mono text-muted-foreground/60 truncate">
                         #{order.id.slice(0, 8)}
